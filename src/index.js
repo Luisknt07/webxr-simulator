@@ -1,0 +1,666 @@
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+
+import {VRButton} from './lib/VRButton.js';
+import {loadAssets} from './lib/assetManager.js';
+import RoomAssets from './lib/RoomAssets.js';
+import RoomNavigation from './lib/RoomNavigation.js';
+
+// ECSY
+import { World } from 'ecsy';
+import { SDFTextSystem } from './systems/SDFTextSystem.js';
+import { DebugHelperSystem } from './systems/DebugHelperSystem.js';
+import { AreaCheckerSystem } from './systems/AreaCheckerSystem.js';
+import { ControllersSystem } from './systems/ControllersSystem.js';
+import HierarchySystem from './systems/HierarchySystem.js';
+import TransformSystem from './systems/TransformSystem.js';
+import BillboardSystem from './systems/BillboardSystem.js';
+
+import SystemsGroup from './systems/SystemsGroup.js';
+
+import assets from './assets.js';
+
+import { Text, Object3D, AreaChecker } from './components/index.js';
+
+import RayControl from './lib/RayControl.js';
+import Teleport from './lib/Teleport.js';
+import SceneEditor from './editor/SceneEditor.js';
+
+import * as roomHall from './rooms/Hall.js';
+import * as roomPanorama from './rooms/Panorama.js';
+import * as roomPanoramaStereo from './rooms/PanoramaStereo.js';
+import * as roomPhotogrammetryObject from './rooms/PhotogrammetryObject.js';
+import * as roomVertigo from './rooms/Vertigo.js';
+import * as roomSound from './rooms/Sound.js';
+
+import {shaders} from './lib/shaders.js';
+
+import WebXRPolyfill from 'webxr-polyfill';
+const polyfill = new WebXRPolyfill();
+
+var clock = new THREE.Clock();
+
+var scene, parent, renderer, camera, controls, context = {};
+var raycontrol, teleport, controllers = [];
+var desktopController, desktopControllerData;
+var keyboardState = {};
+let roomNavigation;
+const keyboardMoveSpeed = 3;
+let lastVRCollisionPosition = null;
+
+function resetCollisionPose() {
+  lastVRCollisionPosition = null;
+}
+
+var listener, ambientMusic;
+
+var rooms = [
+  roomHall,
+  roomSound,
+  roomPhotogrammetryObject,
+  roomVertigo,
+  roomPanoramaStereo,
+  roomPanorama,
+  roomPanorama,
+  roomPanorama,
+  roomPanorama,
+  roomPanorama,
+];
+
+const roomNames = [
+  'hall',
+  'sound',
+  'photogrammetry',
+  'vertigo',
+  'panoramastereo',
+  'panorama1',
+  'panorama2',
+  'panorama3',
+  'panorama4',
+  'panorama5',
+];
+
+const musicThemes = [
+  false,
+  false,
+  'chopin_snd',
+  'wind_snd',
+  false,
+  'birds_snd',
+  'birds_snd',
+  'forest_snd',
+  'wind_snd',
+  'birds_snd',
+];
+
+const urlObject = new URL(window.location);
+const roomName = urlObject.searchParams.get('room');
+context.room = roomNames.indexOf(roomName) !== -1 ? roomNames.indexOf(roomName) : 0;
+// console.log(`Current room "${roomNames[context.room]}", ${context.room}`);
+const debug = urlObject.searchParams.has('debug');
+const handedness = urlObject.searchParams.has('handedness') ? urlObject.searchParams.get('handedness') : "right";
+
+// Target positions when moving from one room to another
+const targetPositions = {
+  hall: {
+    sound: new THREE.Vector3(0, 0, 0),
+    photogrammetry: new THREE.Vector3(1, 0, 0),
+    vertigo: new THREE.Vector3(0, 0, 0)
+  },
+  photogrammetry: {
+    hall: new THREE.Vector3(-3.6, 0, 2.8)
+  },
+  sound: {
+    hall: new THREE.Vector3(4.4, 0, 4.8)
+  },
+  vertigo: {
+    hall: new THREE.Vector3(-1.8, 0, -5)
+  }
+};
+
+const desktopPortalSpawns = {
+  hall: {
+    sound: {x: 0.4, z: 3, yaw: Math.PI},
+    photogrammetry: {x: 1.5, z: 0, yaw: Math.PI / 2},
+    vertigo: {x: 0, z: 0, yaw: 0},
+    panoramastereo: {x: 0, z: 0, yaw: 0},
+    panorama1: {x: 0, z: 0, yaw: 0},
+    panorama2: {x: 0, z: 0, yaw: 0},
+    panorama3: {x: 0, z: 0, yaw: 0},
+    panorama4: {x: 0, z: 0, yaw: 0},
+    panorama5: {x: 0, z: 0, yaw: 0}
+  },
+  sound: {
+    hall: {x: 4.4, z: 4.8, yaw: 0}
+  },
+  photogrammetry: {
+    hall: {x: -3.6, z: 2.8, yaw: -Math.PI / 2}
+  },
+  vertigo: {
+    hall: {x: -1.8, z: -5, yaw: Math.PI}
+  },
+  panoramastereo: {
+    hall: {x: 0, z: 2, yaw: 0}
+  },
+  panorama1: {
+    hall: {x: 0, z: 2, yaw: 0}
+  },
+  panorama2: {
+    hall: {x: 0, z: 2, yaw: 0}
+  },
+  panorama3: {
+    hall: {x: 0, z: 2, yaw: 0}
+  },
+  panorama4: {
+    hall: {x: 0, z: 2, yaw: 0}
+  },
+  panorama5: {
+    hall: {x: 0, z: 2, yaw: 0}
+  }
+};
+
+function gotoRoom(room) {
+  return roomNavigation.go(room);
+}
+
+function commitRoomChange(room) {
+  if (context.editor) context.editor.beforeRoomChange();
+  rooms[context.room].exit(context);
+  raycontrol.deactivateAll();
+
+  const prevRoom = roomNames[context.room];
+  const nextRoom = roomNames[room];
+  const desktopSpawn = desktopPortalSpawns[prevRoom] &&
+    desktopPortalSpawns[prevRoom][nextRoom];
+
+  if (!context.vrMode && desktopSpawn) {
+    context.camera.position.set(0, 1.6, 0);
+    context.camera.rotation.set(0, desktopSpawn.yaw, 0);
+    context.cameraRig.position.set(desktopSpawn.x, 0, desktopSpawn.z);
+  } else if (targetPositions[prevRoom] && targetPositions[prevRoom][nextRoom]) {
+    let deltaPosition = new THREE.Vector3();
+    const targetPosition = targetPositions[prevRoom][nextRoom];
+    var camera = renderer.xr.getCamera(context.camera);
+
+    deltaPosition.x = camera.position.x - targetPosition.x;
+    deltaPosition.z = camera.position.z - targetPosition.z;
+
+    context.cameraRig.position.sub(deltaPosition);
+  }
+
+  context.room = room;
+
+  playMusic(room);
+
+  rooms[context.room].enter(context);
+  if (context.editor) context.editor.afterRoomChange();
+  resetCollisionPose();
+}
+
+function playMusic(room) {
+  if (ambientMusic.source) ambientMusic.stop();
+
+  const music = musicThemes[room];
+  if (!music) { return; }
+  ambientMusic.setBuffer(assets[music]);
+  ambientMusic.setLoop(true);
+  ambientMusic.setVolume(1.0);
+  ambientMusic.offset = Math.random() * 60;
+  ambientMusic.play();
+}
+
+var ecsyWorld;
+var systemsGroup = {};
+
+function detectWebXR() {
+  if ('xr' in navigator) {
+    navigator.xr.isSessionSupported('immersive-vr').then( supported => {
+      if (!supported) document.getElementById('no-webxr').classList.remove('hidden');
+    } ).catch(() => document.getElementById('no-webxr').classList.remove('hidden'));
+
+  } else {
+    document.getElementById('no-webxr').classList.remove('hidden');
+  }
+}
+
+export function init() {
+
+  window.webxrStartup.phase('Preparando la vista 3D…');
+
+  document.getElementById(handedness + 'hand').classList.add('activehand');
+
+  detectWebXR();
+
+  var w = 100;
+  ecsyWorld = new World();
+  ecsyWorld
+    .registerSystem(SDFTextSystem)
+    .registerSystem(AreaCheckerSystem)
+    .registerSystem(ControllersSystem)
+    .registerSystem(DebugHelperSystem)
+    .registerSystem(TransformSystem)
+    .registerSystem(BillboardSystem)
+    .registerSystem(HierarchySystem);
+
+  systemsGroup['roomHall'] = new SystemsGroup(ecsyWorld, [
+    AreaCheckerSystem, ControllersSystem, DebugHelperSystem
+  ]);
+
+  renderer = new THREE.WebGLRenderer({antialias: true, logarithmicDepthBuffer: false});
+  renderer.gammaFactor = 2.2;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.setPixelRatio( window.devicePixelRatio );
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.xr.enabled = true;
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.005, 10000);
+  camera.position.set(0, 1.6, 0);
+  listener = new THREE.AudioListener();
+  camera.add(listener);
+
+  ambientMusic = new THREE.Audio(listener);
+
+  controls = new PointerLockControls(camera, renderer.domElement);
+
+  parent = new THREE.Object3D();
+  scene.add(parent);
+
+  renderer.domElement.addEventListener('click', event => {
+    if (event.button === 0 && !context.vrMode && !(context.editor && context.editor.active) && !controls.isLocked) controls.lock();
+  });
+  renderer.domElement.addEventListener('mousedown', onDesktopSelectStart);
+  document.addEventListener('mouseup', onDesktopSelectEnd);
+  renderer.domElement.addEventListener('contextmenu', event => event.preventDefault());
+  document.addEventListener('keydown', onKeyDown);
+  document.addEventListener('keyup', onKeyUp);
+  window.addEventListener('blur', clearKeyboardState);
+
+  window.addEventListener('resize', onWindowResize, false);
+
+  for (let i = 0; i < 2; i++) {
+    controllers[i] = renderer.xr.getController(i);
+    controllers[i].raycaster = new THREE.Raycaster();
+    controllers[i].raycaster.near = 0.1;
+    controllers[i].addEventListener('selectstart', onSelectStart);
+    controllers[i].addEventListener('selectend', onSelectEnd);
+  }
+
+  // global lights
+  const lightSun = new THREE.DirectionalLight(0xeeffff);
+  lightSun.name = 'sun';
+  lightSun.position.set(0.2, 1, 0.1);
+  const lightFill = new THREE.DirectionalLight(0xfff0ee, 0.3);
+  lightFill.name = 'fillLight';
+  lightFill.position.set(-0.2, -1, -0.1);
+
+  scene.add(lightSun, lightFill);
+
+  var cameraRig = new THREE.Group();
+  cameraRig.add(controls.getObject());
+  cameraRig.add(controllers[0]);
+  cameraRig.add(controllers[1]);
+  cameraRig.position.set(0, 0, 2);
+  scene.add(cameraRig);
+
+  context.vrMode = false; // in vr
+  context.assets = assets;
+  context.shaders = shaders;
+  context.scene = parent;
+  context.renderer = renderer;
+  context.camera = camera;
+  context.audioListener = listener;
+  context.goto = null;
+  context.cameraRig = cameraRig;
+  context.controllers = controllers;
+  context.world = ecsyWorld;
+  context.systemsGroup = systemsGroup;
+  context.handedness = handedness;
+  context.editorRoots = {};
+  context.resetCollisionPose = resetCollisionPose;
+
+  context.roomAssets = new RoomAssets(renderer, assets);
+  roomNavigation = new RoomNavigation(context, {
+    count: rooms.length,
+    getVersion: () => context.editor ? context.editor.projectGeneration : 0,
+    prepare: async room => {
+      if (context.editor) await context.editor.prepareRoom(roomNames[room]);
+      else await context.roomAssets.prepareRoom(roomNames[room], context.editorRoots[roomNames[room]]);
+      if (rooms[room].prepare) await rooms[room].prepare(context);
+    },
+    commit: commitRoomChange,
+    onLoading: () => { if (context.editor) context.editor.toast('Cargando sala…'); },
+    onError: error => {
+      console.error('No se pudo abrir la sala', error);
+      if (context.editor) context.editor.toast('No se pudo abrir la sala: ' + error.message + '. Puedes volver a intentarlo.');
+    },
+    onSettled: () => { if (context.editor) context.editor.roomSelect.value = context.room; }
+  });
+
+  window.context = context;
+
+  const initialAssets = context.roomAssets.initialAssets();
+  const loadTotal = Object.keys(initialAssets).length;
+
+  loadAssets(renderer, 'assets/', initialAssets, () => {
+    Object.assign(assets, initialAssets);
+    window.webxrStartup.phase('Preparando la experiencia…');
+    raycontrol = new RayControl(context, handedness);
+    context.raycontrol = raycontrol;
+
+    teleport = new Teleport(context);
+    context.teleport = teleport;
+
+    setupControllers();
+    roomHall.setup(context);
+    roomPanorama.setup(context);
+    roomPanoramaStereo.setup(context);
+    roomPhotogrammetryObject.setup(context);
+    roomVertigo.setup(context);
+    roomSound.setup(context);
+    setupDesktopPointer();
+
+    // Initial direct links (e.g. ?room=sound) need the same preparation as a
+    // portal transition, before enter() starts native timers or playback.
+    const prepare = rooms[context.room].prepare ? rooms[context.room].prepare(context) : Promise.resolve();
+    Promise.resolve(prepare).then(finishStartup).catch(error => window.webxrStartup.fail(error));
+  },
+
+  loadProgress => {
+    window.webxrStartup.progress(loadProgress, loadTotal);
+  },
+  debug, error => window.webxrStartup.fail(error));
+
+  function finishStartup() {
+    rooms[context.room].enter(context);
+
+    // Resolve ECS-created text/parents before capturing stable native object IDs.
+    ecsyWorld.execute(0, 0);
+
+    document.body.appendChild(renderer.domElement);
+    const vrButton = VRButton.createButton(renderer, status => {
+      roomNavigation.cancel();
+      context.vrMode = status === 'sessionStarted';
+      if (context.editor) context.editor.onVRChange(context.vrMode);
+      if (desktopControllerData) desktopControllerData.enabled = !context.vrMode;
+      document.body.classList.toggle('vr-mode', context.vrMode);
+      if (context.vrMode) {
+        controls.unlock();
+        clearKeyboardState();
+        document.getElementById('keyboard-help').classList.add('hidden');
+        // Keep the hall's live simulation and recording when only changing
+        // input mode. Other rooms still enter VR through the original hall.
+        if (context.room !== 0) {
+          gotoRoom(0).then(changed => {
+            if (changed && context.vrMode) {
+              context.cameraRig.position.set(0, 0, 2);
+              resetCollisionPose();
+            }
+          });
+        } else context.cameraRig.position.set(0, 0, 2);
+        context.goto = null;
+      } else {
+        document.getElementById('keyboard-help').classList.remove('hidden');
+      }
+      resetCollisionPose();
+    });
+    vrButton.id = 'VRButton';
+    document.body.appendChild(vrButton);
+    context.editor = new SceneEditor(context, {
+      renderScene: scene,
+      gotoRoom,
+      unlock: () => controls.unlock(),
+      clearKeyboard: clearKeyboardState
+    });
+    context.editor.ready.then(() => {
+      renderer.setAnimationLoop(animate);
+      window.webxrStartup.complete();
+    }).catch(error => window.webxrStartup.fail(error));
+  }
+
+}
+
+function onKeyDown(event) {
+  if (context.editor && context.editor.active) return;
+  const target = event.target;
+  if (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || '')) {
+    return;
+  }
+
+  if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(event.code) !== -1) {
+    event.preventDefault();
+    keyboardState[event.code] = true;
+    return;
+  }
+
+  if (!debug || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
+
+  if (event.code === 'KeyN') {
+    gotoRoom((context.room + 1) % rooms.length);
+  } else if (/^Digit[0-9]$/.test(event.code)) {
+    const room = Number(event.code.slice(5));
+    if (room < rooms.length) gotoRoom(room);
+  }
+}
+
+function onKeyUp(event) {
+  keyboardState[event.code] = false;
+}
+
+function clearKeyboardState() {
+  keyboardState = {};
+  // A mouse release outside the window must not leave a pushbutton held down.
+  // The immersive session retains its own controller lifecycle.
+  if (!context.vrMode && raycontrol && desktopControllerData && raycontrol.cancelSelect) raycontrol.cancelSelect(desktopControllerData);
+}
+
+function setupDesktopPointer() {
+  desktopController = new THREE.Group();
+  desktopController.userData.isDesktop = true;
+  desktopController.position.set(0.2, -0.2, -0.45);
+  desktopController.userData.grabbing = null;
+  desktopController.boundingBox = new THREE.Box3();
+  const raycasterContext = new THREE.Group();
+  raycasterContext.name = 'raycasterContext';
+  // Keep the virtual hand offset for grabbing, but aim interactions through the
+  // centered reticle rather than along a parallel ray beside the camera.
+  raycasterContext.position.copy(desktopController.position).negate();
+  raycasterContext.visible = false;
+  desktopController.add(raycasterContext);
+  camera.add(desktopController);
+  desktopControllerData = raycontrol.addController(
+    desktopController,
+    {handedness: raycontrol.primary},
+    raycasterContext
+  );
+  context.desktopController = desktopController;
+}
+
+function onDesktopSelectStart(event) {
+  if (context.vrMode || (context.editor && context.editor.active) || !desktopControllerData) return;
+  if (event.button === 2) {
+    event.preventDefault();
+    desktopController.dispatchEvent({type: 'griptoggle'});
+    return;
+  }
+  if (event.button !== 0) return;
+  raycontrol.onSelectStart({target: desktopController});
+}
+
+function onDesktopSelectEnd(event) {
+  if (context.vrMode || (context.editor && context.editor.active) || !desktopControllerData) return;
+  if (event.button !== 0) return;
+  raycontrol.onSelectEnd({target: desktopController});
+}
+
+function updateKeyboardMovement(delta) {
+  if (context.vrMode || (context.editor && context.editor.active)) return;
+
+  context.cameraRig.updateMatrixWorld(true);
+  const previous = camera.getWorldPosition(new THREE.Vector3());
+
+  const forward = Number(Boolean(keyboardState.KeyW || keyboardState.ArrowUp)) -
+    Number(Boolean(keyboardState.KeyS || keyboardState.ArrowDown));
+  const right = Number(Boolean(keyboardState.KeyD || keyboardState.ArrowRight)) -
+    Number(Boolean(keyboardState.KeyA || keyboardState.ArrowLeft));
+  const distance = keyboardMoveSpeed * Math.min(delta, 0.1) /
+    (forward !== 0 && right !== 0 ? Math.sqrt(2) : 1);
+  controls.moveForward(forward * distance);
+  controls.moveRight(right * distance);
+
+  if (context.collisionWorld) {
+    context.cameraRig.updateMatrixWorld(true);
+    const desired = camera.getWorldPosition(new THREE.Vector3());
+    const resolved = context.collisionWorld.moveCapsule(previous, desired, {radius: 0.25, height: 1.6, eyeHeight: 1.6});
+    camera.position.copy(camera.parent ? camera.parent.worldToLocal(resolved.clone()) : resolved);
+    context.cameraRig.updateMatrixWorld(true);
+  }
+}
+
+function constrainVRCamera() {
+  if (!context.vrMode || !context.collisionWorld) {
+    resetCollisionPose();
+    return;
+  }
+  context.cameraRig.updateMatrixWorld(true);
+  // Three r112 supplies the tracked pose through matrixWorld. Calling
+  // getWorldPosition() on this ArrayCamera would rebuild a stale local pose.
+  const xrCamera = renderer.xr.getCamera(camera);
+  const desired = new THREE.Vector3().setFromMatrixPosition(xrCamera.matrixWorld);
+  const rigPosition = context.cameraRig.getWorldPosition(new THREE.Vector3());
+  const eyeHeight = THREE.Math.clamp(desired.y - rigPosition.y, 0.6, 2.3);
+  const resolved = context.collisionWorld.moveCapsule(lastVRCollisionPosition || desired, desired,
+    {radius: 0.25, height: eyeHeight, eyeHeight});
+  const correctedRig = rigPosition.add(resolved.clone().sub(desired));
+  context.cameraRig.position.copy(context.cameraRig.parent ?
+    context.cameraRig.parent.worldToLocal(correctedRig) : correctedRig);
+  context.cameraRig.updateMatrixWorld(true);
+  lastVRCollisionPosition = resolved.clone();
+}
+
+function setupControllers() {
+  var model = assets['generic_controller_model'].scene;
+  var material = new THREE.MeshLambertMaterial({
+    map: assets['controller_tex'],
+  });
+  model.getObjectByName('body').material = material;
+  model.getObjectByName('trigger').material = material;
+
+  for (let i = 0;i < 2; i++) {
+    let controller = controllers[i];
+    controller.boundingBox = new THREE.Box3();
+    controller.userData.grabbing = null;
+    controller.addEventListener( 'connected', function ( event ) {
+      if (this.userData.controllerModel) this.remove(this.userData.controllerModel);
+      this.userData.controllerModel = model.clone();
+      this.add(this.userData.controllerModel);
+      raycontrol.addController(this, event.data);
+    } );
+    controller.addEventListener( 'disconnected', function () {
+      if (this.userData.controllerModel) this.remove(this.userData.controllerModel);
+      delete this.userData.controllerModel;
+      if (context.editorXylophone && context.editorXylophone.releaseHeld) context.editorXylophone.releaseHeld();
+      raycontrol.removeController(this);
+    });
+  }
+}
+
+// @FIXME Hack for Oculus Browser issue
+var selectStartSkip = {};
+var selectEndSkip = {};
+var OculusBrowser = navigator.userAgent.indexOf("OculusBrowser") !== -1 &&
+  parseInt(navigator.userAgent.match(/OculusBrowser\/([0-9]+)./)[1]) < 8;
+
+// <@FIXME
+
+function onSelectStart(ev) {
+  // @FIXME Hack for Oculus Browser issue
+  if (OculusBrowser) {
+    const controller = ev.target;
+    if (!selectStartSkip[controller]) {
+      selectStartSkip[controller] = true;
+      return;
+    }
+    selectStartSkip[controller] = false;
+  }
+  // <@FIXME
+
+  const trigger = ev.target.getObjectByName('trigger');
+  if (trigger) trigger.rotation.x = -0.3;
+  raycontrol.onSelectStart(ev);
+}
+
+function onSelectEnd(ev) {
+  // @FIXME Hack for Oculus Browser issue
+  if (OculusBrowser) {
+    const controller = ev.target;
+    if (!selectEndSkip[controller]) {
+      selectEndSkip[controller] = true;
+      return;
+    }
+    selectEndSkip[controller] = false;
+  }
+  // <@FIXME
+
+  const trigger = ev.target.getObjectByName('trigger');
+  if (trigger) trigger.rotation.x = 0;
+  raycontrol.onSelectEnd(ev);
+}
+
+function onWindowResize() {
+  if (context.editor) { context.editor.resize(); return; }
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function animate() {
+  var delta = clock.getDelta();
+  var elapsedTime = clock.elapsedTime;
+
+  // A hidden desktop tab has no visible work. Keep the XR session running when
+  // the headset owns presentation, even if the companion tab is hidden.
+  if (document.hidden && !context.vrMode) return;
+  const collisionWorld = context.collisionWorld;
+  if (collisionWorld) collisionWorld.beginFrame();
+  try {
+    if (context.editor && context.editor.active && !context.vrMode) {
+      context.editor.render(delta);
+      return;
+    }
+
+    updateKeyboardMovement(delta);
+    ecsyWorld.execute(delta, elapsedTime);
+    scene.updateMatrixWorld(true);
+
+    // update controller bounding boxes
+    for (let i = 0; i < controllers.length; i++) {
+      const model = controllers[i].getObjectByName('Scene');
+      if (model) controllers[i].boundingBox.setFromObject(model);
+    }
+    if (desktopController) desktopController.boundingBox.setFromObject(desktopController);
+
+    context.raycontrol.execute(context, delta, elapsedTime);
+    document.getElementById('desktop-reticle').classList.toggle(
+      'hovering', Boolean(desktopControllerData && desktopControllerData.currentIntersection)
+    );
+    rooms[context.room].execute(context, delta, elapsedTime);
+    // Native ECS/controller interactions may have moved colliders since walking.
+    // All following simulation queries reuse this snapshot and targeted updates.
+    if (collisionWorld) collisionWorld.invalidate();
+    if (context.editor) context.editor.execute(delta, elapsedTime);
+    constrainVRCamera();
+    renderer.render(scene, camera);
+    if (context.goto !== null) {
+      gotoRoom(context.goto);
+      context.goto = null;
+    }
+  } finally {
+    if (collisionWorld) collisionWorld.endFrame();
+  }
+}
+
+window.onload = () => {
+  try { init(); }
+  catch (error) { window.webxrStartup.fail(error); }
+};

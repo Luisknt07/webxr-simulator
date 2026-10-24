@@ -1,0 +1,706 @@
+[
+  {
+    "path": "angel.basis",
+    "name": "angel.basis",
+    "extension": "basis",
+    "size": 1801426,
+    "kind": "image"
+  },
+  {
+    "path": "angel.min.glb",
+    "name": "angel.min.glb",
+    "extension": "glb",
+    "size": 708836,
+    "kind": "model"
+  },
+  {
+    "path": "ballfx.basis",
+    "name": "ballfx.basis",
+    "extension": "basis",
+    "size": 16386,
+    "kind": "image"
+  },
+  {
+    "path": "beamfx.png",
+    "name": "beamfx.png",
+    "extension": "png",
+    "size": 235,
+    "kind": "image"
+  },
+  {
+    "path": "blender/angel.blend",
+    "name": "angel.blend",
+    "extension": "blend",
+    "size": 63252172,
+    "kind": "source",
+    "previewPath": "angel.min.glb",
+    "thumbnailPath": "editor-previews/blend_24ce73cdbdd40c1b.png"
+  },
+  {
+    "path": "blender/door.blend",
+    "name": "door.blend",
+    "extension": "blend",
+    "size": 769304,
+    "kind": "source",
+    "thumbnailPath": "editor-previews/blend_f34efa5676ead937.png"
+  },
+  {
+    "path": "blender/generic_controller.blend",
+    "name": "generic_controller.blend",
+    "extension": "blend",
+    "size": 1392092,
+    "kind": "source",
+    "previewPath": "generic_controller.glb",
+    "thumbnailPath": "editor-previews/blend_0f68dad69a763090.png"
+  },
+  {
+    "path": "blender/hall.blend",
+    "name": "hall.blend",
+    "extension": "blend",
+    "size": 5624080,
+    "kind": "source",
+    "previewPath": "hall.glb",
+    "thumbnailPath": "editor-previews/blend_1d3be0ac5950a2ca.png"
+  },
+  {
+    "path": "blender/hall_empty.blend",
+    "name": "hall_empty.blend",
+    "extension": "blend",
+    "size": 943056,
+    "kind": "source",
+    "previewPath": "hall_variants/hall_empty.glb",
+    "thumbnailPath": "editor-previews/blend_bad8dfe13c30b4f8.png"
+  },
+  {
+    "path": "blender/hall_for_hubs.blend",
+    "name": "hall_for_hubs.blend",
+    "extension": "blend",
+    "size": 4271592,
+    "kind": "source",
+    "thumbnailPath": "editor-previews/blend_8d561ef1931d2c7d.png"
+  },
+  {
+    "path": "blender/sound.blend",
+    "name": "sound.blend",
+    "extension": "blend",
+    "size": 1308684,
+    "kind": "source",
+    "previewPath": "sound.glb",
+    "thumbnailPath": "editor-previews/blend_678d56bd884b2336.png"
+  },
+  {
+    "path": "blender/spray.blend",
+    "name": "spray.blend",
+    "extension": "blend",
+    "size": 727596,
+    "kind": "source",
+    "previewPath": "spray.glb",
+    "thumbnailPath": "editor-previews/blend_3165e296d1364bd6.png"
+  },
+  {
+    "path": "blender/teleport.blend",
+    "name": "teleport.blend",
+    "extension": "blend",
+    "size": 677800,
+    "kind": "source",
+    "previewPath": "teleport.glb",
+    "thumbnailPath": "editor-previews/blend_d694914043b60c47.png"
+  },
+  {
+    "path": "blender/vertigo.blend",
+    "name": "vertigo.blend",
+    "extension": "blend",
+    "size": 1095336,
+    "kind": "source",
+    "previewPath": "vertigo.glb",
+    "thumbnailPath": "editor-previews/blend_97df70b7d87d7ee2.png"
+  },
+  {
+    "path": "checkboard.basis",
+    "name": "checkboard.basis",
+    "extension": "basis",
+    "size": 287,
+    "kind": "image"
+  },
+  {
+    "path": "clouds.basis",
+    "name": "clouds.basis",
+    "extension": "basis",
+    "size": 9837,
+    "kind": "image"
+  },
+  {
+    "path": "controller.basis",
+    "name": "controller.basis",
+    "extension": "basis",
+    "size": 250,
+    "kind": "image"
+  },
+  {
+    "path": "doorfx.basis",
+    "name": "doorfx.basis",
+    "extension": "basis",
+    "size": 47852,
+    "kind": "image"
+  },
+  {
+    "path": "flare.jpg",
+    "name": "flare.jpg",
+    "extension": "jpg",
+    "size": 23585,
+    "kind": "image"
+  },
+  {
+    "path": "foxr.png",
+    "name": "foxr.png",
+    "extension": "png",
+    "size": 115184,
+    "kind": "image"
+  },
+  {
+    "path": "generic_controller.glb",
+    "name": "generic_controller.glb",
+    "extension": "glb",
+    "size": 30160,
+    "kind": "model"
+  },
+  {
+    "path": "glow.basis",
+    "name": "glow.basis",
+    "extension": "basis",
+    "size": 1110,
+    "kind": "image"
+  },
+  {
+    "path": "grid.png",
+    "name": "grid.png",
+    "extension": "png",
+    "size": 589,
+    "kind": "image"
+  },
+  {
+    "path": "haldezollern.basis",
+    "name": "haldezollern.basis",
+    "extension": "basis",
+    "size": 1731908,
+    "kind": "image"
+  },
+  {
+    "path": "haldezollern_small.basis",
+    "name": "haldezollern_small.basis",
+    "extension": "basis",
+    "size": 66539,
+    "kind": "image"
+  },
+  {
+    "path": "hall.glb",
+    "name": "hall.glb",
+    "extension": "glb",
+    "size": 334600,
+    "kind": "model"
+  },
+  {
+    "path": "hall_variants/hall_empty.glb",
+    "name": "hall_empty.glb",
+    "extension": "glb",
+    "size": 132752,
+    "kind": "model"
+  },
+  {
+    "path": "lakebyllesby.basis",
+    "name": "lakebyllesby.basis",
+    "extension": "basis",
+    "size": 1589873,
+    "kind": "image"
+  },
+  {
+    "path": "lakebyllesby_small.basis",
+    "name": "lakebyllesby_small.basis",
+    "extension": "basis",
+    "size": 62801,
+    "kind": "image"
+  },
+  {
+    "path": "lightmap.jpg",
+    "name": "lightmap.jpg",
+    "extension": "jpg",
+    "size": 850166,
+    "kind": "image"
+  },
+  {
+    "path": "loadingbg.jpg",
+    "name": "loadingbg.jpg",
+    "extension": "jpg",
+    "size": 41981,
+    "kind": "image"
+  },
+  {
+    "path": "mozillamr.basis",
+    "name": "mozillamr.basis",
+    "extension": "basis",
+    "size": 5467,
+    "kind": "image"
+  },
+  {
+    "path": "newsticker.jpg",
+    "name": "newsticker.jpg",
+    "extension": "jpg",
+    "size": 28932,
+    "kind": "image"
+  },
+  {
+    "path": "ogg/bells.ogg",
+    "name": "bells.ogg",
+    "extension": "ogg",
+    "size": 28434,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/birds.ogg",
+    "name": "birds.ogg",
+    "extension": "ogg",
+    "size": 230326,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/chopin.ogg",
+    "name": "chopin.ogg",
+    "extension": "ogg",
+    "size": 647733,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/cowbell.ogg",
+    "name": "cowbell.ogg",
+    "extension": "ogg",
+    "size": 24574,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/forest.ogg",
+    "name": "forest.ogg",
+    "extension": "ogg",
+    "size": 216515,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/guiro.ogg",
+    "name": "guiro.ogg",
+    "extension": "ogg",
+    "size": 11518,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/horn.ogg",
+    "name": "horn.ogg",
+    "extension": "ogg",
+    "size": 13249,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/mandolin.ogg",
+    "name": "mandolin.ogg",
+    "extension": "ogg",
+    "size": 42886,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/motorhorn.ogg",
+    "name": "motorhorn.ogg",
+    "extension": "ogg",
+    "size": 14151,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/spray.ogg",
+    "name": "spray.ogg",
+    "extension": "ogg",
+    "size": 28511,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/squeaker.ogg",
+    "name": "squeaker.ogg",
+    "extension": "ogg",
+    "size": 20432,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/surdo.ogg",
+    "name": "surdo.ogg",
+    "extension": "ogg",
+    "size": 27821,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/teleport_a.ogg",
+    "name": "teleport_a.ogg",
+    "extension": "ogg",
+    "size": 88212,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/teleport_b.ogg",
+    "name": "teleport_b.ogg",
+    "extension": "ogg",
+    "size": 10158,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/train.ogg",
+    "name": "train.ogg",
+    "extension": "ogg",
+    "size": 19453,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/trumpet.ogg",
+    "name": "trumpet.ogg",
+    "extension": "ogg",
+    "size": 14250,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/whistle.ogg",
+    "name": "whistle.ogg",
+    "extension": "ogg",
+    "size": 14647,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/wind.ogg",
+    "name": "wind.ogg",
+    "extension": "ogg",
+    "size": 413149,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/xylophone1.ogg",
+    "name": "xylophone1.ogg",
+    "extension": "ogg",
+    "size": 17726,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/xylophone10.ogg",
+    "name": "xylophone10.ogg",
+    "extension": "ogg",
+    "size": 19310,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/xylophone11.ogg",
+    "name": "xylophone11.ogg",
+    "extension": "ogg",
+    "size": 19610,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/xylophone12.ogg",
+    "name": "xylophone12.ogg",
+    "extension": "ogg",
+    "size": 19501,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/xylophone13.ogg",
+    "name": "xylophone13.ogg",
+    "extension": "ogg",
+    "size": 18185,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/xylophone2.ogg",
+    "name": "xylophone2.ogg",
+    "extension": "ogg",
+    "size": 18162,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/xylophone3.ogg",
+    "name": "xylophone3.ogg",
+    "extension": "ogg",
+    "size": 19201,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/xylophone4.ogg",
+    "name": "xylophone4.ogg",
+    "extension": "ogg",
+    "size": 18492,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/xylophone5.ogg",
+    "name": "xylophone5.ogg",
+    "extension": "ogg",
+    "size": 18718,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/xylophone6.ogg",
+    "name": "xylophone6.ogg",
+    "extension": "ogg",
+    "size": 17950,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/xylophone7.ogg",
+    "name": "xylophone7.ogg",
+    "extension": "ogg",
+    "size": 17970,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/xylophone8.ogg",
+    "name": "xylophone8.ogg",
+    "extension": "ogg",
+    "size": 18549,
+    "kind": "audio"
+  },
+  {
+    "path": "ogg/xylophone9.ogg",
+    "name": "xylophone9.ogg",
+    "extension": "ogg",
+    "size": 19381,
+    "kind": "audio"
+  },
+  {
+    "path": "paintings/bosch.basis",
+    "name": "bosch.basis",
+    "extension": "basis",
+    "size": 2739949,
+    "kind": "image"
+  },
+  {
+    "path": "paintings/degas.basis",
+    "name": "degas.basis",
+    "extension": "basis",
+    "size": 1750957,
+    "kind": "image"
+  },
+  {
+    "path": "paintings/rembrandt.basis",
+    "name": "rembrandt.basis",
+    "extension": "basis",
+    "size": 2712162,
+    "kind": "image"
+  },
+  {
+    "path": "paintings/seurat.basis",
+    "name": "seurat.basis",
+    "extension": "basis",
+    "size": 1186515,
+    "kind": "image"
+  },
+  {
+    "path": "paintings/sorolla.basis",
+    "name": "sorolla.basis",
+    "extension": "basis",
+    "size": 2793367,
+    "kind": "image"
+  },
+  {
+    "path": "panel.basis",
+    "name": "panel.basis",
+    "extension": "basis",
+    "size": 46108,
+    "kind": "image"
+  },
+  {
+    "path": "pg_bg.jpg",
+    "name": "pg_bg.jpg",
+    "extension": "jpg",
+    "size": 1888,
+    "kind": "image"
+  },
+  {
+    "path": "pg_door_lm.jpg",
+    "name": "pg_door_lm.jpg",
+    "extension": "jpg",
+    "size": 25959,
+    "kind": "image"
+  },
+  {
+    "path": "pg_floor_lm.jpg",
+    "name": "pg_floor_lm.jpg",
+    "extension": "jpg",
+    "size": 101883,
+    "kind": "image"
+  },
+  {
+    "path": "sky.png",
+    "name": "sky.png",
+    "extension": "png",
+    "size": 6216,
+    "kind": "image"
+  },
+  {
+    "path": "sound.glb",
+    "name": "sound.glb",
+    "extension": "glb",
+    "size": 171308,
+    "kind": "model"
+  },
+  {
+    "path": "sound_door.glb",
+    "name": "sound_door.glb",
+    "extension": "glb",
+    "size": 9804,
+    "kind": "model"
+  },
+  {
+    "path": "sound_door_lm.jpg",
+    "name": "sound_door_lm.jpg",
+    "extension": "jpg",
+    "size": 19395,
+    "kind": "image"
+  },
+  {
+    "path": "sound_shadow.png",
+    "name": "sound_shadow.png",
+    "extension": "png",
+    "size": 2874,
+    "kind": "image"
+  },
+  {
+    "path": "spray.basis",
+    "name": "spray.basis",
+    "extension": "basis",
+    "size": 33502,
+    "kind": "image"
+  },
+  {
+    "path": "spray.glb",
+    "name": "spray.glb",
+    "extension": "glb",
+    "size": 20192,
+    "kind": "model"
+  },
+  {
+    "path": "spray_brush.png",
+    "name": "spray_brush.png",
+    "extension": "png",
+    "size": 207297,
+    "kind": "image"
+  },
+  {
+    "path": "sshot.jpg",
+    "name": "sshot.jpg",
+    "extension": "jpg",
+    "size": 85751,
+    "kind": "image"
+  },
+  {
+    "path": "stereopanoL.basis",
+    "name": "stereopanoL.basis",
+    "extension": "basis",
+    "size": 1214704,
+    "kind": "image"
+  },
+  {
+    "path": "stereopanoR.basis",
+    "name": "stereopanoR.basis",
+    "extension": "basis",
+    "size": 1214120,
+    "kind": "image"
+  },
+  {
+    "path": "stereopano_small.basis",
+    "name": "stereopano_small.basis",
+    "extension": "basis",
+    "size": 53598,
+    "kind": "image"
+  },
+  {
+    "path": "teleport.glb",
+    "name": "teleport.glb",
+    "extension": "glb",
+    "size": 7532,
+    "kind": "model"
+  },
+  {
+    "path": "thuringen.basis",
+    "name": "thuringen.basis",
+    "extension": "basis",
+    "size": 1508923,
+    "kind": "image"
+  },
+  {
+    "path": "thuringen_small.basis",
+    "name": "thuringen_small.basis",
+    "extension": "basis",
+    "size": 57142,
+    "kind": "image"
+  },
+  {
+    "path": "tigerturtle.basis",
+    "name": "tigerturtle.basis",
+    "extension": "basis",
+    "size": 1189193,
+    "kind": "image"
+  },
+  {
+    "path": "tigerturtle_small.basis",
+    "name": "tigerturtle_small.basis",
+    "extension": "basis",
+    "size": 50660,
+    "kind": "image"
+  },
+  {
+    "path": "travertine2.basis",
+    "name": "travertine2.basis",
+    "extension": "basis",
+    "size": 725216,
+    "kind": "image"
+  },
+  {
+    "path": "tweets.json",
+    "name": "tweets.json",
+    "extension": "json",
+    "size": 2245,
+    "kind": "text"
+  },
+  {
+    "path": "vertigo.glb",
+    "name": "vertigo.glb",
+    "extension": "glb",
+    "size": 37560,
+    "kind": "model"
+  },
+  {
+    "path": "vertigo_door_lm.jpg",
+    "name": "vertigo_door_lm.jpg",
+    "extension": "jpg",
+    "size": 54009,
+    "kind": "image"
+  },
+  {
+    "path": "vertigo_lm.basis",
+    "name": "vertigo_lm.basis",
+    "extension": "basis",
+    "size": 309066,
+    "kind": "image"
+  },
+  {
+    "path": "zapporthorn.basis",
+    "name": "zapporthorn.basis",
+    "extension": "basis",
+    "size": 1107647,
+    "kind": "image"
+  },
+  {
+    "path": "zapporthorn_small.basis",
+    "name": "zapporthorn_small.basis",
+    "extension": "basis",
+    "size": 49306,
+    "kind": "image"
+  },
+  {
+    "path": "zoomicon.png",
+    "name": "zoomicon.png",
+    "extension": "png",
+    "size": 6635,
+    "kind": "image"
+  }
+]
