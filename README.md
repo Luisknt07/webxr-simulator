@@ -1,4 +1,6 @@
-# Hello WebXR!
+# webxr-simulator
+
+## Hello WebXR!
 
 ![screenshot](assets/sshot.jpg)
 
