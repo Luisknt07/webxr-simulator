@@ -153,7 +153,25 @@ async function run() {
   await pendingSelection;
   assert.equal(library.revisionSelect.children.length, 1, 'Results arriving after close do not mutate the dialog');
 
-  console.log('Project library: safe names, search, version opening, create/copy forms, retry, busy state, focus trap and stale-result handling passed.');
+  const original = {id: 'original', name: 'Mi escenario'}, lab = {id: 'lab', name: 'Laboratorio industrial'}, levelOpens = [];
+  let protectDraft = false;
+  const levels = new ProjectLibrary({
+    async listProjects() { return [original, lab]; }, async listRevisions() { return []; },
+    async getProject(id) { return {id, name: id === lab.id ? lab.name : original.name, document: {levels: [{id: 'hall', name: 'Sala principal'}, {id: 'sound', name: '<Laboratorio>', initial: true}]}}; }
+  }, {getCurrentProject: () => original, listLevels: project => project.document.levels,
+    onOpen: (project, roomId) => { if (protectDraft) throw new Error('El borrador sigue sin guardar'); levelOpens.push([project.id, roomId]); }});
+  await levels.open('levels');
+  assert.equal(levels.selected.id, original.id); assert(levels.list.textContent.includes('Proyecto abierto'));
+  await levels.selectProject(lab);
+  assert.equal(levels.levelList.children.length, 2); assert(levels.levelList.textContent.includes('<Laboratorio>'));
+  assert.equal(levels.levelList.querySelectorAll('laboratorio').length, 0, 'Level names remain safe plain text.');
+  protectDraft = true; await levels.openProject(lab.id, undefined, 'sound');
+  assert.equal(levels.overlay.hidden, false); assert.equal(levelOpens.length, 0); assert(levels.feedbackText.textContent.includes('borrador'));
+  protectDraft = false; await levels.openProject(lab.id, undefined, 'sound');
+  assert.deepEqual(levelOpens, [[lab.id, 'sound']], 'Opening a named level explicitly selects its owning project and room.');
+  assert.equal(levels.overlay.hidden, true);
+
+  console.log('Project library: safe names, cross-project level discovery, explicit room opening/draft protection, versions, create/copy, retry, focus and stale results passed.');
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1; });

@@ -69,28 +69,28 @@ export default class ProcessorRuntime {
     if (product && product.record && !this.visibility.has(product.object)) this.visibility.set(product.object, product.object.visible);
   }
 
-  setEntryPose(record, inventory, entry, show) {
+  setEntryPose(record, inventory, entry, show, accepting = false) {
     const product = entry.product;
-    if (!product) return;
+    if (!product || product.heldBy && !accepting) return null;
     this.remember(product);
-    inventory.helper.add(product.object);
-    product.object.visible = show;
     product.processorLocked = inventory !== record.components.processor.output;
     product.processorOwnerId = record.id;
     Object.assign(product.object.userData, {sourceProductId: entry.id, sourceOriginId: entry.originId, sourceSku: entry.spec.id,
       sourceUnits: entry.units, sourceLineage: entry.lineage.slice()});
-    const matrix = this.runtime.sourceRuntime.frontMatrix(record, product.bounds, product.scale, inventory.position);
-    this.runtime.setProductMatrix(product, matrix);
-    product.item.beltId = null;
-    product.item.box.copy(product.bounds).applyMatrix4(matrix); product.item.previous.copy(product.item.box); product.item.swept.copy(product.item.box);
+    if (!show) {
+      if (product.object.parent !== inventory.helper) inventory.helper.add(product.object);
+      product.object.visible = false; product.item.beltId = null; return null;
+    }
+    return this.runtime.sourceRuntime.present(record, inventory, entry, {accepting});
   }
 
   showFront(record, inventory) {
     const source = this.runtime.sourceRuntime;
-    inventory.queue.forEach((entry, index) => { if (entry.product) this.setEntryPose(record, inventory, entry, index === 0); });
+    inventory.queue.slice(1).forEach(entry => { if (entry.product) this.setEntryPose(record, inventory, entry, false); });
+    if (inventory.queue[0] && inventory.queue[0].product) return this.setEntryPose(record, inventory, inventory.queue[0], true);
     const product = source.materialize(record, inventory);
     if (product) {
-      const entry = inventory.queue[0]; this.setEntryPose(record, inventory, entry, true);
+      const entry = inventory.queue[0]; return this.setEntryPose(record, inventory, entry, true);
     }
     return product;
   }
@@ -104,7 +104,7 @@ export default class ProcessorRuntime {
     if (entry.product) {
       entry.product.sourceId = ''; entry.product.processorLocked = true; entry.product.processorOwnerId = record.id;
       if (inventory.queue.length > 1 && !entry.product.record) this.runtime.sourceRuntime.dematerialize(entry);
-      else this.setEntryPose(record, inventory, entry, inventory.queue.length === 1);
+      else this.setEntryPose(record, inventory, entry, inventory.queue.length === 1, manual);
     }
     this.showFront(record, inventory);
     this.runtime.event(record.id, 'processor-entry', 'Entrada al proceso: ' + entry.spec.name + ' (' + entry.units + ' ud.).');
@@ -134,6 +134,7 @@ export default class ProcessorRuntime {
     this.runtime.sourceRuntime.remove(record, entry, 'manual', processor.output);
     product.processorOwnerId = ''; product.processorLocked = false;
     this.showFront(record, processor.output);
+    processor.blocked = processor.blocked || processor.output.blocked;
   }
 
   findInput(product, tolerance = .6) {
@@ -242,7 +243,18 @@ export default class ProcessorRuntime {
       let units = leaf.units;
       while (units > 0) {
         const take = Math.min(units, remainingGroup);
-        const member = Object.assign({}, leaf, {units: take, product: null});
+        // Each fraction keeps the original source leaf, its own route and
+        // quantity. Append only the lot's shared processing after that route;
+        // another input's Source or private upstream inspection is not ours.
+        const lineage = (leaf.lineage || []).slice(), lotRoute = input.lineage || [];
+        let shared = -1;
+        for (let index = lineage.length - 1; index >= 0; index--) {
+          shared = lotRoute.lastIndexOf(lineage[index]); if (shared >= 0) break;
+        }
+        const route = lineage.concat(lotRoute.slice(shared + 1).filter(id => {
+          const owner = this.runtime.records.get(id); return owner && owner.components.processor;
+        }), record.id).filter((id, index, values) => !index || id !== values[index - 1]).slice(-64);
+        const member = Object.assign({}, leaf, {units: take, product: null, lineage: route});
         if (take !== leaf.units) delete member.archivedProduct;
         groups[groupIndex].push(member); units -= take; remainingGroup -= take;
         if (!remainingGroup && groupIndex < count - 1) { groupIndex++; remainingGroup = Math.ceil((input.units - groups.slice(0, groupIndex).reduce((sum, rows) => sum + total(rows), 0)) / (count - groupIndex)); }
@@ -252,11 +264,16 @@ export default class ProcessorRuntime {
     return groups.filter(group => group.length).map(group => {
       const units = total(group), one = group.length === 1 && units === 1, member = group[0];
       const spec = one ? member.spec : {id: 'group', name: 'Grupo de ' + units + ' unidades', type: 'crate', width: .5, height: .3, depth: .38, color: '#8e7654'};
-      const entry = this.newEntry(record, [input], one ? null : group, units, spec, {loadMode: 'individual', palletColumns: 1, palletRows: 1, palletLayers: 1});
+      const entry = this.newEntry(record, [input], group, units, spec, {loadMode: 'individual', palletColumns: 1, palletRows: 1, palletLayers: 1});
+      if (one) Object.assign(entry, {originId: member.originId, lineage: member.lineage.slice(), scale: member.scale && member.scale.slice()});
       if (one && member.archivedProduct) {
         const original = member.archivedProduct; original.object.visible = true;
         const product = this.runtime.registerProduct(original.object, original.record, original.item);
-        this.archive.delete(member.id); entry.product = product; product.sourceEntry = entry; product.item.sourceEntry = entry; product.processorOwnerId = record.id;
+        // New split load IDs differ from the retained source-leaf ID. Remove
+        // the actual recovered product, whichever output ID archived it.
+        this.archive.forEach((archived, key) => { if (archived === original) this.archive.delete(key); });
+        entry.product = product; product.sourceEntry = entry; product.item.sourceEntry = entry; product.processorOwnerId = record.id;
+        member.archivedProduct = product;
         product.item.product = product; product.item.bounds = product.bounds; product.item.scale = product.scale;
         product.object.visible = false;
       }
@@ -286,6 +303,7 @@ export default class ProcessorRuntime {
     });
     processor.jobs = processor.jobs.filter(job => !job.results || job.results.length);
     this.showFront(record, processor.output);
+    processor.blocked = processor.blocked || processor.output.blocked;
   }
 
   syncOutput(processor) {

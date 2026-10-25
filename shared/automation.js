@@ -7,6 +7,16 @@ const operators = ['eq', 'ne', 'gt', 'gte', 'lt', 'lte'];
 const edges = ['rising', 'falling', 'level'];
 const keys = ['sourceId', 'variable', 'operator', 'value', 'targetId', 'targetVariable', 'set', 'edge'];
 const booleanVariables = ['active', 'occupied', 'running', 'powered', 'paused', 'autoSpawn', 'palletFull', 'transferBlocked', 'externalSupply', 'internalSupplyActive', 'emergency', 'enabled', 'autoGenerate', 'blocked', 'full', 'empty', 'operatorAvailable', 'busy', 'settingUp', 'waitingOperator'];
+// Mechanism positions and zone sensors are telemetry inputs. They deliberately
+// do not enter targetVariables: automation commands the controller, never its
+// measured limits or the actuator's internal sequence timer.
+const mechanismBooleanVariables = ['mechanismReady', 'mechanismBusy', 'atLowerLevel', 'atUpperLevel', 'actuatorExtended', 'actuatorRetracted'];
+sourceVariables.push('actuatorPosition', 'actuatorAngle', 'elevatorPosition', 'zonesOccupied', ...mechanismBooleanVariables);
+booleanVariables.push(...mechanismBooleanVariables);
+for (let zone = 1; zone <= 32; zone++) {
+  sourceVariables.push('zone' + zone + 'Occupied', 'zone' + zone + 'Speed');
+  booleanVariables.push('zone' + zone + 'Occupied');
+}
 
 function plain(value) {
   return value && typeof value === 'object' && !Array.isArray(value) &&
@@ -63,4 +73,4 @@ function compare(left, operator, right) {
   return left <= right;
 }
 
-module.exports = {normalizeRules, compare, objectReference, sourceVariables, targetVariables, operators, edges};
+module.exports = {normalizeRules, compare, objectReference, sourceVariables, targetVariables, booleanVariables, mechanismBooleanVariables, operators, edges};

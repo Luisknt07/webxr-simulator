@@ -93,7 +93,7 @@ async function run() {
   f.document.setBehaviors(physicalStart, [Object.assign({}, physicalStartConfig, {scope: 'segment'})]);
   const authored = JSON.stringify(await f.document.serialize()); f.runtime.start('hall');
   assert.deepEqual(f.runtime.getPanelSnapshot(head.userData.editorId, 'segment').memberIds.sort(), [head, middle].map(value => value.userData.editorId).sort());
-  assert.equal(f.runtime.getPanelSnapshot(head.userData.editorId, 'line').memberIds.length, 3);
+  assert.equal(f.runtime.getPanelSnapshot(head.userData.editorId, 'line').memberIds.length, 4, 'The shared line includes its connected pallet store.');
   f.runtime.command(head.userData.editorId, 'pause', undefined, 'segment');
   assert(vars(f, head).paused && vars(f, middle).paused && !vars(f, end).paused);
   f.runtime.states.find(entry => entry.state.colliderMesh === physicalStart).state.onSelectStart();
@@ -107,7 +107,7 @@ async function run() {
   assert.equal(vars(f, receivingStock).queued, 1); assert(retained(f).includes(originalBox));
   assert(stock(f, receivingStock).queue.some(entry => entry.product.object === originalBox), 'Transfers into the independently placed pallet retain the same mesh identity.');
   const line = f.runtime.getPanelSnapshot(head.userData.editorId, 'line').variables;
-  assert.equal(line.entryCount, 1); assert.equal(line.exitCount, 1); assert.equal(line.inFlight, 0); assert.equal(line.palletCount, 0);
+  assert.equal(line.entryCount, 1); assert.equal(line.exitCount, 1); assert.equal(line.inFlight, 0); assert.equal(line.palletCount, 1);
   assert.equal(f.runtime.getPanelSnapshot(head.userData.editorId, 'segment').variables.exitCount, 1);
   f.runtime.command(head.userData.editorId, 'stop', undefined, 'line'); f.runtime.setVariable(end.userData.editorId, 'emergency', true);
   assert.throws(() => f.runtime.command(head.userData.editorId, 'start', undefined, 'line'), /emergencia/);

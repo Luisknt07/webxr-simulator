@@ -12,7 +12,7 @@ export class AreaCheckerSystem extends System {
       const object = checker.getComponent(Object3D).value;
       // One controller may be inside any number of independent paint surfaces.
       // A later, nonintersecting area must not cancel an earlier intersection.
-      const inside = areas.some(area => {
+      const inside = (!checker.editorIsActive || checker.editorIsActive()) && areas.some(area => {
         if (area.editorSurface) {
           if (area.editorBehaviorType) {
             const data = area.editorSurface.userData;

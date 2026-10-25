@@ -52,8 +52,14 @@ function clock(seconds) {
 }
 function count(value) { return Math.max(0, Math.floor(number(value))).toLocaleString('es'); }
 function scopeOf(value) { return value === 'line' || value === 'segment' ? value : 'module'; }
+function steerAngle(state, config) {
+  // The kinematic sequencer exposes steer progress through actuatorPosition;
+  // older saves/runtimes leave actuatorAngle at zero for this mechanism.
+  const angle = number(state && state.actuatorAngle);
+  return Math.abs(angle) > 1e-8 ? angle : (config && config.branchSide === 'right' ? -1 : 1) * Math.PI / 2 * Math.max(0, Math.min(1, number(state && state.actuatorPosition)));
+}
 function setColor(entry, color, intensity, opacity) {
-  const signature = color + ':' + intensity + ':' + opacity;
+  const signature = (color && color.isColor ? color.toArray().join(',') : color) + ':' + intensity + ':' + opacity;
   if (entry.signature === signature) return;
   entry.signature = signature;
   entry.privateMaterials.forEach(material => {
@@ -77,6 +83,8 @@ export default class IndustrialVisuals {
     this.rollers = new Map();
     this.belts = new Map();
     this.processorHeads = new Map();
+    this.mechanisms = new Map();
+    this.steerBanks = new Map();
     this.rollerTextures = new Map();
     this.rollerMaterials = new Map();
     this.records = new Map();
@@ -165,13 +173,33 @@ export default class IndustrialVisuals {
     this.records.forEach(record => {
       if (record.configurations.sensor) this.sensors.push({record, conveyor: this.resolveConveyor(record)});
     });
-    const foundDisplays = new Set(), foundColors = new Set(), foundRollers = new Set(), foundBelts = new Set(), foundButtons = new Set(), foundHeads = new Set();
+    const foundDisplays = new Set(), foundColors = new Set(), foundRollers = new Set(), foundBelts = new Set(), foundButtons = new Set(), foundHeads = new Set(), foundMechanisms = new Set(), foundSteerBanks = new Set();
     if (root) root.traverse(object => {
       if (!visible(object)) return;
       const data = object.userData || {};
       const owner = nearest(object, this.records);
       if (!owner) return;
       const conveyor = this.resolveConveyor(owner);
+      if (data.industrialConveyorMechanism && conveyor && conveyor.configurations.conveyor) {
+        foundMechanisms.add(object);
+        if (!this.mechanisms.has(object)) this.mechanisms.set(object, {object, rest: object.position.clone(), rotation: object.quaternion.clone(), distance: 0});
+        Object.assign(this.mechanisms.get(object), {conveyor, motion: data.industrialConveyorMechanism});
+      }
+      if (object.geometry && object.geometry.userData.industrialSteerRest && conveyor) {
+        foundSteerBanks.add(object);
+        if (!this.steerBanks.has(object)) {
+          const entry = {object, angle: 0};
+          // Native template copies may share immutable geometry. Their yaw
+          // buffers need independent ownership; ordinary prefab banks already
+          // have private buffers and avoid this extra allocation entirely.
+          if (data.editorNative || data.editorCloneSourceId) {
+            entry.original = object.geometry; entry.installed = object.geometry.clone();
+            object.geometry = entry.installed;
+          }
+          this.steerBanks.set(object, entry);
+        }
+        this.steerBanks.get(object).conveyor = conveyor;
+      }
       if (data.industrialProcessorHead && conveyor && conveyor.configurations.processor) {
         foundHeads.add(object);
         if (!this.processorHeads.has(object)) this.processorHeads.set(object, {object, rest: object.position.clone(), processor: conveyor});
@@ -184,33 +212,34 @@ export default class IndustrialVisuals {
         const entry = this.displays.get(object);
         if (entry) { entry.conveyor = conveyor; entry.scope = owner.panelScope || 'module'; entry.bindingConflict = !!owner.bindingConflict; entry.signature = null; }
       }
-      const roller = data.industrialRoller || (/^Rodillo \d+$/i.test(object.name) && owner.configurations.conveyor && {axis: 'y', radius: 0.065});
+      const roller = data.industrialRoller || object.geometry && object.geometry.userData.industrialSteerRest && object.geometry.userData.industrialSteerRest.roller || (/^Rodillo \d+$/i.test(object.name) && owner.configurations.conveyor && {axis: 'y', radius: 0.065});
       if (roller && conveyor) {
         foundRollers.add(object);
         if (!this.rollers.has(object)) this.createRoller(object, conveyor);
-        Object.assign(this.rollers.get(object), {conveyor, axis: ['x', 'y', 'z'].includes(roller.axis) ? roller.axis : 'y', radius: Math.max(0.001, number(roller.radius, 0.065)), direction: number(roller.direction, -1)});
+        Object.assign(this.rollers.get(object), {conveyor, zone: roller.zone, axis: ['x', 'y', 'z'].includes(roller.axis) ? roller.axis : 'y', radius: Math.max(0.001, number(roller.radius, 0.065)), direction: number(roller.direction, -1)});
       }
       if (data.industrialBelt && conveyor) {
         const belt = data.industrialBelt;
         foundBelts.add(object);
         if (!this.belts.has(object)) this.createRoller(object, conveyor, this.belts);
-        Object.assign(this.belts.get(object), {conveyor, textureAxis: belt.textureAxis === 'y' ? 'y' : 'x',
+        Object.assign(this.belts.get(object), {conveyor, zone: belt.zone, textureAxis: belt.textureAxis === 'y' ? 'y' : 'x',
           metersPerRepeat: Math.max(0.001, number(belt.metersPerRepeat, 1)), scaleAxis: ['x', 'y', 'z'].includes(belt.scaleAxis) ? belt.scaleAxis : 'x', direction: number(belt.direction, -1)});
       }
       if (!object.isMesh || !object.material) return;
       const isLamp = data.industrialSensorLamp || object.name === 'Piloto del sensor';
       const isVolume = data.industrialSensorVolume || /^Haz de detecci/.test(object.name);
+      const isZone = Number.isInteger(data.industrialZoneLamp);
       const isButton = data.industrialButton || owner.configurations.control && object === owner.object.children[1];
       if (isButton) {
         foundButtons.add(object);
         if (!this.buttons.has(object)) this.buttons.set(object, {object, rest: object.position.clone(), amount: 0, pulseRemaining: 0, sequence: undefined});
       }
-      if (isLamp || isVolume || isButton || data.industrialTower) {
+      if (isLamp || isVolume || isButton || isZone || data.industrialTower) {
         foundColors.add(object);
         if (!this.colors.has(object)) this.createColor(object);
         const entry = this.colors.get(object);
         this.bindings.push({entry, owner, conveyor, scope: owner.panelScope || 'module', sensor: isLamp || isVolume ? nearest(object, this.records, 'sensor') : null,
-          kind: isVolume ? 'volume' : isLamp ? 'sensor' : isButton ? 'button' : 'tower', tower: data.industrialTower,
+          kind: isZone ? 'zone' : isVolume ? 'volume' : isLamp ? 'sensor' : isButton ? 'button' : 'tower', tower: data.industrialTower, zone: data.industrialZoneLamp,
           action: owner.object.userData.industrialAction || owner.object.userData.editorPrefabVariant || owner.configurations.control && owner.configurations.control.command});
       }
     });
@@ -220,6 +249,8 @@ export default class IndustrialVisuals {
     this.rollers.forEach((entry, object) => { if (!foundRollers.has(object)) { this.restoreRoller(entry); this.rollers.delete(object); } });
     this.belts.forEach((entry, object) => { if (!foundBelts.has(object)) { this.restoreRoller(entry); this.belts.delete(object); } });
     this.processorHeads.forEach((entry, object) => { if (!foundHeads.has(object)) { entry.object.position.copy(entry.rest); this.processorHeads.delete(object); } });
+    this.mechanisms.forEach((entry, object) => { if (!foundMechanisms.has(object)) { this.restoreMechanism(entry); this.mechanisms.delete(object); } });
+    this.steerBanks.forEach((entry, object) => { if (!foundSteerBanks.has(object)) { this.restoreSteerBank(entry); this.steerBanks.delete(object); } });
     const liveTextures = new Set();
     const liveMaterials = new Set();
     this.rollers.forEach(entry => entry.surfaces.forEach(surface => liveTextures.add(surface)));
@@ -269,13 +300,15 @@ export default class IndustrialVisuals {
 
   createRoller(object, conveyor, collection = this.rollers) {
     const entry = {object, angle: 0, distance: 0, original: object.material, installed: null, privateMaterials: [], surfaces: []};
+    const motion = object.userData.industrialRoller || object.userData.industrialBelt || object.geometry && object.geometry.userData.industrialSteerRest && object.geometry.userData.industrialSteerRest.roller || {};
+    const zoneKey = Number.isInteger(motion.zone) ? ':zone-' + motion.zone : '';
     if (object.isMesh && object.material) {
       entry.privateMaterials = materials(object.material).map(original => {
-        const materialKey = conveyor.object.uuid + ':' + original.uuid;
+        const materialKey = conveyor.object.uuid + zoneKey + ':' + original.uuid;
         const cachedMaterial = this.rollerMaterials.get(materialKey);
         if (cachedMaterial) { entry.surfaces.push(cachedMaterial.surface); return cachedMaterial.material; }
         const material = cloneSurfaceMaterial(original);
-        const key = conveyor.object.uuid + ':' + (original.map ? original.map.uuid : 'roller-metal');
+        const key = conveyor.object.uuid + zoneKey + ':' + (original.map ? original.map.uuid : 'roller-metal');
         let surface = this.rollerTextures.get(key);
         if (!surface) {
           let texture;
@@ -327,9 +360,10 @@ export default class IndustrialVisuals {
     if (this.previewScopes.has(key)) return this.previewScopes.get(key);
     const links = new Map();
     this.byId.forEach(candidate => {
-      if (!candidate.configurations.conveyor) return;
-      links.set(candidate.id, ['outputId', 'branchId'].map(field => candidate.configurations.conveyor[field]).filter(id => {
-        const target = this.byId.get(id); return target && target.configurations.conveyor;
+      const config = candidate.configurations.conveyor || scope === 'line' && (candidate.configurations.source || candidate.configurations.processor || candidate.configurations.palletQueue);
+      if (!config) return;
+      links.set(candidate.id, ['outputId', 'branchId'].map(field => config[field]).filter(id => {
+        const target = this.byId.get(id); return target && (target.configurations.conveyor || scope === 'line' && (target.configurations.source || target.configurations.processor || target.configurations.palletQueue));
       }));
     });
     if (scope === 'line') links.forEach((targets, id) => targets.slice().forEach(target => {
@@ -348,7 +382,7 @@ export default class IndustrialVisuals {
 
   panelSnapshot(record, scope, editing, values) {
     if (!record) return {variables: null, memberIds: [], scope};
-    if (scope === 'module' || record.configurations.source || record.configurations.processor || record.configurations.palletQueue) return {variables: values(record), memberIds: [record.id], anchorId: record.id, scope: 'module'};
+    if (scope === 'module' || scope !== 'line' && (record.configurations.source || record.configurations.processor || record.configurations.palletQueue)) return {variables: values(record), memberIds: [record.id], anchorId: record.id, scope: 'module'};
     const key = record.id + ':' + scope + ':' + editing;
     if (this.panelSnapshots.has(key)) return this.panelSnapshots.get(key);
     let snapshot;
@@ -388,6 +422,73 @@ export default class IndustrialVisuals {
     return {hovered: !!(feedback && feedback.hovered), amount: entry.amount};
   }
 
+  restoreMechanism(entry) {
+    entry.object.position.copy(entry.rest); entry.object.quaternion.copy(entry.rotation); entry.distance = 0;
+  }
+
+  updateMechanism(entry, state, elapsed, editing) {
+    if (!state || editing) { this.restoreMechanism(entry); return; }
+    const motion = entry.motion, object = entry.object;
+    const position = Math.max(0, Math.min(1, number(state.actuatorPosition)));
+    object.position.copy(entry.rest); object.quaternion.copy(entry.rotation);
+    if (motion.kind === 'lift') object.position.y += position * number(motion.travel, 0.15);
+    else if (motion.kind === 'elevator') object.position.y += number(state.elevatorPosition);
+    else if (motion.kind === 'pusher') object.position.z += number(motion.side, 1) * position * number(state.actuatorStroke, number(motion.travel, 1));
+    else if (motion.kind === 'turntable' || motion.kind === 'steer') {
+      const angle = motion.kind === 'steer' ? steerAngle(state, entry.conveyor.configurations.conveyor) : number(state.actuatorAngle);
+      object.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle));
+    } else if (motion.kind === 'cleat') {
+      const config = entry.conveyor.configurations.conveyor, length = Math.max(0.1, number(motion.length, config.length));
+      const active = state.enabled !== false && state.powered !== false && state.running && !state.paused && !state.emergency;
+      if (active) entry.distance += number(state.actualSpeed) * elapsed;
+      const radius = 0.065, loop = 2 * length + 2 * Math.PI * radius;
+      const s = ((number(motion.distance) + entry.distance) % loop + loop) % loop;
+      let along, vertical, flip = 0;
+      if (s <= length) { along = s; vertical = 0.0325; }
+      else if (s <= length + Math.PI * radius) {
+        const angle = (s - length) / radius;
+        along = length + radius * Math.sin(angle); vertical = -radius + (radius + 0.0325) * Math.cos(angle); flip = angle;
+      } else if (s <= 2 * length + Math.PI * radius) { along = 2 * length + Math.PI * radius - s; vertical = -2 * radius - 0.0325; flip = Math.PI; }
+      else {
+        const angle = (s - 2 * length - Math.PI * radius) / radius;
+        along = -radius * Math.sin(angle); vertical = -radius - (radius + 0.0325) * Math.cos(angle); flip = Math.PI + angle;
+      }
+      const fraction = along / length;
+      object.position.set(-config.length / 2 + fraction * config.length, fraction * number(config.rise) + vertical, 0);
+      object.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -flip));
+    }
+    // Collision queries and selection bounds read the same live pose as the
+    // visible mechanism. No movement is written back to authored transforms.
+    object.updateMatrixWorld(true);
+  }
+
+  updateSteerBank(entry, angle) {
+    if (Math.abs(entry.angle - angle) < 1e-8) return;
+    const geometry = entry.object.geometry, rest = geometry.userData.industrialSteerRest;
+    if (!rest) return;
+    const position = geometry.attributes.position, normal = geometry.attributes.normal, cosine = Math.cos(angle), sine = Math.sin(angle);
+    if (!angle) { position.array.set(rest.positions); normal.array.set(rest.normals); }
+    else rest.ranges.forEach(range => {
+      const px = range.pivot[0], pz = range.pivot[2];
+      for (let vertex = range.start; vertex < range.start + range.count; vertex++) {
+        const index = vertex * 3, x = rest.positions[index] - px, z = rest.positions[index + 2] - pz;
+        position.array[index] = px + x * cosine + z * sine; position.array[index + 2] = pz - x * sine + z * cosine;
+        normal.array[index] = rest.normals[index] * cosine + rest.normals[index + 2] * sine;
+        normal.array[index + 2] = -rest.normals[index] * sine + rest.normals[index + 2] * cosine;
+      }
+    });
+    position.needsUpdate = true; normal.needsUpdate = true;
+    geometry.computeBoundingBox(); geometry.computeBoundingSphere(); entry.angle = angle;
+  }
+
+  restoreSteerBank(entry) {
+    this.updateSteerBank(entry, 0);
+    if (entry.installed) {
+      if (entry.object.geometry === entry.installed) entry.object.geometry = entry.original;
+      entry.installed.dispose();
+    }
+  }
+
   sync(roomId, delta = 0, editing = false) {
     const root = this.document.getRoot(roomId);
     const objectCount = this.document.objects && this.document.objects.size;
@@ -421,6 +522,11 @@ export default class IndustrialVisuals {
       return cache.get(record);
     };
     this.frame = (this.frame || 0) + 1;
+    this.mechanisms.forEach(entry => {
+      if (!visible(entry.object)) return;
+      this.updateMechanism(entry, values(entry.conveyor), elapsed, editing);
+    });
+    this.steerBanks.forEach(entry => this.updateSteerBank(entry, editing ? 0 : steerAngle(values(entry.conveyor), entry.conveyor.configurations.conveyor)));
     this.processorHeads.forEach(entry => {
       if (!visible(entry.object) || this.ctx.performanceVisibility && !this.ctx.performanceVisibility.isVisible(entry.processor.object)) return;
       const state = values(entry.processor);
@@ -436,8 +542,9 @@ export default class IndustrialVisuals {
     });
     this.rollers.forEach(entry => {
       const state = values(entry.conveyor);
-      if (!state || editing || state.powered === false || state.paused || state.emergency || state.enabled === false || !state.running || !visible(entry.object)) return;
-      const speed = number(state.actualSpeed);
+      const gravity = entry.conveyor.configurations.conveyor && entry.conveyor.configurations.conveyor.drive === 'gravity';
+      if (!state || editing || !gravity && (state.powered === false || !state.running) || state.paused || state.emergency || state.enabled === false || !visible(entry.object)) return;
+      const speed = number(Number.isInteger(entry.zone) ? state['zone' + (entry.zone + 1) + 'Speed'] : undefined, number(state.actualSpeed));
       if (!speed || !elapsed) return;
       this.scale.setFromMatrixScale(entry.object.matrixWorld);
       // Cylinders rotate about their local axis. Account for uniform model scaling
@@ -457,7 +564,7 @@ export default class IndustrialVisuals {
     this.belts.forEach(entry => {
       const state = values(entry.conveyor);
       if (!state || editing || state.powered === false || state.paused || state.emergency || state.enabled === false || !state.running || !visible(entry.object)) return;
-      const speed = number(state.actualSpeed);
+      const speed = number(Number.isInteger(entry.zone) ? state['zone' + (entry.zone + 1) + 'Speed'] : undefined, number(state.actualSpeed));
       if (!speed || !elapsed) return;
       this.scale.setFromMatrixScale(entry.object.matrixWorld);
       entry.distance = (entry.distance + entry.direction * speed * elapsed / (entry.metersPerRepeat * Math.max(0.0001, this.scale[entry.scaleAxis]))) % 1;
@@ -478,10 +585,16 @@ export default class IndustrialVisuals {
       const scope = binding.kind === 'sensor' || binding.kind === 'volume' ? 'module' : binding.scope;
       const state = this.panelSnapshot(binding.conveyor, scope, editing, values).variables;
       if (!state) { setColor(binding.entry, '#35434c', feedbackLight); return; }
-      if (binding.kind === 'sensor' || binding.kind === 'volume') {
+      if (binding.kind === 'zone') {
+        const zones = state.zoneOccupied || state.zones || [];
+        const zone = typeof state['zone' + (binding.zone + 1) + 'Occupied'] === 'boolean' ? state['zone' + (binding.zone + 1) + 'Occupied'] : zones[binding.zone];
+        const occupied = typeof zone === 'object' ? !!(zone && (zone.occupied || zone.count)) : !!zone;
+        setColor(binding.entry, occupied ? AMBER : GREEN, occupied ? 0.85 : 0.18);
+      } else if (binding.kind === 'sensor' || binding.kind === 'volume') {
         const sensor = values(binding.sensor) || {};
         const occupied = !!sensor.occupied;
-        const enabled = sensor.enabled !== false && state.powered !== false;
+        const unpoweredTransport = binding.conveyor.configurations.conveyor && binding.conveyor.configurations.conveyor.drive !== 'motor';
+        const enabled = sensor.enabled !== false && (state.powered !== false || unpoweredTransport);
         setColor(binding.entry, !enabled ? '#35434c' : occupied ? GREEN : RED, !enabled ? 0 : occupied ? 0.85 : 0.22,
           binding.kind === 'volume' ? enabled && occupied ? 0.18 : 0.025 : undefined);
       } else if (binding.kind === 'tower') {
@@ -495,7 +608,9 @@ export default class IndustrialVisuals {
         const active = action === 'start' ? !!state.running && !state.paused && !state.emergency && state.powered !== false : action === 'stop' ? !state.running && state.powered !== false :
           action === 'pause' ? !!state.paused : action === 'powerOn' ? state.powered !== false : action === 'powerOff' ? state.powered === false : action === 'emergency' || action === 'resetEmergency' ? !!state.emergency : action === 'operator' ? !!state.operatorAvailable : false;
         const base = binding.entry.original && materials(binding.entry.original)[0];
-        const color = action === 'insertBox' && state.externalSupply ? '#53616b' : base && base.color ? '#' + base.color.getHexString() : CYAN;
+        // Managed PBR colours are linear floats. Preserve those values through
+        // live button feedback rather than quantizing them into a linear hex.
+        const color = action === 'insertBox' && state.externalSupply ? '#53616b' : base && base.color ? base.color : CYAN;
         setColor(binding.entry, color, (active ? 0.7 : 0.08) + feedbackLight);
       }
     });
@@ -508,13 +623,13 @@ export default class IndustrialVisuals {
   }
 
   paintDisplay(entry, state, sensors, editing, snapshot) {
-    if (entry.conveyor && entry.conveyor.configurations.palletQueue || entry.object.userData.industrialPalletQueueDisplay) {
+    if (entry.scope !== 'line' && (entry.conveyor && entry.conveyor.configurations.palletQueue || entry.object.userData.industrialPalletQueueDisplay)) {
       this.paintPalletQueueDisplay(entry, state, editing); return;
     }
-    if (entry.conveyor && entry.conveyor.configurations.processor || entry.object.userData.industrialProcessorDisplay) {
+    if (entry.scope !== 'line' && (entry.conveyor && entry.conveyor.configurations.processor || entry.object.userData.industrialProcessorDisplay)) {
       this.paintProcessorDisplay(entry, state, editing); return;
     }
-    if (entry.conveyor && entry.conveyor.configurations.source || entry.object.userData.industrialSourceDisplay) {
+    if (entry.scope !== 'line' && (entry.conveyor && entry.conveyor.configurations.source || entry.object.userData.industrialSourceDisplay)) {
       this.paintSourceDisplay(entry, state, editing); return;
     }
     const variables = state || {};
@@ -529,6 +644,7 @@ export default class IndustrialVisuals {
     const exitSensor = sensors.find(sensor => /salida|exit/i.test(sensor.name)) || (sensors.length > 1 ? sensors[sensors.length - 1] : null);
     const speed = number(variables.actualSpeed), target = number(variables.speed);
     const runningSeconds = number(variables.runSeconds), output = number(variables.exitCount);
+    const productionLine = scope === 'line' && variables.storedUnits !== undefined;
     const config = entry.conveyor && entry.conveyor.configurations.conveyor || {};
     const classifying = config.layout === 'tee' && config.junctionMode === 'split';
     const routingLabel = config.routing === 'rules' ? 'POR REGLAS' : config.routing === 'percentage' ? number(config.branchPercentage, 50).toFixed(1) + '% LAT.' : config.routing === 'alternate' ? 'ALTERNAR' : config.routing === 'branch' ? 'LATERAL' : 'PRINCIPAL';
@@ -536,7 +652,7 @@ export default class IndustrialVisuals {
     const signature = [status.label, machineIdentity, scopeLabel, editing, target.toFixed(2), speed.toFixed(2), count(variables.entryCount), count(output), count(variables.inFlight),
       clock(runningSeconds), (runningSeconds > 0 ? output * 60 / runningSeconds : 0).toFixed(1), inputOccupied, outputOccupied,
       entrySensor && count(entrySensor.variables.count), exitSensor && count(exitSensor.variables.count), variables.autoSpawn, variables.externalSupply, variables.internalSupplyActive,
-      count(variables.palletCount), count(variables.palletCapacity), !!variables.palletFull,
+      count(variables.palletCount), count(variables.palletCapacity), !!variables.palletFull, count(variables.storedUnits), number(variables.utilization).toFixed(1), count(variables.queued),
       classifying, routingLabel, config.routingDefault, config.routingRules, count(variables.routedMain), count(variables.routedBranch), count(variables.routingUnmatched)].join('|');
     if (entry.signature === signature) return;
     entry.signature = signature;
@@ -558,7 +674,7 @@ export default class IndustrialVisuals {
     text('CONSIGNA', 679, 123, 21, DIM, 700);
     text(state ? target.toFixed(2) + ' m/s' : '— m/s', 679, 173, 35, CYAN, 700);
     const supply = variables.externalSupply ? 'EXTERNA' : variables.internalSupplyActive ? 'RESPALDO' : 'MANUAL';
-    [['ENTRADAS' + (scope === 'module' ? '' : ' ' + scopeName), variables.entryCount], ['SALIDAS' + (scope === 'module' ? '' : ' ' + scopeName), variables.exitCount], ['EN BANDA', variables.inFlight], [classifying ? 'CLASIFICACIÓN' : 'ALIMENTACIÓN', classifying ? routingLabel : supply]].forEach((field, index) => {
+    [['ENTRADAS' + (scope === 'module' ? '' : ' ' + scopeName), variables.entryCount], ['SALIDAS' + (scope === 'module' ? '' : ' ' + scopeName), variables.exitCount], [productionLine ? 'EN LÍNEA / COLAS' : 'EN BANDA', productionLine ? number(variables.inFlight) + number(variables.queued) : variables.inFlight], [productionLine ? 'ESTIBAS OCUPADAS' : classifying ? 'CLASIFICACIÓN' : 'ALIMENTACIÓN', productionLine ? count(variables.palletCount) + ' / ' + count(variables.palletCapacity) : classifying ? routingLabel : supply]].forEach((field, index) => {
       const x = 20 + index * 249;
       c.fillStyle = '#10232f'; c.fillRect(x, 232, 237, 104);
       text(field[0], x + 18, 262, 22, DIM, 700);
@@ -575,7 +691,7 @@ export default class IndustrialVisuals {
     } else {
       text('ALCANCE: ' + moduleCount + ' MÓDULOS', 38, 379, 23, CYAN, 700);
       text('ANCLA ' + (entry.conveyor ? entry.conveyor.shortId : '—'), 528, 379, 23, DIM);
-      text('Entradas y salidas externas · sin contar transferencias internas', 38, 410, 23, DIM);
+      text(productionLine ? 'Almacenadas ' + count(variables.storedUnits) + ' uds · Utilización ' + number(variables.utilization).toFixed(1) + '%' : 'Entradas y salidas externas · sin contar transferencias internas', 38, 410, 23, DIM);
     }
     c.fillStyle = '#173442'; c.fillRect(20, 432, 984, 2);
     if (classifying) {
@@ -761,9 +877,11 @@ export default class IndustrialVisuals {
     this.rollers.forEach(entry => this.restoreRoller(entry));
     this.belts.forEach(entry => this.restoreRoller(entry));
     this.processorHeads.forEach(entry => entry.object.position.copy(entry.rest));
+    this.mechanisms.forEach(entry => this.restoreMechanism(entry));
+    this.steerBanks.forEach(entry => this.restoreSteerBank(entry));
     this.rollerTextures.forEach(surface => surface.texture.dispose());
     this.rollerMaterials.forEach(entry => entry.material.dispose());
-    this.displays.clear(); this.colors.clear(); this.buttons.clear(); this.rollers.clear(); this.belts.clear(); this.processorHeads.clear(); this.rollerTextures.clear(); this.rollerMaterials.clear(); this.records.clear(); this.byId.clear();
+    this.displays.clear(); this.colors.clear(); this.buttons.clear(); this.rollers.clear(); this.belts.clear(); this.processorHeads.clear(); this.mechanisms.clear(); this.steerBanks.clear(); this.rollerTextures.clear(); this.rollerMaterials.clear(); this.records.clear(); this.byId.clear();
     this.sensors = []; this.bindings = []; this.snapshot = null;
     this.panelSnapshots.clear(); this.previewScopes.clear();
     this.root = null; this.roomId = null; this.objectCount = -1; this.dirty = true;

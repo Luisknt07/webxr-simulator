@@ -1,5 +1,11 @@
 # webxr-simulator
 
+El editor HELLO / STUDIO incorpora Biblioteca / Proyecto / Favoritos, menús y espacios de trabajo, cuentas reales, sesiones reanudables y simulación compartida. Consulta la [guía de uso y validación](docs/studio-guide.md) y la [documentación de cuentas y salas](docs/studio-service.md). Ejecuta `npm.cmd start` y abre `https://localhost:8080/editor`; la primera cuenta registrada administra los permisos del servidor.
+
+La [guía de transportadores](docs/conveyor-library.md) describe las ocho familias, sus 25 variantes, el visor educativo, los diez ejemplos de líneas, las conexiones, el control y los límites de validación.
+
+Los [proyectos de ejemplo portables](examples/README.md) incluyen los 16 escenarios industriales actuales, con equipos, señalización, monitores, materiales y configuración de sonido. Se pueden importar en otra instalación sin copiar la base de datos local.
+
 ## Hello WebXR!
 
 ![screenshot](assets/sshot.jpg)

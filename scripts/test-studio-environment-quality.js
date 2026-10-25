@@ -1,0 +1,28 @@
+'use strict';
+const assert = require('node:assert/strict');
+const studio = require('../shared/studio-document'), {validateDocument} = require('../server/validation');
+const OPTIONAL = ['renderQuality', 'shadows', 'exposure', 'machineSounds', 'machineVolume', 'ambientPreset', 'ambientSound', 'ambientVolume'];
+const legacy = studio.defaultEnvironment('sound');
+const normalize = environment => studio.normalize({version: 1, environments: [environment]}).environments[0];
+assert.deepEqual(normalize(legacy), legacy); OPTIONAL.forEach(key => assert(!Object.hasOwn(normalize(legacy), key), 'Legacy normalization must not add ' + key));
+for (const renderQuality of ['performance', 'balanced', 'high']) assert.equal(normalize({...legacy, renderQuality}).renderQuality, renderQuality);
+for (const key of ['shadows', 'machineSounds']) for (const value of [true, false]) assert.equal(normalize({...legacy, [key]: value})[key], value);
+for (const key of ['machineVolume', 'ambientVolume']) for (const value of [0, .12, 1]) assert.equal(normalize({...legacy, [key]: value})[key], value);
+for (const exposure of [.4, .95, 2]) assert.equal(normalize({...legacy, exposure}).exposure, exposure);
+for (const ambientPreset of ['off', 'warehouse', 'factory', 'ventilation']) assert.equal(normalize({...legacy, ambientPreset}).ambientPreset, ambientPreset);
+for (const ambientSound of ['', 'assets/sounds/warehouse.ogg', 'import-abc123', 'sounds/factory floor.wav']) assert.equal(normalize({...legacy, ambientSound}).ambientSound, ambientSound);
+for (const key of ['shadows', 'machineSounds']) for (const value of ['true', 1, null, {}, []]) assert.throws(() => normalize({...legacy, [key]: value}));
+for (const key of ['machineVolume', 'ambientVolume']) for (const value of [-.01, 1.01, NaN, Infinity, '0.5', null]) assert.throws(() => normalize({...legacy, [key]: value}));
+for (const exposure of [.399, 2.001, NaN, Infinity, '1', null]) assert.throws(() => normalize({...legacy, exposure}));
+for (const renderQuality of ['', 'ultra', 'HIGH', true, null]) assert.throws(() => normalize({...legacy, renderQuality}));
+for (const ambientPreset of ['', 'ocean', true, null]) assert.throws(() => normalize({...legacy, ambientPreset}));
+for (const ambientSound of ['https://example.test/room.ogg', 'javascript:alert(1)', 'data:audio/ogg;base64,AA', '/sounds/a.ogg', '../a.ogg', './a.ogg', 'sounds/../a.ogg', 'sounds//a.ogg', 'sounds\\a.ogg', 'a.ogg?token=test', 'a.ogg#t=1', '%2e%2e/a.ogg', 'a\u0000.ogg', 'x'.repeat(1001), null, 1, {}, []]) assert.throws(() => normalize({...legacy, ambientSound}));
+assert.throws(() => studio.normalize(JSON.parse('{"version":1,"environments":[],"__proto__":{"polluted":true}}')));
+assert.equal({}.polluted, undefined);
+const authored = {...studio.defaultEnvironment('hall'), renderQuality: 'high', shadows: true, exposure: .95, machineSounds: true, machineVolume: .25, ambientPreset: 'warehouse', ambientSound: '', ambientVolume: .12};
+const document = {format: 'hello-webxr-editor', version: 1, rooms: Object.fromEntries(studio.ROOM_IDS.map(id => [id, {overrides: [], additions: []}])), imports: [], studio: {version: 1, environments: [authored, legacy]}};
+const source = JSON.stringify(document), legacyBytes = JSON.stringify(legacy); let current = document;
+for (let index = 0; index < 3; index++) { current = validateDocument(JSON.parse(JSON.stringify(current)), value => value); assert.deepEqual(current.studio.environments[0], authored); assert.equal(JSON.stringify(current.studio.environments[1]), legacyBytes); }
+assert.equal(JSON.stringify(document), source, 'Validation leaves the input untouched.');
+OPTIONAL.forEach(key => assert(!Object.hasOwn(current.studio.environments[1], key)));
+console.log('Environment quality/audio schema: all profiles and boundaries, strict types, safe relative audio paths, prototype rejection and three server roundtrips preserving legacy environment bytes passed.');

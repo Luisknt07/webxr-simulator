@@ -68,6 +68,12 @@ export default class ProjectClient {
     this.uploads = new WeakMap();
     // Keep short hashes/references only, never base64 data.
     this.inlineAssets = new Map();
+    this.identityProvider = null;
+  }
+
+  identityHeaders() {
+    const userId = typeof this.identityProvider === 'function' ? this.identityProvider() : null;
+    return typeof userId === 'string' && userId ? {'X-Studio-User': userId} : {};
   }
 
   async responseResult(response) {
@@ -81,6 +87,7 @@ export default class ProjectClient {
       const error = new Error(typeof detail === 'string' ? detail : detail && detail.message || 'No se pudo completar la operación.');
       error.status = response.status;
       error.code = result && (result.code || detail && detail.code);
+      if ((error.code === 'session_changed' || error.status === 401) && this.onSessionChange) this.onSessionChange(error);
       throw error;
     }
     return result;
@@ -91,7 +98,7 @@ export default class ProjectClient {
     try {
       response = await fetch(this.base + path, {
         method, credentials: 'same-origin', cache: 'no-store',
-        headers: body === undefined ? {Accept: 'application/json'} : {Accept: 'application/json', 'Content-Type': 'application/json'},
+        headers: Object.assign(body === undefined ? {Accept: 'application/json'} : {Accept: 'application/json', 'Content-Type': 'application/json'}, this.identityHeaders()),
         body: body === undefined ? undefined : JSON.stringify(body)
       });
     } catch (cause) {
@@ -127,7 +134,7 @@ export default class ProjectClient {
       try {
         response = await fetch(this.base + '/assets', {
           method: 'POST', credentials: 'same-origin', cache: 'no-store',
-          headers: {Accept: 'application/json', 'Content-Type': 'application/octet-stream', 'X-Asset-Mime': mime},
+          headers: Object.assign({Accept: 'application/json', 'Content-Type': 'application/octet-stream', 'X-Asset-Mime': mime}, this.identityHeaders()),
           body: fileOrBlob
         });
       } catch (_) { throw new Error('No se pudo subir el archivo al servidor. Comprueba que npm.cmd start siga ejecutándose.'); }

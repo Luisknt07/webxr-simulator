@@ -83,7 +83,7 @@ export default class RayControl extends EventDispatcher {
   }
 
   activateState(name) {
-    if (this.states[name]) {
+    if (this.states[name] && !this.currentStates.includes(this.states[name])) {
       this.currentStates.push(this.states[name]);
       this._sort();
     }
@@ -127,7 +127,10 @@ export default class RayControl extends EventDispatcher {
 
   addController(controller, inputSource, raycasterContext) {
     const existing = this.controllers.find(data => data.controller === controller);
-    if (existing) return existing;
+    if (existing && existing.inputSource === inputSource) return existing;
+    // WebXR may reuse a target-ray Group for a replacement input source. Its
+    // old captures and gamepad must not survive a different physical hand.
+    if (existing) this.removeController(controller);
     // Each XR hand needs its own ray origin. Sharing the primary hand's Group
     // reparents it and silently prevents the other hand from selecting anything.
     const customContext = Boolean(raycasterContext);
@@ -247,7 +250,7 @@ export default class RayControl extends EventDispatcher {
   selector could be: left, right, both, primary, secondary
   */
   matchController(controllerData, selector) {
-    const handedness = controllerData.inputSource.handedness;
+    const handedness = controllerData.inputSource && controllerData.inputSource.handedness;
 
     return (
       (selector === handedness)  ||
@@ -277,6 +280,7 @@ export default class RayControl extends EventDispatcher {
         if (controllerData.desktop && state.vrOnly) {
           return;
         }
+        if (!this.matchController(controllerData, state.controller)) return;
         if (state.onSelectStart && !state.raycaster) {
           state.onSelectStart(controllerData.intersections[state.name], controller);
         }
@@ -498,6 +502,7 @@ export default class RayControl extends EventDispatcher {
       this.currentStates.forEach(state => {
         if (controllerData.captureConsumed || selected.some(entry => entry.state.consumeSelect)) return;
         if (controllerData.desktop && state.vrOnly) return;
+        if (!this.matchController(controllerData, state.controller)) return;
         if (state.onSelectEnd && !state.raycaster) {
           state.onSelectEnd(null, controllerData.controller);
         }

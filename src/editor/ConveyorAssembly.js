@@ -19,6 +19,27 @@ function changedTransform(a, b) {
   return a.position.distanceToSquared(b.position) > EPSILON * EPSILON ||
     1 - Math.abs(a.quaternion.dot(b.quaternion)) > EPSILON || a.scale.distanceToSquared(b.scale) > EPSILON * EPSILON;
 }
+function reflowPose(object) {
+  return {position: object.position.clone(), quaternion: object.quaternion.clone(), scale: object.scale.clone()};
+}
+function reflowMatrix(pose, parent) {
+  return new THREE.Matrix4().compose(pose.position, pose.quaternion, pose.scale).premultiply(parent);
+}
+function reflowMatrixEqual(a, b, tolerance = 1e-6) {
+  return a.elements.every((value, index) => Number.isFinite(value) && Math.abs(value - b.elements[index]) <= tolerance);
+}
+function reflowTopology(edges) {
+  return edges.map(edge => [id(edge.source), edge.sourcePort, edge.targetId || id(edge.target), edge.targetPort].join('|')).sort().join('\n');
+}
+function reflowAdjacency(edges) {
+  const adjacency = new Map();
+  edges.forEach(edge => [edge.source, edge.target].forEach(object => {
+    if (!object) return;
+    if (!adjacency.has(object)) adjacency.set(object, []);
+    adjacency.get(object).push(edge);
+  }));
+  return adjacency;
+}
 
 /** Authoring helpers and magnetic port connections. The editor owns the undo transaction. */
 export default class ConveyorAssembly {
@@ -104,7 +125,7 @@ export default class ConveyorAssembly {
     if (!port) return null;
     object.updateWorldMatrix(true, false);
     const matrix = new THREE.Matrix3().setFromMatrix4(object.matrixWorld);
-    const tangent = new THREE.Vector3(port.tx, 0, port.tz).applyMatrix3(matrix);
+    const tangent = new THREE.Vector3(port.tx, Number.isFinite(port.ty) ? port.ty : 0, port.tz).applyMatrix3(matrix);
     const normal = new THREE.Vector3(0, 1, 0).applyMatrix3(matrix);
     const cross = new THREE.Vector3(-port.tz, 0, port.tx).applyMatrix3(matrix);
     const localWidth = config.type === 'palletQueue' ? conveyorLayout.palletQueueLayout(config).width :
@@ -113,7 +134,8 @@ export default class ConveyorAssembly {
     const width = localWidth * cross.length();
     if (!Number.isFinite(width) || width <= EPSILON || tangent.lengthSq() < EPSILON || normal.lengthSq() < EPSILON) return null;
     return {
-      object, name, incoming: port.incoming,
+      object, name, incoming: port.incoming, surface: port.surface, loadClass: port.loadClass,
+      direction: port.direction, coordination: port.coordination || [],
       position: new THREE.Vector3(port.x, Number.isFinite(port.y) ? port.y : object.userData.editorConveyorTop || 0, port.z).applyMatrix4(object.matrixWorld),
       tangent: tangent.normalize(), up: normal.normalize(), width
     };
@@ -128,22 +150,53 @@ export default class ConveyorAssembly {
     return result;
   }
 
-  pair(moving, movingPort, fixed, fixedPort) {
-    if (moving === fixed || !this.usable(moving) || !this.usable(fixed)) return null;
-    const a = this.worldPort(moving, movingPort), b = this.worldPort(fixed, fixedPort);
+  pair(moving, movingPort, fixed, fixedPort, knownPorts) {
+    if (moving === fixed || !knownPorts && (!this.usable(moving) || !this.usable(fixed))) return null;
+    const a = knownPorts ? knownPorts.moving : this.worldPort(moving, movingPort), b = knownPorts ? knownPorts.fixed : this.worldPort(fixed, fixedPort);
     if (!a || !b || a.incoming === b.incoming) return null;
-    // Only yaw is changed by the magnet. Reject tilted/mirrored machines and
-    // mismatched conveyor openings. Queues and processors may have wider decks;
-    // simulation checks the size of each outgoing product against the receiver.
+    // Only yaw is changed by the magnet. A declared incline may have a pitched
+    // tangent, while its supports remain upright. It needs a matching tangent
+    // at the other end; proximity alone cannot invent a transition or lift.
     const bothConveyors = this.config(moving).type === 'conveyor' && this.config(fixed).type === 'conveyor';
     if (a.up.dot(UP) < 0.98 || b.up.dot(UP) < 0.98 || a.up.dot(b.up) < 0.995 ||
-      Math.abs(a.tangent.y) > 0.1 || Math.abs(b.tangent.y) > 0.1 ||
+      Math.abs(a.tangent.y - b.tangent.y) > 0.025 ||
       bothConveyors && Math.abs(a.width - b.width) > Math.max(0.08, Math.min(a.width, b.width) * 0.12)) return null;
     const yaw = new THREE.Quaternion().setFromAxisAngle(UP, Math.atan2(a.tangent.z, a.tangent.x) - Math.atan2(b.tangent.z, b.tangent.x));
     if (a.tangent.clone().applyQuaternion(yaw).dot(b.tangent) < 0.9999 || a.up.clone().applyQuaternion(yaw).dot(b.up) < 0.9999) return null;
     const incoming = a.incoming ? a : b, outgoing = a.incoming ? b : a;
+    if (this.portCompatibility(outgoing, incoming).ok === false) return null;
     return {moving, movingPort, fixed, fixedPort, source: outgoing.object, sourcePort: outgoing.name,
       target: incoming.object, targetPort: incoming.name, distance: a.position.distanceTo(b.position), movingWorld: a, fixedWorld: b};
+  }
+
+  portCompatibility(outgoing, incoming) {
+    const reasons = [];
+    if (!outgoing || !incoming || outgoing.incoming || !incoming.incoming) reasons.push({code: 'direction', message: 'Conecta una salida con una entrada.'});
+    if (outgoing && incoming) {
+      if (outgoing.object === incoming.object) reasons.push({code: 'self', message: 'Un módulo no se conecta consigo mismo. Construye el retorno con otros módulos y curvas.'});
+      const source = this.config(outgoing.object), target = this.config(incoming.object);
+      if (source && target && source.equipmentId && target.equipmentId && outgoing.loadClass && incoming.loadClass && outgoing.loadClass !== incoming.loadClass) {
+        reasons.push({code: 'load-class', message: 'Las interfaces de unidades y pallets son distintas. Usa una estación de carga o descarga compatible.'});
+      }
+      if (source && target && source.equipmentId && target.equipmentId && outgoing.width > incoming.width + Math.max(0.08, incoming.width * 0.12)) reasons.push({code: 'width', message: 'La salida es más ancha que la entrada. Configura anchos compatibles o una transferencia adecuada.'});
+      if (Math.abs(outgoing.tangent.y - incoming.tangent.y) > 0.025) reasons.push({code: 'transition', message: 'La pendiente cambia en la unión. Hace falta una transición física; el imán no la crea.'});
+    }
+    return {ok: reasons.length === 0, reasons};
+  }
+
+  /** Read-only diagnostic used by the viewer and connection inspector. A
+   * geometrically compatible pair can still wait for a free receiver at run time.
+   */
+  assessConnection(source, sourcePort, target, targetPort = 'input') {
+    const out = this.worldPort(source, sourcePort), input = this.worldPort(target, targetPort);
+    const functional = this.portCompatibility(out, input);
+    if (!out || !input) return {proximity: false, geometric: false, functional: false, reasons: functional.reasons.concat({code: 'port', message: 'El puerto no existe en esta variante.'})};
+    const gap = out.position.distanceTo(input.position), heading = out.tangent.dot(input.tangent);
+    const reasons = functional.reasons.slice();
+    if (gap > 0.08) reasons.push({code: 'gap', message: 'Los extremos no coinciden. Alinea los puertos o añade el módulo intermedio que cubra el espacio.'});
+    if (heading < 0.995) reasons.push({code: 'orientation', message: 'Las direcciones de transporte no coinciden. Para cambiar de dirección usa una curva, transferencia o desvío.'});
+    return {proximity: gap <= this.previewDistance, geometric: gap <= 0.08 && heading >= 0.995, functional: functional.ok,
+      ready: functional.ok && gap <= 0.08 && heading >= 0.995, gap, heading, reasons};
   }
 
   available(pair, edges = this.edges()) {
@@ -224,9 +277,346 @@ export default class ConveyorAssembly {
     return moving;
   }
 
-  begin(object) {
-    this.drag = this.enabled && this.usable(object) ? {object, latch: null, controlOffset: new THREE.Vector3()} : null;
+  /** Keep a width edit within the same physical family, before schema validation.
+   * This never resizes products, sources, chambers or pallet positions.
+   */
+  adaptReflowConfig(previous, next) {
+    const result = Object.assign({}, next);
+    if (!previous || previous.type !== 'conveyor' || result.type !== 'conveyor' ||
+        !Number.isFinite(result.width) || Math.abs(result.width - previous.width) <= EPSILON) return result;
+    if (result.layout === 'tee') {
+      if (result.mechanism === 'liftTransfer') {
+        const square = Math.abs(previous.length - previous.width) <= EPSILON;
+        if (square && Math.abs(result.length - previous.length) <= EPSILON) result.length = result.width;
+        result.length = Math.max(result.length, result.width);
+      } else result.length = Math.max(result.length, result.width * 2);
+    }
+    if (result.layout === 'curveLeft' || result.layout === 'curveRight') result.radius = Math.max(result.radius, result.width / 2 + 0.1);
+    return result;
+  }
+
+  /** Capture BEFORE the edit. Poses/configurations belong to this snapshot;
+   * logical object identities and ports are retained for stale-plan checks.
+   */
+  captureReflow(object) {
+    return this.withSnapshot(() => {
+      if (!this.supported(object)) return null;
+      const records = this.records(), allEdges = this.edges(records), adjacency = reflowAdjacency(allEdges), connected = new Set([object]), pending = [object];
+      if (!records.includes(object)) return null;
+      for (let index = 0; index < pending.length; index++) (adjacency.get(pending[index]) || []).forEach(edge => {
+        const other = edge.source === pending[index] ? edge.target : edge.target === pending[index] ? edge.source : null;
+        if (other && !connected.has(other)) { connected.add(other); pending.push(other); }
+      });
+      const entries = records.filter(record => connected.has(record)).map(record => {
+        record.updateWorldMatrix(true, false);
+        return {object: record, id: id(record), config: JSON.parse(JSON.stringify(this.config(record))), pose: reflowPose(record),
+          matrix: record.matrixWorld.clone(), parent: record.parent,
+          parentMatrix: record.parent ? record.parent.matrixWorld.clone() : new THREE.Matrix4()};
+      });
+      const edges = allEdges.filter(edge => connected.has(edge.source) || connected.has(edge.target));
+      return {document: this.editor.document, roomId: this.editor.roomId, object, entries, edges, topology: reflowTopology(edges)};
+    });
+  }
+
+  _reflowPort(entry, name, matrix) {
+    const config = entry.config, port = this.ports(config)[name];
+    if (!port) return null;
+    const linear = new THREE.Matrix3().setFromMatrix4(matrix), tangent = new THREE.Vector3(port.tx, port.ty || 0, port.tz).applyMatrix3(linear);
+    const up = UP.clone().applyMatrix3(linear), across = new THREE.Vector3(-port.tz, 0, port.tx).applyMatrix3(linear);
+    const width = config.type === 'conveyor' ? config.width : config.type === 'source' ? conveyorLayout.sourceLayout(config).width :
+      config.type === 'processor' ? conveyorLayout.processorLayout(config).width : conveyorLayout.palletQueueLayout(config).width;
+    if (!Number.isFinite(matrix.determinant()) || matrix.determinant() <= EPSILON || tangent.lengthSq() < EPSILON || up.lengthSq() < EPSILON || !Number.isFinite(width * across.length())) return null;
+    return {object: entry.object, name, incoming: port.incoming, loadClass: port.loadClass, surface: port.surface,
+      position: new THREE.Vector3(port.x, Number.isFinite(port.y) ? port.y : entry.object.userData.editorConveyorTop || 0, port.z).applyMatrix4(matrix),
+      tangent: tangent.normalize(), up: up.normalize(), width: width * across.length()};
+  }
+
+  _reflowAligned(entry, movingPort, fixed) {
+    const current = this._reflowPort(entry, movingPort, entry.matrix);
+    if (!current || !fixed) throw new Error('La variante ya no tiene el puerto conectado.');
+    if (current.up.dot(UP) < .98 || fixed.up.dot(UP) < .98 || current.up.dot(fixed.up) < .995 ||
+        Math.abs(current.tangent.y - fixed.tangent.y) > .025) throw new Error('La conexión necesita una transición de altura o pendiente compatible.');
+    const angle = Math.atan2(current.tangent.z, current.tangent.x) - Math.atan2(fixed.tangent.z, fixed.tangent.x);
+    const matrix = entry.matrix.clone().premultiply(new THREE.Matrix4().makeRotationY(angle));
+    const rotated = this._reflowPort(entry, movingPort, matrix), displacement = fixed.position.clone().sub(rotated.position);
+    matrix.elements[12] += displacement.x; matrix.elements[13] += displacement.y; matrix.elements[14] += displacement.z;
+    const local = matrix.clone().premultiply(new THREE.Matrix4().getInverse(entry.parentMatrix));
+    const pose = {position: new THREE.Vector3(), quaternion: new THREE.Quaternion(), scale: new THREE.Vector3()};
+    local.decompose(pose.position, pose.quaternion, pose.scale);
+    if (!reflowMatrixEqual(local, new THREE.Matrix4().compose(pose.position, pose.quaternion, pose.scale), 1e-5) ||
+        pose.scale.distanceTo(entry.pose.scale) > 1e-6 * Math.max(1, entry.pose.scale.length())) {
+      throw new Error('La escala del grupo no permite reacomodar este equipo sin deformarlo.');
+    }
+    // Solving a connection changes position/yaw only. Retain exact authored scale.
+    pose.scale.copy(entry.pose.scale);
+    const actual = this._reflowPort(entry, movingPort, reflowMatrix(pose, entry.parentMatrix));
+    if (!actual || actual.position.distanceTo(fixed.position) > .0001 || actual.tangent.dot(fixed.tangent) < .9999 || actual.up.dot(fixed.up) < .9999) {
+      throw new Error('No se pudieron hacer coincidir los puertos sin deformar el equipo.');
+    }
+    return pose;
+  }
+
+  /** Pure constraint plan, called AFTER the edit inside its undo transaction.
+   * Pass normalizeBehaviors when automatic conveyor-width propagation is needed.
+   * The editor cancels that transaction on {ok:false}; this never detaches links.
+   */
+  planReflow(snapshot, options = {}) {
+    const failed = (code, message, edge) => ({ok: false, changes: [], behaviorChanges: [], conflicts: [{code, message,
+      sourceId: edge && id(edge.source), targetId: edge && (edge.targetId || id(edge.target))}], message});
+    const document = this.editor.document, mode = options.mode === 'transform' ? 'transform' : 'geometry';
+    if (!snapshot || snapshot.document !== document || snapshot.roomId !== this.editor.roomId) return failed('stale', 'El nivel cambió; vuelve a editar el equipo.');
+    const byObject = new Map(), members = new Set(snapshot.entries.map(entry => entry.object));
+    const currentRecords = this.records(), currentEdges = this.edges(currentRecords).filter(edge => members.has(edge.source) || members.has(edge.target));
+    if (reflowTopology(currentEdges) !== snapshot.topology) return failed('topology', 'Las conexiones cambiaron durante la edición; vuelve a intentarlo.');
+    for (const previous of snapshot.entries) {
+      const object = previous.object;
+      if (!currentRecords.includes(object) || object.parent !== previous.parent) return failed('stale', 'Cambió un equipo o su grupo durante la edición.');
+      object.updateWorldMatrix(true, false);
+      const parentMatrix = object.parent ? object.parent.matrixWorld.clone() : new THREE.Matrix4();
+      if (!reflowMatrixEqual(parentMatrix, previous.parentMatrix) || Math.abs(parentMatrix.determinant()) <= EPSILON) return failed('parent', 'El grupo de los equipos cambió o tiene una escala no válida.');
+      const behaviors = document.getBehaviors(object), config = behaviors.find(value => ['conveyor', 'source', 'processor', 'palletQueue'].includes(value.type));
+      if (!config || config.type !== previous.config.type) return failed('variant', 'El equipo conectado cambió de tipo; revisa sus puertos.');
+      // A gizmo may ask for many previews using the same pointer-down capture.
+      // Solve neighbors from that baseline, not from the previous preview's
+      // generated widths/poses. Only the explicitly edited machine is live.
+      const baseline = object === snapshot.object ? reflowPose(object) : previous.pose;
+      byObject.set(object, {object, id: id(object), config: Object.assign({}, object === snapshot.object ? config : previous.config), behaviors, pose: baseline,
+        matrix: reflowMatrix(baseline, parentMatrix), parentMatrix, previous,
+        expectedConfig: JSON.stringify(behaviors), expectedPose: reflowPose(object)});
+    }
+    const edited = byObject.get(snapshot.object);
+    if (!edited) return failed('stale', 'No se encontró el equipo editado.');
+    const behaviorChanges = [], adjacency = reflowAdjacency(snapshot.edges);
+    if (options.widthPolicy !== 'reject' && edited.config.type === 'conveyor') {
+      const changedWidth = Object.keys(this.ports(edited.config)).some(name => {
+        const before = this._reflowPort(edited.previous, name, edited.previous.matrix), after = this._reflowPort(edited, name, edited.matrix);
+        return before && after && Math.abs(before.width - after.width) > 1e-6;
+      });
+      if (changedWidth || options.forceWidthFit === true) {
+        // Width is an interface constraint. An anisotropically scaled corner
+        // can have a 1 m inlet and a 2 m lateral outlet; one global line width
+        // would either deform it or adapt the wrong neighboring branch.
+        const widths = new Map([[edited.object, edited.config.width]]), pendingWidths = [edited.object];
+        for (let index = 0; index < pendingWidths.length; index++) {
+          const fixed = byObject.get(pendingWidths[index]);
+          for (const edge of adjacency.get(fixed.object) || []) {
+            const outgoing = edge.source === fixed.object;
+            if (!outgoing && edge.target !== fixed.object) continue;
+            const other = byObject.get(outgoing ? edge.target : edge.source);
+            if (!other || other.config.type !== 'conveyor') continue;
+            const fixedPort = this._reflowPort(fixed, outgoing ? edge.sourcePort : edge.targetPort, fixed.matrix);
+            const otherPort = this._reflowPort(other, outgoing ? edge.targetPort : edge.sourcePort, other.matrix);
+            if (!fixedPort || !otherPort || otherPort.width <= EPSILON) return failed('port', 'El equipo tiene un puerto o una escala no válida.', edge);
+            const width = fixedPort.width * other.config.width / otherPort.width;
+            if (widths.has(other.object)) {
+              if (Math.abs(width - widths.get(other.object)) > 1e-5 * Math.max(1, width)) return failed('width-cycle',
+                'El circuito exige anchos distintos en la misma banda. Usa una transición o desconecta una de las ramas.', edge);
+              continue;
+            }
+            other.config = this.adaptReflowConfig(other.config, Object.assign({}, other.config, {width}));
+            widths.set(other.object, width); pendingWidths.push(other.object);
+          }
+        }
+      }
+    }
+    // Include reversions of a previous drag preview, even when the pointer has
+    // returned exactly to its baseline width and there is no new width change.
+    for (const entry of byObject.values()) {
+      const behaviors = entry.behaviors.map(value => value.type === entry.config.type ? entry.config : value);
+      if (JSON.stringify(behaviors) === entry.expectedConfig) continue;
+      if (typeof options.normalizeBehaviors !== 'function') return failed('validation', 'La adaptación de dimensiones necesita el validador de equipos.');
+      try {
+        entry.behaviors = options.normalizeBehaviors(behaviors);
+        entry.config = entry.behaviors.find(value => value.type === entry.config.type);
+        behaviorChanges.push({object: entry.object, id: entry.id, behaviors: entry.behaviors});
+      } catch (error) { return failed('width', 'No se pueden adaptar las dimensiones de ' + (entry.object.name || entry.id) + ': ' + error.message); }
+    }
+    const occupied = new Set();
+    for (const edge of snapshot.edges) {
+      if (!edge.target || !byObject.has(edge.source) || !byObject.has(edge.target)) return failed('missing', 'Una conexión apunta a un equipo que no está disponible en este nivel.', edge);
+      const key = id(edge.target) + ':' + edge.targetPort;
+      if (occupied.has(key)) return failed('occupied', 'Dos salidas usan la misma entrada; separa esas conexiones antes de editar.', edge);
+      occupied.add(key);
+      const out = this._reflowPort(byObject.get(edge.source), edge.sourcePort, byObject.get(edge.source).matrix);
+      const input = this._reflowPort(byObject.get(edge.target), edge.targetPort, byObject.get(edge.target).matrix);
+      if (!out || !input || out.incoming || !input.incoming) return failed('port', 'La variante ya no tiene los puertos de la conexión.', edge);
+      const compatibility = this.portCompatibility(out, input);
+      const bothConveyors = byObject.get(edge.source).config.type === 'conveyor' && byObject.get(edge.target).config.type === 'conveyor';
+      if (!compatibility.ok || bothConveyors && Math.abs(out.width - input.width) > Math.max(.08, Math.min(out.width, input.width) * .12)) {
+        return failed('compatibility', compatibility.reasons[0] && compatibility.reasons[0].message || 'Los transportadores necesitan anchos compatibles o una transición física.', edge);
+      }
+    }
+    const predecessors = snapshot.edges.filter(edge => edge.target === snapshot.object).sort((a, b) =>
+      (a.targetPort === 'input' ? 0 : 1) - (b.targetPort === 'input' ? 0 : 1) || id(a.source).localeCompare(id(b.source)));
+    const anchor = mode === 'geometry' && predecessors.length ? byObject.get(predecessors[0].source) : edited;
+    const poses = new Map([[anchor.object, anchor.pose]]), pending = [anchor.object];
+    if (mode === 'geometry' && !predecessors.length) {
+      const oldInput = this._reflowPort(edited.previous, 'input', edited.previous.matrix);
+      try { poses.set(edited.object, this._reflowAligned(edited, 'input', oldInput)); }
+      catch (error) { return failed('anchor', error.message); }
+    }
+    for (let index = 0; index < pending.length; index++) {
+      const fixedObject = pending[index], fixedEntry = byObject.get(fixedObject), fixedMatrix = reflowMatrix(poses.get(fixedObject), fixedEntry.parentMatrix);
+      for (const edge of adjacency.get(fixedObject) || []) {
+        const outgoing = edge.source === fixedObject;
+        if (!outgoing && edge.target !== fixedObject) continue;
+        const moving = outgoing ? edge.target : edge.source, movingEntry = byObject.get(moving);
+        const fixedPort = this._reflowPort(fixedEntry, outgoing ? edge.sourcePort : edge.targetPort, fixedMatrix);
+        const movingPort = outgoing ? edge.targetPort : edge.sourcePort;
+        if (poses.has(moving)) {
+          const actual = this._reflowPort(movingEntry, movingPort, reflowMatrix(poses.get(moving), movingEntry.parentMatrix));
+          if (!actual || actual.position.distanceTo(fixedPort.position) > .001 || actual.tangent.dot(fixedPort.tangent) < .9999 || actual.up.dot(fixedPort.up) < .9999) {
+            return failed('cycle', 'El circuito cerrado no puede conservar todas sus uniones con esas dimensiones. Ajusta otro tramo o desconecta el retorno.', edge);
+          }
+          continue;
+        }
+        try { poses.set(moving, this._reflowAligned(movingEntry, movingPort, fixedPort)); pending.push(moving); }
+        catch (error) { return failed('pose', error.message, edge); }
+      }
+    }
+    const changes = [];
+    const changedSupport = edited.config.type === 'conveyor' && Math.abs(edited.config.supportHeight - edited.previous.config.supportHeight) > EPSILON;
+    if (changedSupport) for (const entry of byObject.values()) {
+      if (entry.config.type !== 'conveyor') continue;
+      const beforeFoot = new THREE.Vector3(0, -(entry.previous.config.supportHeight || 1), 0).applyMatrix4(entry.previous.matrix);
+      const afterFoot = new THREE.Vector3(0, -(entry.config.supportHeight || 1), 0)
+        .applyMatrix4(reflowMatrix(poses.get(entry.object), entry.parentMatrix));
+      if (Math.abs(afterFoot.y - beforeFoot.y) > .01) return failed('support-height',
+        'La nueva altura deja apoyos bajo el piso o suspendidos. Ajusta la altura del conjunto o incorpora una plataforma antes de cambiar los apoyos.');
+    }
+    byObject.forEach(entry => {
+      const pose = poses.get(entry.object);
+      if (pose && changedTransform(entry.expectedPose, pose)) changes.push({object: entry.object, id: entry.id,
+        position: pose.position.toArray(), quaternion: pose.quaternion.toArray(), scale: pose.scale.toArray()});
+    });
+    return {ok: true, document, roomId: snapshot.roomId, anchorId: anchor.id, mode, changes, behaviorChanges, conflicts: [], message: '',
+      entries: Array.from(byObject.values()), topology: snapshot.topology, edges: snapshot.edges};
+  }
+
+  /** Apply synchronously inside the caller's one undo transaction. Validation
+   * precedes every write; a caller catching an error must cancel that transaction.
+   */
+  applyReflow(plan) {
+    const document = this.editor.document;
+    if (!document.transaction) throw new Error('El reacomodo necesita una transacción de edición abierta.');
+    if (!plan || !plan.ok) throw new Error(plan && plan.message || 'No hay un reacomodo válido.');
+    if (plan.document !== document || plan.roomId !== this.editor.roomId) throw new Error('El nivel cambió antes de aplicar el reacomodo.');
+    const members = new Set(plan.entries.map(entry => entry.object)), records = this.records();
+    if (reflowTopology(this.edges(records).filter(edge => members.has(edge.source) || members.has(edge.target))) !== plan.topology) throw new Error('Las conexiones cambiaron antes de aplicar el reacomodo.');
+    plan.entries.forEach(entry => {
+      entry.object.updateWorldMatrix(true, false);
+      const parent = entry.object.parent ? entry.object.parent.matrixWorld : new THREE.Matrix4();
+      if (!records.includes(entry.object) || entry.object.parent !== entry.previous.parent || !reflowMatrixEqual(parent, entry.parentMatrix) ||
+          changedTransform(reflowPose(entry.object), entry.expectedPose) || JSON.stringify(document.getBehaviors(entry.object)) !== entry.expectedConfig) {
+        throw new Error('Un equipo cambió antes de aplicar el reacomodo; vuelve a intentarlo.');
+      }
+    });
+    plan.behaviorChanges.forEach(change => document.setBehaviors(change.object, change.behaviors));
+    plan.changes.forEach(change => document.setTransform(change.object, {position: change.position, quaternion: change.quaternion}));
+    // Clear transient read caches; no generic alignment or magnet is triggered.
+    if (this.configCache) this.configCache.clear(); this.recordCache = null;
+    plan.edges.forEach(edge => {
+      const out = this.worldPort(edge.source, edge.sourcePort), input = this.worldPort(edge.target, edge.targetPort);
+      if (!out || !input || out.position.distanceTo(input.position) > .001 || out.tangent.dot(input.tangent) < .9999) throw new Error('No se pudo conservar una conexión al aplicar el reacomodo.');
+    });
+    return plan.changes.length + plan.behaviorChanges.length;
+  }
+
+  begin(object, options = {}) {
+    this.drag = this.enabled && this.usable(object) ? {object, latch: null, controlOffset: new THREE.Vector3(), detach: options.detach === true, initialPosition: object.position.clone()} : null;
+    if (this.drag && options.component) {
+      const snapshot = this.captureReflow(object), members = new Set(snapshot.entries.map(entry => entry.object)), ids = new Set(snapshot.entries.map(entry => entry.id)), followers = new Set();
+      const objects = this.editor.document.getObjects(this.editor.roomId);
+      const machineIds = new Set(this.records().map(id)), panelOwners = new Map(), roomRoot = this.editor.document.getRoot(this.editor.roomId);
+      objects.forEach(candidate => {
+        if (members.has(candidate) || candidate.userData.editorRuntimeHelper) return;
+        if (!this.editor.document.getBehaviors(candidate).some(config => ['control', 'lineMonitor', 'sensor'].includes(config.type) && ids.has(config.targetId))) return;
+        const editablePanel = node => node.userData.editorPrefabKey === 'plc' && id(node) && this.editor.document.getObject(id(node)) === node;
+        let panel = editablePanel(candidate) ? candidate : null;
+        for (let parent = candidate.parent; parent && parent !== roomRoot; parent = parent.parent) {
+          if (this.supported(parent) && !members.has(parent)) return;
+          if (editablePanel(parent)) panel = parent;
+        }
+        if (!panel) { followers.add(candidate); return; }
+        if (!panelOwners.has(panel)) {
+          let shared = false;
+          panel.traverse(node => this.editor.document.getBehaviors(node).forEach(config => {
+            if (config.type === 'control' && machineIds.has(config.targetId) && !ids.has(config.targetId)) shared = true;
+          }));
+          panelOwners.set(panel, !shared);
+        }
+        // A freestanding PLC follows as one cabinet, never as detached buttons.
+        // A cabinet shared with another network has no single moving owner.
+        if (panelOwners.get(panel)) followers.add(panel);
+      });
+      // Explicit line groups also own their plinths, platforms and signs. A
+      // group containing another network must never pull that network along.
+      (this.editor.document.studio && this.editor.document.studio.groups || []).forEach(group => {
+        if (group.roomId !== this.editor.roomId) return;
+        const grouped = (group.members || []).map(value => this.editor.document.getObject(value)).filter(Boolean), machines = grouped.filter(candidate => this.supported(candidate));
+        if (machines.length !== members.size || !machines.every(candidate => members.has(candidate))) return;
+        grouped.forEach(candidate => { if (!candidate.userData.editorRuntimeHelper) followers.add(candidate); });
+      });
+      followers.forEach(candidate => { for (const member of members) for (let parent = member.parent; parent; parent = parent.parent) if (parent === candidate) { followers.delete(candidate); break; } });
+      const all = new Set([...members, ...followers]);
+      const roots = [...all].filter(candidate => { for (let parent = candidate.parent; parent; parent = parent.parent) if (all.has(parent)) return false; return true; });
+      const entries = roots.map(candidate => { candidate.updateWorldMatrix(true, false); return {object: candidate, matrix: candidate.matrixWorld.clone(), scale: candidate.scale.clone(), parent: candidate.parent, parentMatrix: candidate.parent ? candidate.parent.matrixWorld.clone() : new THREE.Matrix4()}; });
+      Object.assign(this.drag, {component: true, members, entries, primary: entries.find(entry => entry.object === object), startQuaternion: object.quaternion.clone()});
+    }
     this.refresh(object);
+  }
+
+  applyComponentDelta(drag, delta) {
+    const changes = drag.entries.map(entry => {
+      if (entry.object.parent !== entry.parent) throw new Error('El grupo del equipo cambió durante el arrastre.');
+      const parent = entry.parent ? entry.parent.matrixWorld : new THREE.Matrix4();
+      if (!reflowMatrixEqual(parent, entry.parentMatrix)) throw new Error('El grupo del equipo cambió durante el arrastre.');
+      const matrix = entry.matrix.clone().premultiply(delta).premultiply(new THREE.Matrix4().getInverse(parent));
+      const position = new THREE.Vector3(), quaternion = new THREE.Quaternion(), scale = new THREE.Vector3(); matrix.decompose(position, quaternion, scale);
+      const represented = new THREE.Matrix4().compose(position, quaternion, entry.scale);
+      if (!reflowMatrixEqual(matrix, represented, 1e-5)) throw new Error('La escala del grupo no permite mover la línea sin deformarla.');
+      return {entry, position, quaternion};
+    });
+    changes.forEach(({entry, position, quaternion}) => this.editor.document.setTransform(entry.object, {position: position.toArray(), quaternion: quaternion.toArray()}));
+    changes.forEach(({entry}) => entry.object.updateWorldMatrix(true, true));
+  }
+
+  closestComponent(drag) {
+    let closest = null; const edges = this.edges(), nearby = [];
+    const ports = object => Object.keys(this.ports(object)).map(name => this.worldPort(object, name)).filter(Boolean);
+    const fixed = this.records().filter(object => !drag.members.has(object) && this.usable(object)).flatMap(ports);
+    // World poses are immutable throughout this query. Compute each opening
+    // once and reject distant pairs before their compatibility checks.
+    [...drag.members].filter(object => this.usable(object)).flatMap(ports).forEach(a => fixed.forEach(b => {
+      if (a.incoming === b.incoming || a.position.distanceToSquared(b.position) > this.previewDistance * this.previewDistance) return;
+      const pair = this.pair(a.object, a.name, b.object, b.name, {moving: a, fixed: b});
+      if (!pair || !this.available(pair, edges) || this.suppressed(pair)) return;
+      nearby.push(pair); if (!closest || pair.distance < closest.distance) closest = pair;
+    })); drag.nearbyPairs = nearby; return closest;
+  }
+
+  updateComponent(drag) {
+    const object = drag.object; object.updateWorldMatrix(true, false);
+    // TransformControls supplies a fresh translation from pointer-down. Always
+    // derive the entire component from that same baseline, avoiding drag drift.
+    const raw = new THREE.Matrix4().compose(object.position, drag.startQuaternion, drag.primary.scale).premultiply(drag.primary.parentMatrix);
+    let delta = raw.multiply(new THREE.Matrix4().getInverse(drag.primary.matrix));
+    this.applyComponentDelta(drag, delta);
+    this.edges().forEach(edge => {
+      if (!edge.target || drag.members.has(edge.source) === drag.members.has(edge.target)) return;
+      const moving = drag.members.has(edge.source) ? edge.source : edge.target, pair = this.incidentPair(edge, moving);
+      if (!pair || pair.distance > this.releaseDistance || pair.movingWorld.tangent.dot(pair.fixedWorld.tangent) < .85) this.removeEdge(edge);
+    });
+    let latch = drag.latch && this.pair(drag.latch.moving, drag.latch.movingPort, drag.latch.fixed, drag.latch.fixedPort);
+    if (latch && (!this.available(latch) || latch.distance > this.releaseDistance)) latch = null;
+    const candidate = latch || this.closestComponent(drag);
+    if (candidate && (latch || candidate.distance <= this.snapDistance)) {
+      const before = candidate.moving.matrixWorld.clone();
+      this.align(candidate.fixed, candidate.fixedPort, candidate.moving, candidate.movingPort);
+      const correction = candidate.moving.matrixWorld.clone().multiply(new THREE.Matrix4().getInverse(before));
+      delta = correction.multiply(delta); this.applyComponentDelta(drag, delta); this.connect(candidate); drag.latch = candidate;
+    } else drag.latch = null;
+    this.refresh(object); return true;
   }
 
   pairKey(pair) { return [id(pair.source), pair.sourcePort, id(pair.target), pair.targetPort].join('|'); }
@@ -272,6 +662,8 @@ export default class ConveyorAssembly {
     if (!this.drag || this.drag.object !== object) this.begin(object);
     let changed = false;
     const drag = this.drag;
+    if (drag.component) return this.updateComponent(drag);
+    if (drag.detach && !drag.detached && object.position.distanceToSquared(drag.initialPosition) > EPSILON * EPSILON) { this.disconnect(object); drag.detached = true; }
     // The gizmo's positionStart is private in Three r112. Keep its original
     // pointer translation, compensating only for rotations around a port that
     // moved the machine's pivot during a previous magnetic alignment.
@@ -324,6 +716,7 @@ export default class ConveyorAssembly {
   }
 
   closest(object) {
+    if (this.drag && this.drag.component) return this.closestComponent(this.drag);
     if (!this.usable(object)) return null;
     const ports = this.ports(object), edges = this.edges();
     let closest = null;
@@ -393,19 +786,20 @@ export default class ConveyorAssembly {
     this.helperGroup.matrix.copy(new THREE.Matrix4().getInverse(parent.matrixWorld));
     this.markers.forEach(marker => { marker.group.visible = false; });
     this.line.visible = false;
-    const edges = this.edges(), ports = this.ports(object);
+    const edges = this.edges(), ports = this.ports(object), moving = this.drag && this.drag.component ? [...this.drag.members] : [object], movingSet = new Set(moving);
     const occupied = (machine, name) => edges.some(edge => edge.source === machine && edge.sourcePort === name || edge.targetId === id(machine) && edge.targetPort === name);
-    Object.keys(ports).forEach(name => { const port = this.worldPort(object, name); if (port) this.marker(port, occupied(object, name)); });
+    moving.forEach(machine => Object.keys(this.ports(machine)).forEach(name => { const port = this.worldPort(machine, name); if (port) this.marker(port, occupied(machine, name)); }));
     const candidate = this.closest(object);
     this.candidate = candidate;
     // Show every nearby compatible opening, not only the single closest pair.
-    this.records().forEach(fixed => {
-      if (fixed === object || !this.usable(fixed)) return;
+    if (this.drag && this.drag.component) (this.drag.nearbyPairs || []).forEach(pair => this.marker(pair.fixedWorld, occupied(pair.fixed, pair.fixedPort)));
+    else this.records().forEach(fixed => {
+      if (movingSet.has(fixed) || !this.usable(fixed)) return;
       Object.keys(this.ports(fixed)).forEach(fixedPort => {
-        const nearby = Object.keys(ports).some(movingPort => {
-          const pair = this.pair(object, movingPort, fixed, fixedPort);
+        const nearby = moving.some(machine => Object.keys(this.ports(machine)).some(movingPort => {
+          const pair = this.pair(machine, movingPort, fixed, fixedPort);
           return pair && pair.distance <= this.previewDistance && this.available(pair, edges) && !this.suppressed(pair);
-        });
+        }));
         if (nearby) this.marker(this.worldPort(fixed, fixedPort), occupied(fixed, fixedPort));
       });
     });
@@ -417,9 +811,25 @@ export default class ConveyorAssembly {
     }
     this.helperGroup.traverse(node => { Object.assign(node.userData, {editorHelper: true, editorRuntimeHelper: true}); node.raycast = NO_RAYCAST; node.renderOrder = 50; });
     this.helperGroup.updateMatrixWorld(true);
-    if (this.drag && this.drag.latch || candidate && candidate.distance < 0.015 && occupied(object, candidate.movingPort)) this.message('Ensamblado · Aleja el equipo para separarlo.');
+    if (this.drag && this.drag.component) this.message('Mover línea · ' + moving.length + ' equipos vinculados · Ctrl + arrastrar separa solo el módulo.' + (this.drag.latch ? ' Conexión ensamblada.' : candidate ? ' Puerto compatible en amarillo.' : ''));
+    else if (this.drag && this.drag.detach) this.message('Separar módulo · los demás equipos permanecen en su lugar.');
+    else if (this.drag && this.drag.latch || candidate && candidate.distance < 0.015 && occupied(object, candidate.movingPort)) this.message('Ensamblado · Ctrl + arrastrar permite separar solo este módulo.');
     else if (candidate) this.message('Puerto compatible en amarillo · Acerca el equipo para ensamblar.');
-    else this.message('Puertos amarillos: entrada y salida · Arrastra cerca de otro equipo.');
+    else {
+      let rejection = null;
+      this.records().forEach(fixed => {
+        if (fixed === object || !this.usable(fixed)) return;
+        Object.keys(this.ports(fixed)).forEach(fixedName => Object.keys(ports).forEach(movingName => {
+          const a = this.worldPort(object, movingName), b = this.worldPort(fixed, fixedName);
+          if (!a || !b || a.incoming === b.incoming) return;
+          const distance = a.position.distanceTo(b.position);
+          if (distance > this.previewDistance || rejection && rejection.distance <= distance) return;
+          const result = this.portCompatibility(a.incoming ? b : a, a.incoming ? a : b);
+          if (!result.ok) rejection = {distance, reason: result.reasons[0].message};
+        }));
+      });
+      this.message(rejection ? rejection.reason : 'Puertos amarillos: entrada y salida · Arrastra cerca de otro equipo.');
+    }
   }
 
   clear() {

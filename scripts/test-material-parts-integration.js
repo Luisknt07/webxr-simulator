@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const THREE = require('three');
+const {authoredHex} = require('./material-test-colors');
 const materialSchema = require('../shared/materials.js');
 const {ProjectStore} = require('../server/storage.js');
 const harnessText = fs.readFileSync(path.join(__dirname, 'test-industrial-xr.js'), 'utf8');
@@ -36,8 +37,8 @@ async function run() {
     overrides: [{preset: 'aluminum', slot: 'part:Motor eléctrico', color: '#d6dce3', roughness: .24}]};
   apply(f.document, f.head, configuration);
   await surface.sync('hall');
-  frame.forEach(mesh => mats(mesh).forEach(material => assert.equal(material.color.getHexString(), '204c8d')));
-  motor.forEach(mesh => mats(mesh).forEach(material => { assert.equal(material.color.getHexString(), 'd6dce3'); assert.equal(material.roughness, .24); }));
+  frame.forEach(mesh => mats(mesh).forEach(material => assert.equal(authoredHex(material.color), '204c8d')));
+  motor.forEach(mesh => mats(mesh).forEach(material => { assert.equal(authoredHex(material.color), 'd6dce3'); assert.equal(material.roughness, .24); }));
   assert.equal(roller.material, rollerMaterial); assert.equal(mats(roller)[0].map, rollerMap, 'Frame and motor finishes cannot recolour or replace rolling surfaces.');
   assert.equal(green.cap.material, originalCap, 'Bulk machine finishes never change functional button caps.');
 
@@ -45,13 +46,13 @@ async function run() {
   assert(capSlot, 'Selecting a control offers its cap as an explicit independent material target.');
   apply(f.document, green.object, {preset: 'plastic', slot: capSlot.value, color: '#b7549d', roughness: .45});
   surface.invalidate(); await surface.sync('hall');
-  assert.equal(green.cap.material.color.getHexString(), 'b7549d'); assert.equal(otherGreen.cap.material, otherCap);
+  assert.equal(authoredHex(green.cap.material.color), 'b7549d'); assert.equal(otherGreen.cap.material, otherCap);
   const authored = copy(await f.document.serialize());
   f.runtime.start('hall');
   h.advance(f);
   h.press(f, 'powerOn', f.left); h.press(f, 'start', f.right);
   assert.equal(h.vars(f).running, true);
-  assert.equal(green.cap.material.color.getHexString(), 'b7549d', 'A custom cap colour survives its live state, glow and press animation.');
+  assert.equal(authoredHex(green.cap.material.color), 'b7549d', 'A custom cap colour survives its live state, glow and press animation.');
   h.press(f, 'pause', f.left); assert.equal(h.vars(f).paused, true);
   assert(f.pulses.some(value => value.handedness === 'left') && f.pulses.some(value => value.handedness === 'right'));
   f.visuals.dispose(); f.runtime.stop(); surface.dispose();

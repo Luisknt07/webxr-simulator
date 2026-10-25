@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const {ProjectStore} = require('./storage');
 const {ApiError} = require('./validation');
 const {MAX_TELEMETRY_BYTES} = require('./telemetry');
+const {StudioService} = require('./studio-service');
 
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
 
@@ -119,12 +120,13 @@ function streamAsset(req, res, asset) {
 function createApiHandler(options = {}) {
   const store = options.store || new ProjectStore(options);
   const maximum = options.maxBodyBytes || MAX_BODY_BYTES;
+  const studio = new StudioService({store, json, readBody, verifyWrite});
   const handler = async (req, res, next) => {
     let pathname;
     try { pathname = new URL(req.originalUrl || req.url, 'http://local.invalid').pathname; }
     catch (_) { json(res, 400, {error: 'Ruta inválida.', code: 'invalid_request'}, req.method); return; }
     const full = pathname === '/api' || pathname.startsWith('/api/');
-    const stripped = /^\/(?:health|projects|assets)(?:\/|$)/.test(pathname);
+    const stripped = /^\/(?:health|projects|assets|studio)(?:\/|$)/.test(pathname);
     if (!full && !stripped) {
       if (next) next();
       else json(res, 404, {error: 'Ruta no encontrada.', code: 'not_found'}, req.method);
@@ -135,6 +137,8 @@ function createApiHandler(options = {}) {
     try {
       const assetUpload = parts[0] === 'assets' && parts.length === 1 && req.method === 'POST';
       if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) verifyWrite(req, assetUpload);
+      if (await studio.handle(req, res, pathname)) return;
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) studio.requireEditor(req);
       if (parts.length === 1 && parts[0] === 'health' && ['GET', 'HEAD'].includes(req.method)) {
         json(res, 200, {storage: 'sqlite', version: 1,
           limits: {maxAssetBytes: store.maxAssetBytes, maxProjectBytes: maximum}, capabilities: {assetUpload: true}}, req.method);
@@ -173,6 +177,7 @@ function createApiHandler(options = {}) {
     }
   };
   handler.store = store;
+  handler.studio = studio;
   handler.close = () => store.close();
   return handler;
 }

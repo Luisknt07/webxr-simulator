@@ -15,8 +15,11 @@ export class ControllersSystem extends System {
 
     for (let i = 0; i < removed.length; i++) {
       const entity = removed[i];
-      const reactor = entity.getComponent(AreaReactor);
-      reactor.onExiting(entity);
+      // Disconnect removes the checker entity before ECS processes its query.
+      // ECSY retains removed components until cleanup, so retrieve that reactor
+      // explicitly and let its captured controller restore native visuals.
+      const reactor = entity.getComponent(AreaReactor, true);
+      if (reactor && reactor.onExiting) reactor.onExiting(entity);
     }
   }
 }

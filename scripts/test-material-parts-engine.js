@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const THREE = require('three');
+const {authoredHex} = require('./material-test-colors');
 const schema = require('../shared/materials.js');
 const behaviorSchema = require('../shared/behaviors.js');
 const {ProjectStore} = require('../server/storage.js');
@@ -70,7 +71,7 @@ async function engine() {
   setConfig(f.owner, schema.fromAssignments([config({slot: 'part:Carcasa', color: '#cc2200', colorMapMode: 'none', preset: 'paintedMetal'}),
     config({slot: 'mesh:0.1:0', color: '#0022cc', colorMapMode: 'none', preset: 'rubber'})]));
   await f.system.sync('hall');
-  assert.equal(f.a.material.color.getHexString(), 'cc2200'); assert.equal(f.b.material.color.getHexString(), '0022cc');
+  assert.equal(authoredHex(f.a.material.color), 'cc2200'); assert.equal(authoredHex(f.b.material.color), '0022cc');
   assert.notStrictEqual(f.a.material, f.b.material, 'Two parts that share a factory material still receive separate finishes.');
   assert.strictEqual(f.a.geometry, geometry, 'Material editing does not duplicate or simplify geometry.');
   assert.strictEqual(f.untouched.material, f.original); assert.strictEqual(f.cap.material, f.original);
@@ -84,7 +85,7 @@ async function engine() {
   const before = Object.assign({}, f.system.stats); for (let tick = 0; tick < 30; tick++) await f.system.sync('hall');
   assert.deepEqual(f.system.stats, before); assert.strictEqual(f.a.material, aFinish);
   setConfig(f.owner, schema.fromAssignments([config({slot: 'mesh:0.1:0', color: '#0022cc', colorMapMode: 'none', preset: 'rubber'})]));
-  f.system.invalidate(); await f.system.sync('hall'); assert.strictEqual(f.a.material, f.original); assert.equal(f.b.material.color.getHexString(), '0022cc');
+  f.system.invalidate(); await f.system.sync('hall'); assert.strictEqual(f.a.material, f.original); assert.equal(authoredHex(f.b.material.color), '0022cc');
   assert.equal(aDisposed.count, 1); assert.equal(bDisposed.count, 1);
   // One multi-material mesh can inherit two different owners without losing
   // parent fallback, authored array identity, or independent disposal.
@@ -92,33 +93,50 @@ async function engine() {
   setConfig(f.child, {color: '#00aaff', slot: 'mesh:0:1', colorMapMode: 'none'});
   setConfig(f.control, {color: '#ff00cc', slot: 'mesh:1:0', colorMapMode: 'none'});
   f.system.invalidate(); await f.system.sync('hall');
-  assert.equal(f.multi.material[0].color.getHexString(), 'aa2200'); assert.equal(f.multi.material[1].color.getHexString(), '00aaff');
-  assert.equal(f.cap.material.color.getHexString(), 'ff00cc'); assert.equal(f.bezel.material.color.getHexString(), 'aa2200');
+  assert.equal(authoredHex(f.multi.material[0].color), 'aa2200'); assert.equal(authoredHex(f.multi.material[1].color), '00aaff');
+  assert.equal(authoredHex(f.cap.material.color), 'ff00cc'); assert.equal(authoredHex(f.bezel.material.color), 'aa2200');
   setConfig(f.child, {slot: 'mesh:9:0', color: '#00aaff'}); f.system.invalidate(); await f.system.sync('hall');
-  assert.equal(f.multi.material[1].color.getHexString(), 'aa2200', 'A nonmatching child assignment falls through to the nearest matching parent.');
+  assert.equal(authoredHex(f.multi.material[1].color), 'aa2200', 'A nonmatching child assignment falls through to the nearest matching parent.');
   const duplicate = f.owner.clone(true); duplicate.userData = clone(f.owner.userData); f.root.add(duplicate); f.objects.push(duplicate);
   duplicate.traverse(node => { if (node !== duplicate) node.userData = Object.assign({}, node.userData, {editorBehaviors: []}); });
   // A document copy is authored from source surfaces, never derived resources.
   const copyA = duplicate.children[0].children[0]; copyA.material = f.original;
   duplicate.traverse(node => { if (node.material && !node.userData.industrialButton) node.material = Array.isArray(node.material) ? node.material.map(() => f.original) : f.original; });
   f.system.invalidate(); await f.system.sync('hall');
-  assert.notStrictEqual(copyA.material, f.a.material); assert.equal(copyA.material.color.getHexString(), 'aa2200');
+  assert.notStrictEqual(copyA.material, f.a.material); assert.equal(authoredHex(copyA.material.color), 'aa2200');
   setConfig(duplicate, {slot: 'all', color: '#112233', colorMapMode: 'none'}); f.system.invalidate(); await f.system.sync('hall');
-  assert.equal(copyA.material.color.getHexString(), '112233'); assert.equal(f.a.material.color.getHexString(), 'aa2200');
+  assert.equal(authoredHex(copyA.material.color), '112233'); assert.equal(authoredHex(f.a.material.color), 'aa2200');
   f.system.dispose(); f.originals.forEach((material, node) => assert.strictEqual(node.material, material));
   assert.equal(sourceDisposed.count, 0); assert.equal(sourceMapDisposed.count, 0);
-  // A plain untextured color still supports wear without secretly reintroducing
-  // a procedural color map, on both Three's WebGL1 and WebXR shader paths.
+  // Solid colour suppresses albedo while steel's physical property maps keep
+  // their authored UV scale and supply Three's native wear coordinates.
   const plain = mesh('Metal sin mapas', new THREE.MeshStandardMaterial()); f.owner.add(plain);
   setConfig(f.owner, {slot: 'part:Metal sin mapas', preset: 'steel', colorMapMode: 'none', wear: 0.8, repeatX: 2, repeatY: 3});
   setConfig(f.child, null); setConfig(f.control, null); setConfig(duplicate, null); f.system.invalidate(); await f.system.sync('hall');
   assert.equal(plain.material.map, null);
   const shader = {uniforms: {}, vertexShader: THREE.ShaderLib.physical.vertexShader, fragmentShader: THREE.ShaderLib.physical.fragmentShader};
   plain.material.onBeforeCompile(shader, {});
-  assert(shader.vertexShader.includes('varying vec2 surfaceWearUv;') && shader.fragmentShader.includes('varying vec2 surfaceWearUv;'));
-  assert(shader.vertexShader.includes('uv * vec2(2.00000000, 3.00000000)'));
-  assert(shader.fragmentShader.includes('texture2D(surfaceWearMap, surfaceWearUv * surfaceWearScale)'));
-  assert.equal(shader.uniforms.surfaceWearStrength.value, 0.8); f.system.dispose();
+  assert(plain.material.roughnessMap.isDataTexture && plain.material.bumpMap.isDataTexture);
+  assert.deepEqual(plain.material.roughnessMap.repeat.toArray(), [2, 3]);
+  assert(shader.fragmentShader.includes('texture2D(surfaceWearMap, vUv * surfaceWearScale)'));
+  assert.equal(shader.uniforms.surfaceWearStrength.value, 0.8);
+  // A custom colour with no physical maps needs independent wear UVs. Repeat
+  // values remain per-material uniforms, allowing the GPU to reuse one shader
+  // program for differently scaled surfaces without borrowing another's scale.
+  const compileUnmapped = async (repeatX, repeatY) => {
+    setConfig(f.owner, {slot: 'part:Metal sin mapas', preset: 'custom', colorMapMode: 'none', wear: .8, repeatX, repeatY});
+    f.system.invalidate(); await f.system.sync('hall');
+    assert.equal(plain.material.map, null); assert.equal(plain.material.roughnessMap, null); assert.equal(plain.material.bumpMap, null);
+    const result = {uniforms: {}, vertexShader: THREE.ShaderLib.physical.vertexShader, fragmentShader: THREE.ShaderLib.physical.fragmentShader};
+    plain.material.onBeforeCompile(result, {}); return result;
+  };
+  const unmapped = await compileUnmapped(2, 3), differentlyScaled = await compileUnmapped(7, 11);
+  assert(unmapped.vertexShader.includes('varying vec2 surfaceWearUv;') && unmapped.fragmentShader.includes('varying vec2 surfaceWearUv;'));
+  assert(unmapped.fragmentShader.includes('texture2D(surfaceWearMap, surfaceWearUv * surfaceWearScale)'));
+  assert.deepEqual(unmapped.uniforms.surfaceWearRepeat.value.toArray(), [2, 3]);
+  assert.deepEqual(differentlyScaled.uniforms.surfaceWearRepeat.value.toArray(), [7, 11]);
+  assert.equal(differentlyScaled.vertexShader, unmapped.vertexShader); assert.equal(differentlyScaled.fragmentShader, unmapped.fragmentShader);
+  f.system.dispose();
 }
 async function asyncAssignments() {
   const pending = [], notices = [], library = {getEntry: asset => ({id: asset, kind: 'image'}), instantiate: descriptor => new Promise((resolve, reject) => pending.push({descriptor, resolve, reject}))};
@@ -136,7 +154,7 @@ async function asyncAssignments() {
   f.system.invalidate(); await f.system.sync('hall'); assert.equal(pending.length, 0, 'Solid color mode never decodes a suppressed color image.');
   const cancelled = old.map(() => imageResource()); old.forEach((request, index) => request.resolve(cancelled[index].object)); await stale;
   cancelled.forEach(record => record.disposal.forEach(state => assert.equal(state.count, 1)));
-  assert.equal(f.a.material.color.getHexString(), '112233'); assert.equal(f.b.material.color.getHexString(), 'abcdef');
+  assert.equal(authoredHex(f.a.material.color), '112233'); assert.equal(authoredHex(f.b.material.color), 'abcdef');
   assert.equal(f.a.material.map, null); assert.equal(f.b.material.map, null); resource.disposal.forEach(state => assert.equal(state.count, 1));
   f.system.dispose(); assert.equal(notices.length, 0);
 }

@@ -28,7 +28,10 @@ function assertTop(root, point, expected = 0) {
 
 assert.deepStrictEqual(conveyorPresets.map(item => item.id), layout.presetVariants);
 assert.equal(industrialPrefabs.length, 10 + conveyorPresets.length);
-conveyorPresets.forEach(preset => {
+// These are the preserved legacy recipes. Versioned catalogue equipment has
+// its own mechanism, admission and physical-model validation in the equipment
+// catalogue tests, rather than inheriting the old start/middle power shortcut.
+conveyorPresets.filter(preset => !preset.config.equipmentId).forEach(preset => {
   const root = createIndustrialPrefab('conveyor', preset.id);
   const config = configOf(root);
   assert.equal(root.userData.editorPrefabVariant, preset.id);
@@ -86,7 +89,7 @@ assert.throws(() => createIndustrialPrefab('conveyor', 'unknown'), /compatible/)
   assert.equal(branchPallet, undefined, 'No T topology may append an automatic side pallet.');
   const sample = junctionMode === 'split' ? layout.pathLength(config, 'branch') - 0.1 : 0.1;
   const point = layout.pathPoint(config, sample, 'branch');
-  assertTop(root, point, surface === 'belt' ? -0.0005 : 0);
+  assertTop(root, point, 0); // The trimmed branch now meets the main deck at one level.
   assert.equal(root.children[7].visible, false);
   assert.equal(ports.branch.incoming, junctionMode === 'merge');
 }));

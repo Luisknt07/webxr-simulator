@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import {hsv2rgb} from '../lib/ColorUtils.js';
 
 export default class ColorWheel {
-  constructor(ctx, controller, onColorChanged) {
+  constructor(ctx, controller, onColorChanged, stateName = 'colorwheel') {
     this.ctx = ctx;
+    this.stateName = stateName;
     this.radius = 0.1;
     this.hsv = { h: 0.0, s: 0.0, v: 1.0 };
     this.rgb = {r: 0, g: 0, b: 0};
@@ -73,7 +74,7 @@ export default class ColorWheel {
 
     controller.add(this.ui);
 
-    ctx.raycontrol.addState('colorwheel', {
+    ctx.raycontrol.addState(this.stateName, {
       colliderMesh: this.ui,
       order: -1,
       onHover: (intersection, active, controller) => {
@@ -123,10 +124,20 @@ export default class ColorWheel {
   }
 
   enter() {
-    this.ctx.raycontrol.activateState('colorwheel');
+    this.ctx.raycontrol.activateState(this.stateName);
   }
 
   exit() {
-    this.ctx.raycontrol.deactivateState('colorwheel');
+    this.ctx.raycontrol.deactivateState(this.stateName);
+  }
+
+  dispose() {
+    this.exit();
+    delete this.ctx.raycontrol.states[this.stateName];
+    if (this.ui.parent) this.ui.parent.remove(this.ui);
+    this.ui.traverse(object => {
+      if (object.geometry) object.geometry.dispose();
+      if (object.material) object.material.dispose();
+    });
   }
 }

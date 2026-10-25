@@ -37,12 +37,13 @@ function count(root) {
 }
 
 async function run() {
-  // Exact pre-customization budgets, rather than a looser new geometry budget.
-  // Naming/editability must not unbatch bolts or add any render geometry.
+  // Complete-model measurements before changing any material. These include
+  // tapered radial shafts, clipped branch surfaces and their bearing seats.
+  // Material customization itself must not add geometry or unbatch fittings.
   const budgets = {
     conveyor: [123, 14792], source: [31, 1806], processor: [63, 4012],
     palletQueue: [20, 1546], product: [5, 86], sensor: [8, 288], plc: [44, 2456],
-    'belt-start': [97, 7872], 'roller-curve-left': [95, 10028], 'belt-tee-split': [99, 10040]
+    'belt-start': [96, 7744], 'roller-curve-left': [94, 9004], 'belt-tee-split': [98, 9812]
   };
   Object.entries(budgets).forEach(([kind, [meshes, triangles]]) => {
     const conveyorVariant = kind.includes('-');

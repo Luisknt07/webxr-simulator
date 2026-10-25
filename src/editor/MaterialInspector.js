@@ -21,7 +21,7 @@ function select(options, value) {
 
 /** Author-facing PBR settings and editable, actor-owned brush layers. */
 export default class MaterialInspector {
-  constructor(editor) { this.editor = editor; this.clipboard = null; this.selectedLayer = null; this.targets = new WeakMap(); }
+  constructor(editor) { this.editor = editor; this.clipboard = null; this.selectedLayer = null; this.targets = new WeakMap(); this.groups = new WeakMap(); }
 
   behavior(object) { return this.editor.document.getBehaviors(object).find(item => item.type === 'surfaceMaterial'); }
 
@@ -30,14 +30,29 @@ export default class MaterialInspector {
     return behavior ? materialSchema.assignments(behavior) : [];
   }
 
-  target(object, slots = this.editor.materials.getSlots(object)) {
+  target(object, slots = this.editor.materials.getSlots(object), available = slots) {
     const selected = this.targets.get(object);
     if (selected && slots.some(slot => slot.value === selected)) return selected;
     const current = this.assignments(object)[0];
-    const fallback = current && slots.find(slot => slot.value === current.slot) ||
-      slots.find(slot => slot.value.startsWith('mesh:')) || slots.find(slot => slot.value.startsWith('part:')) || slots[0];
+    const fallback = current && available.find(slot => slot.value === current.slot) ||
+      available.find(slot => slot.value.startsWith('mesh:')) || available.find(slot => slot.value.startsWith('part:')) || available[0] || slots[0];
     const value = fallback ? fallback.value : current ? current.slot : 'all';
     this.targets.set(object, value); return value;
+  }
+
+  resetTarget(object, visualOnly = false) {
+    this.targets.delete(object);
+    const visual = visualOnly && this.editor.document.visuals && this.editor.document.visuals.get(object.userData.editorId);
+    if (!visual) return;
+    const slot = this.editor.materials.getSlots(object).find(slot => {
+      if (!slot.value.startsWith('mesh:')) return false;
+      const path = slot.value.slice(5, slot.value.lastIndexOf(':'));
+      let mesh = object;
+      if (path !== 'root') path.split('.').forEach(index => { mesh = mesh && mesh.children[Number(index)]; });
+      for (let node = mesh; node && node !== object; node = node.parent) if (node === visual.content) return true;
+      return false;
+    });
+    if (slot) this.targets.set(object, slot.value);
   }
 
   selected(object, slot = this.target(object)) { return this.assignments(object).find(item => item.slot === slot); }
@@ -90,30 +105,43 @@ export default class MaterialInspector {
     return input;
   }
 
-  details(parent, label, open = false) {
-    const group = node('details', undefined, 'ed-material-details'); group.open = open;
+  details(parent, label, open = false, object, key = label) {
+    const group = node('details', undefined, 'ed-material-details');
+    const state = object && this.groups.get(object);
+    group.open = state && state.has(key) ? state.get(key) : open;
+    if (object) group.addEventListener('toggle', () => {
+      if (!this.groups.has(object)) this.groups.set(object, new Map());
+      this.groups.get(object).set(key, group.open);
+    });
     group.appendChild(node('summary', label)); parent.appendChild(group); return group;
   }
 
-  render(object) {
+  render(object, parent) {
     const editor = this.editor;
     const behavior = this.behavior(object);
     const slots = editor.materials.getSlots(object);
     if (!slots.length && !behavior) {
+      if (parent) parent.appendChild(node('p', 'Este elemento no tiene superficies editables. Selecciona una malla del modelo o reemplaza su modelo visual; las pantallas y efectos nativos conservan su material funcional.', 'ed-hint'));
       if (editor.document.getBehaviors(object).some(item => item.type === 'surfaceWear')) this.renderWear(object);
       return;
     }
-    const section = editor.section('MATERIAL · SUPERFICIE');
+    const section = parent || editor.section('MATERIAL · SUPERFICIE');
+    if (parent) section.appendChild(node('h4', 'Material de cada pieza'));
     const assignments = this.assignments(object), options = slots.map(slot => ({value: slot.value, label: slot.label}));
     assignments.forEach(item => { if (!options.some(option => option.value === item.slot)) options.push({value: item.slot, label: item.slot + ' · destino guardado'}); });
-    const slot = this.target(object, options), current = this.selected(object, slot);
+    const supports = slot => slots.some(item => item.value === slot) || !!(editor.materials.getSlotDefaults && editor.materials.getSlotDefaults(object, slot));
+    const slot = this.target(object, options, options.filter(item => supports(item.value))), current = this.selected(object, slot);
     this.input(section, {key: 'target', label: 'Parte o material a editar', options}, slot, (key, value) => {
       this.targets.set(object, value); editor.renderInspector();
     });
+    const available = supports(slot);
+    const missing = assignments.filter(item => !supports(item.slot));
+    if (missing.length) section.appendChild(node('p', missing.length + ' acabado(s) guardado(s) no encuentran su pieza en este modelo. Puedes copiarlos a una superficie nueva o restaurarlos; recuperar el modelo original conserva sus destinos.', 'ed-native-info'));
     section.appendChild(node('p', 'Selecciona una parte antes de cambiar su acabado. Cada parte conserva su material; pantallas, indicadores y botones mantienen su función.', 'ed-hint'));
     section.appendChild(node('p', 'Para cambiar un pulsador, selecciónalo en la jerarquía y elige su superficie exacta. Su efecto al presionarlo se conserva.', 'ed-hint'));
     if (slot === 'all') section.appendChild(node('p', 'Este destino aplica el acabado a todas las superficies compatibles. Elige una parte para personalizarla por separado.', 'ed-hint'));
     const choice = select([{value: '__original', label: 'Material original de esta parte'}].concat(materialSchema.presets.map(preset => ({value: preset.id, label: preset.label}))), current ? current.preset : '__original');
+    choice.disabled = !available;
     choice.setAttribute('aria-label', 'Acabado del material');
     editor.field(section, 'Acabado', choice).addEventListener('change', () => {
       if (choice.value === '__original') this.update(object, null, slot);
@@ -129,22 +157,23 @@ export default class MaterialInspector {
       key === 'colorMapMode' && value === 'none' ? {texture: ''} : {}), slot);
     if (behavior) this.input(section, {key: 'enabled', label: 'Mostrar materiales personalizados', input: 'checkbox'}, behavior.enabled, (key, value) => editor.perform(() => editor.document.setBehaviors(object,
       editor.document.getBehaviors(object).map(item => item.type === 'surfaceMaterial' ? Object.assign({}, item, {enabled: value}) : item))));
-    if (current) {
+    {
       const groups = {
-        base: this.details(section, 'Color y acabado', true),
-        maps: this.details(section, 'Texturas y relieve'),
-        wear: this.details(section, 'Desgaste general')
+        base: this.details(section, 'Color y acabado', true, object),
+        maps: this.details(section, 'Texturas y relieve', false, object),
+        wear: this.details(section, 'Desgaste general', false, object)
       };
       materialSchema.fields.filter(field => !['preset', 'slot'].includes(field.key)).forEach(field => {
         const group = ['wear', 'wearType', 'wearScale', 'seed'].includes(field.key) ? groups.wear : ['colorMapMode', 'texture', 'normalMap', 'roughnessMap', 'metalnessMap', 'repeatX', 'repeatY'].includes(field.key) ? groups.maps : groups.base;
-        this.input(group, field, current[field.key], update);
+        this.input(group, field, values[field.key], update).disabled = !available;
       });
       groups.maps.appendChild(node('p', 'Conservar textura combina el color con la imagen del modelo. Color sólido elimina solo la imagen de color y mantiene los mapas de relieve, rugosidad y metalizado. Importa mapas propios en Archivos del proyecto.', 'ed-hint'));
-      if (current.preset === 'glass') groups.base.appendChild(node('p', 'Vidrio con transparencia y reflejos del entorno disponible en la escena.', 'ed-hint'));
-    } else this.input(section, {key: 'color', label: 'Color base', input: 'color'}, values.color, update);
+      if (editor.assetInput) action(groups.maps, 'Importar texturas propias', () => editor.assetInput.click());
+      if (values.preset === 'glass') groups.base.appendChild(node('p', 'Vidrio con transparencia y reflejos del entorno disponible en la escena.', 'ed-hint'));
+    }
     const actions = node('div', undefined, 'ed-material-actions'); section.appendChild(actions);
     action(actions, 'Copiar material', () => { this.clipboard = JSON.parse(JSON.stringify(current)); delete this.clipboard.slot; editor.toast('Material copiado. Elige la parte de destino y pulsa Pegar material.'); editor.renderInspector(); }, !current);
-    action(actions, 'Pegar material', () => this.update(object, this.clipboard, slot), !this.clipboard);
+    action(actions, 'Pegar material', () => this.update(object, this.clipboard, slot), !this.clipboard || !available);
     action(actions, 'Restaurar esta parte', () => this.update(object, null, slot), !current);
     if (assignments.length) {
       const assigned = this.details(section, 'Materiales asignados · ' + assignments.length, true);

@@ -1,37 +1,37 @@
 export default [
   {
-    title: '360 Panoramas',
-    description: 'Photographs wrapped around spheres provide an environment, but without stereo effect nor depth.',
+    title: 'Panoramas 360',
+    description: 'Selecciona una esfera para explorar un entorno panorámico. Estas fotografías no tienen profundidad estereoscópica.',
     offsety: 0.04
   },
   {
-    title: 'Xylophone Toy',
-    description: 'Example of object grabbing and simple interaction.',
+    title: 'Xilófono interactivo',
+    description: 'Agarra las baquetas para tocar. En escritorio, usa el botón derecho; en VR, el mando.',
     offsety: 0.04
   },
   {
-    title: '360 Stereo Panorama',
-    description: 'By using one photo for each eye, panoramas can have some depth and stereo effect.',
+    title: 'Panorama estéreo 360',
+    description: 'Una fotografía para cada ojo permite apreciar profundidad al explorar este panorama con un visor.',
     offsety: 0.03
   },
   {
-    title: 'Photogrammetry Room',
-    description: 'Example of an object created out of photographs using an automated software.',
+    title: 'Sala de fotogrametría',
+    description: 'Explora un objeto 3D reconstruido a partir de fotografías.',
     offsety: 0.04
   },
   {
-    title: 'Twitter Feed',
-    description: 'Bringing external realtime data to an XR environment.',
+    title: 'Pantalla de información',
+    description: 'Panel de contenido del escenario. Sus datos dependen de la fuente configurada.',
     offsety: 0.02
   },
   {
-    title: 'Vertigo Room',
-    description: 'An example of how this new medium can play with your perception and senses.',
+    title: 'Sala de vértigo',
+    description: 'Una experiencia para explorar la percepción de altura y espacio en realidad virtual.',
     offsety: 0.04
   },
   {
-    title: 'Hello WebXR!',
-    description: 'A small compendium of interactions and little experiences introducing and celebrating the final specification of the WebXR API.\n \nMade by the Mozilla Mixed Reality team\nmixedreality.mozilla.org',
+    title: 'HELLO / STUDIO',
+    description: 'Explora escenarios e interactúa con sus objetos. Desde el menú puedes abrir el editor, crear equipos y configurar simulaciones.\n\nExperiencia original de Mozilla Mixed Reality.',
     offsety: 0.06
   },
   {
@@ -56,23 +56,23 @@ export default [
     offsety: 0.04
   },
   {
-    title: 'Sound Room',
-    description: 'Showcase of positional audio, very useful on XR experiences.\nTry to find where the sounds come from!.',
+    title: 'Sala de sonido',
+    description: 'Explora el audio espacial y encuentra de dónde proviene cada sonido.',
     offsety: 0.04
   },
   {
-    title: 'Graffiti Wall',
-    description: 'Get close and spray the wall!.\nLet\'s collaborate on a full masterpiece.',
+    title: 'Muro para pintar',
+    description: 'Acércate y apunta al muro para pintar. Mantén pulsado el botón de interacción.',
     offsety: 0.04
   },
   {
-    title: 'Paintings',
-    description: 'Real-scale paintings that can be inspected very closely using the controller.',
+    title: 'Galería de pinturas',
+    description: 'Acércate para observar los cuadros a escala real e interactuar con ellos.',
     offsety: 0.04
   },
   {
-    title: 'WELCOME!',
-    description: 'Aim your controller and press the trigger to teleport around and interact with objects.\n\nWe currently have 3 rooms and 5 experiences to explore. Try them all!',
+    title: '¡BIENVENIDO!',
+    description: 'Apunta con el mando y pulsa el gatillo para teletransportarte o interactuar.\n\nEn escritorio, usa WASD y el puntero central. Abre Controles si necesitas ayuda.',
     offsety: 0.06
   }
 ];

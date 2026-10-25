@@ -1,0 +1,159 @@
+# HELLO / STUDIO
+
+## Empezar
+
+Ejecuta `npm.cmd start` con Node.js 24 o posterior. Abre `https://localhost:8080` para explorar y `https://localhost:8080/editor` para editar. No se necesita un servicio adicional de base de datos.
+
+La experiencia muestra la identidad de Studio, la cuenta, la disponibilidad de VR y el menú. Mi espacio permanece cerrado al explorar. Controles abre ayuda en español. Los textos informativos originales tienen valores predeterminados en español; los textos personalizados guardados no se reemplazan.
+
+La primera cuenta registrada administra este servidor y puede crear proyectos. Las cuentas siguientes exploran y participan; la propietaria autoriza el editor desde **Menú → Permisos de cuentas**. Hasta registrar la primera cuenta se conserva el acceso local de edición anterior. Las contraseñas tienen un mínimo de doce caracteres; no hay recuperación por correo configurada. El perfil guarda un avatar 3D paramétrico separado de la imagen de perfil.
+
+## Editor
+
+La organización corresponde a Biblioteca por pestañas: menús y herramientas arriba, jerarquía izquierda, escena central, inspector derecho y recursos abajo. El panel derecho ocupa toda la altura útil y ofrece **Objeto / Recurso**. Seleccionar una tarjeta abre su ficha en Recurso, con previsualización ampliada y acciones Añadir/Explorar siempre visibles; seleccionar un objeto abre su configuración. Se conserva un único visor de recursos y se libera al ocultarlo. Arrastra los separadores o utiliza sus flechas del teclado para redimensionar. Ventana permite plegar paneles y restaurar la distribución.
+
+El inspector empieza con **Transformación** abierta (posición, rotación y escala), seguida de **Configuración del equipo**: dimensiones, operación, alimentación y clasificación. Apariencia y funciones avanzadas se agrupan en secciones plegables. La ficha de Biblioteca permite revisar la variante antes de añadirla; la selección de variante se conserva al actualizar las tarjetas de una familia. La órbita, el desplazamiento y el zoom del ratón tienen menor sensibilidad y amortiguación.
+
+En el modo cliente, **Controles → Vuelo** activa el movimiento de dron en escritorio: WASD para desplazarse, Q para subir, E para bajar y Ctrl para acelerar. El ratón orienta la vista con movimiento suavizado. El modo conserva las colisiones del edificio y no cambia los controles de los mandos VR.
+
+- **Biblioteca** contiene recursos incluidos. Transportadores se organiza por familia; tecnología, dimensiones, sensores y panel se configuran en las propiedades existentes. Cada tarjeta muestra Funcional, Solo visual o En desarrollo. Los recursos pendientes no se pueden insertar.
+- **Proyecto** muestra por defecto **Escena actual**: sólo los archivos, widgets y misiones usados en el nivel abierto. **Todo el proyecto** permite elegir importaciones todavía sin colocar y plantillas guardadas; al importar se abre esta vista para mostrar los archivos nuevos. Escenarios conserva todos los niveles para navegar. Las carpetas, nombres y traslados son referencias lógicas; los archivos conservan su ubicación e identificadores. Eliminar consulta usos, incluso en salas sin cargar, materiales y plantillas.
+- **Favoritos** conserva referencias, sin copiar archivos. Cada pestaña mantiene búsqueda, filtros, selección, carpetas y desplazamiento por proyecto.
+
+Arrastra un recurso al escenario o selecciona su tarjeta y pulsa Añadir. Las instancias conservan su configuración independientemente del recurso original. Selecciona varias con Shift + clic, agrupa desde Editar y transforma el conjunto. Guardar como plantilla conserva objetos, configuraciones, referencias internas y recursos vinculados. Copiar, pegar, deshacer, materiales por pieza, desgaste y decals siguen disponibles.
+
+Añadir contiene objetos básicos, luces puntuales, cámaras, decals, widgets, multimedia, cajas, aparición y zonas de interacción. Las luces tienen color, intensidad y alcance. Las cámaras tienen FOV, vista previa y Usar vista. La vista previa utiliza el mismo renderizador, 320 × 180 píxeles y como máximo ocho actualizaciones por segundo; se libera al cerrar o entrar en VR.
+
+Escenario permite crear, duplicar, renombrar y elegir el inicial. **Escenario → Ver niveles del proyecto** muestra todas las salas incluidas y personalizadas aunque el proyecto sea anterior a Studio o tuviera filtros guardados. El selector sobre la vista 3D permite cambiar de nivel y conserva sus nombres al guardar y reabrir. **Nuevo escenario** abre un formulario dentro del editor para escribir el nombre; Crear nivel activa una sala libre y encuadra su piso. Los diez identificadores de sala originales se conservan y los niveles con cambios no se sobrescriben. Al alcanzar diez salas, crea otro proyecto. Un punto de aparición configura la ubicación inicial; una zona de interacción permite activar un mensaje mediante el puntero o mando.
+
+Los niveles nuevos incluyen un cielo diurno configurable, iluminación principal y de relleno, suelo con colisión y teletransporte, cámara y punto de aparición. **Escenario → Configurar entorno** permite guardar el tipo de cielo, sus colores y la iluminación por nivel. Cambiar de sala restaura su entorno propio; las salas originales conservan su presentación. Los niveles personalizados creados con la versión anterior que sólo tenían un piso y todos los objetos nativos ocultos recuperan el cielo diurno al abrirse.
+
+## Equipos y conexiones
+
+Escenario → Conectar equipos abre selección de salida y entrada, evaluación, previsualización, confirmación o cancelación. Utiliza los puertos y el ensamble magnético existentes, con validación de ocupación, sentido, ancho y pose. El flujo verifica el tamaño de la carga, recepción, reservas y saturación. Arrastrar normalmente traslada la línea conectada y sus monitores y soportes vinculados. Mantén **Ctrl antes de iniciar el arrastre** para separar únicamente el módulo seleccionado; también está disponible Desconectar seleccionado. Escape cancela el gesto y deshacer recupera posiciones y enlaces juntos.
+
+Al editar largo, ancho, radio o escala de una máquina conectada, el editor realinea sus vecinos, incluidas las ramas en L, T e Y. Conserva el predecesor principal como referencia y ajusta el resto por sus puertos. El ancho se adapta entre transportadores; productos, catálogos, capacidades y escalas de los otros equipos se conservan. Las transferencias compactas siguen siendo cuadradas y las curvas/uniones respetan sus dimensiones mínimas. Todo el cambio se deshace o rehace como una sola acción.
+
+**Sincronizar línea**, en el inspector de conexiones, repara uniones desalineadas sin reconstruir los equipos. Abrir un proyecto no cambia automáticamente sus posiciones guardadas. Si un circuito no puede cerrar o un cambio de altura dejaría los apoyos fuera de su piso, se cancela la edición completa con una explicación. Escalar una sola máquina con el gizmo adapta su ensamble; una multiselección explícita conserva la transformación del grupo. Los campos numéricos editan el objeto mostrado en el inspector y sus vecinos conectados.
+
+La biblioteca incluye 25 variantes funcionales en ocho familias: rectos, curvos, inclinados, transferencias, uniones y desvíos, acumuladores, elevadores y carga/descarga. Una L puede usar una curva o una transferencia elevable a 90°; una T requiere un mecanismo de desvío y una Y utiliza una unión angular coordinada. Hay correas/cadenas elevables y mesas giratorias, además de Source, FIFO, procesador, combiner, separator y almacén de estibas. Consulta la [guía de transportadores](conveyor-library.md) para configurarlas y explorar once líneas de ejemplo. Las pendientes pueden utilizar el perfil suave con interfaces horizontales para enlazarse con equipos planos; la simulación utiliza esa misma superficie y conserva el impulso al entrar a rodillos libres. Las estaciones robotizadas no se presentan como equipos funcionales.
+
+Los valores de los equipos incluidos son didácticos. No representan capacidades certificadas, límites de carga ni prestaciones de una marca comercial.
+
+### Laboratorio de configuraciones
+
+**Escenario → Crear nivel de ejemplos industriales** construye un nivel nuevo con nueve zonas: L rectangular con transferencia elevable a 90°, inspección y clasificación A/B, unión en Y con acumulación, elevador con entrepiso accesible, transporte de pallets con transferencia y giro, Combiner/Separator, circuito de retorno, preparación por gravedad y L curva. El primer ejemplo tiene dos rectas perpendiculares y una transferencia; no utiliza un transportador curvo. Cada zona conserva equipos, conexiones, acabados por pieza, desgaste y parámetros editables; se puede guardar como plantilla mediante su grupo.
+
+Las dos L rectangulares, del laboratorio y del CEDI de packing, usan una transferencia cuadrada de 1 × 1 m: su longitud coincide con el ancho de la recta perpendicular. Así la esquina termina en el contorno de la L, sin un brazo recto ciego. Las transferencias elevables permiten una longitud igual al ancho; las uniones en T conservan su longitud mínima de dos veces el ancho.
+
+Pulsa **Probar** para ejecutar las nueve líneas automáticamente. Los ejemplos nuevos tienen alimentación continua y almacenes de cuatro posiciones que despachan estibas completas para liberar capacidad. Los FIFO retienen las cargas cuando el siguiente equipo no tiene espacio. El circuito tiene entrada por unión lateral y salida por distribuidor, y la gravedad recibe el impulso de un alimentador motorizado. Puedes pausar la línea y retirar o depositar productos manualmente. Los rótulos explican cada proceso; el suelo utiliza pintura mate y cruces sin planos coplanares superpuestos. Las recetas finitas siguen disponibles como fixtures de pruebas; abrir un proyecto anterior no modifica su configuración.
+
+El circuito continuo envía el 90 % de las decisiones hacia la salida y recircula el 10 % por el retorno. Su Source despacha como mínimo cada seis segundos para dejar una ventana de entrada a las cargas que regresan a la Y. Así se utilizan todos los tramos sin sobrealimentar el anillo. Las estaciones que esperan operario o confirmación manual contabilizan ocio mientras permanecen inmóviles; recepción y operación efectiva cuentan trabajo útil.
+
+Cada ejemplo tiene **un PLC para toda su línea** y un monitor 2D a su lado. Marcha, parada, pausa, alimentación y emergencia afectan Source, FIFO, transportadores, procesadores y almacenes conectados, sin afectar otras líneas. Rearmar o encender requiere pulsar Marcha después. Los rodillos libres permanecen retenidos después de una parada de emergencia hasta la orden explícita de marcha; no adquieren un motor oculto. Los paneles locales pueden ocultarse mediante **Panel de control local**, sin perder sus parámetros ni conexiones.
+
+En el monitor, **Resumen** combina el plano vivo, indicadores y tendencia de producción. El plano muestra contorno, ancho, mecanismos y cargas a escala; **Enfocar equipo / Ver línea** cambia el zoom. Pulsar una carga muestra dimensiones, SKU, unidades y calidad simulada. **CONTROL** reúne marcha, parada, pausa, energía, emergencia, rearme y velocidad, con colores y texto diferenciados; los mandos dejan libre el espacio del plano y las gráficas. **ALCANCE: LÍNEA / MÓDULO** determina si actúan sobre la red o el seleccionado. **EQUIPO** ofrece una vista isométrica del modelo real con etiquetas de partes, giro de vista y fichas de información, contenidos, partes y funcionamiento. **VARIABLES** y **EVENTOS** muestran datos paginados. Los botones virtuales funcionan con puntero de escritorio y gatillo de cualquiera de los mandos VR; respetan alcance y obstáculos. Los monitores dibujan a cuatro actualizaciones por segundo y suspenden su dibujo fuera de cámara. Las vistas de equipo usan una caché limitada de canvas, sin otro renderizador ni clones de geometría GPU. La simulación conserva los flujos y contadores.
+
+**ANALÍTICA** contiene indicadores, tendencias y control I‑MR. Los tiempos de trabajo útil, ocio, preparación, bloqueo, parada y pausa se contabilizan con el reloj de la simulación; su suma equivale al tiempo observado. En procesadores paralelos se ponderan por puesto. Para una línea se muestran tiempos medios por equipo. Utilización útil mide trabajo con cargas respecto al tiempo observado: una banda girando vacía suma marcha y ocio, sin simular 100 % de utilización. Ocupación de inventario, disponibilidad y trabajo útil son indicadores distintos. La capacidad nominal usa los ciclos conocidos, excluye setup y transferencias y no se presenta como OEE.
+
+Los contadores distinguen cargas y unidades: un pallet con cuatro cajas constituye una carga y cuatro unidades. Las gráficas de ingreso/producción utilizan unidades por minuto con ventana móvil de diez segundos y límites externos del alcance; no cuentan de nuevo las transferencias internas. Se conservan hasta 600 muestras por máquina a 1 Hz, con un límite global de 60.000 puntos. Los límites I‑MR de las últimas 120 muestras se habilitan tras veinte observaciones y usan el [método de individuos y rango móvil de NIST](https://www.itl.nist.gov/div898/handbook/pmc/section3/pmc322.htm). Son límites descriptivos recalculados sobre las tasas observadas, no tolerancias de fabricación ni alarmas de seguridad. Los arranques y la dependencia de la tasa móvil influyen en esa lectura.
+
+Las sesiones guardadas conservan la ventana histórica completa. Durante una sesión multiusuario, las publicaciones periódicas envían las dos muestras más recientes y el receptor las fusiona sin duplicados; así no se retransmite todo el historial en cada actualización. Quien entra tarde empieza con las muestras recibidas y acumula las siguientes.
+
+Una salida llena genera contrapresión; un almacén terminal lleno o un Source que completó su lote no se etiquetan como atasco. Una retención continua se informa como congestión tras tres segundos. **Posible atasco** requiere además obstrucción física persistente: permite revisar el recorrido sin confundir un proceso detenido voluntariamente con una avería.
+
+Los ejemplos omiten sensores externos en rectas, curvas y tramos de transporte continuo. Conservan detección en transferencias, desvíos, uniones, estaciones y elevadores; los acumuladores mantienen sensores internos por zona. Los sensores de presencia detectan ocupación y flancos de paso. El clasificador usa atributos simulados de las cargas y el proceso de inspección; un sensor de presencia no mide por sí mismo color, SKU o defectos. Puedes configurar **Sensores de entrada y salida** según el proceso de tu propia línea.
+
+El selector superior muestra el **proyecto actual** y sus niveles. **Otros proyectos…** abre los niveles guardados de otro proyecto; no mezcla automáticamente sus contenidos. La URL conserva `project` y `room` al cambiar de nivel, por lo que el mismo enlace abre la misma escena desde otra pestaña o navegador. Para pasar de **Mi escenario** al **Laboratorio industrial**, abre ese proyecto desde el selector o utiliza su enlace directo.
+
+### Escenarios CEDI avanzados
+
+**Escenario → Crear escenarios CEDI avanzados** agrega dos niveles independientes en salas libres del proyecto. Repetir el comando abre las configuraciones ya creadas sin duplicarlas. La creación de ambos niveles se puede deshacer como una sola acción; si falla el segundo, se recupera el estado previo completo.
+
+- **CEDI · Clasificación y consolidación:** 50 máquinas en cuatro redes. Ocho perfiles se clasifican por defecto, calidad, SKU, color, tipo, ancho, alto y fondo; dos Source con FIFO e inspección se unen por una Y y alimentan seis decisiones consecutivas. Otra red transporta pallets completos mediante cadenas, transferencia a 90°, giro y elevación a una plataforma accesible. Dos anexos manuales vacíos completan las estaciones de carga.
+- **CEDI · Packing y transferencias:** 53 máquinas en cinco redes. Lotes de dos unidades se unen con productos individuales y se clasifican por cantidad; el Separator devuelve las unidades antes de distribuirlas al **25/75 %**. Otra red combina cuatro tipos de producto, curvas, elevador, pendientes suaves, gravedad y distribución **alternada**. Se conserva una L rectangular compacta y se añade una red de pallets. Dos anexos manuales permiten practicar la carga y descarga.
+
+Los dos niveles reúnen las **25 variantes** funcionales del catálogo y los nueve atributos de clasificación, con reglas, porcentajes y alternancia. Incluyen cajas, contenedores rígidos, bidones y botellas de distintos tamaños. Los productos conservan origen, unidades, SKU, dimensiones, color, calidad, defecto, masa y base durante las operaciones. Las decisiones usan atributos declarados de la simulación; los detectores de presencia no inspeccionan imágenes ni certifican calidad.
+
+Cada red mantiene un PLC y un monitor independientes. Las fuentes automáticas de los ejemplos nuevos son continuas; las salidas almacenan y despachan por estibas completas. Los anexos manuales empiezan vacíos: selecciona el Source en **Equipo** y abre **CONTROL** para Generar/Despachar; para la estación manual habilita Operario y pulsa Solicitar ciclo. La mesa libre requiere tomar y depositar la carga y conserva su funcionamiento sin motor. Los lotes del Combiner y las salidas del Separator tienen identificadores propios, con hojas trazables.
+
+Los almacenes permiten huellas **1200 × 800**, **1200 × 1000** y **800 × 600 mm**, además de dimensiones personalizadas y material madera o plástico. Las huellas de madera toman como referencia los [formatos publicados por EPAL](https://www.epal-pallets.org/eu-en/load-carriers/overview); la alternativa plástica se apoya en los formatos de [catálogo de Craemer](https://www.craemer.com/03_Products/Plastics/01%20General%20information/Brochures%20and%20flyer/Plastic%20Pallets/Palettenbroschuere_2025_EN_web.pdf). Son modelos paramétricos de simulación. **Distribución por dimensiones** aprovecha ambos ejes, permite girar cargas a 90° y respeta su apoyo, cinco niveles como máximo y la altura útil configurada (1,8 m en los ejemplos). Una caja alta puede admitir menos niveles. Los pallets prearmados viajan como una carga, conservando la cantidad de unidades, masa, base y dimensiones; se transportan por equipos compatibles con sus patines.
+
+Los edificios CEDI tienen cerramiento y cubierta física a ocho metros, ventanas altas, muelles cerrados, estructura metálica y luminarias interiores. El sol se reduce y se utiliza iluminación interior cálida, con hasta ocho luces puntuales sin sombras por nivel y difusores visibles con emisión editable. Las cámaras de autor permanecen dentro del edificio: **Inicio** recupera esa vista y oculta su propio marcador cuando coincide con la cámara del editor. El suelo y los muros llevan desgaste localizado mediante decals y huellas editables; los equipos conservan acabados por pieza.
+
+Las ruedas orientables y distribuidores tienen cartuchos, ejes, cojinetes, cubierta con aberturas y bandeja inferior. Los detalles estáticos usan buffers indexados y las ruedas comparten bancos de geometría con pivotes independientes: conservan su giro, rayos y acabados sin un dibujo separado por cada pieza. `createIndustrialPrefab.stats(objeto)` permite medir geometrías, materiales, dibujos y bytes, incluidos los buffers de restauración. La comparación de las 25 variantes redujo la memoria de geometría y restauración un 26,1 %; los distribuidores incorporan más soporte físico y detalle, por lo que sus triángulos aumentan. Estas medidas no representan FPS de un visor.
+
+En VR los botones funcionan con el gatillo de ambas manos. Para productos puedes mantener el **grip lateral** y soltarlo para depositar; el gatillo conserva su modo de coger/soltar con pulsaciones. Se conservan la orientación de la carga, el bloqueo por obstáculos y la exclusividad entre manos y participantes. Desconectar un mando o salir de VR libera sus cargas y botones. El teletransporte utiliza el suelo o el entrepiso habilitado y la mano preferida.
+
+## Interfaz y aprendizaje
+
+**Apariencia** reúne la edición visual del equipo. Selecciona primero una pieza en **Parte o material a editar**; después cambia su acabado, color, rugosidad, mapas y desgaste. Los cambios se aplican a esa pieza y tienen deshacer/rehacer. Puedes cambiar la tipología y tecnología del transportador conservando sus conexiones, o importar un GLB/GLTF/OBJ/FBX como modelo visual propio. Un modelo importado conserva los controles y puertos del equipo; sus animaciones y nombres de piezas dependen del archivo que aportes.
+
+**Escenario → Configurar entorno** permite ajustar calidad, sombras, exposición, luz y ambiente sonoro de cada nivel. Los perfiles equilibrado y alto usan una sombra direccional local; alto admite un mapa de 2048 en escritorio y limita el mapa a 1024 en XR. Los reflejos interiores se precalculan una vez y se reutilizan. El perfil rendimiento desactiva las sombras. El desgaste combina material y decals editables; el aspecto final también depende de la geometría y las texturas del modelo.
+
+Los ejemplos industriales incluyen un piso de concreto mate con juntas de losas, zonas amarillas de producción y acopio, rutas peatonales verdes, cruces, flechas y señales de carga, descarga e inspección. Las rutas se planifican fuera de los equipos, pedestales y paneles a la altura de las personas. La señalización es orientativa para estudiar la simulación. La presentación se guarda como un objeto del nivel, con un único atlas de texto y hasta ocho lotes de geometría indexada; recibe sombras sin proyectar sombras falsas desde las marcas del suelo.
+
+El suelo incorpora decals editables de huellas de ruedas, suciedad de bordes, marcas junto a motores y rayones en los puestos. La actualización sustituye las demarcaciones antiguas generadas por el sistema y conserva los materiales, texturas y desgaste personalizados. Los colores elegidos en el inspector se convierten de sRGB a luz lineal para que el concreto y la pintura mantengan su contraste, en lugar de verse blanqueados por la iluminación.
+
+El sonido empieza habilitado en cada visita. Si el navegador exige interacción, el primer clic, toque, tecla o entrada a XR desbloquea el audio sin un botón adicional. **Sonido automático** indica esa espera; la misma barra permite silenciar o ajustar el volumen. El silencio elegido durante la visita se respeta hasta que lo reactives. Los perfiles de motor, rodillos, cinta, proceso, actuador y pulsadores son procedurales y siguen la velocidad, ciclo y estado reales de la simulación. No son grabaciones de una máquina específica. En **Sonido** del inspector puedes elegir otro perfil o importar tu propio audio. El ambiente general se configura en Entorno; **Añadir → Zona de sonido** crea un área invisible con tamaño, alcance y desvanecimiento propios. Sólo suena el nivel activo y se priorizan los emisores cercanos, con un máximo de ocho bucles y doce voces simultáneas. En escritorio se detienen al ocultar la página; una sesión XR activa continúa.
+
+Los monitores de los ejemplos quedan al costado de su línea, suspendidos mediante dos tirantes y un perfil de techo. Ambas caras muestran el mismo contenido sin invertir el texto y permiten accionar los controles con ratón o rayos de ambos mandos VR; comparten una sola textura. La adaptación conserva el destino del monitor y los controles de su línea.
+
+Los mensajes de estudio usan **tarjetas contextuales** compactas: se orientan hacia la cámara, aparece la más relevante al acercarse y mirar hacia ella, y se ocultan al salir de su alcance. Durante la transición puede mantenerse brevemente la tarjeta anterior. Los paneles personalizados permanentes y las tarjetas nativas conservan su funcionamiento. Las señales de piso también llevan texto legible por sus dos caras.
+
+Los equipos de ejemplo incluyen acabados por pieza y capas de uso localizadas: pintura saltada en bordes, suciedad en apoyos, escurrimientos, grasa en transmisión y roce en superficies de trabajo. Estos acabados se pueden modificar en Apariencia y desgaste; las recetas, sensores, controles y los materiales personalizados se conservan.
+
+El botón **Escenas** de la Biblioteca y **Escenario → Catálogo de escenas** muestran quince fichas con miniatura, dificultad, objetivo y guía. Puedes abrir una escena existente o crear una variante de estudio. Si las diez salas del proyecto están ocupadas, la variante se crea en un proyecto separado. Las nueve prácticas del laboratorio también están disponibles como niveles independientes en **Prácticas industriales · Fundamentos**. **Automatización industrial · Casos avanzados** contiene inspección y retrabajo, packing multitipo, transferencia de pallets y una estación manual. Las tres prácticas avanzadas automáticas trabajan con lotes finitos verificables; la estación manual espera al operario.
+
+Ventana → Editor de interfaz abre los widgets; Añadir → Widget crea uno. Hay texto, contador, indicador, progreso y botón, con vínculo a un objeto/variable, color, posición, acción y presentación en escritorio, mundo 3D o ambos. Un widget de escritorio permanece fuera del visor; la representación del mundo usa geometría y textura propias y admite la interacción de escritorio y ambos mandos XR.
+
+Ventana → Lógica y misiones permite objetivos, ayuda, inicio manual o automático, pasos, cantidad requerida y eventos de éxito/fallo. La evaluación cuenta eventos reales. Por ejemplo, `classification-confirmed` solo se emite cuando un producto que coincide con una regla confirma su salida de la T: no cuenta la admisión ni los reintentos bloqueados. Usa como objetivo veinte salidas para el ejercicio de clasificación. El avance individual se guarda en SQLite cuando hay una cuenta y un proyecto guardado. Cambiar la definición de una misión cambia su versión; el progreso anterior no se interpreta con reglas nuevas.
+
+Resultados, señales, variables y consola utilizan el monitor existente y su registro exportable. Las pestañas de trabajo aparecen cuando se solicitan y se cierran para recuperar la escena 3D.
+
+## Qué guarda cada acción
+
+| Acción | Datos persistidos |
+| --- | --- |
+| Guardar en el editor | Configuración del proyecto y nueva revisión, con modelos referenciados, materiales, componentes y extensión Studio. |
+| Mi espacio → Sesiones guardadas | Ejecución reanudable: colas, cargas, posiciones, contadores, preparación/proceso parcial, clasificación y posición/orientación del visitante. Hay que soltar las cargas antes del guardado individual. |
+| Mi progreso | Avance de misiones, separado por cuenta, proyecto y versión de misión. El invitado conserva avance solamente durante la visita. |
+| Salas → Guardar estado | Estado compartido y cursor de acciones confirmadas. Solo el anfitrión tiene este permiso. |
+
+Los mensajes de guardado se muestran después de confirmar SQLite. Un error de progreso conserva cambios pendientes y ofrece reintentar. Una revisión de proyecto incompatible impide reanudar silenciosamente una sesión antigua; restaura primero la revisión correspondiente desde Proyectos. Los formatos de editor y de Studio se validan y versionan por separado.
+
+## Compartir una ejecución
+
+Guarda el proyecto, pulsa Probar y abre Menú → Sesiones multiusuario → Crear sala. Comparte el código o la invitación. Cada participante necesita una cuenta en el mismo servidor; puede entrar como participante u observador. No es edición colaborativa del proyecto.
+
+El anfitrión mantiene la autoridad sobre el reloj, los equipos y las cargas; los participantes envían acciones y poses. Se sincronizan identidad, avatar, presencia, controles y productos. El agarre obtiene una reserva exclusiva, conserva la orientación y utiliza las colisiones del simulador. Alcance, obstáculos, ocupación y depósito se comprueban en el anfitrión. Las reservas se liberan al salir, caducar o reiniciar. Los observadores no manipulan objetos.
+
+La entrada tardía recupera el último estado y sus acciones posteriores. Se reintentan fallos transitorios. Las actualizaciones reutilizan geometrías/materiales y suavizan las poses entre estados; el participante no ejecuta otra copia del reloj de producción. El anfitrión debe mantener abierta la aplicación; no hay migración automática de autoridad si se desconecta. Las salas admiten hasta dieciséis participantes y el estado tiene un límite de 4 MiB. La base se conserva en este servidor; publicar solo los archivos estáticos no proporciona cuentas ni salas.
+
+## Compatibilidad, recuperación y pruebas
+
+Se conservan Three.js r112, ECSY, las diez salas nativas, entradas WebXR, archivos, referencias y proyectos anteriores. El nuevo campo opcional `studio.version: 1` añade organización, plantillas, grupos, entidades, widgets, misiones y aparición sin mover archivos. Las tablas `studio_*` son aditivas.
+
+Antes de estas modificaciones se creó la rama `recovery/studio-before-redesign-20261023`, que apunta al estado publicado `2b3e773`, y una copia consistente mediante SQLite `VACUUM INTO` en `data/backups/`. Las bases y copias no se incluyen en Git.
+
+Validación ejecutada:
+
+- `npm.cmd test`: conjunto anterior y nuevas pruebas de organización, referencias, compatibilidad, entidades, eventos reales, persistencia, sesiones, permisos, cursores, concurrencia y agarre compartido entre dos simuladores con colisiones reales.
+- `npm.cmd run build`: compilación de producción. Webpack conserva sus avisos de tamaño del bundle y del worker de colisiones.
+- `npm.cmd run test:browser`: Chrome real sin ventana, HTTPS y SQLite temporales. Comprueba inicio público/editor, panel personal, autenticación, tres pestañas, colocación de transportador, creación de widget, guardado y reapertura, píxeles reales de cámara, sesión reanudable con posición del visitante y creación/guardado de sala sin excepciones. Las capturas se encuentran en `data/qa-studio/`. Utiliza SwiftShader y no mide el rendimiento de la GPU del equipo.
+- Interacciones XR probadas con los eventos de producción y mandos simulados. **No se ha probado un visor físico**, ni la latencia/rendimiento entre dispositivos reales.
+
+Pendientes concretos: módulos industriales marcados En desarrollo; robots y almacenamiento automático; gráficas/listas/widgets avanzados y editor de preguntas/condiciones compuestas; propuestas e inserción automática de módulos intermedios en Conectar; seguimiento de manos sin mandos; recuperación de cuentas por correo y despliegue público del servidor. Cada uno necesita su comportamiento/activo o proveedor correspondiente; no está representado como una función terminada.
+
+## Archivos principales
+
+| Área | Archivos |
+| --- | --- |
+| Editor y compatibilidad | `src/editor/SceneEditor.js`, `EditorShell.js`, `SceneDocument.js`, `editor.css`, `shared/studio-document.js`, `server/validation.js`. |
+| Biblioteca y proyecto | `shared/resourceCatalog.js`, `src/editor/ResourceBrowser.js`, `resources.css`, `src/studio/ResourceOperations.js`. |
+| Experiencia y aprendizaje | `src/studio/StudioExperience.js`, `StudioTools.js`, `EducationRuntime.js`, `Avatar.js`, `SceneEntities.js`, `studio.css`; `src/index.js`, `index.html`, `src/lib/VRButton.js`, `src/stations/InfoPanelsData.js`. |
+| Cuentas, guardado y salas | `server/studio-service.js`, `server/api.js`, `src/studio/StudioClient.js`, `SimulationCheckpoint.js`, `SharedGrabs.js`, `RemotePresentation.js`, `src/editor/ProjectClient.js`. |
+| Confirmación de clasificación | `src/editor/SimulationRuntime.js`. |
+| Validación | Nuevos `scripts/test-studio-*`, `test-editor-shell.js`, `test-resource-*`, `test-education-runtime.js`, `test-scene-entities.js`, `test-shared-grabs.js`, `test-simulation-checkpoint.js`, `test-remote-presentation.js`; adaptadores de pruebas existentes y `package.json`. |
+
+La descripción técnica de servicios y protocolos está en [studio-service.md](studio-service.md).

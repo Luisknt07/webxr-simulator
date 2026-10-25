@@ -49,12 +49,12 @@ function inputTarget() {
   const target = new THREE.EventDispatcher(); target.clientHeight = 800;
   return target;
 }
-function setup() {
+function setup(variant = 'roller-start') {
   const scene = new THREE.Scene(), root = new THREE.Group(); scene.add(root);
   const floor = new THREE.Mesh(new THREE.BoxBufferGeometry(50, 0.05, 50), new THREE.MeshBasicMaterial()); floor.position.y = -0.025; root.add(floor);
   const portal = new THREE.Mesh(new THREE.PlaneBufferGeometry(1, 1), new THREE.MeshBasicMaterial()); portal.position.set(0, 1.6, -10); root.add(portal);
   const document = new SceneDocument({}); document.registerRoom('hall', root);
-  const head = document.addPrefab('hall', 'conveyor', 'roller-start'); document.setTransform(head, {position: [0, 1.02, 0]});
+  const head = document.addPrefab('hall', 'conveyor', variant); document.setTransform(head, {position: [0, 1.02, 0]});
   const tail = document.addPrefab('hall', 'conveyor', 'belt-end');
   const unrelated = document.addPrefab('hall', 'conveyor'); document.setTransform(unrelated, {position: [0, 1.02, 9]});
   const change = (object, values) => document.setBehaviors(object, document.getBehaviors(object).map(value => value.type === 'conveyor' ? Object.assign({}, value, values) : value));
@@ -79,7 +79,7 @@ function setup() {
   ctx.raycontrol = new RayControl(ctx, 'right');
   const indexSource = source('src/index.js');
   const bridge = new Function('THREE', 'assets', 'controllers', 'raycontrol', 'context', 'renderer', 'OculusBrowser', 'selectStartSkip', 'selectEndSkip',
-    [block(indexSource, 'function setupControllers()'), block(indexSource, 'function onSelectStart('), block(indexSource, 'function onSelectEnd(')].join('\n') + '\nreturn {setupControllers,onSelectStart,onSelectEnd};')
+    [block(indexSource, 'function setupControllers()'), block(indexSource, 'function syncXRControllers()'), block(indexSource, 'function onSelectStart('), block(indexSource, 'function onSelectEnd(')].join('\n') + '\nreturn {setupControllers,syncXRControllers,onSelectStart,onSelectEnd};')
     (THREE, assets, ctx.controllers, ctx.raycontrol, ctx, renderer, false, {}, {});
   bridge.setupControllers();
   ctx.controllers.forEach(controller => {
@@ -336,6 +336,51 @@ async function run() {
   assert(!generatedOutline.held && generatedOutline.helper.visible, 'The generated package also shows its short release outline.');
   spawned.visuals.dispose(); spawned.runtime.stop();
   assert.equal(spawned.runtime.productFeedback.bindings.size, 0);
-  console.log('Industrial WebXR: production controller bridge, real bilateral rays/buttons, scoped commands, tactile feedback, native input preservation, two-hand boxes, disconnect/session/editor cleanup and exact document restoration passed.');
+  // Every new mechanism reuses the original nine real controls, on both rays.
+  // No extra UI command substitutes for the authored physical control events.
+  for (const variant of ['roller-motor', 'belt-incline', 'popup-belt', 'roller-turntable', 'pusher', 'roller-zones', 'box-elevator', 'manual-station', 'pallet-chain']) {
+    const mechanism = setup(variant), before = JSON.stringify(await mechanism.document.serialize());
+    mechanism.runtime.start('hall'); advance(mechanism);
+    const actions = mechanism.document.getObjects('hall').filter(object => mechanism.document.getBehaviors(object).some(config => config.type === 'control' && config.targetId === mechanism.head.userData.editorId)).map(object => object.userData.industrialAction).sort();
+    assert.deepEqual(actions, ['start', 'stop', 'emergency', 'pause', 'powerOff', 'powerOn', 'speedDown', 'insertBox', 'speedUp'].sort(), variant + ' preserves the exact panel contract.');
+    press(mechanism, 'powerOn', mechanism.left); press(mechanism, 'start', mechanism.right); assert(vars(mechanism).running);
+    press(mechanism, 'pause', mechanism.left); assert(vars(mechanism).paused);
+    press(mechanism, 'start', mechanism.right); assert(!vars(mechanism).paused);
+    const speed = vars(mechanism).speed;
+    press(mechanism, 'speedUp', mechanism.left); close(vars(mechanism).speed, speed + .1);
+    press(mechanism, 'speedDown', mechanism.right); close(vars(mechanism).speed, speed);
+    press(mechanism, 'insertBox', mechanism.left);
+    assert.equal(vars(mechanism).entryCount, variant === 'pallet-chain' ? 0 : 1, 'The existing insertion helper creates only a compatible unit, never a fictitious pallet.');
+    if (variant === 'pallet-chain') { assert.equal(vars(mechanism).pendingInsert, 0); assert(mechanism.notices.some(message => /pallet/.test(message))); }
+    press(mechanism, 'stop', mechanism.right); assert(!vars(mechanism).running);
+    press(mechanism, 'start', mechanism.left); assert(vars(mechanism).running);
+    press(mechanism, 'emergency', mechanism.right); assert(vars(mechanism).emergency && !vars(mechanism).running);
+    press(mechanism, 'start', mechanism.left); assert(!vars(mechanism).running);
+    press(mechanism, 'emergency', mechanism.right); assert(!vars(mechanism).emergency && !vars(mechanism).running, 'Releasing emergency cannot restart a mechanism.');
+    press(mechanism, 'start', mechanism.left); assert(vars(mechanism).running);
+    press(mechanism, 'powerOff', mechanism.right); assert(!vars(mechanism).powered && !vars(mechanism).running);
+    press(mechanism, 'powerOn', mechanism.left); assert(vars(mechanism).powered && !vars(mechanism).running, 'Restoring power never starts movement.');
+    mechanism.visuals.dispose(); mechanism.runtime.stop(); assert.equal(JSON.stringify(await mechanism.document.serialize()), before);
+  }
+  // Reproduce the source-index reassignment in the shipped Three r112 manager:
+  // removing the first hand remaps the surviving source to Group zero and only
+  // emits disconnected for the removed source. The app reconciles both Groups
+  // before the next ray pass, so the surviving physical hand remains usable.
+  const hotplug = setup(), originalRight = hotplug.sources.get(hotplug.right);
+  let activeSources = [hotplug.sources.get(hotplug.left), originalRight];
+  hotplug.ctx.renderer.xr.getSession = () => ({inputSources: activeSources});
+  hotplug.runtime.start('hall'); advance(hotplug);
+  activeSources = [originalRight]; disconnect(hotplug, hotplug.left); hotplug.bridge.syncXRControllers();
+  const survivor = hotplug.ctx.raycontrol.controllers.find(data => data.controller === hotplug.left);
+  assert(survivor && survivor.inputSource === originalRight, 'The surviving physical right source is rebound to the Group used by Three r112');
+  assert(!hotplug.ctx.raycontrol.controllers.some(data => data.controller === hotplug.right), 'Its old indexed Group cannot retain stale rays or held captures');
+  hotplug.sources.set(hotplug.left, originalRight);
+  press(hotplug, 'powerOn', hotplug.left); press(hotplug, 'start', hotplug.left); assert(vars(hotplug).running);
+  const survivorData = hotplug.ctx.raycontrol.controllers[0]; hotplug.bridge.syncXRControllers();
+  assert.equal(hotplug.ctx.raycontrol.controllers[0], survivorData, 'Stable source snapshots never reconnect or duplicate the same hand');
+  activeSources = []; hotplug.bridge.syncXRControllers(); assert.equal(hotplug.ctx.raycontrol.controllers.length, 0);
+  activeSources = [originalRight]; hotplug.bridge.syncXRControllers(); press(hotplug, 'powerOff', hotplug.left); assert(!vars(hotplug).powered);
+  hotplug.visuals.dispose(); hotplug.runtime.stop();
+  console.log('Industrial WebXR: production controller bridge, real bilateral rays/buttons, scoped commands, tactile feedback, native input preservation, two-hand boxes, r112 first-hand hotplug remapping, disconnect/session/editor cleanup and exact document restoration passed.');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });

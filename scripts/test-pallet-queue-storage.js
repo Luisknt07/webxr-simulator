@@ -23,6 +23,11 @@ async function run() {
   assert.equal(defaults.delivery, 'manual'); assert.equal(defaults.outputInterval, 1);
   const maximum = normal({width: 4, depth: 4, columns: 8, rows: 8, layers: 8, capacity: 128}); assert.equal(maximum.capacity, 128);
   assert.equal(normal({columns: 1, rows: 1, layers: 1, capacity: 1}).capacity, 1);
+  const fitted = normal({layoutMode: 'fit', palletType: 'euro-1200x800', palletMaterial: 'plastic', capacity: 500, layers: 5,
+    palletCapacity: 4, autoRelease: true, autoReleasePressure: true, releasePolicy: 'stockFull', releaseInterval: 2, maxStackHeight: 1.8});
+  assert.equal(fitted.width, 1.2); assert.equal(fitted.depth, .8); assert.equal(fitted.capacity, 500);
+  for (const invalid of [{layoutMode: 'fit', layers: 6}, {layoutMode: 'fit', capacity: 501}, {palletType: 'unknown'},
+    {palletMaterial: 'steel'}, {releasePolicy: 'all'}, {autoRelease: 1}, {releaseInterval: 0}, {maxStackHeight: -1}]) assert.throws(() => normal(invalid));
   for (const invalid of [{width: 0.39}, {width: 4.01}, {depth: 0.39}, {depth: Infinity}, {columns: 0}, {columns: 9},
     {columns: 1.5}, {rows: 0}, {rows: 1.5}, {layers: 9}, {layers: 1.5}, {capacity: 0}, {capacity: 129}, {capacity: 1.5},
     {columns: 1, rows: 1, layers: 2, capacity: 3}, {running: 1}, {paused: 'false'}, {delivery: 'script'},
@@ -62,6 +67,9 @@ async function run() {
   assert.equal(copyRules[0].sourceId, id(copy)); assert.equal(copyRules[0].targetId, id(copy)); assert.equal(copyRules[1].targetId, id(source));
   assert.equal(config(f, source, 'source').outputId, id(stock), 'Copying a store leaves external producers bound to the original equipment.');
   assert.equal(config(f, copy, 'palletQueue').outputId, id(belt), 'Document-level copies preserve explicitly external output references.');
+  const fitStock = add(f, 'palletQueue', fitted, [35, 1.02, 0]);
+  const fitCopy = await f.document.pasteObject(f.document.captureObject(fitStock), 'hall', 8);
+  assert.deepEqual(config(f, fitCopy, 'palletQueue'), fitted, 'Pallet formats, packing and explicit continuous sink policy survive copying.');
   const saved = await f.document.serialize(); assert.deepEqual(validateDocument(saved, value => value), saved);
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'hello-webxr-pallet-queue-storage-')); let store;
   try {
@@ -86,6 +94,7 @@ async function run() {
     assert.equal(restored.children[0].userData.industrialPalletQueue.capacity, 24);
     assert.equal(config(loaded, loaded.document.getObject(id(source)), 'source').outputId, id(stock));
     assert.equal(config(loaded, restored, 'palletQueue').outputId, id(belt));
+    assert.deepEqual(config(loaded, loaded.document.getObject(id(fitStock)), 'palletQueue'), fitted);
   } finally {
     if (store) store.close(); const resolved = path.resolve(temporaryRoot);
     assert.equal(path.dirname(resolved), path.resolve(os.tmpdir())); assert(path.basename(resolved).startsWith('hello-webxr-pallet-queue-storage-'));

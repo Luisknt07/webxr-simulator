@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const THREE = require('three');
+const {authoredHex} = require('./material-test-colors');
 const wearSchema = require('../shared/wear.js');
 const {getGeometryTree} = require('./load-geometry-acceleration.js')(THREE);
 
@@ -111,7 +112,7 @@ async function main() {
     assert(mesh.material.transparent && !mesh.material.depthWrite && mesh.material.polygonOffset);
     assert.equal(mesh.material.alphaTest, 0.01);
     assert.equal(mesh.material.opacity, 0.6);
-    assert.equal(mesh.material.color.getHexString(), '66ccff');
+    assert.equal(authoredHex(mesh.material.color), '66ccff');
     assert.equal(mesh.material.map.encoding, THREE.sRGBEncoding);
     const vertices = worldVertices(mesh);
     assert(vertices.every(point => Math.abs(point.z) < 1e-7 && Math.abs(point.x) <= 0.70001 && Math.abs(point.y) <= 0.35001), 'Projection dimensions bound the clipped world vertices.');
@@ -152,10 +153,12 @@ async function main() {
     f.system.sync('hall');
     assert.notEqual(mesh.geometry, previous, 'Target motion invalidates the projection.');
     assert.equal(mesh.geometry.attributes.position.count, 0, 'A target moved beyond projection depth is no longer painted.');
+    assert.equal(mesh.parent, null, 'A projection without triangles never remains in the scene graph.');
     wall.position.z = 0;
     owner.position.x = 0.6;
     f.system.sync('hall');
     assert(mesh.geometry.attributes.position.count > 0, 'Moving the projector clips again at its new pose.');
+    assert.equal(mesh.parent, owner, 'A restored projection reattaches its existing mesh to the same owner.');
     f.system.dispose();
   }
 
@@ -171,6 +174,13 @@ async function main() {
     owner.userData.editorBehaviors[0].targetId = '';
     f.system.sync('hall');
     assert.equal(f.system.states.get(owner).mesh.geometry.attributes.position.count, 0, 'Automatic targets exclude the projector own subtree.');
+    const emptyState = f.system.states.get(owner); assert.equal(emptyState.mesh.parent, null);
+    const bounds = new THREE.Box3().setFromObject(owner);
+    assert(bounds.min.toArray().concat(bounds.max.toArray()).every(Number.isFinite), 'An empty decal cannot corrupt the finite bounds of its actual owner surface.');
+    const selection = new THREE.BoxHelper(owner);
+    assert(Number.isFinite(selection.geometry.boundingSphere.radius)); assert(Array.from(selection.geometry.attributes.position.array).every(Number.isFinite), 'The production r112 BoxHelper stays finite after a projection becomes empty.'); selection.geometry.dispose(); selection.material.dispose();
+    owner.userData.editorBehaviors[0].targetId = 'self'; f.system.sync('hall');
+    assert.equal(f.system.states.get(owner), emptyState); assert.equal(emptyState.mesh.parent, owner, 'Returning to a valid target preserves and reattaches the same projection state.');
     owner.userData.editorBehaviors[0].targetId = 'deleted-target';
     f.system.sync('hall');
     assert.equal(f.system.states.get(owner).mesh.geometry.attributes.position.count, 0, 'Missing explicit targets produce no projection.');

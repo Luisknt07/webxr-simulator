@@ -123,7 +123,7 @@ export function setup(ctx, hall) {
     declareNativeBehaviors(stick, [{type: 'grab', distance: 6, returnOnRelease: true}]); addStick(stick);
   });
   ctx.editorXylophone = {addNote, removeNote, addStick, removeStick, tick: execute,
-    releaseHeld() { releaseAllHeld(ctx); }, acquireControls() {
+    releaseHeld(controller) { releaseAllHeld(ctx, controller); }, acquireControls() {
     if (extraControlUsers++ === 0 && ctx.room !== 0) enter(ctx);
     return () => {
       extraControlUsers = Math.max(0, extraControlUsers - 1);
@@ -132,16 +132,17 @@ export function setup(ctx, hall) {
   }};
 }
 
-function releaseAllHeld(ctx) {
-  const controllers = new Set((ctx.controllers || []).concat(ctx.desktopController || []));
+function releaseAllHeld(ctx, onlyController) {
+  const controllers = new Set(onlyController ? [onlyController] : (ctx.controllers || []).concat(ctx.desktopController || []));
   // A copied stick can retain its owner while the browser replaces the active
   // XR controller list. Include registered owners so mode changes release it.
-  sticks.forEach(stick => { if (stick.userData.grabbedBy) controllers.add(stick.userData.grabbedBy); });
+  sticks.forEach(stick => { if (stick.userData.grabbedBy && (!onlyController || stick.userData.grabbedBy === onlyController)) controllers.add(stick.userData.grabbedBy); });
   controllers.forEach(controller => {
     if (!controller || !controller.userData || sticks.indexOf(controller.userData.grabbing) === -1) return;
     release(controller, true);
   });
-  restoreRays();
+  if (onlyController) suspendRay(onlyController, false);
+  else restoreRays();
 }
 
 export function enter(ctx) {

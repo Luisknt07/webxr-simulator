@@ -4,6 +4,7 @@
 const defaults = {
   preset: 'custom', name: 'Material personalizado', slot: 'all', color: '#b8c4cc',
   metalness: 0.2, roughness: 0.55, opacity: 1, clearcoat: 0, clearcoatRoughness: 0.3,
+  emissiveMode: 'preserve', emissive: '#fff0d2', emissiveIntensity: 1,
   texture: '', colorMapMode: 'preserve', normalMap: '', roughnessMap: '', metalnessMap: '', repeatX: 1, repeatY: 1,
   wear: 0, wearType: 'scratches', wearScale: 1, seed: 1
 };
@@ -28,6 +29,8 @@ const fields = [
   {key: 'colorMapMode', label: 'Textura de color', input: 'select', default: 'preserve', options: [{value: 'preserve', label: 'Conservar / usar imagen de color'}, {value: 'none', label: 'Solo color, sin imagen de color'}]},
   number('metalness', 'Metalizado', 0, 1, 0.05), number('roughness', 'Rugosidad', 0, 1, 0.05), number('opacity', 'Opacidad', 0, 1, 0.05),
   number('clearcoat', 'Barniz', 0, 1, 0.05), number('clearcoatRoughness', 'Rugosidad del barniz', 0, 1, 0.05),
+  {key: 'emissiveMode', label: 'Emisión', input: 'select', default: defaults.emissiveMode, options: [{value: 'preserve', label: 'Conservar emisión del modelo'}, {value: 'custom', label: 'Luminiscencia personalizada'}]},
+  text('emissive', 'Color de emisión', 7, 'color'), number('emissiveIntensity', 'Intensidad de emisión', 0, 5, 0.05),
   text('texture', 'Imagen de color (vacío conserva la original)', 1000, 'image'), text('normalMap', 'Mapa de normales', 1000, 'image'),
   text('roughnessMap', 'Mapa de rugosidad', 1000, 'image'), text('metalnessMap', 'Mapa de metalizado', 1000, 'image'),
   number('repeatX', 'Repeticiones U', 0.05, 100, 0.05), number('repeatY', 'Repeticiones V', 0.05, 100, 0.05),

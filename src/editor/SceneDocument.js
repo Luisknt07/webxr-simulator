@@ -135,7 +135,8 @@ function descriptorValue(value) {
     return descriptor;
   }
   if (typeof value.nativeId === 'string' && /^native:[a-zA-Z0-9_-]+:root(?:\.\d+)*$/.test(value.nativeId) && value.nativeId.length <= 400) return {nativeId: value.nativeId};
-  if (value.type === 'decal') return {type: 'decal'};
+  if (value.type === 'decal' || value.type === 'audioZone') return {type: value.type};
+  if (value.type === 'industrialFloor') return behaviorSchema.industrialFloor.normalize(value);
   if (PRIMITIVES.includes(value.type)) {
     return {type: value.type, color: colorValue(value.color || '#60a5fa')};
   }
@@ -156,9 +157,11 @@ function validateState(value, partial) {
     else if (!partial) throw new Error('Falta la transformación ' + field + '.');
   });
   if (result.quaternion) {
-    const length = Math.sqrt(result.quaternion.reduce((sum, n) => sum + n * n, 0));
+    const length = Math.hypot(...result.quaternion);
     if (length < 0.000001 || Math.abs(length - 1) > 0.01) throw new Error('Rotación inválida.');
-    result.quaternion = result.quaternion.map(n => n / length);
+    // Preserve the exact saved pose when it is already unit length to floating
+    // point precision; otherwise load/save cycles drift untouched rotations.
+    if (Math.abs(length - 1) > 16 * Number.EPSILON) result.quaternion = result.quaternion.map(n => n / length);
   }
   if (value.visible !== undefined) {
     if (typeof value.visible !== 'boolean') throw new Error('Visibilidad inválida.');
@@ -228,10 +231,16 @@ export default class SceneDocument {
     this.pendingRooms = new Map();
     this.roomActivations = new Map();
     this.loadGeneration = 0;
+    this.studio = null;
   }
 
   get canUndo() { return this.undoStack.length > 0; }
   get canRedo() { return this.redoStack.length > 0; }
+
+  setStudio(patch) {
+    const value = behaviorSchema.studio.normalize(Object.assign({version: 1}, this.studio || {}, patch));
+    return this._action(() => { this.studio = value; });
+  }
 
   registerRoom(roomId, root) {
     roomId = String(roomId);
@@ -312,16 +321,50 @@ export default class SceneDocument {
     if (!content || content.userData.editorPrefabKey !== object.userData.editorPrefabKey) return;
     const config = this.getBehaviors(object).find(component => component.type === object.userData.editorPrefabKey);
     if (!config) return;
+    const entry = this.additions.get(object.userData.editorId);
+    if (entry && config.type === 'conveyor' && config.equipmentId) {
+      const definition = behaviorSchema.conveyorLayout.equipment.getDefinition(config.equipmentId);
+      if (definition && definition.id === config.equipmentId) {
+        // Explicitly adopting a catalogue variant changes the persisted factory
+        // recipe as well as its configuration. Otherwise re-opening a legacy
+        // descriptor would discard the newly authored lateral sensor at 10.
+        entry.descriptor.variant = definition.variant;
+        object.userData.editorDescriptor = clone(entry.descriptor);
+        object.userData.editorPrefabVariant = content.userData.editorPrefabVariant = definition.variant;
+      }
+    }
     if (!this.conveyorSignatures) this.conveyorSignatures = new WeakMap();
-    const keys = config.type === 'palletQueue' ? ['width', 'depth', 'columns', 'rows', 'layers'] : config.type === 'processor' ? ['mode', 'length', 'width'] : config.type === 'source' ? ['generationMode', 'productType', 'width', 'height', 'depth', 'color', 'catalog', 'loadMode', 'palletColumns', 'palletRows', 'palletLayers'] : ['layout', 'surface', 'length', 'width', 'radius', 'curveAngle', 'axis', 'junctionMode', 'branchSide', 'role', 'withSensors', 'withPanel', 'withPallet', 'outputId', 'branchId'];
+    const keys = config.type === 'palletQueue' ? ['width', 'depth', 'columns', 'rows', 'layers', 'capacity', 'palletCapacity', 'acceptsPallets', 'palletType', 'palletMaterial', 'layoutMode', 'withPanel'] :
+      config.type === 'processor' ? ['mode', 'length', 'width', 'withPanel'] :
+      config.type === 'source' ? ['generationMode', 'productType', 'width', 'height', 'depth', 'color', 'catalog', 'loadMode', 'palletColumns', 'palletRows', 'palletLayers', 'palletType', 'palletMaterial', 'palletPacking', 'palletWidth', 'palletDepth', 'withPanel'] :
+      ['layout', 'surface', 'length', 'width', 'radius', 'curveAngle', 'axis', 'junctionMode', 'branchSide', 'role', 'withSensors', 'withPanel', 'withPallet', 'outputId', 'branchId', 'equipmentId', 'equipmentVersion', 'drive', 'mechanism', 'rise', 'rollerPitch', 'zoneLength', 'cleats', 'mergeAngle'];
+    if (config.type === 'conveyor') keys.push('supportHeight');
     const signature = JSON.stringify(keys.map(key => config[key]));
-    if (this.conveyorSignatures.get(content) === signature) return;
+    if (this.conveyorSignatures.get(content) === signature) { if (entry) this._syncConveyorActors(entry, config); return; }
     const replacement = this.visuals.get(object.userData.editorId);
     if (replacement) this._setVisual(object, null);
     createIndustrialPrefab.refresh(content, config);
+    if (entry) this._syncConveyorActors(entry, config);
     this.conveyorSignatures.set(content, signature);
     if (object.userData.editorColor) this._applyColor(object, object.userData.editorColor);
     if (replacement) this._setVisual(object, replacement);
+  }
+
+  _syncConveyorActors(entry, config) {
+    if (!entry || entry.descriptor.prefab !== 'conveyor') return;
+    config = config || this.getBehaviors(entry.object).find(behavior => behavior.type === 'conveyor');
+    const content = entry.object.children[0], sensor = content && content.children.find(node => node.userData.industrialBranchSensor);
+    if (!sensor) return;
+    const path = String(content.children.indexOf(sensor));
+    if (!config || !config.equipmentId) {
+      if (entry.nodes.get(path) === sensor) { entry.nodes.delete(path); this.objects.delete(sensor.userData.editorId); }
+      sensor.visible = false;
+      return;
+    }
+    sensor.userData.editorId = entry.id + '/' + path;
+    sensor.userData.editorRoom = entry.roomId; sensor.userData.editorNative = false;
+    sensor.userData.editorDefaultBehaviors = normalizeBehaviors(remapBehaviorReferences(sensor.userData.editorDefaultBehaviors || [], new Map([['@root', entry.id]])));
+    entry.nodes.set(path, sensor); this.objects.set(sensor.userData.editorId, sensor);
   }
 
   _enforceConveyorOptions(object) {
@@ -385,7 +428,8 @@ export default class SceneDocument {
   async _instantiate(descriptor) {
     if (descriptor.prefab) return createIndustrialPrefab(descriptor.prefab, descriptor.variant);
     if (descriptor.nativeId) return this._cloneNative(descriptor.nativeId);
-    if (descriptor.type === 'decal') return new THREE.Group();
+    if (descriptor.type === 'decal' || descriptor.type === 'audioZone') return new THREE.Group();
+    if (descriptor.type === 'industrialFloor') return behaviorSchema.industrialFloor.createVisual(THREE, descriptor);
     if (PRIMITIVES.includes(descriptor.type)) return this._primitive(descriptor);
     if (!this.assetLibrary) throw new Error('La biblioteca de recursos no está disponible.');
     const content = await this.assetLibrary.instantiate(descriptor);
@@ -567,6 +611,7 @@ export default class SceneDocument {
 
   capture() {
     return {
+      studio: clone(this.studio),
       native: Array.from(this.native.entries()).map(([id, entry]) => ({id, state: this._state(entry.object), visual: this.visuals.get(id)})),
       overrides: Array.from(this.overrides.entries()).map(([id, value]) => [id, clone(value)]),
       additions: Array.from(this.additions.values()).map(entry => ({entry, record: this._additionRecord(entry), visuals: new Map([entry.object].concat(Array.from((entry.nodes || new Map()).values())).map(object => [object.userData.editorId, this.visuals.get(object.userData.editorId)]))})),
@@ -582,7 +627,7 @@ export default class SceneDocument {
     const additions = snapshot.additions.map(value => value.record);
     (snapshot.pendingRooms || []).forEach(([, records]) => additions.push(...records.additions));
     // Hydrating records changes their representation, never the project itself.
-    return JSON.stringify(ordered({overrides: snapshot.overrides, additions: additions.sort((a, b) => a.id.localeCompare(b.id))}));
+    return JSON.stringify(ordered({studio: snapshot.studio || null, overrides: snapshot.overrides, additions: additions.sort((a, b) => a.id.localeCompare(b.id))}));
   }
 
   begin() {
@@ -665,6 +710,7 @@ export default class SceneDocument {
   }
 
   _restore(snapshot) {
+    this.studio = clone(snapshot.studio || null);
     this.loadGeneration++;
     this.roomActivations.clear();
     if (this.assetLibrary && this.assetLibrary.restoreImports) this.assetLibrary.restoreImports(snapshot.imports);
@@ -677,12 +723,22 @@ export default class SceneDocument {
     this.additions.forEach(entry => this._unregisterAddition(entry));
     this.additions.clear();
     snapshot.additions.forEach(({entry, record}) => {
+      entry.descriptor = clone(record.descriptor);
+      entry.object.userData.editorDescriptor = clone(record.descriptor);
+      if (record.descriptor.variant) entry.object.userData.editorPrefabVariant = record.descriptor.variant;
+      else delete entry.object.userData.editorPrefabVariant;
+      const content = entry.object.children[0];
+      if (content && content.userData.editorPrefabKey === 'conveyor') {
+        if (record.descriptor.variant) content.userData.editorPrefabVariant = record.descriptor.variant;
+        else delete content.userData.editorPrefabVariant;
+      }
       entry.object.name = record.name;
       entry.object.userData.editorInteraction = clone(record.interaction);
       this._applyState(entry.object, record);
       this.rooms.get(entry.roomId).root.add(entry.object);
       this.additions.set(entry.id, entry);
       this.objects.set(entry.id, entry.object);
+      this._syncConveyorActors(entry);
       (entry.nodes || new Map()).forEach((object, path) => {
         const node = record.nodes && record.nodes[path];
         if (node) {
@@ -784,6 +840,9 @@ export default class SceneDocument {
     this.additions.set(id, entry);
     this.objects.set(id, object);
     room.root.add(object);
+    // A saved legacy descriptor can already carry an explicitly adopted
+    // equipmentId. Reconcile its recipe now that its entry and actors exist.
+    this._syncConveyor(object);
     return object;
   }
 
@@ -815,6 +874,28 @@ export default class SceneDocument {
       object.name = 'Decal';
       this._applyState(object, state);
       return object;
+    });
+  }
+
+  // A logical, noncolliding audio anchor has no mesh or runtime GPU resource.
+  addAudioZone(roomId, config = {}, transform = {}) {
+    if (!isPlain(config) || !isPlain(transform)) throw new Error('Configuración de zona de sonido inválida.');
+    const behaviors = normalizeBehaviors([Object.assign({}, config, {type: 'audioZone'})]);
+    const state = validateState({position: transform.position || [0, 1, -2], quaternion: transform.quaternion || [0, 0, 0, 1], scale: transform.scale || [1, 1, 1]}, false);
+    const content = new THREE.Group(); content.userData.editorDefaultBehaviors = behaviors;
+    return this._action(() => {
+      const object = this._attach(roomId, {type: 'audioZone'}, content);
+      object.name = 'Zona de sonido'; this._applyState(object, state); return object;
+    });
+  }
+
+  addIndustrialFloorPresentation(roomId, descriptor) {
+    const value = behaviorSchema.industrialFloor.normalize(descriptor);
+    return this._action(() => {
+      const object = this._attach(roomId, value, behaviorSchema.industrialFloor.createVisual(THREE, value));
+      // The plan already contains room-local coordinates, including floorY.
+      // The ordinary insertion offset [0,1,-2] must never shift this layer.
+      object.position.set(0, 0, 0); return object;
     });
   }
 
@@ -889,7 +970,10 @@ export default class SceneDocument {
     }
     if (!entry && this.visuals.has(originalId)) record.visual = clone(this.visuals.get(originalId).descriptor);
     else if (!entry && this.overrides.get(originalId) && this.overrides.get(originalId).visual) record.visual = clone(this.overrides.get(originalId).visual);
-    return clone({format: 'hello-webxr-object', version: 1, roomId, record, sources});
+    const snapshot = {format: 'hello-webxr-object', version: 1, roomId, record, sources};
+    const entity = this.studio && (this.studio.entities || []).find(item => item.objectId === originalId);
+    if (entity) snapshot.studioEntity = entity;
+    return clone(snapshot);
   }
 
   async pasteObject(snapshot, roomId, offset = 0.5, prepare) {
@@ -903,6 +987,12 @@ export default class SceneDocument {
     if (!this.rooms.has(roomId)) throw new Error('Sala desconocida.');
     if (typeof offset !== 'number' || !Number.isFinite(offset)) throw new Error('Desplazamiento de copia inv\u00e1lido.');
     const prepared = clone(snapshot);
+    let entity;
+    if (prepared.studioEntity !== undefined) {
+      entity = behaviorSchema.studio.normalize({version: 1, entities: [prepared.studioEntity]}).entities[0];
+      const source = prepared.sources.find(pair => pair[0] === '');
+      if (!source || entity.objectId !== source[1] || entity.roomId !== prepared.roomId) throw new Error('La entidad copiada no corresponde a su marcador.');
+    }
     prepared.record.id = this._newId();
     prepared.record.name = (prepared.record.name || 'Objeto').slice(0, 154) + ' copia';
     if (!Array.isArray(prepared.record.position)) throw new Error('Falta la posici\u00f3n del objeto copiado.');
@@ -931,6 +1021,9 @@ export default class SceneDocument {
         if (interaction && remap.has(interaction.targetId)) interaction.targetId = remap.get(interaction.targetId);
       });
       this._installPreparedVisuals(copied, preparedVisuals);
+      if (entity) this.setStudio({entities: (this.studio && this.studio.entities || []).concat(Object.assign({}, entity, {
+        id: 'entity:' + copy.userData.editorId, objectId: copy.userData.editorId, roomId
+      }))});
       if (prepare) prepare(copy);
       return copy;
     });
@@ -950,6 +1043,13 @@ export default class SceneDocument {
         object.parent.remove(object);
         this.additions.delete(object.userData.editorId);
         this._unregisterAddition(entry);
+        if (this.studio) {
+          const removed = new Set([object.userData.editorId].concat(Array.from(entry.nodes.values()).map(node => node.userData.editorId)));
+          const patch = {};
+          ['entities', 'spawns'].forEach(key => { if (this.studio[key]) patch[key] = this.studio[key].filter(item => !removed.has(item.objectId)); });
+          if (this.studio.groups) patch.groups = this.studio.groups.map(group => Object.assign({}, group, {members: group.members.filter(id => !removed.has(id))})).filter(group => group.members.length);
+          if (Object.keys(patch).length) this.setStudio(patch);
+        }
       }
     });
   }
@@ -1084,6 +1184,11 @@ export default class SceneDocument {
         this.additions.delete(entry.id);
         this._unregisterAddition(entry);
       });
+      if (this.studio) {
+        const patch = {};
+        ['entities', 'spawns', 'groups', 'widgets', 'missions', 'environments'].forEach(key => { if (this.studio[key]) patch[key] = this.studio[key].filter(item => item.roomId !== roomId); });
+        if (Object.keys(patch).length) this.setStudio(patch);
+      }
     });
   }
 
@@ -1097,14 +1202,16 @@ export default class SceneDocument {
           .concat(clone(this.pendingRooms.get(roomId) && this.pendingRooms.get(roomId).additions || []))
       };
     });
-    return {format: FORMAT, version: VERSION, rooms, imports: this.assetLibrary && this.assetLibrary.exportImports ? await this.assetLibrary.exportImports() : []};
+    const result = {format: FORMAT, version: VERSION, rooms, imports: this.assetLibrary && this.assetLibrary.exportImports ? await this.assetLibrary.exportImports() : []};
+    if (this.studio) result.studio = clone(this.studio);
+    return result;
   }
 
   _validate(data) {
     if (!isPlain(data) || data.format !== FORMAT || data.version !== VERSION || !isPlain(data.rooms)) {
       throw new Error('Este archivo no es un escenario compatible del editor.');
     }
-    const result = {rooms: {}, imports: data.imports || []};
+    const result = {rooms: {}, imports: data.imports || [], studio: behaviorSchema.studio.normalize(data.studio)};
     const ids = new Set();
     let count = 0;
     Object.keys(data.rooms).forEach(roomId => {
@@ -1131,7 +1238,14 @@ export default class SceneDocument {
             count++;
             // Retired built-in loading box/table and outlet pallets: preserve the remaining actor
             // paths without restoring their old bodies or replacement assets.
-            if (record.descriptor.prefab === 'conveyor' && /^(?:[789]|10)(?:\.|$)/.test(path)) return;
+            if (record.descriptor.prefab === 'conveyor') {
+              // Slots 7–9 remain retired supply placeholders. In the versioned
+              // catalogue, slot 10 is the real lateral presence sensor. The
+              // historical slot 10 pallet must still be removed in old scenes.
+              const equipment = behaviorSchema.conveyorLayout.equipment.getDefinition(record.descriptor.variant);
+              const catalogueVariant = equipment && equipment.variant === record.descriptor.variant;
+              if (/^[789](?:\.|$)/.test(path) || !catalogueVariant && /^10(?:\.|$)/.test(path)) return;
+            }
             record.nodes[path] = Object.assign({name: item.nodes[path].name === '' ? '' : nameValue(item.nodes[path].name)}, validateState(item.nodes[path], false));
             if (item.nodes[path].interaction !== undefined) record.nodes[path].interaction = interactionValue(item.nodes[path].interaction);
           });
@@ -1272,6 +1386,7 @@ export default class SceneDocument {
         this.overrides.set(record.id, override);
       }));
       prepared.forEach(room => this._installRoom(room));
+      this.studio = validated.studio;
       this.undoStack.push(previous);
       if (this.undoStack.length > 60) this.undoStack.shift();
       this.redoStack.length = 0;

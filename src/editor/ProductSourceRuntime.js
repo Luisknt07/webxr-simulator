@@ -90,9 +90,36 @@ export default class ProductSourceRuntime {
     return !world.testBox(bounds.clone().applyMatrix4(matrix), options);
   }
 
+  /** Expose an existing FIFO load only after its actual body fits the tray.
+   * A completed processor load may already have a mesh: it needs the same
+   * clearance check as a newly materialized Source load before becoming visible.
+   */
+  present(record, source, entry, options = {}) {
+    const product = entry && entry.product;
+    if (!product) return null;
+    // A captured hand owns its pose. Never hide or pull an in-flight grab back
+    // to an inventory display, even if a caller still holds the old entry.
+    if (product.heldBy && !options.accepting) { source.blocked = true; return null; }
+    const matrix = this.frontMatrix(record, product.bounds, product.scale, source.position);
+    if (!this.canPlace(record, product.bounds, matrix, product)) {
+      product.object.visible = false; source.blocked = true; return null;
+    }
+    if (product.object.parent !== source.helper) source.helper.add(product.object);
+    this.runtime.setProductMatrix(product, matrix);
+    product.object.visible = true;
+    product.scale.copy(product.object.getWorldScale(new THREE.Vector3()));
+    if (product.item) {
+      product.item.beltId = null;
+      product.item.box.copy(product.bounds).applyMatrix4(matrix);
+      product.item.previous.copy(product.item.box); product.item.swept.copy(product.item.box);
+    }
+    return product;
+  }
+
   materialize(record, source = record.components.source) {
     const entry = source && source.queue[0];
-    if (!entry || entry.product || !visible(record.object)) return entry && entry.product;
+    if (!entry || !visible(record.object)) return null;
+    if (entry.product) return this.present(record, source, entry);
     const bounds = this.loadBounds(entry), scale = entry.scale && new THREE.Vector3().fromArray(entry.scale), matrix = this.frontMatrix(record, bounds, scale, source.position);
     if (!this.canPlace(record, bounds, matrix)) { source.blocked = true; return null; }
     const object = createSourceProductVisual(entry.spec, entry.load);
@@ -127,8 +154,9 @@ export default class ProductSourceRuntime {
     }
     const spec = sources.specAt(config, source.generated);
     const entry = {id: record.id + ':' + this.runtime.runSequence + ':' + (++this.sequence), originId: record.id, ownerId: record.id,
-      spec: Object.assign({}, spec), load: {loadMode: config.loadMode, palletColumns: config.palletColumns, palletRows: config.palletRows, palletLayers: config.palletLayers},
-      units: sources.unitsFor(config), lineage: [record.id], product: null};
+      spec: Object.assign({}, spec), load: {loadMode: config.loadMode, palletColumns: config.palletColumns, palletRows: config.palletRows, palletLayers: config.palletLayers,
+        palletType: config.palletType, palletMaterial: config.palletMaterial, palletPacking: config.palletPacking, palletWidth: config.palletWidth, palletDepth: config.palletDepth},
+      units: sources.unitsFor(config, spec), lineage: [record.id], product: null};
     this.entries.add(entry); source.queue.push(entry); source.generated++; source.generatedUnits += entry.units;
     source.generationBlocked = false;
     this.runtime.event(record.id, 'source-generated', 'Carga generada: ' + spec.name + ' (' + entry.units + ' ud.).');
@@ -190,7 +218,7 @@ export default class ProductSourceRuntime {
     if (!point) return null;
     record.object.updateWorldMatrix(true, false);
     const position = source || processor || palletQueue ? new THREE.Vector3(point.x, point.y || 0, point.z).applyMatrix4(record.object.matrixWorld) : this.runtime.pathSurface(record, belt, point);
-    const direction = new THREE.Vector3(point.tx, 0, point.tz).transformDirection(record.object.matrixWorld);
+    const direction = new THREE.Vector3(point.tx, point.ty || 0, point.tz).transformDirection(record.object.matrixWorld);
     const up = new THREE.Vector3(0, 1, 0).transformDirection(record.object.matrixWorld);
     return {position, direction, up, point};
   }
@@ -213,13 +241,8 @@ export default class ProductSourceRuntime {
       if (hadFront) this.dematerialize(entry);
       else {
         const product = entry.product;
-        source.helper.add(product.object);
-        this.runtime.setProductMatrix(product, this.frontMatrix(record, product.bounds, product.scale));
-        product.scale.copy(product.object.getWorldScale(new THREE.Vector3()));
         Object.assign(product.object.userData, {sourceLineage: entry.lineage.slice()});
-        product.item.beltId = null;
-        product.item.box.copy(product.bounds).applyMatrix4(product.object.matrixWorld);
-        product.item.previous.copy(product.item.box); product.item.swept.copy(product.item.box);
+        this.present(record, source, entry);
       }
     }
     this.materialize(record);
@@ -269,9 +292,12 @@ export default class ProductSourceRuntime {
       const metadata = product.object.userData.sourceProduct, classification = this.runtime.productMetadata(product);
       entry = {id: record.id + ':' + this.runtime.runSequence + ':' + (++this.sequence), originId: record.id, ownerId: '',
         spec: {id: classification.sku, name: metadata && metadata.label || product.object.name || 'Caja', type: classification.productType,
-          width: Math.abs(size.x), height: Math.abs(size.y), depth: Math.abs(size.z), color: classification.color,
+          width: metadata && metadata.productWidth || Math.abs(size.x), height: metadata && metadata.productHeight || Math.abs(size.y), depth: metadata && metadata.productDepth || Math.abs(size.z), color: classification.color,
+          mass: metadata && metadata.mass || classification.mass, base: metadata && metadata.base || classification.base,
           quality: classification.quality, defect: classification.defect},
-        load: {loadMode: 'individual', palletColumns: 1, palletRows: 1, palletLayers: 1}, units: metadata && metadata.units || 1,
+        load: metadata ? {loadMode: metadata.loadMode, palletColumns: metadata.palletColumns, palletRows: metadata.palletRows, palletLayers: metadata.palletLayers,
+          palletType: metadata.palletType, palletMaterial: metadata.palletMaterial, palletPacking: metadata.palletPacking, palletWidth: metadata.palletWidth, palletDepth: metadata.palletDepth} :
+          {loadMode: 'individual', palletColumns: 1, palletRows: 1, palletLayers: 1}, units: metadata && metadata.units || 1,
         lineage: [record.id], scale: product.scale.toArray(), product};
       product.sourceEntry = entry; if (item) item.sourceEntry = entry; this.entries.add(entry);
       Object.assign(product.object.userData, {sourceProductId: entry.id, sourceOriginId: entry.originId, sourceSku: entry.spec.id, sourceUnits: entry.units});
@@ -327,7 +353,7 @@ export default class ProductSourceRuntime {
     }
     const belt = target.components.conveyor;
     if (!belt || source.config.outputPort === 'branch' && !(belt.config.layout === 'tee' && belt.config.junctionMode === 'merge') ||
-      !belt.enabled || !belt.powered || !belt.running || belt.paused || belt.emergency || belt.palletFull || belt.speed <= 0 || !visible(target.object)) return blocked();
+      !runtime.admissionReady(target, belt)) return blocked();
     const product = this.materialize(record, source);
     if (!product) return blocked();
     const route = source.config.outputPort === 'branch' ? 'branch' : 'main';

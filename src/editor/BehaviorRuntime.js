@@ -9,6 +9,46 @@ function visibleInTree(object) {
   return true;
 }
 
+function activeCamera(ctx) {
+  const xr = ctx.renderer && ctx.renderer.xr;
+  return ctx.vrMode && xr && xr.getCamera ? xr.getCamera(ctx.camera) : ctx.camera;
+}
+
+function wrappedLines(context, value, width) {
+  const lines = [];
+  String(value || '').split(/\n/).forEach(paragraph => {
+    let line = '';
+    paragraph.split(/\s+/).filter(Boolean).forEach(word => {
+      if (line && context.measureText(line + ' ' + word).width > width) { lines.push(line); line = word; }
+      else line += (line ? ' ' : '') + word;
+      while (context.measureText(line).width > width && line.length > 1) {
+        let cut = line.length - 1; while (cut > 1 && context.measureText(line.slice(0, cut)).width > width) cut--;
+        lines.push(line.slice(0, cut)); line = line.slice(cut);
+      }
+    });
+    lines.push(line);
+  }); return lines;
+}
+
+function drawContextCard(canvas, config) {
+  const context = canvas.getContext('2d'); if (!context) throw new Error('No se pudo preparar la tarjeta de información.');
+  if (context.clearRect) context.clearRect(0, 0, 480, 300);
+  context.fillStyle = '#102631';
+  if (context.beginPath && context.quadraticCurveTo && context.moveTo && context.lineTo && context.closePath && context.fill) {
+    context.beginPath(); context.moveTo(16, 0); context.lineTo(464, 0); context.quadraticCurveTo(480, 0, 480, 16); context.lineTo(480, 284); context.quadraticCurveTo(480, 300, 464, 300); context.lineTo(16, 300); context.quadraticCurveTo(0, 300, 0, 284); context.lineTo(0, 16); context.quadraticCurveTo(0, 0, 16, 0); context.closePath(); context.fill();
+  } else context.fillRect(0, 0, 480, 300);
+  context.textAlign = 'left'; context.textBaseline = 'top'; context.fillStyle = '#7fe0d2'; context.font = 'bold 12px sans-serif'; context.fillText('INFORMACIÓN', 22, 17);
+  context.fillStyle = config.color || '#ffffff'; context.font = 'bold 22px sans-serif';
+  const title = wrappedLines(context, config.title, 436).slice(0, 2); title.forEach((line, index) => context.fillText(line, 22, 39 + index * 27));
+  const top = 45 + Math.max(1, title.length) * 27;
+  let font = Math.max(14, Math.min(19, (config.fontSize || .05) * 400)), lines;
+  do { context.font = Math.round(font) + 'px sans-serif'; lines = wrappedLines(context, config.text, 436); if (lines.length * font * 1.35 <= 278 - top || font <= 14) break; font--; } while (font >= 14);
+  const capacity = Math.max(1, Math.floor((278 - top) / (font * 1.35))); lines.slice(0, capacity).forEach((line, index) => {
+    if (index === capacity - 1 && lines.length > capacity) { while (line && context.measureText(line + '…').width > 436) line = line.slice(0, -1); line += '…'; }
+    context.fillText(line, 22, top + index * font * 1.35);
+  });
+}
+
 function portalEffects(object) {
   const effects = [], seen = new Set(), owner = object.userData.editorId;
   const visit = node => {
@@ -45,6 +85,9 @@ export default class BehaviorRuntime {
     this.generation = 0;
     this.states = [];
     this.components = [];
+    this.contextual = []; this.contextualRendering = new Set(); this.contextualActive = null;
+    this.contextualStats = {scanned: 0, maxScannedPerFrame: 0, occlusionRays: 0, canvases: 0, activeId: null};
+    this.infoCameraPosition = new THREE.Vector3(); this.infoCameraForward = new THREE.Vector3(); this.infoOffset = new THREE.Vector3();
   }
 
   stop() {
@@ -60,10 +103,12 @@ export default class BehaviorRuntime {
       catch (error) { this.notify('No se pudo liberar una función: ' + error.message); }
     });
     this.components = [];
+    this.contextual = []; this.contextualRendering.clear(); this.contextualActive = null; this.contextualStats.activeId = null;
   }
 
   start(roomId) {
     this.stop();
+    this.roomId = roomId; this.roomIndex = this.ctx.room; this.infoCursor = 0; this.infoBest = null; this.infoBestScore = Infinity; this.infoTime = 0;
     const visited = new Set();
     this.document.getObjects(roomId).forEach(object => {
       if (!object || visited.has(object) || object.userData.editorHelper || object.userData.editorRuntimeHelper) return;
@@ -81,11 +126,13 @@ export default class BehaviorRuntime {
         behaviors = [];
       }
       const interactive = [];
+      const contextualInfo = behaviors.some(config => config.type === 'info' && config.enabled && config.presentation === 'contextual');
       behaviors.forEach(config => {
-        // Decals keep the same renderer in authoring and play/VR, independent
-        // of the interactive components started and stopped here.
-        if (!config.enabled || config.type === 'collision' || config.type === 'decal' || config.type === 'surfaceMaterial' || config.type === 'surfaceWear' ||
+        // Persistent surfaces, including monitor mouse/VR interaction, retain
+        // their own renderers and lifecycle across authoring and play.
+        if (!config.enabled || config.type === 'collision' || config.type === 'decal' || config.type === 'lineMonitor' || config.type === 'surfaceMaterial' || config.type === 'surfaceWear' || config.type === 'machineAudio' || config.type === 'audioZone' ||
             nativeTypes.includes(config.type) || simulationTypes.includes(config.type)) return;
+        if (config.type === 'billboard' && contextualInfo) return;
         try {
           const component = this.create(object, config);
           if (!component) return;
@@ -142,7 +189,9 @@ export default class BehaviorRuntime {
 
   execute(delta, time) {
     if (this.ctx.editor && this.ctx.editor.active) return;
+    this.executeContextual(delta);
     this.components.forEach(component => {
+      if (component.contextual) return;
       const visibility = this.ctx.performanceVisibility;
       if (component.visualOnly && visibility && !visibility.isVisible(component.object)) return;
       if (component.execute) component.execute(delta, time);
@@ -199,10 +248,86 @@ export default class BehaviorRuntime {
     }
     if (config.type === 'sound') return this.sound(object, config);
     if (config.type === 'animation') return this.animation(object, config);
+    if (config.type === 'info' && config.presentation === 'contextual') return this.contextualInfo(object, config);
+    if (config.type === 'billboard') {
+      const quaternion = object.quaternion.clone(), target = new THREE.Vector3(), location = new THREE.Vector3();
+      return {execute: () => { const camera = activeCamera(this.ctx); if (!camera || !visibleInTree(object)) return; camera.getWorldPosition(target); if (config.axis === 'yaw') { object.getWorldPosition(location); target.y = location.y; } object.lookAt(target); }, dispose: () => object.quaternion.copy(quaternion)};
+    }
     const adapter = this.ctx.editorBehaviorAdapters && this.ctx.editorBehaviorAdapters[config.type];
     if (adapter) return adapter(this.ctx, object, config, this.library);
     this.notify('La función ' + config.type + ' no está disponible en esta escena.');
     return null;
+  }
+
+  contextualInfo(object, config) {
+    const runtime = this, hidden = new Map(), point = new THREE.Vector3();
+    const descriptor = object.userData.editorDescriptor, behaviors = this.document.getBehaviors(object);
+    // A standalone authored board may disappear between reads. An info
+    // behavior on a machine never hides that machine's body or controls.
+    if (descriptor && ['box', 'plane'].includes(descriptor.type) && !behaviors.some(value => simulationTypes.includes(value.type) || ['control', 'sensor', 'plc'].includes(value.type))) {
+      object.traverse(child => { if (!child.material || child.userData.editorRuntimeHelper || child.userData.editorVisualOwnerId) return; (Array.isArray(child.material) ? child.material : [child.material]).forEach(material => { if (!hidden.has(material)) { hidden.set(material, material.visible); material.visible = false; } }); });
+    }
+    const component = {contextual: true, object, config, point, opacity: 0, targetOpacity: 0, card: null, texture: null, signature: '', blockedUntil: 0, lastProbe: -Infinity,
+      getConfig() { const values = object.userData.editorBehaviors || object.userData.editorDefaultBehaviors; const current = values && values.find(value => value.type === 'info'); return values ? current && current.enabled !== false && current.presentation === 'contextual' ? current : null : component.config; },
+      releaseCard() { if (!component.card) return; if (component.card.parent) component.card.parent.remove(component.card); component.card.geometry.dispose(); component.card.material.dispose(); component.texture.dispose(); component.card = component.texture = null; component.signature = ''; runtime.contextualStats.canvases--; },
+      render(camera) {
+        const current = component.getConfig(); if (!current) { if (component.card) { component.card.material.opacity = component.opacity; component.card.visible = component.opacity > .005 && visibleInTree(object); } return; }
+        if (!component.card) {
+          const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 300;
+          component.texture = new THREE.CanvasTexture(canvas); component.texture.encoding = THREE.sRGBEncoding;
+          component.card = new THREE.Mesh(new THREE.PlaneBufferGeometry(1, .625), new THREE.MeshBasicMaterial({map: component.texture, transparent: true, opacity: 0, depthWrite: false, alphaTest: .01, side: THREE.FrontSide}));
+          component.card.material.toneMapped = false; component.card.name = 'Tarjeta contextual · ' + (current.title || object.name); component.card.userData.editorRuntimeHelper = true; component.card.userData.editorInfoOwnerId = object.userData.editorId; component.card.renderOrder = 20;
+          const host = runtime.ctx.scene || runtime.ctx.editor && runtime.ctx.editor.hooks && runtime.ctx.editor.hooks.renderScene || object.parent; if (!host) throw new Error('La tarjeta necesita una escena activa.'); host.add(component.card); runtime.contextualStats.canvases++;
+        }
+        const signature = JSON.stringify([current.title, current.text, current.fontSize, current.color]);
+        if (signature !== component.signature) { drawContextCard(component.texture.image, current); component.texture.needsUpdate = true; component.signature = signature; }
+        object.getWorldPosition(point); component.card.position.copy(point); if (component.card.parent) component.card.parent.worldToLocal(component.card.position);
+        component.card.scale.set(current.width || 1, current.width || 1, 1); const target = runtime.infoCameraPosition.clone(); target.y = point.y;
+        if (Math.hypot(target.x - point.x, target.z - point.z) > .001) component.card.lookAt(target);
+        component.card.material.opacity = component.opacity; component.card.visible = component.opacity > .005 && visibleInTree(object);
+      },
+      dispose() { component.releaseCard(); hidden.forEach((wasVisible, material) => { material.visible = wasVisible; }); runtime.contextualRendering.delete(component); }
+    };
+    this.contextual.push(component); return component;
+  }
+
+  executeContextual(delta) {
+    if (!this.contextual.length) return; const camera = activeCamera(this.ctx); if (!camera) return;
+    const step = Math.max(0, Math.min(.1, Number.isFinite(delta) ? delta : 0)); this.infoTime += step; camera.getWorldPosition(this.infoCameraPosition); camera.getWorldDirection(this.infoCameraForward);
+    const roomActive = typeof this.ctx.room !== 'number' || typeof this.roomIndex !== 'number' || this.ctx.room === this.roomIndex;
+    const assess = component => {
+      const config = component.getConfig(); if (!roomActive || !config || !visibleInTree(component.object) || component.blockedUntil > this.infoTime) return null;
+      component.object.getWorldPosition(component.point); this.infoOffset.copy(component.point).sub(this.infoCameraPosition); const distance = this.infoOffset.length(), limit = config.revealDistance || 5;
+      if (distance > limit + .35 || distance < .01) return null; const alignment = this.infoOffset.divideScalar(distance).dot(this.infoCameraForward), threshold = Math.cos((config.gazeAngle || 110) * Math.PI / 360);
+      if (alignment < threshold - (component === this.contextualActive ? .12 : 0)) return null;
+      return {score: distance * (1 + (1 - alignment) * .4), opacity: THREE.Math.clamp((limit - distance) / (config.fadeDistance || .75), 0, 1)};
+    };
+    let checked = 0, completed = false;
+    while (checked < 8 && checked < this.contextual.length) {
+      const component = this.contextual[this.infoCursor++], candidate = assess(component); checked++;
+      if (candidate && candidate.opacity > 0 && candidate.score < this.infoBestScore) { this.infoBest = component; this.infoBestScore = candidate.score; }
+      if (this.infoCursor >= this.contextual.length) { this.infoCursor = 0; completed = true; break; }
+    }
+    this.contextualStats.scanned += checked; this.contextualStats.maxScannedPerFrame = Math.max(this.contextualStats.maxScannedPerFrame, checked);
+    const activeAssessment = this.contextualActive && assess(this.contextualActive); let selected = activeAssessment ? this.contextualActive : null;
+    if (completed) { const best = this.infoBest && assess(this.infoBest); if (best && (!activeAssessment || best.score < activeAssessment.score * .82)) selected = this.infoBest; this.infoBest = null; this.infoBestScore = Infinity; }
+    const world = this.ctx.collisionWorld;
+    if (selected && world && world.rayBlocked && this.infoTime - selected.lastProbe >= .15) {
+      selected.lastProbe = this.infoTime; this.contextualStats.occlusionRays++;
+      if (world.rayBlocked(this.infoCameraPosition, selected.point, {ignore: [selected.object]})) { selected.blockedUntil = this.infoTime + .4; selected = null; }
+    }
+    if (selected !== this.contextualActive) {
+      this.contextualRendering.forEach(component => { if (component !== this.contextualActive && component !== selected) { component.releaseCard(); this.contextualRendering.delete(component); } });
+      this.contextualActive = selected; if (selected) this.contextualRendering.add(selected);
+    }
+    this.contextualStats.activeId = selected && selected.object.userData.editorId || null;
+    this.contextualRendering.forEach(component => {
+      if (!roomActive) { component.opacity = 0; component.releaseCard(); this.contextualRendering.delete(component); return; }
+      const current = component.getConfig(), candidate = component === selected && assess(component), target = candidate ? candidate.opacity : 0;
+      component.targetOpacity = target; component.opacity += (target - component.opacity) * (1 - Math.exp(-step / Math.max(.05, current && current.fadeTime || .22)));
+      if (component.opacity < .005 && !target) { component.releaseCard(); this.contextualRendering.delete(component); return; }
+      component.render(camera);
+    });
   }
 
   sound(object, config) {

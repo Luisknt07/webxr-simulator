@@ -1,0 +1,27 @@
+'use strict';
+const assert=require('node:assert/strict'),{verifyContinuousInventory,verifyMachinePassages}=require('./continuous-inventory-qa');
+const clone=value=>JSON.parse(JSON.stringify(value));
+const spec={id:'carton',type:'box',width:.5,height:.23,depth:.3,color:'#b78b53',quality:'good',defect:'none',mass:2,base:'flat'};
+const metadata={sku:'carton',productType:'box',width:1.2,height:1.3,depth:.8,units:10,mass:40,loadMode:'pallet',base:'runners'};
+const entry=id=>({id,originId:'source',units:10,spec:clone(spec),load:{loadMode:'pallet'},metadata:clone(metadata),leaves:[{id,originId:'source',units:10,spec:clone(spec)}]});
+const generated=[entry('source:1'),entry('source:2'),entry('source:3')];
+const receiver={id:'stock',receivedUnits:20,storedUnits:10,deliveredUnits:10,dispatchedPallets:1,pallets:[{loads:1,units:10,layers:5}]};
+const line={id:'line',mode:'automatic',sources:[{id:'source',generated:3,generatedUnits:30}],receivers:[receiver]};
+const fixture={roomId:'hall',seconds:900,peakLoads:3,gl:0,warnings:[],generated:clone(generated),active:[clone(generated[1]),clone(generated[2])],dispatched:[{...clone(generated[0]),receiverId:'stock'}],lines:[clone(line)],waves:[1,2,3].map((n,index)=>({seconds:(index+1)*300,lines:[{...clone(line),sources:[{id:'source',generated:n,generatedUnits:n*10}]}]})),analytics:[{id:'line',observedSeconds:900,historyLength:600,control:{ready:true},summary:{busySeconds:300,idleSeconds:300,setupSeconds:100,blockedSeconds:100,downSeconds:50,pausedSeconds:50}}]};
+const scene={roomId:'hall',lines:[{id:'line',mode:'automatic',sourceIds:['source'],receiverIds:['stock']}]};
+[fixture,...fixture.waves].forEach(value=>Object.assign(value,{trackedEntries:2,productCount:2,archivedProducts:0}));
+assert.doesNotThrow(()=>verifyContinuousInventory(clone(fixture),scene));
+const reject=mutate=>{const value=clone(fixture);mutate(value);assert.throws(()=>verifyContinuousInventory(value,scene));};
+reject(value=>{value.peakLoads=501;});reject(value=>{value.active.pop();});reject(value=>{value.dispatched[0].leaves[0].spec.quality='defective';});
+reject(value=>{value.dispatched[0].metadata.depth+=.01;});reject(value=>{value.lines[0].receivers[0].receivedUnits++;});reject(value=>{value.lines[0].sources[0].generatedUnits++;});
+reject(value=>{value.waves[2].lines[0].sources[0].generatedUnits=20;});reject(value=>{value.lines[0].receivers[0].pallets[0].layers=6;});reject(value=>{value.dispatched[0].id=value.active[0].id;});
+reject(value=>{value.analytics[0].historyLength=601;});reject(value=>{value.analytics[0].summary.busySeconds++;});
+reject(value=>{value.lines=[];});reject(value=>{value.waves[1].lines=[];});reject(value=>{value.lines[0].sources[0].id='foreign';});
+reject(value=>{value.seconds=899;});reject(value=>{value.waves[1].seconds=599;});reject(value=>{delete value.waves[0].trackedEntries;});reject(value=>{delete value.productCount;});reject(value=>{delete value.archivedProducts;});
+const passageScene={roomId:'hall',lines:[{mode:'automatic',memberIds:['source','fifo','belt','processor','stock','reserve'],sourceIds:['source'],receiverIds:['stock','reserve'],expectedReceiverUnits:[20,0]}]};
+const passageDocument={rooms:{hall:{additions:[['source','source'],['fifo','source'],['belt','conveyor'],['processor','processor'],['stock','palletQueue'],['reserve','palletQueue']].map(([id,type])=>({id,behaviors:[{type}]}))}}};
+const passages={machines:[{id:'source',variables:{generatedUnits:30,deliveredUnits:25}},{id:'fifo',variables:{receivedUnits:25,deliveredUnits:24}},{id:'belt',variables:{entryCount:24,exitCount:23}},{id:'processor',variables:{receivedUnits:23,deliveredUnits:22}},{id:'stock',variables:{receivedUnits:22}},{id:'reserve',variables:{receivedUnits:0}}]};
+assert.doesNotThrow(()=>verifyMachinePassages(passages,passageScene,passageDocument));
+for(const [id,key]of[['source','deliveredUnits'],['fifo','deliveredUnits'],['belt','exitCount'],['processor','deliveredUnits'],['stock','receivedUnits']]){const broken=clone(passages);broken.machines.find(value=>value.id===id).variables[key]=0;assert.throws(()=>verifyMachinePassages(broken,passageScene,passageDocument));}
+assert.throws(()=>verifyMachinePassages({},passageScene,passageDocument));const missing=clone(passages);missing.machines.pop();assert.throws(()=>verifyMachinePassages(missing,passageScene,passageDocument));
+console.log('Continuous QA ledger: generated = active + dispatched, Source counters, per-stock accounting, SKU/quality provenance, measured pallet dimensions, multiwave growth, five-layer/global bounds and analytics limits passed.');

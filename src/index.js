@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
+import SmoothPointerLockControls from './lib/SmoothPointerLockControls.js';
 
 import {VRButton} from './lib/VRButton.js';
 import {loadAssets} from './lib/assetManager.js';
@@ -25,6 +25,10 @@ import { Text, Object3D, AreaChecker } from './components/index.js';
 import RayControl from './lib/RayControl.js';
 import Teleport from './lib/Teleport.js';
 import SceneEditor from './editor/SceneEditor.js';
+import StudioExperience from './studio/StudioExperience.js';
+import SceneEntities from './studio/SceneEntities.js';
+import ConveyorViewer from './editor/ConveyorViewer.js';
+import studioSchema from '../shared/studio-document.js';
 
 import * as roomHall from './rooms/Hall.js';
 import * as roomPanorama from './rooms/Panorama.js';
@@ -50,6 +54,31 @@ let lastVRCollisionPosition = null;
 
 function resetCollisionPose() {
   lastVRCollisionPosition = null;
+}
+
+function keepRoomOnVREntry(editor, roomId) {
+  if (!editor) return false;
+  const document = editor.document || {};
+  return Boolean(editor.currentProject || studioSchema.hasSceneContent(document, roomId) ||
+    (document.studio && document.studio.scenes || []).some(scene => scene.id === roomId));
+}
+
+function canStartVR() {
+  const editor = context.editor;
+  if (context.roomTransition || editor && (editor.loadingProject || editor.busy || editor.importingFiles ||
+    editor.pastingObject || editor.creatingScene || editor.pendingEdits || editor.document &&
+    (editor.document.loading || editor.document.transaction) || editor.transform && editor.transform.dragging)) {
+    if (editor && editor.toast) editor.toast('Espera a que termine la operación actual antes de entrar en VR.');
+    return 'Espera a que termine la operación actual antes de entrar en VR.';
+  }
+  return true;
+}
+
+function setVRFloorOffset(inVR, referenceSpaceType, reset = false) {
+  const previous = reset ? 0 : context.xrLocalFloorOffset || 0;
+  const next = inVR && referenceSpaceType === 'local' ? 1.6 : 0;
+  context.cameraRig.position.y += next - previous;
+  context.xrLocalFloorOffset = next;
 }
 
 var listener, ambientMusic;
@@ -160,6 +189,10 @@ const desktopPortalSpawns = {
 };
 
 function gotoRoom(room) {
+  if (context.studio && context.studio.room && room !== context.room) {
+    context.studio.message('Sal de la sala compartida antes de explorar otro escenario.');
+    return Promise.resolve(false);
+  }
   return roomNavigation.go(room);
 }
 
@@ -261,7 +294,8 @@ export function init() {
 
   ambientMusic = new THREE.Audio(listener);
 
-  controls = new PointerLockControls(camera, renderer.domElement);
+  controls = new SmoothPointerLockControls(camera, renderer.domElement);
+  context.desktopLook = controls;
 
   parent = new THREE.Object3D();
   scene.add(parent);
@@ -378,9 +412,11 @@ export function init() {
     ecsyWorld.execute(0, 0);
 
     document.body.appendChild(renderer.domElement);
-    const vrButton = VRButton.createButton(renderer, status => {
+    const vrButton = VRButton.createButton(renderer, (status, sessionInfo) => {
       roomNavigation.cancel();
       context.vrMode = status === 'sessionStarted';
+      if (context.vrMode) context.xrReferenceSpaceType = sessionInfo && sessionInfo.referenceSpaceType || 'local-floor';
+      else setVRFloorOffset(false);
       if (context.editor) context.editor.onVRChange(context.vrMode);
       if (desktopControllerData) desktopControllerData.enabled = !context.vrMode;
       document.body.classList.toggle('vr-mode', context.vrMode);
@@ -390,20 +426,23 @@ export function init() {
         document.getElementById('keyboard-help').classList.add('hidden');
         // Keep the hall's live simulation and recording when only changing
         // input mode. Other rooms still enter VR through the original hall.
-        if (context.room !== 0) {
+        const keepProjectRoom = keepRoomOnVREntry(context.editor, roomNames[context.room]);
+        if (context.room !== 0 && !keepProjectRoom) {
           gotoRoom(0).then(changed => {
             if (changed && context.vrMode) {
               context.cameraRig.position.set(0, 0, 2);
+              setVRFloorOffset(true, context.xrReferenceSpaceType, true);
               resetCollisionPose();
             }
           });
-        } else context.cameraRig.position.set(0, 0, 2);
+        } else { context.cameraRig.position.set(0, 0, 2); if (context.studio) context.studio.applySpawn(true); }
+        setVRFloorOffset(true, context.xrReferenceSpaceType);
         context.goto = null;
       } else {
         document.getElementById('keyboard-help').classList.remove('hidden');
       }
       resetCollisionPose();
-    });
+    }, canStartVR);
     vrButton.id = 'VRButton';
     document.body.appendChild(vrButton);
     context.editor = new SceneEditor(context, {
@@ -412,7 +451,11 @@ export function init() {
       unlock: () => controls.unlock(),
       clearKeyboard: clearKeyboardState
     });
-    context.editor.ready.then(() => {
+    context.editor.ready.then(async () => {
+      context.editor.entities = new SceneEntities(context.editor);
+      if (context.editor.editorEnabled) context.editor.conveyorViewer = new ConveyorViewer(context.editor);
+      const studio = new StudioExperience(context.editor, vrButton);
+      await studio.ready;
       renderer.setAnimationLoop(animate);
       window.webxrStartup.complete();
     }).catch(error => window.webxrStartup.fail(error));
@@ -427,7 +470,7 @@ function onKeyDown(event) {
     return;
   }
 
-  if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(event.code) !== -1) {
+  if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(event.code) !== -1 || context.desktopFlight && ['KeyQ', 'KeyE', 'ControlLeft', 'ControlRight'].includes(event.code)) {
     event.preventDefault();
     keyboardState[event.code] = true;
     return;
@@ -449,6 +492,7 @@ function onKeyUp(event) {
 
 function clearKeyboardState() {
   keyboardState = {};
+  if (controls && controls.reset) controls.reset();
   // A mouse release outside the window must not leave a pushbutton held down.
   // The immersive session retains its own controller lifecycle.
   if (!context.vrMode && raycontrol && desktopControllerData && raycontrol.cancelSelect) raycontrol.cancelSelect(desktopControllerData);
@@ -474,6 +518,7 @@ function setupDesktopPointer() {
     raycasterContext
   );
   context.desktopController = desktopController;
+  context.desktopControllerData = desktopControllerData;
 }
 
 function onDesktopSelectStart(event) {
@@ -495,6 +540,8 @@ function onDesktopSelectEnd(event) {
 
 function updateKeyboardMovement(delta) {
   if (context.vrMode || (context.editor && context.editor.active)) return;
+  if (controls.update) controls.update(delta);
+  if (context.studioLocomotion === 'teleport' && !context.desktopFlight) return;
 
   context.cameraRig.updateMatrixWorld(true);
   const previous = camera.getWorldPosition(new THREE.Vector3());
@@ -503,6 +550,16 @@ function updateKeyboardMovement(delta) {
     Number(Boolean(keyboardState.KeyS || keyboardState.ArrowDown));
   const right = Number(Boolean(keyboardState.KeyD || keyboardState.ArrowRight)) -
     Number(Boolean(keyboardState.KeyA || keyboardState.ArrowLeft));
+  if (context.desktopFlight) {
+    const vertical = Number(Boolean(keyboardState.KeyQ)) - Number(Boolean(keyboardState.KeyE));
+    const direction = camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(forward);
+    const lateral = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()));
+    direction.addScaledVector(lateral, right); direction.y += vertical;
+    const boost = keyboardState.ControlLeft || keyboardState.ControlRight ? 3 : 1;
+    const desired = previous.clone().add(direction.normalize().multiplyScalar(keyboardMoveSpeed * boost * Math.max(0, Math.min(delta || 0, .1))));
+    const resolved = context.collisionWorld ? context.collisionWorld.moveSphere(previous, desired, .25) : desired;
+    camera.position.copy(camera.parent ? camera.parent.worldToLocal(resolved.clone()) : resolved); context.cameraRig.updateMatrixWorld(true); return;
+  }
   const distance = keyboardMoveSpeed * Math.min(delta, 0.1) /
     (forward !== 0 && right !== 0 ? Math.sqrt(2) : 1);
   controls.moveForward(forward * distance);
@@ -559,10 +616,26 @@ function setupControllers() {
     controller.addEventListener( 'disconnected', function () {
       if (this.userData.controllerModel) this.remove(this.userData.controllerModel);
       delete this.userData.controllerModel;
-      if (context.editorXylophone && context.editorXylophone.releaseHeld) context.editorXylophone.releaseHeld();
+      if (context.editorXylophone && context.editorXylophone.releaseHeld) context.editorXylophone.releaseHeld(this);
       raycontrol.removeController(this);
     });
   }
+}
+
+function syncXRControllers() {
+  if (!context.vrMode || !renderer.xr.getSession) return;
+  const session = renderer.xr.getSession();
+  if (!session || !session.inputSources) return;
+  // Three r112 maps target-ray Groups by the current inputSources index. If
+  // the first hand disconnects, the remaining hand moves to index zero without
+  // receiving a connected event. Reconcile the app registry with that same map.
+  controllers.forEach((controller, index) => {
+    const source = session.inputSources[index];
+    const previous = raycontrol.controllers.find(entry => entry.controller === controller);
+    if (previous && previous.inputSource === source) return;
+    if (previous) controller.dispatchEvent({type: 'disconnected', data: previous.inputSource});
+    if (source) controller.dispatchEvent({type: 'connected', data: source});
+  });
 }
 
 // @FIXME Hack for Oculus Browser issue
@@ -624,12 +697,16 @@ function animate() {
   const collisionWorld = context.collisionWorld;
   if (collisionWorld) collisionWorld.beginFrame();
   try {
+    if (context.studio) context.studio.tick();
+    if (context.editor && context.editor.entities) context.editor.entities.tick(delta);
+    if (context.editor && context.editor.conveyorViewer) context.editor.conveyorViewer.tick(delta);
     if (context.editor && context.editor.active && !context.vrMode) {
       context.editor.render(delta);
       return;
     }
 
     updateKeyboardMovement(delta);
+    syncXRControllers();
     ecsyWorld.execute(delta, elapsedTime);
     scene.updateMatrixWorld(true);
 

@@ -5,10 +5,10 @@ const MAX_STAMPS = 256;
 const MAX_STAMP_JSON = 131072;
 const MAX_LAYERS = 64, MAX_LAYER_STAMPS = 2048, MAX_LAYER_JSON = 512000;
 const patternDefaults = {
-  rust: {roughness: 0.92, metalness: 0.03, bumpScale: 0.007},
+  rust: {roughness: 0.92, metalness: 0.03, bumpScale: 0.0035},
   grime: {roughness: 0.87, metalness: 0.01, bumpScale: 0.002},
-  scratches: {roughness: 0.42, metalness: 0.72, bumpScale: 0.002},
-  chipped: {roughness: 0.56, metalness: 0.66, bumpScale: 0.004}
+  scratches: {roughness: 0.42, metalness: 0.72, bumpScale: 0.0007},
+  chipped: {roughness: 0.56, metalness: 0.66, bumpScale: 0.0018}
 };
 
 function plain(value) { return value && typeof value === 'object' && !Array.isArray(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null); }
@@ -97,39 +97,47 @@ function generateWear(pattern, seed = 1, density = 0.65, size = 128) {
   const scratches = [];
   if (pattern === 'scratches') for (let index = 0; index < Math.round(6 + density * 34); index++) {
     const angle = (hash(index, 1, seed) - 0.5) * 0.8, length = 0.12 + hash(index, 2, seed) * 0.8;
-    scratches.push({x: hash(index, 3, seed), y: hash(index, 4, seed), dx: Math.cos(angle) * length, dy: Math.sin(angle) * length, width: 0.0018 + hash(index, 5, seed) * 0.006});
+    scratches.push({x: hash(index, 3, seed), y: hash(index, 4, seed), dx: Math.cos(angle) * length, dy: Math.sin(angle) * length, width: 0.0008 + Math.pow(hash(index, 5, seed), 3) * 0.005});
   }
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const u = (x + 0.5) / size, v = (y + 0.5) / size, nx = u * 2 - 1, ny = v * 2 - 1;
     const coarse = grain(u, v, seed), fine = noise(u * 92, v * 92, seed + 127), dots = hash(x, y, seed + 331);
+    const flakes = noise(u * 37, v * 37, seed + 197), pores = noise(u * 151, v * 151, seed + 211);
     const radius = Math.sqrt(nx * nx + ny * ny), edge = 0.71 + grain(u * 1.7, v * 1.7, seed + 511) * 0.24;
     const falloff = 1 - smooth(edge - 0.2, edge, radius);
     let alpha = smooth((1 - density) * 0.78, (1 - density) * 0.78 + 0.28, coarse) * falloff;
     let red, green, blue, height = coarse, roughness = 0.9, metalness = 0.02;
     if (pattern === 'rust') {
-      const pitting = smooth(0.38, 0.8, fine) * 0.4;
-      red = 83 + coarse * 94 + dots * 19; green = 31 + coarse * 49 + fine * 11; blue = 12 + coarse * 20;
-      height = clamp(coarse * 0.65 + pitting); roughness = 0.87 + fine * 0.13;
-      alpha *= 0.64 + fine * 0.36;
+      const pitting = smooth(0.38, 0.8, pores) * .34, oxide = smooth(.28, .72, flakes);
+      red = 43 + oxide * 111 + coarse * 35 + dots * 13; green = 19 + oxide * 51 + coarse * 23; blue = 9 + oxide * 17 + fine * 9;
+      height = clamp(.23 + flakes * .32 + pitting); roughness = .85 + pores * .15;
+      alpha *= .72 + fine * .28;
     } else if (pattern === 'grime') {
-      const streak = noise(u * 27, v * 3, seed + 619);
-      red = 30 + coarse * 33; green = 32 + coarse * 26; blue = 24 + coarse * 19;
-      alpha *= 0.46 + streak * 0.54; height = coarse * 0.25; roughness = 0.76 + fine * 0.24;
+      const streak = noise(u * 47, v * 3, seed + 619), dust = smooth(.25, .77, coarse);
+      red = 24 + coarse * 39 + dust * 21; green = 26 + coarse * 33 + dust * 16; blue = 21 + coarse * 27 + dust * 9;
+      alpha *= .24 + streak * .58 + flakes * .18; height = .48 + coarse * .08; roughness = .72 + fine * .23;
     } else if (pattern === 'scratches') {
-      let line = 0;
+      let line = 0, groove = 0;
       scratches.forEach(scratch => {
         const dx = u - scratch.x, dy = v - scratch.y, lengthSq = scratch.dx * scratch.dx + scratch.dy * scratch.dy;
         const t = clamp((dx * scratch.dx + dy * scratch.dy) / lengthSq, -0.5, 0.5);
         const distance = Math.sqrt(Math.pow(dx - t * scratch.dx, 2) + Math.pow(dy - t * scratch.dy, 2));
-        line = Math.max(line, 1 - smooth(scratch.width * 0.35, scratch.width + 0.5 / size, distance));
+        const taper = 1 - smooth(.34, .5, Math.abs(t));
+        const broken = .55 + noise(u * 71, v * 5, seed + 401) * .45;
+        line = Math.max(line, (1 - smooth(scratch.width * .2, scratch.width + .45 / size, distance)) * taper * broken);
+        groove = Math.max(groove, (1 - smooth(scratch.width, scratch.width * 2.5 + .75 / size, distance)) * taper);
       });
-      alpha = line * falloff * (0.55 + fine * 0.45); red = 139 + fine * 84; green = 147 + fine * 81; blue = 151 + fine * 81;
-      height = 0.5 - line * 0.4; roughness = 0.32 + fine * 0.25; metalness = 0.74 + fine * 0.25;
+      alpha = Math.max(line, groove * .30) * falloff * (.66 + fine * .34);
+      const glint = smooth(.05, .6, line);
+      red = 49 + glint * 146 + fine * 33; green = 53 + glint * 150 + fine * 31; blue = 55 + glint * 152 + fine * 29;
+      height = .5 - line * .26; roughness = .28 + fine * .28; metalness = .74 + fine * .25;
     } else {
-      const boundary = smooth(0.36 + (1 - density) * 0.2, 0.56 + (1 - density) * 0.2, coarse);
-      alpha = boundary * falloff * (0.72 + fine * 0.28);
-      red = 75 + boundary * 73 + fine * 25; green = 80 + boundary * 77 + fine * 23; blue = 82 + boundary * 81 + fine * 22;
-      height = 0.48 - boundary * 0.32; roughness = 0.4 + fine * 0.3; metalness = 0.72 + fine * 0.26;
+      const islands = coarse * .72 + flakes * .28, threshold = .40 + (1 - density) * .19;
+      const boundary = smooth(threshold, threshold + .13, islands), core = smooth(threshold + .09, threshold + .18, islands);
+      alpha = boundary * falloff * (.8 + fine * .2);
+      // A dark paint lip surrounds the newly exposed, brighter substrate.
+      red = 38 + core * 116 + fine * 23; green = 41 + core * 123 + fine * 21; blue = 43 + core * 127 + fine * 19;
+      height = .48 - core * .23; roughness = .38 + fine * .28; metalness = .72 + fine * .26;
     }
     const index = (y * size + x) * 4;
     data[index] = clamp(red, 0, 255); data[index + 1] = clamp(green, 0, 255); data[index + 2] = clamp(blue, 0, 255); data[index + 3] = density === 0 ? 0 : Math.round(clamp(alpha) * 255);

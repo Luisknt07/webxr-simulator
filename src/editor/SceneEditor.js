@@ -3,6 +3,9 @@ import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {TransformControls} from 'three/examples/jsm/controls/TransformControls.js';
 import AssetLibrary from './AssetLibrary.js';
 import AssetThumbnails from './AssetThumbnails.js';
+import EditorShell from './EditorShell.js';
+import ResourceBrowser from './ResourceBrowser.js';
+import {usage as resourceUsage, remove as removeResource} from '../studio/ResourceOperations.js';
 import SceneDocument from './SceneDocument.js';
 import InteractionRuntime from './InteractionRuntime.js';
 import BehaviorRuntime from './BehaviorRuntime.js';
@@ -14,6 +17,8 @@ import WearBrush from './WearBrush.js';
 import MaterialInspector from './MaterialInspector.js';
 import ScenePerformance from './ScenePerformance.js';
 import IndustrialVisuals from './IndustrialVisuals.js';
+import IndustrialAudioSystem from './IndustrialAudioSystem.js';
+import LineMonitorSystem from './LineMonitorSystem.js';
 import SimulationRuntime from './SimulationRuntime.js';
 import SimulationPanel from './SimulationPanel.js';
 import CollisionWorld from '../lib/CollisionWorld.js';
@@ -37,6 +42,7 @@ const PLACEABLE_KINDS = ['model', 'image'];
 const NAVIGATION_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE'];
 const TOOL_MODES = ['translate', 'rotate', 'scale'];
 const FUNCTION_SOURCE = {
+  lineMonitor: ['src/editor/LineMonitorSystem.js', 'Monitor 2D de la línea: trayectorias, productos, variables y mandos por ratón o ambos controles VR.'],
   surfaceMaterial: ['src/editor/SurfaceMaterialSystem.js', 'Material editable con texturas PBR, acabado y desgaste general. Se conserva al copiar y guardar.'],
   surfaceWear: ['src/editor/WearPaintSystem.js', 'Capas de desgaste pintadas con la brocha y vinculadas a esta pieza.'],
   decal: ['src/editor/DecalSystem.js', 'Proyecta una imagen sobre superficies. Ajusta tamaño, profundidad y opacidad; PNG con transparencia permite pegatinas y señalización.'],
@@ -50,6 +56,8 @@ const FUNCTION_SOURCE = {
   info: ['src/stations/InfoPanels.js', 'Muestra un panel con su propio texto, color y tamaño.'],
   billboard: ['src/systems/BillboardSystem.js', 'Orienta el objeto hacia el visitante durante el recorrido.'],
   sound: ['src/rooms/Sound.js', 'Audio del objeto al pulsarlo o por reproducción automática.'],
+  machineAudio: ['src/editor/IndustrialAudioSystem.js', 'Audio espacial sincronizado con el movimiento, los ciclos y las pulsaciones reales; admite un clip propio.'],
+  audioZone: ['src/editor/IndustrialAudioSystem.js', 'Zona espacial de ambiente con entrada y salida suaves, sin malla ni colisión.'],
   animation: ['src/editor/BehaviorRuntime.js', 'Reproduce un clip de animación perteneciente al modelo visual.'],
   news: ['src/stations/NewsTicker.js', 'Actualiza una pantalla a partir de un archivo de noticias JSON.'],
   teleport: ['src/lib/Teleport.js', 'En VR: apuntar, mantener el gatillo y soltar para desplazarse.'],
@@ -71,6 +79,7 @@ const ROOM_SOURCE = {
 };
 
 function implementationSource(object, type) {
+  if (type === 'machineAudio' || type === 'audioZone') return FUNCTION_SOURCE[type][0];
   if (type === 'decal') return FUNCTION_SOURCE.decal[0];
   if (type === 'collision') return FUNCTION_SOURCE.collision[0];
   if ((behaviorSchema.simulationTypes || []).includes(type)) return FUNCTION_SOURCE[type][0];
@@ -169,9 +178,14 @@ export default class SceneEditor {
     this.behaviors = new BehaviorRuntime(ctx, this.document, this.library, text => this.toast(text));
     this.simulation = new SimulationRuntime(ctx, this.document, text => this.toast(text));
     this.industrialVisuals = new IndustrialVisuals(ctx, this.document, this.simulation);
+    this.industrialAudio = new IndustrialAudioSystem(ctx, this.document, this.simulation, this.library, text => this.toast(text));
+    this.audioControls = []; this.industrialAudio.onChange = () => this.refreshAudioControls();
+    this.lineMonitors = new LineMonitorSystem(ctx, this.document, this.simulation);
     this.projectClient = new ProjectClient();
     this.projectLibrary = new ProjectLibrary(this.projectClient, {
-      onOpen: project => this.openServerProject(project),
+      onOpen: (project, roomId) => this.openServerProject(project, roomId),
+      getCurrentProject: () => this.currentProject,
+      listLevels: project => behaviorSchema.studio.sceneEntries(project.document).sort((a, b) => Number(b.initial) - Number(a.initial) || Number(b.custom) - Number(a.custom) || a.index - b.index),
       onNew: name => this.createServerProject(name),
       onSaveAs: name => this.saveProject(name, true),
       notify: message => this.toast(message)
@@ -179,11 +193,34 @@ export default class SceneEditor {
     if (!this.editorEnabled && this.projectLibrary.overlay) this.projectLibrary.overlay.remove();
     this.buildUI();
     this.assetThumbnails = new AssetThumbnails(this.library, this.assetGrid);
+    if (this.editorEnabled) {
+      this.resourceBrowser = new ResourceBrowser({
+        host: this.assets, library: this.library, thumbnails: this.assetThumbnails,
+        grid: this.assetGrid, folderList: this.folderList, preview: this.preview,
+        onPlace: resource => this.placeResource(resource),
+        onExploreEquipment: resource => this.conveyorViewer && this.conveyorViewer.open(resource),
+        onImport: () => this.assetInput.click(),
+        onSceneContext: () => ({document: this.document, roomId: this.roomId}),
+        onChange: organization => this.document.setStudio({organization}),
+        onCaptureTemplate: () => this.studioTools && this.studioTools.saveTemplate(),
+        onSelect: resource => { this.selectedAsset = resource.asset || null; this.showInspectorTab('resource'); this.inspector.scrollTop = 0; this.inspectorScroll.resource = 0; },
+        onImageAction: (entry, action) => action === 'decal' ? this.startDecalPlacement(entry) : this.materialInspector.applyTexture(this.selected, entry.importId || entry.path),
+        canApplyTexture: () => Boolean(this.selected),
+        onUsage: resource => resourceUsage(this, resource),
+        onDeleteResource: resource => removeResource(this, resource),
+        onMessage: message => this.toast(message)
+      });
+      if (this.resourceBrowser.search) this.assetSearch = this.resourceBrowser.search;
+      if (this.resourceBrowser.kindFilter) this.kindSelect = this.resourceBrowser.kindFilter;
+    }
     this.simulationPanel = new SimulationPanel(this);
+    if (this.editorEnabled) this.shell = new EditorShell(this);
     this.orbit = new OrbitControls(this.camera, ctx.renderer.domElement);
     this.orbit.target.set(0, 1, -1);
     this.orbit.mouseButtons = {LEFT: null, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE};
     this.orbit.enableKeys = false;
+    this.orbit.enableDamping = true; this.orbit.dampingFactor = .12;
+    this.orbit.rotateSpeed = .55; this.orbit.panSpeed = .65; this.orbit.zoomSpeed = .65;
     this.orbit.enabled = false;
     this.orbit.update();
     this.safeCameraPosition = this.camera.position.clone();
@@ -205,26 +242,39 @@ export default class SceneEditor {
     hooks.renderScene.add(this.transform, this.grid, this.box);
     this.transform.addEventListener('dragging-changed', event => {
       this.clearNavigation();
+      if (event.value) this.stopOrbitMotion();
       this.orbit.enabled = this.active && !event.value;
       if (event.value) {
         this.industrialVisuals.dispose(); this.materials.dispose(); this.document.begin();
+        const resizeTarget = this.transform.object || this.selected;
+        const explicitGroup = this.studioTools && this.studioTools.selection.size > 1;
+        this.resizeReflow = this.toolMode === 'scale' && !explicitGroup && this.assembly.supported(resizeTarget) ?
+          this.assembly.captureReflow(resizeTarget) : null;
+        if (this.resizeReflow && !this.resizeReflow.edges.length) this.resizeReflow = null;
         this.dragAssembly = this.toolMode === 'translate' ? this.assemblyFor(this.transform.object || this.selected) : null;
         this.clearAssembly();
-        if (this.dragAssembly) this.dragAssembly.begin(this.transform.object || this.selected);
+        if (this.dragAssembly) this.dragAssembly.begin(this.transform.object || this.selected, {component: !explicitGroup && !this.detachDragModifier, detach: this.detachDragModifier});
       } else if (!this.cancellingTransform) {
         this.perform(() => {
           try {
             if (this.dragAssembly) this.dragAssembly.end();
             this.dragAssembly = null;
-            this.assembly.detachSeparated(this.transform.object || this.selected);
+            if (this.resizeReflow) this.applyEquipmentReflow(this.resizeReflow);
+            else this.assembly.detachSeparated(this.transform.object || this.selected);
+            this.resizeReflow = null;
+            this.detachDragModifier = false;
             this.document.commit(); this.syncNative();
-          } catch (error) { this.clearAssembly(); this.document.cancel(); throw error; }
+          } catch (error) { this.resizeReflow = null; this.clearAssembly(); this.document.cancel(); throw error; }
         });
       }
     });
     this.transform.addEventListener('objectChange', () => {
       if (this.transform.dragging && this.toolMode === 'translate') {
         try { if (this.dragAssembly) this.dragAssembly.update(this.transform.object || this.selected); }
+        catch (error) { this.cancelTransformDrag(); this.toast(error.message); }
+      }
+      if (this.transform.dragging && this.resizeReflow) {
+        try { this.applyEquipmentReflow(this.resizeReflow); }
         catch (error) { this.cancelTransformDrag(); this.toast(error.message); }
       }
       this.box.update();
@@ -260,17 +310,18 @@ export default class SceneEditor {
   }
 
   async initialize() {
-    // Public visits use the last saved server scene, without authoring URLs or
-    // browser-local drafts. The runtime remains available for desktop and VR.
-    if (!this.editorEnabled) this.rememberProject(null);
+    const parameters = new URL(window.location).searchParams;
+    this.explicitProject = parameters.has('project');
+    // The public landing page uses the latest saved scene; a direct project
+    // link must resolve that exact project in both desktop and VR runtime.
+    // Public visits never restore browser-local authoring drafts.
+    if (!this.editorEnabled && !this.explicitProject) this.rememberProject(null);
     try {
       this.entries = await this.library.getCatalog();
       this.renderAssets();
     } catch (error) { this.toast('Biblioteca: ' + error.message); }
     try { await this.checkStorageHealth(); }
     catch (error) { /* Static copies retain local/JSON loading without a server. */ }
-    const parameters = new URL(window.location).searchParams;
-    this.explicitProject = this.editorEnabled && parameters.has('project');
     let lastProject, localBackup;
     try {
       if (this.editorEnabled) {
@@ -286,7 +337,11 @@ export default class SceneEditor {
           explicitId: this.explicitProject ? parameters.get('project') : undefined,
           rememberedId: lastProject, hasLocalBackup: Boolean(localBackup)
         });
-        if (resolved.project) { await this.applyServerProject(resolved.project); restored = true; }
+        if (resolved.project) {
+          const requestedRoom = parameters.get('room'), initialRoom = resolved.project.document.studio && resolved.project.document.studio.startRoomId;
+          await this.applyServerProject(resolved.project, {roomId: ROOM_IDS.includes(requestedRoom) ? requestedRoom : ROOM_IDS.includes(initialRoom) ? initialRoom : this.roomId});
+          restored = true;
+        }
       } catch (error) { this.toast('No se pudo abrir el proyecto guardado: ' + error.message); }
     }
     if (!restored && !this.explicitProject) {
@@ -310,6 +365,7 @@ export default class SceneEditor {
 
   get roomId() { return ROOM_IDS[this.ctx.room]; }
   get root() { return this.document.getRoot(this.roomId); }
+  getSceneEntries() { return behaviorSchema.studio.sceneEntries(this.document); }
 
   buildUI() {
     this.launcher = button('◇ Abrir editor', 'Editar el escenario', () => this.enter());
@@ -322,8 +378,8 @@ export default class SceneEditor {
     this.ui.id = 'scene-editor';
     this.ui.hidden = true;
     this.ui.setAttribute('aria-label', 'Editor de escenarios WebXR');
-    const toolbar = el('div', 'ed-toolbar');
-    const brand = el('div', 'ed-brand');
+    const toolbar = this.toolbar = el('div', 'ed-toolbar');
+    const brand = this.brand = el('div', 'ed-brand');
     brand.appendChild(el('span', 'ed-logo', '◇'));
     const brandText = el('div');
     brandText.appendChild(el('strong', '', 'HELLO / STUDIO'));
@@ -364,6 +420,8 @@ export default class SceneEditor {
     this.redoButton = button('↷', 'Rehacer · Ctrl Shift Z', () => this.perform(() => this.historyStep('redo')));
     toolbar.appendChild(this.undoButton);
     toolbar.appendChild(this.redoButton);
+    this.appendAudioControls(toolbar);
+    toolbar.appendChild(button('Zona de sonido', 'Añadir un emisor de ambiente invisible y sin colisiones', () => this.createAudioZone()));
     this.projectButton = button('Proyectos', 'Abrir, crear y recuperar versiones de proyectos guardados', () => this.projectLibrary.open(), 'ed-project-current');
     toolbar.appendChild(this.projectButton);
     toolbar.appendChild(button('Compartir enlace', 'Copiar el enlace del proyecto guardado para otra pestaña o navegador', () => this.perform(() => this.shareProject())));
@@ -374,11 +432,12 @@ export default class SceneEditor {
     toolbar.appendChild(button('↓ JSON', 'Descargar escenario e importaciones', () => this.exportProject()));
     toolbar.appendChild(button('Importar JSON', 'Abrir una copia de escenario JSON', () => this.projectInput.click()));
     toolbar.appendChild(button('Variables y datos', 'Monitor, mandos de simulación, registros y analítica', () => this.simulationPanel.toggle()));
-    toolbar.appendChild(button('▶ Probar', 'Recorrer el escenario con sus interacciones y entrar a VR', () => this.leave(), 'primary'));
+    this.playButton = button('▶ Probar', 'Recorrer el escenario con sus interacciones y entrar a VR', () => this.leave(), 'primary');
+    toolbar.appendChild(this.playButton);
     this.ui.appendChild(toolbar);
 
     this.hierarchy = el('aside', 'ed-hierarchy');
-    const treeHeader = el('div', 'ed-panel-title', 'JERARQUÍA');
+    const treeHeader = this.treeHeader = el('div', 'ed-panel-title', 'JERARQUÍA DE ESCENA');
     this.treeCount = el('span', 'ed-count');
     treeHeader.appendChild(this.treeCount);
     this.hierarchy.appendChild(treeHeader);
@@ -418,7 +477,7 @@ export default class SceneEditor {
     })));
     this.hierarchy.appendChild(button('+ Decal', 'Elegir una imagen y proyectarla sobre una superficie', () => this.startDecalPlacement(), 'ed-add-decal'));
     const sceneActions = el('div', 'ed-actions');
-    sceneActions.appendChild(button('Base vacía', 'Crear una base con suelo y teletransporte VR. Puedes deshacerlo.', () => this.emptyRoom()));
+    sceneActions.appendChild(button('Base vacía', 'Crear una base con cielo, iluminación, suelo, cámara y punto de inicio. Puedes deshacerlo.', () => this.emptyRoom()));
     sceneActions.appendChild(button('Restaurar', 'Recuperar la sala original. Puedes deshacerlo.', () => this.perform(() => { this.document.resetRoom(this.roomId); this.select(null); })));
     this.hierarchy.appendChild(sceneActions);
     this.tree = el('div', 'ed-tree');
@@ -462,12 +521,13 @@ export default class SceneEditor {
     this.viewport.appendChild(viewTools);
     this.assemblyHint = el('div', 'ed-assembly-hint'); this.assemblyHint.hidden = true;
     this.viewport.appendChild(this.assemblyHint);
-    this.viewport.appendChild(el('div', 'ed-viewport-help', 'WASD: navegar · Q: subir · E: bajar · Espacio: mover / rotar / escalar · Clic: seleccionar · Botón derecho: orbitar · Rueda: zoom · Botón central: desplazar'));
+    this.viewportHelp = el('div', 'ed-viewport-help', 'WASD: navegar · Q: subir · E: bajar · Arrastrar: mover línea · Ctrl + arrastrar: separar módulo · Espacio: mover / rotar / escalar · Botón derecho: orbitar · Rueda: zoom · Botón central: desplazar');
+    this.viewport.appendChild(this.viewportHelp);
     this.ui.appendChild(this.viewport);
     this.inspector = el('aside', 'ed-inspector');
     this.ui.appendChild(this.inspector);
 
-    const assets = el('section', 'ed-assets');
+    const assets = this.assets = el('section', 'ed-assets');
     const assetsHead = el('div', 'ed-assets-head');
     assetsHead.appendChild(el('strong', '', 'ARCHIVOS DEL PROYECTO'));
     this.assetSearch = el('input');
@@ -534,6 +594,7 @@ export default class SceneEditor {
         const imported = await this.importFiles(Array.from(this.assetInput.files));
         this.entries = await this.library.getCatalog();
         this.folder = '@imports';
+        if (this.resourceBrowser) this.resourceBrowser.showProjectFiles();
         this.renderAssets();
         this.dirty = true;
         if (imported[0]) this.previewAsset(imported[0]);
@@ -567,6 +628,17 @@ export default class SceneEditor {
       canvas.setAttribute('aria-label', 'Vista 3D del escenario · WASD para navegar · Q subir · E bajar');
     }
     let down;
+    // Capture runs before TransformControls' pointer-down listener, so the
+    // detach choice belongs to this gesture and cannot change half-way through.
+    const captureDragModifier = event => { this.detachDragModifier = Boolean(event.ctrlKey || event.metaKey); };
+    canvas.addEventListener('pointerdown', captureDragModifier, true);
+    canvas.addEventListener('mousedown', captureDragModifier, true);
+    canvas.addEventListener('wheel', event => {
+      if (!this.active || this.ctx.vrMode || this.transform.dragging || this.wearBrush || this.decalPlacement) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+      const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? this.viewport.clientHeight || 600 : 1);
+      this.pendingZoom = THREE.Math.clamp((this.pendingZoom || 0) + THREE.Math.clamp(pixels, -160, 160) * .0012, -.65, .65);
+    }, {capture: true, passive: false});
     canvas.addEventListener('pointerdown', event => {
       if (!this.active) return;
       if (canvas.focus) canvas.focus({preventScroll: true});
@@ -603,6 +675,7 @@ export default class SceneEditor {
     this.viewport.addEventListener('dragover', event => { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; });
     this.viewport.addEventListener('drop', event => {
       event.preventDefault();
+      if (this.resourceBrowser && this.resourceBrowser.dropEvent(event)) return;
       const id = event.dataTransfer.getData('application/x-webxr-asset');
       if (id) {
         const entry = this.entries.find(item => (item.importId || item.path) === id);
@@ -611,7 +684,9 @@ export default class SceneEditor {
         this.perform(async () => {
           const imported = await this.importFiles(Array.from(event.dataTransfer.files));
           this.entries = await this.library.getCatalog();
-          this.folder = '@imports'; this.renderAssets(); this.dirty = true;
+          this.folder = '@imports';
+          if (this.resourceBrowser) this.resourceBrowser.showProjectFiles();
+          this.renderAssets(); this.dirty = true;
           const model = imported.find(item => PLACEABLE_KINDS.includes(item.kind));
           if (model) await this.addAsset(model);
         });
@@ -647,6 +722,7 @@ export default class SceneEditor {
     this.renderAssets();
     this.select(this.selected); this.resize(); this.updateStatus();
     this.simulationPanel.modeChanged();
+    if (this.shell) this.shell.modeChanged();
     if (this.projectSync) this.projectSync.check();
   }
 
@@ -666,6 +742,7 @@ export default class SceneEditor {
     this.transform.detach();
     this.box.visible = false; this.grid.visible = false;
     this.clearAssetPreview();
+    if (this.resourceBrowser) this.resourceBrowser.setActive(false);
     this.assetThumbnails.dispose();
     this.ui.hidden = true;
     document.body.classList.remove('editor-mode');
@@ -678,6 +755,7 @@ export default class SceneEditor {
     this.resize();
     this.startRuntime();
     this.simulationPanel.modeChanged();
+    if (this.shell) this.shell.modeChanged();
     this.toast('Prueba del escenario · WASD para moverte · Esc libera el mouse · ENTER VR para el visor');
   }
 
@@ -692,6 +770,7 @@ export default class SceneEditor {
     this.returnButton.hidden = !this.editorEnabled || inVR || this.active;
     this.resize();
     this.simulationPanel.modeChanged();
+    if (this.shell) this.shell.modeChanged();
   }
 
   beforeRoomChange() { this.cancelTransformDrag(); this.clearAssembly(true); this.clearNavigation(); this.cancelDecalPlacement(); this.decals.dispose(); this.infoPreview.dispose(); this.stopRuntime(); this.select(null); }
@@ -709,11 +788,15 @@ export default class SceneEditor {
     if (this.active) { prepareNativeEdit(this.ctx, this.root); this.infoPreview.sync(this.roomId, this.camera); this.home(); this.renderTree(); }
     else this.startRuntime();
     this.simulationPanel.modeChanged();
+    if (this.entities) this.entities.sync();
+    this.renderAssets();
     this.updateStatus();
+    if (!this.loadingProject && this.currentProject) this.rememberProject(this.currentProject);
   }
 
   render(delta = 0) {
     this.collisionWorld.refresh();
+    this.updateSmoothZoom(delta);
     this.orbit.update();
     this.constrainEditorCamera();
     this.updateNavigation(delta);
@@ -724,7 +807,10 @@ export default class SceneEditor {
     this.decals.sync(this.roomId);
     this.wearPaint.sync(this.roomId);
     if (!this.pendingEdits && !this.loadingProject && !this.document.loading && !this.transform.dragging) this.industrialVisuals.sync(this.roomId, delta, true);
-    if (this.selected) this.box.update();
+    if (!this.pendingEdits && !this.loadingProject && !this.document.loading && !this.transform.dragging) this.lineMonitors.sync(this.roomId, delta, true);
+    // Asset replacement and document hydration temporarily detach/rebuild the
+    // selected actor. r112 BoxHelper turns those intermediate bounds into NaNs.
+    if (this.selected && !this.pendingEdits && !this.loadingProject && !this.document.loading) this.box.update();
     this.hooks.renderScene.updateMatrixWorld(true);
     this.ctx.renderer.render(this.hooks.renderScene, this.camera);
     this.updatePerformancePanel(delta);
@@ -733,6 +819,8 @@ export default class SceneEditor {
   stopRuntime() {
     if (this.simulationPanel) this.simulationPanel.endSession();
     this.industrialVisuals.dispose();
+    this.industrialAudio.stop();
+    this.lineMonitors.dispose();
     this.materials.dispose(); this.wearPaint.dispose();
     this.simulation.stop(); this.behaviors.stop(); this.interactions.stop();
   }
@@ -759,19 +847,24 @@ export default class SceneEditor {
   startWearBrush(object = this.selected) { this.clearAssembly(); this.wearBrushTool.start(object); }
   stopWearBrush() { this.wearBrushTool.stop(); this.refreshAssembly(); }
   startRuntime() {
+    this.simulationPaused = false;
     this.interactions.start(this.roomId); this.behaviors.start(this.roomId); this.simulation.start(this.roomId);
+    this.industrialAudio.start(this.roomId);
     this.syncSurfaceVisuals();
     this.decals.sync(this.roomId);
     this.industrialVisuals.invalidate();
     if (!this.pendingEdits && !this.loadingProject && !this.document.loading) this.industrialVisuals.sync(this.roomId, 0, false);
+    if (!this.pendingEdits && !this.loadingProject && !this.document.loading) this.lineMonitors.sync(this.roomId, 0, false);
     if (this.simulationPanel) this.simulationPanel.modeChanged();
   }
   execute(delta, time) {
     this.root.updateMatrixWorld(true);
     this.syncSurfaceMaterials();
     this.performance.update(this.ctx.camera, delta);
-    this.behaviors.execute(delta, time); this.simulation.execute(delta, time);
-    if (!this.pendingEdits && !this.loadingProject && !this.document.loading) this.industrialVisuals.sync(this.roomId, delta, false);
+    if (!this.simulationPaused) { this.behaviors.execute(delta, time); this.simulation.execute(delta, time); }
+    this.industrialAudio.sync(this.roomId, delta, this.simulationPaused);
+    if (!this.pendingEdits && !this.loadingProject && !this.document.loading) this.industrialVisuals.sync(this.roomId, this.simulationPaused ? 0 : delta, false);
+    if (!this.pendingEdits && !this.loadingProject && !this.document.loading) this.lineMonitors.sync(this.roomId, this.simulationPaused ? 0 : delta, false);
     this.decals.sync(this.roomId);
     this.wearPaint.sync(this.roomId);
     this.simulationPanel.tick(this.simulation.getSnapshot());
@@ -786,13 +879,27 @@ export default class SceneEditor {
   }
 
   home() {
+    this.stopOrbitMotion(); this.pendingZoom = 0;
+    const config = (this.document.studio && this.document.studio.entities || []).find(item => item.roomId === this.roomId && item.type === 'camera');
+    const owner = config && this.document.getObject(config.objectId);
+    if (owner && visibleInTree(owner)) {
+      owner.updateWorldMatrix(true, false);
+      owner.getWorldPosition(this.camera.position); owner.getWorldQuaternion(this.camera.quaternion);
+      this.camera.fov = Number.isFinite(config.fov) ? config.fov : 55; this.camera.updateProjectionMatrix();
+      this.orbit.target.copy(this.camera.position).addScaledVector(this.camera.getWorldDirection(new THREE.Vector3()), 12);
+      // An authored camera is a deliberate destination, not a movement from
+      // the previous level through its walls or roof.
+      this.safeCameraPosition = null; this.safeOrbitTarget = null;
+      this.orbit.update(); this.constrainEditorCamera(false); return;
+    }
     this.camera.position.set(3.2, 2.8, 4.5); this.orbit.target.set(0, 1, -1); this.orbit.update();
     this.constrainEditorCamera(false);
   }
   focus() {
     if (!this.selected) return;
+    this.stopOrbitMotion(); this.pendingZoom = 0;
     const box = new THREE.Box3().setFromObject(this.selected);
-    if (box.isEmpty()) return;
+    if (box.isEmpty()) box.setFromCenterAndSize(this.selected.getWorldPosition(new THREE.Vector3()), new THREE.Vector3(.5, .5, .5));
     const center = box.getCenter(new THREE.Vector3());
     const distance = THREE.Math.clamp(box.getSize(new THREE.Vector3()).length() * 1.4, 0.6, 40);
     const direction = this.camera.position.clone().sub(this.orbit.target).normalize();
@@ -815,17 +922,34 @@ export default class SceneEditor {
     this.safeOrbitTarget = this.orbit.target.clone();
   }
   setTool(mode) {
-    if (!TOOL_MODES.includes(mode) || this.transform.dragging) return;
+    if ((!TOOL_MODES.includes(mode) && mode !== 'select') || this.transform.dragging) return;
     this.toolMode = mode;
-    this.transform.setMode(mode);
+    if (mode === 'select') this.transform.detach();
+    else { this.transform.setMode(mode); if (this.selected && this.active) this.transform.attach(this.selected); }
     Object.keys(this.toolButtons).forEach(key => this.toolButtons[key].classList.toggle('active', key === mode));
   }
 
-  clearNavigation() { this.navigationKeys.clear(); }
+  clearNavigation() { this.navigationKeys.clear(); this.pendingZoom = 0; }
+
+  stopOrbitMotion() {
+    if (!this.orbit || !this.camera) return;
+    const position = this.camera.position.clone(), quaternion = this.camera.quaternion.clone(), target = this.orbit.target.clone(), damping = this.orbit.enableDamping;
+    this.orbit.enableDamping = false; this.orbit.update(); this.camera.position.copy(position); this.camera.quaternion.copy(quaternion); this.orbit.target.copy(target); this.orbit.enableDamping = damping;
+    this.orbit.update();
+  }
+
+  updateSmoothZoom(delta) {
+    if (!this.active || this.transform.dragging || !this.pendingZoom || !Number.isFinite(delta) || delta <= 0) return;
+    const amount = this.pendingZoom * (1 - Math.exp(-Math.min(delta, .1) / .075)); this.pendingZoom -= amount;
+    if (Math.abs(this.pendingZoom) < 1e-5) this.pendingZoom = 0;
+    const offset = this.camera.position.clone().sub(this.orbit.target), distance = offset.length(); if (distance < 1e-5) return;
+    const desired = THREE.Math.clamp(distance * Math.exp(amount), Math.max(.1, this.orbit.minDistance || 0), this.orbit.maxDistance || Infinity);
+    this.camera.position.copy(this.orbit.target).add(offset.multiplyScalar(desired / distance));
+  }
 
   keyboardOverlayOpen() {
     return Boolean(this.projectLibrary.opened || this.projectLibrary.overlay && !this.projectLibrary.overlay.hidden ||
-      this.simulationPanel && this.simulationPanel.opened || this.sharePanel && !this.sharePanel.hidden);
+      this.simulationPanel && this.simulationPanel.opened || this.sharePanel && !this.sharePanel.hidden || this.shell && (this.shell.menuIndex >= 0 || this.shell.workspace));
   }
 
   updateNavigation(delta) {
@@ -856,8 +980,10 @@ export default class SceneEditor {
     object = this.document.getEditableObject(object);
     if (this.wearBrush && object !== this.wearBrush.owner) this.stopWearBrush();
     this.selected = object;
+    if (object || this.loadingProject) this.inspectorTab = 'object';
     if (object && this.active && !this.decalPlacement && !this.wearBrush) {
-      this.transform.attach(object); this.box.setFromObject(object); this.box.visible = visibleInTree(object);
+      if (this.toolMode !== 'select') this.transform.attach(object); else this.transform.detach();
+      this.box.setFromObject(object); this.box.visible = visibleInTree(object) && !(object.userData.editorDescriptor && object.userData.editorDescriptor.type === 'audioZone');
     } else { if (this.transform) this.transform.detach(); if (this.box) this.box.visible = false; }
     this.refreshAssembly();
     this.renderTree(); this.renderInspector();
@@ -895,7 +1021,7 @@ export default class SceneEditor {
     if (!this.transform || !this.transform.dragging) return false;
     this.cancellingTransform = true;
     try {
-      this.clearAssembly(); this.dragAssembly = null;
+      this.clearAssembly(); this.dragAssembly = null; this.resizeReflow = null; this.detachDragModifier = false;
       this.transform.dragging = false;
       this.transform.axis = null;
       this.document.cancel();
@@ -965,11 +1091,12 @@ export default class SceneEditor {
   changed() {
     this.dirty = true;
     this.changeVersion++;
+    if (this.lineMonitors) this.lineMonitors.invalidate();
     if (!this.tree) return;
     this.syncNative();
     if (this.selected && !this.document.getObject(this.selected.userData.editorId)) this.selected = null;
     if (this.transform && this.active) {
-      if (this.selected) this.transform.attach(this.selected); else this.transform.detach();
+      if (this.selected && this.toolMode !== 'select') this.transform.attach(this.selected); else this.transform.detach();
     }
     this.renderTree(); this.renderInspector(); this.updateStatus();
     this.library.getCatalog().then(entries => { this.entries = entries; this.renderAssets(); }).catch(() => {});
@@ -1050,16 +1177,16 @@ export default class SceneEditor {
   emptyRoom() {
     this.perform(() => {
       this.document.begin();
+      try {
       this.document.resetRoom(this.roomId);
-      this.root.children.forEach(object => { if (object.userData.editorNative) object.visible = false; });
-      const floor = this.document.addPrimitive(this.roomId, 'plane', '#626c78');
-      this.document.setProperty(floor, 'name', 'Suelo personalizado');
-      this.document.setTransform(floor, {position: [0, 0, 0], rotation: [-Math.PI / 2, 0, 0], scale: [6, 6, 6]});
-      this.document.setInteraction(floor, {type: 'teleport'});
+      this.document.getObjects(this.roomId).filter(object => this.document.isNative(object)).forEach(object => this.document.setProperty(object, 'visible', false));
+      const floor = this.studioTools.createSceneBase(this.roomId);
       this.document.commit();
+      if (this.entities) this.entities.sync();
       this.home();
-      this.toast('Base lista: añade modelos e imágenes. El suelo permite teletransporte en VR.');
+      this.toast('Base lista con cielo, iluminación, cámara y punto de inicio. El suelo permite teletransporte en VR.');
       return floor;
+      } catch (error) { this.document.cancel(); throw error; }
     });
   }
 
@@ -1074,11 +1201,15 @@ export default class SceneEditor {
       if (query && !name.toLowerCase().includes(query)) return;
       let depth = 0;
       for (let parent = object.parent; parent && parent !== this.root; parent = parent.parent) depth++;
-      const row = button('', name + ' · clic para seleccionar, doble clic para enfocar', () => this.select(object), 'ed-tree-row');
+      const row = button('', name + ' · clic para seleccionar, Mayús para selección múltiple, doble clic para enfocar', event => {
+        if (this.studioTools && event.shiftKey) this.studioTools.selectObject(object, event);
+        else this.select(object);
+      }, 'ed-tree-row');
+      const chosen = this.selected === object || Boolean(this.studioTools && this.studioTools.selection.has(object));
       row.setAttribute('role', 'treeitem');
-      row.setAttribute('aria-selected', String(this.selected === object));
+      row.setAttribute('aria-selected', String(chosen));
       row.style.setProperty('--depth', Math.min(depth, 6));
-      row.classList.toggle('selected', this.selected === object);
+      row.classList.toggle('selected', chosen);
       row.classList.toggle('muted', !visibleInTree(object));
       row.appendChild(el('span', 'ed-tree-icon', this.document.isNative(object) ? (object.isMesh ? '◇' : '▸') : '◆'));
       row.appendChild(el('span', 'ed-tree-name', name));
@@ -1095,17 +1226,24 @@ export default class SceneEditor {
   }
 
   section(title) {
-    const section = el('section', 'ed-section'); section.appendChild(el('h3', '', title)); this.inspector.appendChild(section); return section;
+    const section = el('section', 'ed-section'); section.appendChild(el('h3', '', title)); (this.inspectorContent || this.inspector).appendChild(section); return section;
   }
   field(parent, label, input) {
     const row = el('label', 'ed-field'); row.appendChild(el('span', '', label)); row.appendChild(input); parent.appendChild(row); return input;
   }
 
   renderInspector() {
-    const scrollTop = this.inspectedObject === this.selected ? this.inspector.scrollTop : 0;
+    const sameObject = this.inspectedObject === this.selected, previousTab = this.renderedInspectorTab;
+    const scrollTop = sameObject ? this.inspector.scrollTop : 0;
     this.inspectedObject = this.selected;
+    this.inspectorScroll = this.inspectorScroll || {};
+    if (this.renderedInspectorTab) this.inspectorScroll[this.renderedInspectorTab] = this.inspector.scrollTop || 0;
+    this.inspectorTab = this.inspectorTab || 'object'; this.renderedInspectorTab = this.inspectorTab;
     this.inspector.textContent = '';
-    this.inspector.appendChild(el('div', 'ed-panel-title', 'INSPECTOR'));
+    const inspectorHeader = el('div', 'ed-panel-title', 'INSPECTOR');
+    if (this.shell) inspectorHeader.appendChild(button('›', 'Plegar inspector · Ventana permite abrirlo de nuevo', () => this.shell.setPanel('inspector', false), 'ed-panel-collapse'));
+    this.inspector.appendChild(inspectorHeader);
+    this.renderInspectorTabs();
     const object = this.selected;
     if (!object) {
       const empty = el('div', 'ed-empty');
@@ -1117,7 +1255,7 @@ export default class SceneEditor {
         const paste = button('Pegar objeto', 'Pegar modelo, propiedades y funciones · Ctrl V', () => this.perform(() => this.pasteObject()));
         paste.disabled = this.pastingObject; empty.appendChild(paste);
       }
-      this.inspector.appendChild(empty); return;
+      this.inspectorContent.appendChild(empty); this.inspector.scrollTop = this.inspectorScroll[this.inspectorTab] || 0; return;
     }
     const native = this.document.isNative(object);
     const header = this.section('OBJETO');
@@ -1138,6 +1276,7 @@ export default class SceneEditor {
     }
     const decal = this.document.getBehaviors(object).find(component => component.type === 'decal');
     const decalAnchor = object.userData.editorDescriptor && object.userData.editorDescriptor.type === 'decal';
+    const audioAnchor = object.userData.editorDescriptor && object.userData.editorDescriptor.type === 'audioZone';
     if (decal) {
       const section = this.section(decal.pattern === 'image' ? 'DECAL · IMAGEN PROYECTADA' : 'DECAL · DESGASTE');
       section.appendChild(el('p', 'ed-hint', 'Mueve, rota o escala el proyector para ajustar la imagen. La profundidad delimita las superficies que alcanza.'));
@@ -1159,27 +1298,16 @@ export default class SceneEditor {
         input.addEventListener('change', () => {
           const values = ['x', 'y', 'z'].map(key => object[property][key]);
           values[i] = Number(input.value) * (property === 'rotation' ? Math.PI / 180 : 1);
-          this.perform(() => this.document.setTransform(object, {[property]: values}));
+          this.perform(() => this.setEquipmentTransform(object, {[property]: values}));
         });
         wrapper.appendChild(input); row.appendChild(wrapper); this.transformInputs[property].push(input);
       });
       transform.appendChild(row);
     });
     this.updateTransformInputs();
-    if (!decalAnchor) this.renderAssetInspector(object);
-    if (!decalAnchor) this.materialInspector.render(object);
-    if (!native && !decalAnchor) {
-      const appearance = this.section('APARIENCIA');
-      const descriptor = this.document.getVisualDescriptor ? this.document.getVisualDescriptor(object) : object.userData.editorDescriptor;
-      let colorMesh = object;
-      if (!colorMesh.material) object.traverse(child => { if (!colorMesh.material && child.material && child.material.color) colorMesh = child; });
-      const primitive = descriptor && ['box', 'sphere', 'plane', 'cylinder'].includes(descriptor.type);
-      if (primitive && colorMesh.material && colorMesh.material.color && !this.document.getBehaviors(object).some(config => config.type === 'surfaceMaterial' && config.enabled)) {
-        const color = el('input'); color.type = 'color'; color.value = '#' + colorMesh.material.color.getHexString();
-        this.field(appearance, 'Color', color).addEventListener('change', () => this.perform(() => this.document.setProperty(object, 'color', color.value)));
-      } else if (!primitive) appearance.appendChild(el('p', 'ed-hint', 'Personaliza cada parte en MATERIAL · SUPERFICIE para conservar los acabados de las demás piezas.'));
-      this.renderInteractionInspector(object);
-    }
+    if (!decalAnchor && !audioAnchor) this.renderAppearanceInspector(object);
+    this.renderSoundInspector(object);
+    if (!native && !decalAnchor && !audioAnchor) this.renderInteractionInspector(object);
     this.renderConveyorConnections(object);
     this.renderSourceCatalog(object);
     this.renderIndustrialPanelBinding(object);
@@ -1190,7 +1318,65 @@ export default class SceneEditor {
     paste.disabled = !this.objectClipboard || this.pastingObject; actions.appendChild(paste);
     actions.appendChild(button('Duplicar con funciones', 'Duplicar objeto, modelo y funciones · Ctrl D', () => this.perform(() => this.duplicateObject(object))));
     actions.appendChild(button(native ? 'Ocultar objeto' : 'Eliminar objeto', native ? 'Ocultar conservando referencias nativas' : 'Eliminar · Supr', () => this.perform(() => this.document.remove(object)), 'danger'));
-    this.inspector.scrollTop = scrollTop;
+    this.organizeInspector(object);
+    this.inspector.scrollTop = this.inspectorTab === 'object' ? previousTab === 'object' ? scrollTop : sameObject ? this.inspectorScroll.object || 0 : 0 : this.inspectorScroll.resource || 0;
+  }
+
+  showInspectorTab(tab) {
+    if (!['object', 'resource'].includes(tab)) return;
+    this.inspectorTab = tab;
+    if (this.shell && this.shell.layout && !this.shell.layout.inspector) this.shell.setPanel('inspector', true);
+    this.renderInspector();
+  }
+
+  renderInspectorTabs() {
+    this.inspector.classList.toggle('ed-inspector-resource-active', this.inspectorTab === 'resource');
+    const tabs = el('div', 'ed-inspector-tabs'); tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Contenido del inspector');
+    this.inspectorTabButtons = new Map();
+    [['object', 'Objeto'], ['resource', 'Recurso']].forEach(([id, title]) => {
+      const control = button(title, title === 'Objeto' ? 'Propiedades del objeto de la escena' : 'Ficha y vista previa del recurso de la biblioteca', () => this.showInspectorTab(id));
+      control.setAttribute('role', 'tab'); control.id = 'ed-inspector-tab-' + id; control.setAttribute('aria-controls', 'ed-inspector-' + id);
+      control.setAttribute('aria-selected', String(this.inspectorTab === id)); control.tabIndex = this.inspectorTab === id ? 0 : -1;
+      control.addEventListener('keydown', event => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault(); const next = event.key === 'Home' ? 'object' : event.key === 'End' ? 'resource' : id === 'object' ? 'resource' : 'object';
+        this.showInspectorTab(next); this.inspectorTabButtons.get(next).focus();
+      });
+      tabs.appendChild(control); this.inspectorTabButtons.set(id, control);
+    });
+    this.inspector.appendChild(tabs);
+    this.inspectorContent = el('div', 'ed-inspector-object'); this.inspectorContent.id = 'ed-inspector-object'; this.inspectorContent.setAttribute('role', 'tabpanel'); this.inspectorContent.setAttribute('aria-labelledby', 'ed-inspector-tab-object'); this.inspectorContent.hidden = this.inspectorTab !== 'object'; this.inspector.appendChild(this.inspectorContent);
+    const resource = el('div', 'ed-inspector-resource'); resource.id = 'ed-inspector-resource'; resource.setAttribute('role', 'tabpanel'); resource.setAttribute('aria-labelledby', 'ed-inspector-tab-resource'); resource.hidden = this.inspectorTab !== 'resource'; this.inspector.appendChild(resource);
+    if (this.resourceBrowser && this.resourceBrowser.setPreviewHost) {
+      this.resourceBrowser.setPreviewHost(resource);
+      this.resourceBrowser.setPreviewVisible(this.inspectorTab === 'resource' && !this.inspector.hidden);
+    }
+  }
+
+  organizeInspector(object) {
+    const content = this.inspectorContent, sections = Array.from(content.children).filter(child => child.tagName === 'SECTION');
+    const title = section => { const heading = Array.from(section.children).find(child => child.tagName === 'H3'); return heading && heading.textContent || ''; };
+    const machine = this.machineConfig(object), functions = sections.find(section => title(section) === 'FUNCIONES / COMPONENTES');
+    if (machine && functions) {
+      const card = Array.from(functions.children).find(child => child.getAttribute && child.getAttribute('data-component-type') === machine.type);
+      if (card) {
+        const configuration = this.section('CONFIGURACIÓN DEL EQUIPO'); configuration.classList.add('ed-machine-configuration'); configuration.appendChild(card);
+        sections.splice(1, 0, configuration);
+      }
+    }
+    this.inspectorSections = this.inspectorSections || new Map();
+    const priorities = ['OBJETO', 'TRANSFORMACIÓN', 'CONFIGURACIÓN DEL EQUIPO', 'TEXTO DEL PANEL', 'DECAL', 'PRODUCTOS / CATÁLOGO SOURCE', 'MÓDULO / CONEXIONES', 'FLUJO /', 'BANDA DEL PANEL', 'APARIENCIA', 'SONIDO', 'MATERIAL', 'DESGASTE', 'MODELO VISUAL', 'AL PULSAR', 'FUNCIONES / COMPONENTES', 'EQUIPO / VARIANTE', 'ACCIONES'];
+    const rank = section => { const value = title(section), index = priorities.findIndex(prefix => value.startsWith(prefix)); return index < 0 ? priorities.length - 1 : index; };
+    sections.sort((a, b) => rank(a) - rank(b));
+    const folded = machine ? ['MATERIAL', 'DESGASTE', 'MODELO VISUAL', 'APARIENCIA', 'SONIDO', 'AL PULSAR', 'FUNCIONES / COMPONENTES', 'EQUIPO / VARIANTE', 'ACCIONES'] : ['MODELO VISUAL', 'FUNCIONES / COMPONENTES'];
+    sections.forEach(section => {
+      const name = title(section);
+      if (name === 'OBJETO') section.classList.add('ed-object-summary');
+      if (!folded.some(prefix => name.startsWith(prefix))) { content.appendChild(section); return; }
+      const wrapper = el('details', 'ed-inspector-fold'), key = object.userData.editorId + ':' + name;
+      wrapper.open = this.inspectorSections.get(key) === true;
+      wrapper.appendChild(el('summary', '', name)); wrapper.appendChild(section); wrapper.addEventListener('toggle', () => this.inspectorSections.set(key, wrapper.open)); content.appendChild(wrapper);
+    });
   }
 
   updateTransformInputs() {
@@ -1204,13 +1390,89 @@ export default class SceneEditor {
     });
   }
 
-  renderAssetInspector(object) {
-    const section = this.section('MODELO VISUAL');
+  renderAppearanceInspector(object) {
+    const section = this.section('APARIENCIA');
+    section.setAttribute('data-appearance-inspector', 'true');
+    this.materialInspector.render(object, section);
+    this.renderConveyorEquipment(object, section);
+    this.renderAssetInspector(object, section);
+  }
+
+  appendAudioControls(parent) {
+    if (!this.industrialAudio) return;
+    const group = el('div', 'ed-toolbar-group'); group.style.display = 'flex'; group.style.alignItems = 'center'; group.style.gap = '6px';
+    const toggle = button('Sonido automático', 'Activar o silenciar sonidos de equipos y ambientes en este dispositivo', async () => {
+      if (this.industrialAudio.muted) await this.industrialAudio.activate();
+      else this.industrialAudio.setMuted(true);
+      this.refreshAudioControls();
+    });
+    toggle.setAttribute('data-industrial-audio-toggle', 'true');
+    toggle.setAttribute('aria-label', 'Activar o silenciar sonido industrial'); group.appendChild(toggle);
+    const volume = el('input'); volume.type = 'range'; volume.min = 0; volume.max = 1; volume.step = .05; volume.value = this.industrialAudio.volume;
+    volume.style.width = '72px'; volume.title = 'Volumen general de equipos y ambientes'; volume.setAttribute('aria-label', 'Volumen general del sonido industrial');
+    volume.addEventListener('input', () => this.industrialAudio.setVolume(Number(volume.value))); group.appendChild(volume); parent.appendChild(group);
+    this.audioControls.push({toggle, volume}); this.refreshAudioControls(); return group;
+  }
+
+  refreshAudioControls() {
+    if (!this.audioControls || !this.industrialAudio) return;
+    this.audioControls = this.audioControls.filter(value => { if (value.toggle.isConnected === true) value.mounted = true; return !value.mounted || value.toggle.isConnected !== false; }).slice(-12);
+    this.audioControls.forEach(({toggle, volume}) => {
+      const enabled = !this.industrialAudio.muted;
+      toggle.textContent = !enabled ? 'Activar sonido' : this.industrialAudio.activated ? 'Silenciar sonido' : 'Sonido automático';
+      toggle.title = enabled && !this.industrialAudio.activated ? 'Sonido habilitado: se iniciará con la primera interacción si el navegador lo requiere. Pulsa para silenciar.' : 'Activar o silenciar sonidos de equipos y ambientes en este dispositivo';
+      toggle.setAttribute('aria-pressed', String(enabled)); volume.value = this.industrialAudio.volume;
+    });
+  }
+
+  createAudioZone(object = this.selected) {
+    return this.perform(() => {
+      const camera = this.active ? this.camera : this.ctx.camera;
+      const point = object ? object.getWorldPosition(new THREE.Vector3()) : camera.getWorldPosition(new THREE.Vector3()).addScaledVector(camera.getWorldDirection(new THREE.Vector3()), 3);
+      this.root.updateWorldMatrix(true, false); this.root.worldToLocal(point);
+      return this.document.addAudioZone(this.roomId, {}, {position: point.toArray()});
+    });
+  }
+
+  renderSoundInspector(object) {
+    const behaviors = this.document.getBehaviors(object), current = behaviors.find(value => value.type === 'machineAudio'), zone = behaviors.find(value => value.type === 'audioZone');
+    const functional = behaviors.some(value => ['conveyor', 'source', 'processor', 'palletQueue', 'control', 'motion'].includes(value.type));
+    const section = this.section('SONIDO'); section.setAttribute('data-sound-inspector', 'true');
+    section.appendChild(el('p', 'ed-hint', 'Pulsa Activar sonido en la barra para escucharlo al probar el escenario. El volumen general se conserva en este dispositivo. Los perfiles automáticos se habilitan en Sonidos del equipo del nivel.'));
+    const render = value => {
+      const group = el('fieldset', 'ed-machine-fields'); group.appendChild(el('legend', '', value.type === 'audioZone' ? 'Zona de ambiente espacial' : 'Sonido según función')); section.appendChild(group);
+      const update = (key, entry) => this.perform(() => {
+        const next = Object.assign({}, value, {[key]: entry}), list = this.document.getBehaviors(object).filter(item => item.type !== value.type);
+        this.document.setBehaviors(object, list.concat([next]));
+      });
+      const enabled = el('input'); enabled.type = 'checkbox'; enabled.checked = value.enabled; enabled.setAttribute('aria-label', value.type === 'audioZone' ? 'Zona de sonido habilitada' : 'Sonido del equipo habilitado');
+      this.field(group, 'Habilitado', enabled).addEventListener('change', () => update('enabled', enabled.checked));
+      this.renderBehaviorFields(group, value, update);
+    };
+    if (current || functional) render(current || behaviorSchema.defaultBehavior('machineAudio'));
+    if (zone) { render(zone); section.appendChild(el('p', 'ed-hint', 'La zona no crea geometría ni bloquea el paso. Selecciónala en la jerarquía y usa Transformación para moverla; las dimensiones definen el área audible y su salida gradual.')); }
+    if (!current && !functional && !zone) section.appendChild(button('Añadir sonido a este objeto', 'Crear un emisor personalizable sobre el objeto', () => this.perform(() => this.document.setBehaviors(object, behaviors.concat([Object.assign(behaviorSchema.defaultBehavior('machineAudio'), {preset: 'ventilation', trigger: 'always'})])))));
+    if (current) section.appendChild(button('Volver al sonido automático del nivel', 'Quitar la personalización sin cambiar las funciones del equipo', () => this.perform(() => this.document.setBehaviors(object, this.document.getBehaviors(object).filter(value => value.type !== 'machineAudio')))));
+    section.appendChild(button('Importar audio propio', 'Importar un audio y elegirlo en el campo Audio propio', () => this.assetInput.click()));
+    if (!zone) section.appendChild(button('Crear zona de sonido aquí', 'Crear un ambiente espacial independiente en esta ubicación', () => this.createAudioZone(object)));
+  }
+
+  renderAssetInspector(object, parent) {
+    const section = parent ? this.materialInspector.details(parent, 'Modelo visual y archivo 3D propio', false, object) : this.section('MODELO VISUAL');
     const descriptor = this.document.getVisualDescriptor ? this.document.getVisualDescriptor(object) : object.userData.editorDescriptor;
     const source = descriptor && descriptor.nativeId && this.document.getObject(descriptor.nativeId);
     const label = descriptor ? descriptor.path || (descriptor.importId && (this.library.getEntry(descriptor.importId) || {}).name) || descriptor.type || (source && source.name) || 'Modelo original' : 'Modelo original';
     section.appendChild(el('div', 'ed-asset-current', label));
     section.appendChild(el('p', 'ed-hint', 'Cambiar el modelo conserva el objeto, sus funciones, referencias y transformación.'));
+    const machine = this.machineConfig(object);
+    if (machine) section.appendChild(el('p', 'ed-native-info', 'El archivo sustituye la carcasa visual. Los puertos y la ruta de productos siguen las dimensiones y la tipología de Configuración del equipo; los sensores, pantallas y pulsadores originales siguen visibles y operativos. Las mallas nuevas no heredan la animación de rodillos o mecanismos ni las piezas del modelo anterior.'));
+    const replacement = this.document.visuals && this.document.visuals.get(object.userData.editorId);
+    if (replacement) {
+      let surfaces = 0;
+      replacement.content.traverse(mesh => { if (mesh.isMesh && mesh.material) surfaces += (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).filter(material => !material.isShaderMaterial && !material.isRawShaderMaterial).length; });
+      if (surfaces === 1) section.appendChild(el('p', 'ed-native-info', 'El modelo de reemplazo contiene una sola superficie. Para colorear piezas por separado, importa un modelo con mallas o materiales separados.'));
+      section.appendChild(el('p', 'ed-hint', 'Revisa el selector de partes tras cada reemplazo: los nombres y superficies del archivo nuevo pueden ser distintos. Los acabados anteriores permanecen guardados para restaurar el modelo original.'));
+    }
     const select = el('select'); select.setAttribute('aria-label', 'Nuevo modelo visual');
     const placeholder = el('option', '', 'Elegir modelo o imagen…'); placeholder.value = ''; select.appendChild(placeholder);
     [['box', 'Cubo'], ['sphere', 'Esfera'], ['plane', 'Plano'], ['cylinder', 'Cilindro']].forEach(([type, name]) => {
@@ -1227,17 +1489,47 @@ export default class SceneEditor {
       const descriptor = select.value.startsWith('primitive:') ? {type: select.value.slice(10), color: '#60a5fa'} : entry && (entry.importId ? {importId: entry.importId} : {path: entry.path});
       if (descriptor) this.replaceVisual(object, descriptor);
     }));
-    controls.appendChild(button('Restaurar modelo', 'Recuperar el modelo original conservando las funciones editadas', () => this.perform(() => this.document.resetAsset(object))));
+    controls.appendChild(button('Restaurar modelo', 'Recuperar el modelo original conservando las funciones editadas', () => this.perform(() => {
+      this.document.resetAsset(object); this.materialInspector.resetTarget(object);
+    })));
     section.appendChild(controls);
+    const upload = el('input'); upload.type = 'file'; upload.multiple = true; upload.hidden = true;
+    upload.accept = '.glb,.gltf,.obj,.fbx,.mtl,.bin,.png,.jpg,.jpeg,.webp,.bmp,.gif,.avif,.basis';
+    upload.setAttribute('aria-label', 'Archivo de modelo visual propio');
+    upload.addEventListener('change', () => {
+      const files = Array.from(upload.files || []); upload.value = '';
+      if (files.length) return this.importVisualModel(object, files);
+    });
+    section.appendChild(upload);
+    section.appendChild(button('Importar modelo 3D propio', 'Selecciona el modelo y sus texturas o archivos dependientes juntos', () => upload.click()));
+    section.appendChild(el('p', 'ed-hint', 'GLB, GLTF, OBJ o FBX. Desde Blender exporta a GLB/GLTF. Para GLTF/OBJ selecciona también sus texturas y dependencias. Si importas varios modelos, elige uno en Nuevo modelo visual y pulsa Reemplazar.'));
     if (this.selectedAsset && PLACEABLE_KINDS.includes(this.selectedAsset.kind)) {
       section.appendChild(button('Usar ' + this.selectedAsset.name, 'Usar el archivo seleccionado en la biblioteca', () => this.replaceVisual(object, this.selectedAsset.importId ? {importId: this.selectedAsset.importId} : {path: this.selectedAsset.path})));
     }
+  }
+
+  async importVisualModel(object, files) {
+    return this.perform(async () => {
+      const generation = this.projectGeneration;
+      const imported = await this.importFiles(files);
+      if (generation !== this.projectGeneration || this.document.getObject(object.userData.editorId) !== object) throw new Error('El objeto cambió durante la importación. Elige el modelo en Archivos del proyecto.');
+      this.entries = await this.library.getCatalog(); this.renderAssets();
+      const models = imported.filter(entry => entry.kind === 'model');
+      if (models.length === 1) {
+        const entry = models[0];
+        await this.document.replaceAsset(object, entry.importId ? {importId: entry.importId} : {path: entry.path});
+        this.materialInspector.resetTarget(object, true);
+        this.toast('Modelo propio aplicado. Se conservaron las funciones, puertos y controles; revisa las superficies del archivo nuevo.');
+      } else this.toast(models.length ? 'Modelos importados. Elige uno en Nuevo modelo visual y pulsa Reemplazar.' : 'No se importó un modelo 3D compatible. Usa GLB, GLTF, OBJ o FBX; desde Blender exporta a GLB/GLTF.');
+      return object;
+    });
   }
 
   async replaceVisual(object, descriptor) {
     return this.perform(async () => {
       this.toast('Cargando el modelo visual…');
       await this.document.replaceAsset(object, descriptor);
+      this.materialInspector.resetTarget(object, true);
       this.select(object);
       this.toast('Modelo reemplazado. Las funciones y referencias del objeto se conservaron.');
     });
@@ -1294,6 +1586,87 @@ export default class SceneEditor {
     return object && this.document.getBehaviors(object).find(config => config.type === 'conveyor');
   }
 
+  renderConveyorEquipment(object, parent) {
+    const config = this.conveyorConfig(object), registry = behaviorSchema.conveyorLayout.equipment;
+    if (!config || !registry) return;
+    const definition = registry.resolveVariant(config);
+    const section = parent ? this.materialInspector.details(parent, 'Forma, tecnología y variante', false, object) : this.section('EQUIPO / VARIANTE');
+    const ready = registry.listEquipment({readyOnly: true});
+    const fitsLayout = (item, layout) => item.family === 'curved' ? ['curveLeft', 'curveRight'].includes(layout) : item.preset.layout === layout;
+    const closest = candidates => candidates.slice().sort((a, b) => {
+      const score = item => (item.preset.mechanism === config.mechanism ? 20 : 0) + (item.preset.drive === config.drive ? 10 : 0) + (item.preset.surface === config.surface ? 5 : 0) + (definition && item.id === definition.id ? 1 : 0);
+      return score(b) - score(a);
+    })[0];
+    const apply = (next, layout) => this.perform(() => {
+      if (!next || next.status !== 'ready') return;
+      this.updateConveyor(object, Object.assign({}, next.preset, {layout: layout || next.preset.layout, equipmentId: next.id, equipmentVersion: next.version}));
+      this.materialInspector.resetTarget(object, true);
+      this.toast(next.name + ': variante aplicada y equipos conectados sincronizados.');
+    });
+    if (parent) {
+      const shapeField = behaviorSchema.definitionFor('conveyor').fields.find(field => field.key === 'layout');
+      const shape = el('select'); shape.setAttribute('aria-label', 'Forma / tipología del equipo');
+      shapeField.options.forEach(item => {
+        const next = closest(ready.filter(entry => fitsLayout(entry, item.value)));
+        if (next) { const option = el('option', '', item.label + (next.preset.mechanism !== config.mechanism || next.preset.drive !== config.drive ? ' · ' + next.name : '')); option.value = item.value; shape.appendChild(option); }
+      });
+      shape.value = config.layout;
+      this.field(section, 'Forma / tipología', shape).addEventListener('change', () => apply(closest(ready.filter(item => fitsLayout(item, shape.value))), shape.value));
+      const surfaceField = behaviorSchema.definitionFor('conveyor').fields.find(field => field.key === 'surface');
+      const technology = el('select'); technology.setAttribute('aria-label', 'Tecnología de transporte');
+      surfaceField.options.forEach(item => {
+        const next = closest(ready.filter(entry => fitsLayout(entry, config.layout) && entry.preset.surface === item.value));
+        if (next) { const option = el('option', '', item.label + (definition && next.family !== definition.family || next.preset.mechanism !== config.mechanism || next.preset.drive !== config.drive ? ' · ' + next.name : '')); option.value = item.value; technology.appendChild(option); }
+      });
+      technology.value = config.surface;
+      this.field(section, 'Tecnología de transporte', technology).addEventListener('change', () => apply(closest(ready.filter(item => fitsLayout(item, config.layout) && item.preset.surface === technology.value)), config.layout));
+      section.appendChild(el('p', 'ed-hint', 'Forma y tecnología eligen una variante funcional del catálogo. La variante completa se indica debajo. Los cambios de dimensiones y conexiones se guardan juntos y se pueden deshacer.'));
+    }
+    if (definition) {
+      section.appendChild(el('strong', '', definition.name));
+      const family = registry.FAMILIES.find(item => item.id === definition.family);
+      section.appendChild(el('p', 'ed-hint', (family ? family.name + ' · ' : '') + definition.id + ' · v' + definition.version));
+      section.appendChild(el('p', 'ed-hint', definition.description));
+    } else section.appendChild(el('p', 'ed-hint', 'Transportador personalizado de un escenario existente. Sus parámetros y referencias se conservan.'));
+    const variants = el('select'); variants.setAttribute('aria-label', 'Equipo · Variante del catálogo');
+    const empty = el('option', '', 'Conservar configuración actual'); empty.value = ''; variants.appendChild(empty);
+    ready.forEach(item => {
+      const family = registry.FAMILIES.find(group => group.id === item.family);
+      const option = el('option', '', (family ? family.name + ' / ' : '') + item.name); option.value = item.id; variants.appendChild(option);
+    });
+    variants.value = config.equipmentId && definition ? definition.id : '';
+    this.field(section, 'Variante', variants).addEventListener('change', () => apply(registry.getDefinition(variants.value)));
+    section.appendChild(el('p', 'ed-hint', 'Cambiar la variante aplica su mecanismo y componentes. Las dimensiones se editan en sus propiedades, sin escalar motores, sensores o paneles.'));
+    if (definition) {
+      const profiles = definition.productProfiles || definition.products || [];
+      if (profiles.length) section.appendChild(el('p', 'ed-hint', 'Productos previstos: ' + profiles.map(profile => typeof profile === 'string' ? profile : profile.name || profile.id).join(' · ') + '. La admisión comprueba las dimensiones y la base de cada carga.'));
+      if (registry.PRODUCT_PROFILES && behaviorSchema.conveyorLayout.productCompatibility) {
+        const products = el('select'); products.setAttribute('aria-label', 'Equipo · Producto para comprobar compatibilidad');
+        registry.PRODUCT_PROFILES.forEach(profile => { const option = el('option', '', profile.name); option.value = profile.id; products.appendChild(option); });
+        this.field(section, 'Comprobar carga', products);
+        const result = el('p', 'ed-hint'); result.setAttribute('aria-live', 'polite');
+        const check = () => {
+          const profile = registry.PRODUCT_PROFILES.find(item => item.id === products.value);
+          if (!profile) return;
+          const compatibility = behaviorSchema.conveyorLayout.productCompatibility(config, profile);
+          result.textContent = compatibility.ok ? 'Compatible con los límites didácticos configurados: ' + profile.name + '.' : 'No compatible: ' + compatibility.reasons.map(reason => reason.message).join(' ');
+          result.classList.toggle('ed-error', !compatibility.ok);
+        };
+        products.addEventListener('change', check); section.appendChild(result); check();
+      }
+      section.appendChild(el('p', 'ed-hint', 'Simulación por eventos y movimiento cinemático. Los límites configurados son didácticos; no representan certificación de física de contacto o capacidad comercial.'));
+      const parts = el('ul', 'ed-equipment-specs');
+      (definition.parts || []).filter(part => {
+        if (!config.withSensors && /sensor/i.test(part.id)) return false;
+        if (!config.withPanel && /panel/i.test(part.id)) return false;
+        return true;
+      }).forEach(part => { const item = el('li', '', part.name); item.title = part.function || ''; parts.appendChild(item); });
+      if (parts.children.length) section.appendChild(parts);
+      const explore = button('Explorar equipo', 'Partes, funcionamiento, controles, conexiones y aplicaciones del modelo real', () => this.conveyorViewer && this.conveyorViewer.open({equipmentId: definition.id, definition, objectId: object.userData.editorId}));
+      explore.disabled = !this.conveyorViewer; section.appendChild(explore);
+    }
+  }
+
   machineConfig(object) { return object && this.assembly.config(object); }
 
   placeEquipmentCopy(copy) {
@@ -1316,7 +1689,56 @@ export default class SceneEditor {
 
   updateConveyor(object, patch) {
     const machine = this.machineConfig(object);
-    this.document.setBehaviors(object, this.document.getBehaviors(object).map(config => machine && config.type === machine.type ? Object.assign({}, config, patch) : config));
+    return this.setEquipmentBehaviors(object, this.document.getBehaviors(object).map(config => machine && config.type === machine.type ? Object.assign({}, config, patch) : config));
+  }
+
+  equipmentGeometryKey(config) {
+    if (!config) return '';
+    const fields = config.type === 'conveyor' ? ['equipmentId', 'layout', 'mechanism', 'surface', 'length', 'width', 'radius', 'curveAngle', 'axis', 'junctionMode', 'branchSide', 'rise', 'supportHeight', 'gradeProfile', 'mergeAngle'] :
+      config.type === 'source' ? ['width', 'height', 'depth', 'catalog', 'generationMode', 'productType', 'loadMode', 'palletColumns', 'palletRows', 'palletLayers'] :
+      config.type === 'processor' ? ['mode', 'length', 'width'] : ['width', 'depth', 'columns', 'rows', 'layers', 'palletCapacity', 'acceptsPallets'];
+    return JSON.stringify([config.type, ...fields.map(key => config[key])]);
+  }
+
+  applyEquipmentReflow(snapshot, mode = 'geometry', repair = false) {
+    const plan = this.assembly.planReflow(snapshot, {mode, forceWidthFit: repair, normalizeBehaviors: behaviorSchema.normalizeBehaviors});
+    if (!plan.ok) throw new Error(plan.message || 'No se pudieron conservar las conexiones del equipo.');
+    this.assembly.applyReflow(plan);
+    this.lastEquipmentReflow = plan;
+    this.collisionWorld.invalidate(); this.performance.invalidate();
+    this.industrialVisuals.invalidate(); this.materials.invalidate();
+    if (this.lineMonitors) this.lineMonitors.invalidate();
+    return plan;
+  }
+
+  /** The edited machine and every moved neighbour share a single undo entry.
+   * Explicit UI edits use this path; project hydration, builders and alignment
+   * keep their own transactions and never rewrite an opened document.
+   */
+  editConnectedEquipment(object, action, options = {}) {
+    if (!this.active || this.loadingProject || !this.assembly.supported(object)) return action();
+    const snapshot = options.snapshot || this.assembly.captureReflow(object);
+    if (!snapshot || !snapshot.edges.length) return action();
+    const own = !this.document.transaction;
+    if (own) this.document.begin();
+    try {
+      const result = action();
+      this.applyEquipmentReflow(snapshot, options.mode || 'geometry', !!options.repair);
+      if (own) this.document.commit();
+      return result;
+    } catch (error) { this.document.cancel(); throw error; }
+  }
+
+  setEquipmentBehaviors(object, behaviors) {
+    const previous = this.machineConfig(object), next = previous && behaviors.find(config => config.type === previous.type);
+    if (!previous || !next || this.equipmentGeometryKey(previous) === this.equipmentGeometryKey(next)) return this.document.setBehaviors(object, behaviors);
+    const adapted = this.assembly.adaptReflowConfig(previous, next);
+    const prepared = behaviors.map(config => config === next ? adapted : config);
+    return this.editConnectedEquipment(object, () => this.document.setBehaviors(object, prepared));
+  }
+
+  setEquipmentTransform(object, values) {
+    return this.editConnectedEquipment(object, () => this.document.setTransform(object, values), {mode: values.scale ? 'geometry' : 'transform'});
   }
 
   alignConveyorPorts(fixed, fixedPort, moving, movingPort) {
@@ -1333,7 +1755,7 @@ export default class SceneEditor {
       section.appendChild(el('p', 'ed-hint', config.mode === 'combiner' ? 'Combiner: consume ' + config.combineCount + ' cargas de entrada y forma un lote que conserva sus unidades y procedencia.' : config.mode === 'separator' ? 'Separator: divide las unidades de un lote o pallet en hasta ' + config.splitCount + ' grupos. Una carga de una unidad sigue siendo una unidad.' : 'Procesa cada carga conservando su identidad. El destino lleno retiene la salida y detiene los ciclos que no tienen espacio.'));
       section.appendChild(el('p', 'ed-hint', 'En Probar: Encender y después Marcha. El modo con operario espera su disponibilidad en el panel. Utilización = tiempo de proceso de los puestos / tiempo observado de todos los puestos; el setup se registra por separado. La capacidad nominal excluye setup y esperas.'));
     } else if (config.type === 'palletQueue') {
-      section.appendChild(el('p', 'ed-hint', 'Estiba independiente: ' + config.capacity + ' cargas en ' + config.columns + ' columnas × ' + config.rows + ' filas × ' + config.layers + ' niveles. Ajusta las posiciones al tamaño de los productos.'));
+      section.appendChild(el('p', 'ed-hint', config.palletCapacity + ' posiciones de estiba · ' + config.capacity + ' cargas. ' + (config.acceptsPallets ? 'Recibe pallets completos y conserva su contenido.' : config.columns + ' columnas × ' + config.rows + ' filas × ' + config.layers + ' niveles por estiba. Ajusta las posiciones al tamaño de los productos.')));
       section.appendChild(el('p', 'ed-hint', 'Conecta la salida de una banda a la entrada de este almacén. Si está lleno o bloqueado, la banda conserva sus productos. Retira primero las cajas superiores; el despacho automático también respeta sus apoyos.'));
     } else section.appendChild(el('p', 'ed-hint', 'Recorrido: ' + behaviorSchema.conveyorLayout.pathLength(config).toFixed(2) + ' m · ' + (config.surface === 'belt' ? 'Cinta continua' : 'Rodillos') + '. Configura largo, ancho, curvas, sensores y panel en sus funciones.'));
     if (config.type === 'conveyor') {
@@ -1405,7 +1827,12 @@ export default class SceneEditor {
         section.appendChild(el('p', 'ed-hint', start && start.incoming ? 'Separación entre puertos: ' + gap.toFixed(3) + ' m. Los puertos deben coincidir y seguir la misma dirección.' : 'La entrada elegida no es compatible con el destino.'));
       }
     });
-    section.appendChild(el('p', 'ed-hint', 'Conecta el último tramo a otro equipo o a un Pallet Queue para almacenar productos. Una salida sin conexión conserva las cargas en espera. Cambiar dimensiones puede requerir volver a alinear los tramos.'));
+    const synchronize = button('Sincronizar línea', 'Reacomodar los equipos enlazados y conservar sus conexiones; todo el ajuste se puede deshacer.', () => this.perform(() => {
+      this.editConnectedEquipment(object, () => {}, {repair: true});
+      this.toast('Equipos conectados sincronizados. Puedes deshacer el ajuste completo.');
+    }));
+    synchronize.disabled = !this.assembly.hasConnections(object); section.appendChild(synchronize);
+    section.appendChild(el('p', 'ed-hint', 'Al cambiar largo, ancho, radio o escala, los equipos enlazados se reacomodan automáticamente. El ancho se adapta entre transportadores y los productos conservan su tamaño. Desensambla el equipo para editarlo por separado. Un circuito que no pueda cerrar conserva su configuración anterior.'));
   }
 
   renderConveyorRouting(parent, config, update) {
@@ -1553,7 +1980,7 @@ export default class SceneEditor {
     actions.appendChild(button('Copiar funciones', 'Copiar las funciones y sus parámetros', () => this.copyFunctions(object)));
     const paste = button('Pegar funciones', 'Añadir funciones copiadas; los parámetros del mismo tipo se reemplazan', () => this.perform(() => {
       const types = new Set(this.behaviorClipboard.map(component => component.type));
-      this.document.setBehaviors(object, this.document.getBehaviors(object).filter(component => !types.has(component.type)).concat(JSON.parse(JSON.stringify(this.behaviorClipboard))));
+      this.setEquipmentBehaviors(object, this.document.getBehaviors(object).filter(component => !types.has(component.type)).concat(JSON.parse(JSON.stringify(this.behaviorClipboard))));
     }));
     paste.disabled = !this.behaviorClipboard || !this.behaviorClipboard.length;
     actions.appendChild(paste); section.appendChild(actions);
@@ -1562,6 +1989,7 @@ export default class SceneEditor {
       const definition = behaviorSchema.definitionFor(config.type);
       if (!definition) return;
       const card = el('details', 'ed-component');
+      card.setAttribute('data-component-type', config.type);
       const componentKey = object.userData.editorId + ':' + config.type;
       card.open = this.expandedComponents.get(componentKey) !== false;
       card.addEventListener('toggle', () => this.expandedComponents.set(componentKey, card.open));
@@ -1569,22 +1997,26 @@ export default class SceneEditor {
       summary.appendChild(el('span', 'ed-tag', config.enabled ? 'ACTIVA' : 'DESACTIVADA'));
       card.appendChild(summary);
       const body = el('div', 'ed-component-body');
-      const update = (key, value) => this.perform(() => this.document.setBehaviors(object, this.document.getBehaviors(object).map(component => {
+      const update = (key, value) => this.perform(() => this.setEquipmentBehaviors(object, this.document.getBehaviors(object).map(component => {
         if (component.type !== config.type) return component;
         const next = Object.assign({}, component, {[key]: value});
-        if (next.type === 'palletQueue' && ['columns', 'rows', 'layers'].includes(key)) next.capacity = Math.min(next.capacity, next.columns * next.rows * next.layers);
+        if (next.type === 'palletQueue' && ['columns', 'rows', 'layers', 'palletCapacity', 'acceptsPallets'].includes(key)) next.capacity = Math.min(next.capacity, next.acceptsPallets ? next.palletCapacity : next.columns * next.rows * next.layers * next.palletCapacity);
         if (next.type === 'product' && key === 'quality') next.defect = value === 'good' ? 'none' : next.defect === 'none' ? 'damaged' : next.defect;
         if (next.type === 'product' && key === 'defect') next.quality = value === 'none' ? 'good' : 'defective';
         return next;
       })));
       const enabled = el('input'); enabled.type = 'checkbox'; enabled.checked = config.enabled;
+      enabled.setAttribute('data-behavior-field', 'enabled');
       this.field(body, 'Habilitada', enabled).addEventListener('change', () => update('enabled', enabled.checked));
       if (config.type === 'info') body.appendChild(el('p', 'ed-hint', 'Cambia el contenido en TEXTO DEL PANEL, al inicio del inspector.'));
-      else if (config.type === 'surfaceMaterial' || config.type === 'surfaceWear') body.appendChild(el('p', 'ed-hint', 'Edita el acabado y las capas en MATERIAL / DESGASTE, al inicio del inspector.'));
+      else if (config.type === 'surfaceMaterial' || config.type === 'surfaceWear') body.appendChild(el('p', 'ed-hint', 'Edita los colores y texturas en APARIENCIA y las capas en DESGASTE · BROCHA.'));
+      else if (config.type === 'machineAudio' || config.type === 'audioZone') body.appendChild(el('p', 'ed-hint', 'Edita el perfil, audio propio, alcance y volumen en SONIDO.'));
       else if (config.type === 'decal') body.appendChild(el('p', 'ed-hint', 'Ajusta la imagen en DECAL · IMAGEN PROYECTADA, al inicio del inspector.'));
       else this.renderBehaviorFields(body, config, update);
       if (config.type === 'automation') this.renderRuleBuilder(body, object, config, update);
       if (config.type === 'conveyor' && config.layout === 'tee' && config.junctionMode === 'split') this.renderConveyorRouting(body, config, update);
+      if (['conveyor', 'source', 'processor', 'palletQueue'].includes(config.type)) this.organizeMachineFields(body, config);
+      if (config.type === 'conveyor') body.appendChild(el('p', 'ed-hint', 'Los sensores detectan presencia y flancos de entrada/salida; el color y la calidad provienen de los atributos simulados del producto o del proceso de inspección. En rectas y curvas continuas puedes omitir sensores externos; las transferencias requieren detección y los acumuladores conservan sus sensores internos por zona.'));
       if (config.type === 'product') body.appendChild(el('p', 'ed-hint', 'SKU, tipo, color y calidad son atributos de clasificación de la simulación. El color de clasificación no cambia la textura del modelo. No se inspeccionan automáticamente imágenes ni mallas 3D.'));
       if (config.type === 'source') body.appendChild(el('p', 'ed-hint', 'La calidad del producto o del catálogo se conserva en todo el flujo. El porcentaje de defectos añade fallos simulados reproducibles con la semilla; el tipo de defecto define el fallo inyectado. Estas decisiones usan atributos de simulación, sin inspección automática de imágenes o modelos.'));
       const source = FUNCTION_SOURCE[config.type];
@@ -1621,15 +2053,29 @@ export default class SceneEditor {
       if (add.value) this.document.setBehaviors(object, this.document.getBehaviors(object).concat([behaviorSchema.defaultBehavior(add.value)]));
     }));
     addButton.disabled = !available.length; addRow.appendChild(addButton); section.appendChild(addRow);
-    if (object.userData.editorDefaultBehaviors && object.userData.editorDefaultBehaviors.length) section.appendChild(button('Restaurar funciones originales', 'Recuperar las funciones y parámetros originales del objeto', () => this.perform(() => this.document.setBehaviors(object, JSON.parse(JSON.stringify(object.userData.editorDefaultBehaviors))))));
+    if (object.userData.editorDefaultBehaviors && object.userData.editorDefaultBehaviors.length) section.appendChild(button('Restaurar funciones originales', 'Recuperar las funciones y parámetros originales del objeto', () => this.perform(() => this.setEquipmentBehaviors(object, JSON.parse(JSON.stringify(object.userData.editorDefaultBehaviors))))));
   }
 
   renderBehaviorFields(parent, config, update) {
     const definition = behaviorSchema.definitionFor(config.type);
-    definition.fields.forEach(field => {
+    const equipmentRegistry = behaviorSchema.conveyorLayout.equipment;
+    const equipmentDefinition = config.type === 'conveyor' && equipmentRegistry && equipmentRegistry.resolveVariant(config);
+    definition.fields.forEach(schemaField => {
+      let field = schemaField;
+      if (config.type === 'audioZone' && (config.shape === 'sphere' ? ['width', 'height', 'depth'].includes(field.key) : field.key === 'radius')) return;
+      if (config.equipmentId && equipmentDefinition) {
+        const parameter = (equipmentDefinition.parameters || []).find(item => item.key === field.key);
+        if (parameter) {
+          field = Object.assign({}, schemaField, {label: parameter.label + (parameter.unit ? ' (' + parameter.unit + ')' : '')});
+          ['min', 'max', 'step'].forEach(key => { if (parameter[key] !== undefined) field[key] = parameter[key]; });
+          if (Array.isArray(parameter.options)) field.options = schemaField.options.filter(option => parameter.options.includes(option.value));
+        }
+      }
       if (config.type === 'source') {
         if (['catalog', 'outputId', 'outputPort'].includes(field.key)) return;
-        if (['palletColumns', 'palletRows', 'palletLayers'].includes(field.key) && config.loadMode !== 'pallet') return;
+        if (['palletType', 'palletMaterial', 'palletPacking', 'palletWidth', 'palletDepth', 'palletColumns', 'palletRows', 'palletLayers'].includes(field.key) && config.loadMode !== 'pallet') return;
+        if (['palletWidth', 'palletDepth'].includes(field.key) && config.palletType !== 'custom') return;
+        if (['palletColumns', 'palletRows'].includes(field.key) && config.palletPacking === 'fit') return;
         if (['productType', 'width', 'height', 'depth', 'color', 'quality'].includes(field.key) && config.generationMode !== 'single') return;
         if (field.key === 'seed' && config.generationMode !== 'random' && !config.defectRate) return;
       }
@@ -1640,13 +2086,30 @@ export default class SceneEditor {
         if (field.key === 'operatorAvailable' && !config.requiresOperator) return;
       }
       if (config.type === 'palletQueue' && ['outputId', 'outputPort'].includes(field.key)) return;
+      if (config.type === 'palletQueue' && ['columns', 'rows'].includes(field.key) && (config.layoutMode === 'fit' || config.acceptsPallets)) return;
+      if (config.type === 'palletQueue' && field.key === 'layers' && config.acceptsPallets) return;
+      if (config.type === 'palletQueue' && field.key === 'layers' && config.layoutMode === 'fit') field = Object.assign({}, field, {max: 5});
       if (config.type === 'decal') {
         if (field.key === 'stamps') return;
         if (config.pattern === 'image' && ['seed', 'wearDensity', 'roughness', 'metalness'].includes(field.key)) return;
         if (config.pattern !== 'image' && field.key === 'asset') return;
       }
       if (config.type === 'conveyor') {
-        if (['outputId', 'outputPort', 'branchId', 'branchPort', 'withPallet', 'routingRules', 'routingDefault', 'branchPercentage'].includes(field.key)) return;
+        if (['outputId', 'outputPort', 'branchId', 'branchPort', 'withPallet', 'routingRules', 'routingDefault', 'branchPercentage', 'equipmentId', 'equipmentVersion'].includes(field.key)) return;
+        const equipment = behaviorSchema.conveyorLayout.equipment, typed = equipment && equipment.resolveVariant(config);
+        if (config.equipmentId && typed && ['surface', 'drive', 'mechanism', 'cleats', 'junctionMode'].includes(field.key)) return;
+        if (config.equipmentId && typed && field.key === 'layout' && typed.family !== 'curved') return;
+        if (config.drive === 'gravity' && ['speed', 'powered', 'running', 'paused', 'withPanel', 'autoSpawn', 'spawnInterval'].includes(field.key)) return;
+        if (field.key === 'rollerPitch' && config.surface !== 'rollers') return;
+        if (['zoneCount', 'zones', 'zoneLength'].includes(field.key) && config.mechanism !== 'zones') return;
+        if (['rise', 'inclineAngle'].includes(field.key) && config.drive !== 'gravity' && (!typed || typed.family !== 'inclined') && config.mechanism !== 'elevator') return;
+        if (field.key === 'rollingResistance' && config.drive !== 'gravity') return;
+        if (field.key === 'actuatorTime' && !['liftTransfer', 'pusher', 'steer', 'merge', 'distributor'].includes(config.mechanism)) return;
+        if (field.key === 'turnTime' && config.mechanism !== 'turntable') return;
+        if (field.key === 'verticalSpeed' && config.mechanism !== 'elevator') return;
+        if (['loadingMode', 'requiresOperator', 'operationTime'].includes(field.key) && config.mechanism !== 'loading') return;
+        if (field.key === 'operatorAvailable' && (config.mechanism !== 'loading' || !config.requiresOperator)) return;
+        if (config.drive === 'manual' && ['speed', 'powered', 'running', 'paused', 'withPanel', 'autoSpawn', 'spawnInterval'].includes(field.key)) return;
         if (['radius', 'curveAngle'].includes(field.key) && !['curveLeft', 'curveRight'].includes(config.layout)) return;
         if (field.key === 'length' && ['curveLeft', 'curveRight'].includes(config.layout)) return;
         if (['junctionMode', 'branchSide'].includes(field.key) && config.layout !== 'tee') return;
@@ -1657,30 +2120,58 @@ export default class SceneEditor {
         if (config.mode !== 'command' && field.key === 'command') return;
         if (config.mode === 'command' && field.key === 'value' && !['speedUp', 'speedDown'].includes(config.command)) return;
       }
+      const fieldValue = ['info', 'billboard'].includes(config.type) && config[field.key] === undefined ? field.default : config[field.key];
       let input;
       if (['select', 'room', 'audio', 'image', 'object'].includes(field.input)) {
         input = el('select');
         const media = ['audio', 'image'].includes(field.input);
-        const options = field.input === 'object' ? [{label: config.type === 'decal' ? 'Superficies próximas' : 'Selecciona un objeto…', value: ''}, {label: 'Este objeto', value: 'self'}].concat(this.document.getObjects(this.roomId).map(item => ({label: item.name || item.type, value: item.userData.editorId}))) : field.input === 'room' ? ROOM_LABELS.map((label, value) => ({label, value})) : media ? [{label: field.input === 'image' ? 'Selecciona una imagen…' : 'Selecciona un audio…', value: ''}].concat(this.entries.filter(entry => entry.kind === field.input).map(entry => ({label: entry.name, value: entry.importId || entry.path}))) : field.options;
+        const options = field.input === 'object' ? [{label: config.type === 'decal' ? 'Superficies próximas' : 'Selecciona un objeto…', value: ''}, {label: 'Este objeto', value: 'self'}].concat(this.document.getObjects(this.roomId).map(item => ({label: item.name || item.type, value: item.userData.editorId}))) : field.input === 'room' ? ROOM_LABELS.map((label, value) => ({label, value})) : media ? [{label: field.input === 'image' ? 'Selecciona una imagen…' : ['machineAudio', 'audioZone'].includes(config.type) ? 'Usar el perfil de sonido' : 'Selecciona un audio…', value: ''}].concat(this.entries.filter(entry => entry.kind === field.input).map(entry => ({label: entry.name, value: entry.importId || entry.path}))) : field.options;
         options.forEach(option => { const node = el('option', '', option.label); node.value = option.value; input.appendChild(node); });
         if (media && config[field.key] && !options.some(option => String(option.value) === String(config[field.key]))) {
           const option = el('option', '', config[field.key]); option.value = config[field.key]; input.appendChild(option);
         }
-        input.value = config[field.key];
+        input.value = fieldValue;
       } else if (field.input === 'textarea' || field.input === 'rules') {
-        input = el('textarea'); input.rows = 4; input.value = config[field.key]; input.maxLength = field.maxLength || 2000;
+        input = el('textarea'); input.rows = 4; input.value = fieldValue; input.maxLength = field.maxLength || 2000;
       } else {
         input = el('input'); input.type = field.input === 'checkbox' ? 'checkbox' : field.input === 'number' ? 'number' : field.input === 'color' ? 'color' : 'text';
-        if (field.input === 'checkbox') input.checked = config[field.key]; else input.value = config[field.key];
+        if (field.input === 'checkbox') input.checked = fieldValue; else input.value = fieldValue;
         if (field.min !== undefined) input.min = field.min;
         if (field.max !== undefined) input.max = field.max;
         if (field.step !== undefined) input.step = field.step;
         if (field.maxLength) input.maxLength = field.maxLength;
       }
+      if (config.type === 'palletQueue' && ['width', 'depth'].includes(field.key) && config.palletType !== 'custom') { input.disabled = true; input.title = 'Dimensiones definidas por el formato de estiba elegido.'; }
       const label = config.type === 'control' && config.mode === 'command' && field.key === 'value' ? 'Paso de velocidad (m/s)' : field.label;
       input.setAttribute('aria-label', definition.label + ' · ' + label);
+      input.setAttribute('data-behavior-field', field.key);
       this.field(parent, label, input).addEventListener('change', () => update(field.key, field.input === 'checkbox' ? input.checked : ['number', 'room'].includes(field.input) ? Number(input.value) : input.value));
     });
+  }
+
+  organizeMachineFields(body, config) {
+    const rows = new Map();
+    Array.from(body.children).filter(child => child.tagName === 'LABEL').forEach(row => {
+      const input = Array.from(row.children).find(child => child.getAttribute && child.getAttribute('data-behavior-field'));
+      if (input) rows.set(input.getAttribute('data-behavior-field'), row);
+    });
+    const dimensions = config.type === 'source' ? ['width', 'height', 'depth'] : ['length', 'width', 'depth', 'supportHeight', 'rise', 'radius', 'curveAngle', 'axis', 'gradeProfile', 'rollerPitch', 'mergeAngle', 'branchSide'];
+    const groups = [
+      [config.type === 'source' ? 'Dimensiones del producto' : 'Dimensiones y recorrido', dimensions],
+      ['Operación', ['mode', 'enabled', 'withPanel', 'withSensors', 'speed', 'powered', 'running', 'paused', 'processTime', 'setupTime', 'parallelism', 'combineCount', 'splitCount', 'requiresOperator', 'operatorAvailable', 'operationTime', 'actuatorTime', 'turnTime', 'verticalSpeed', 'maxLoad', 'clearance', 'loadingMode', 'drive', 'surface', 'mechanism', 'rollingResistance', 'cleats', 'zoneLength']],
+      ['Alimentación y capacidad', ['generationMode', 'productType', 'loadMode', 'capacity', 'outputCapacity', 'palletCapacity', 'delivery', 'interval', 'outputInterval', 'initialCount', 'totalLimit', 'autoGenerate', 'autoSpawn', 'spawnInterval', 'maxPackages', 'role', 'routing']],
+      ['Estiba y apilado', ['acceptsPallets', 'palletType', 'palletMaterial', 'palletPacking', 'layoutMode', 'palletWidth', 'palletDepth', 'palletColumns', 'palletRows', 'palletLayers', 'columns', 'rows', 'layers', 'maxStackHeight']],
+      ['Despacho de estibas', ['autoRelease', 'releasePolicy', 'releaseInterval', 'autoReleasePressure']],
+      ['Atributos y calidad', ['sku', 'color', 'quality', 'defect', 'defectRate', 'mass', 'base', 'seed']]
+    ];
+    const rest = Array.from(body.children).filter(child => !Array.from(rows.values()).includes(child));
+    const append = (title, keys) => {
+      const chosen = keys.filter(key => rows.has(key)); if (!chosen.length) return;
+      const group = el('fieldset', 'ed-machine-fields'); group.appendChild(el('legend', '', title));
+      chosen.forEach(key => { group.appendChild(rows.get(key)); rows.delete(key); }); body.appendChild(group);
+    };
+    groups.forEach(([title, keys]) => append(title, keys)); append('Más parámetros', Array.from(rows.keys()));
+    rest.forEach(child => body.appendChild(child));
   }
 
   renderInteractionInspector(object) {
@@ -1724,9 +2215,25 @@ export default class SceneEditor {
 
   simulationVariables(object) {
     const fields = new Map();
-    const add = (keys, writable) => keys.forEach(key => fields.set(key, {key, writable, boolean: ['running', 'powered', 'paused', 'autoSpawn', 'emergency', 'palletFull', 'transferBlocked', 'externalSupply', 'internalSupplyActive', 'enabled', 'active', 'occupied', 'autoGenerate', 'blocked', 'full', 'empty', 'operatorAvailable', 'busy', 'settingUp', 'waitingOperator'].includes(key)}));
+    const labels = {actuatorPosition: 'Posición del actuador (0–1)', actuatorAngle: 'Ángulo del actuador (rad)', elevatorPosition: 'Nivel del elevador (m)', zonesOccupied: 'Zonas ocupadas',
+      mechanismReady: 'Mecanismo listo para recibir', mechanismBusy: 'Mecanismo ocupado', atLowerLevel: 'Sensor de nivel inferior', atUpperLevel: 'Sensor de nivel superior',
+      actuatorExtended: 'Actuador extendido', actuatorRetracted: 'Actuador retraído', operatorAvailable: 'Operario disponible'};
+    const add = (keys, writable) => keys.forEach(key => fields.set(key, {key, writable,
+      label: labels[key] || (/^zone\d+Occupied$/.test(key) ? 'Zona ' + key.match(/\d+/)[0] + ' · sensor de ocupación' : /^zone\d+Speed$/.test(key) ? 'Zona ' + key.match(/\d+/)[0] + ' · velocidad real (m/s)' : key),
+      boolean: ['running', 'powered', 'paused', 'autoSpawn', 'emergency', 'palletFull', 'transferBlocked', 'externalSupply', 'internalSupplyActive', 'enabled', 'active', 'occupied', 'autoGenerate', 'blocked', 'full', 'empty', 'operatorAvailable', 'busy', 'settingUp', 'waitingOperator',
+        'mechanismReady', 'mechanismBusy', 'atLowerLevel', 'atUpperLevel', 'actuatorExtended', 'actuatorRetracted'].includes(key) || /^zone(?:[1-9]|[12][0-9]|3[0-2])Occupied$/.test(key)}));
     this.document.getBehaviors(object).forEach(config => {
-      if (config.type === 'conveyor') { add(['running', 'powered', 'paused', 'autoSpawn', 'speed', 'emergency', 'enabled'], true); add(['actualSpeed', 'inFlight', 'entryCount', 'exitCount', 'runSeconds', 'transferBlocked', 'externalSupply', 'internalSupplyActive', 'moduleCount', 'routedMain', 'routedBranch', 'routingUnmatched'], false); }
+      if (config.type === 'conveyor') {
+        add(config.drive === 'gravity' || config.drive === 'manual' ? ['enabled'] : ['running', 'powered', 'paused', 'autoSpawn', 'speed', 'emergency', 'enabled'], true);
+        add(['actualSpeed', 'inFlight', 'entryCount', 'exitCount', 'runSeconds', 'transferBlocked', 'externalSupply', 'internalSupplyActive', 'moduleCount', 'routedMain', 'routedBranch', 'routingUnmatched', 'mechanismReady', 'mechanismBusy'], false);
+        if (!['transport', 'zones'].includes(config.mechanism || 'transport')) add(['actuatorPosition', 'actuatorAngle', 'actuatorExtended', 'actuatorRetracted'], false);
+        if (config.mechanism === 'elevator') add(['elevatorPosition', 'atLowerLevel', 'atUpperLevel'], false);
+        if (config.mechanism === 'loading') add(['operatorAvailable'], true);
+        if (config.mechanism === 'zones') {
+          add(['zonesOccupied'], false);
+          for (let index = 1; index <= Math.min(32, Math.ceil(config.length / config.zoneLength)); index++) add(['zone' + index + 'Occupied', 'zone' + index + 'Speed'], false);
+        }
+      }
       if (config.type === 'palletQueue') {
         add(['enabled', 'running', 'paused', 'outputInterval'], true);
         add(['queued', 'queuedUnits', 'capacity', 'occupancy', 'full', 'empty', 'blocked', 'received', 'receivedUnits', 'delivered', 'deliveredUnits'], false);
@@ -1770,7 +2277,7 @@ export default class SceneEditor {
       input.textContent = '';
       const selected = this.document.getObject(objects.value);
       const fields = this.simulationVariables(selected).filter(field => !writableOnly || field.writable);
-      fields.forEach(field => { const option = el('option', '', field.key); option.value = field.key; input.appendChild(option); });
+      fields.forEach(field => { const option = el('option', '', field.label && field.label !== field.key ? field.label + ' · ' + field.key : field.key); option.value = field.key; input.appendChild(option); });
       input.value = fields.length ? fields[0].key : '';
     };
     fillVariables(source, variable, false); fillVariables(target, targetVariable, true);
@@ -1809,6 +2316,15 @@ export default class SceneEditor {
 
   renderAssets() {
     if (!this.editorEnabled) return;
+    if (this.resourceBrowser) {
+      const studio = this.document.studio || {};
+      this.resourceBrowser.setEntries(this.entries);
+      this.resourceBrowser.setProject({id: this.currentProject && this.currentProject.id, organization: studio.organization,
+        templates: studio.templates || [], resources: studio.resources || [], widgets: studio.widgets || [], missions: studio.missions || [], scenes: this.getSceneEntries()});
+      this.resourceBrowser.setActive(this.active);
+      if (this.resourceBrowser.setListingVisible) this.resourceBrowser.setListingVisible(!this.assets.hidden);
+      if (this.resourceBrowser.render() !== false) return;
+    }
     if (!this.assetGrid) return;
     if (this.assetThumbnails) this.assetThumbnails.reset();
     this.folderList.textContent = ''; this.assetGrid.textContent = '';
@@ -1848,7 +2364,31 @@ export default class SceneEditor {
     if (!filtered.length) this.assetGrid.appendChild(el('p', 'ed-hint', 'No hay archivos para este filtro.'));
   }
 
+  async placeResource(resource) {
+    const action = resource && resource.action;
+    if (!action) return;
+    if (resource.status === 'development' || resource.status === 'En desarrollo') return this.toast(resource.reason || 'Este recurso está en desarrollo.');
+    if (action.type === 'asset') return this.addAsset(action.entry || resource.asset);
+    if (action.type === 'decal') return this.startDecalPlacement();
+    if (action.type === 'scene') {
+      const index = ROOM_IDS.indexOf(action.roomId); if (index >= 0) this.hooks.gotoRoom(index);
+      return;
+    }
+    if (action.type === 'template') return this.studioTools && this.studioTools.placeTemplate(action.template);
+    if (action.type === 'widget') return this.studioTools && this.studioTools.addWidget(action.kind);
+    if (action.type === 'workspace') return this.shell && this.shell.openWorkspace(action.workspace);
+    if (action.type === 'studio') return this.studioTools && typeof this.studioTools[action.method] === 'function' && this.studioTools[action.method]();
+    return this.perform(() => {
+      if (action.type === 'primitive') return this.createPlacedObject(() => this.document.addPrimitive(this.roomId, action.kind));
+      if (action.type === 'prefab') {
+        const object = this.createPlacedObject(() => this.document.addPrefab(this.roomId, action.kind, action.variant));
+        this.focus(); return object;
+      }
+    });
+  }
+
   clearAssetPreview() {
+    if (this.resourceBrowser && this.resourceBrowser.clearPreview) this.resourceBrowser.clearPreview();
     this.previewToken = (this.previewToken || 0) + 1;
     if (this.previewContent && this.library.cancelPreview) this.library.cancelPreview(this.previewContent);
     if (this.previewCleanup) this.previewCleanup();
@@ -1859,7 +2399,11 @@ export default class SceneEditor {
     if (!this.active || this.loadingProject) return;
     if (!entry || entry.kind !== 'image') {
       this.assetKind = 'image'; this.kindSelect.value = 'image'; this.renderAssets();
-      this.toast('Selecciona una imagen en Archivos del proyecto y pulsa «Colocar decal». PNG conserva su transparencia.');
+      if (this.resourceBrowser && this.resourceBrowser.state) {
+        this.resourceBrowser.state.kind = 'image'; this.resourceBrowser.state.folder = ''; this.resourceBrowser.state.query = ''; this.resourceBrowser.refresh();
+      }
+      if (this.shell) this.shell.setPanel('resources', true);
+      this.toast('Selecciona una imagen en Biblioteca o Proyecto y pulsa «Colocar decal». PNG conserva su transparencia.');
       return;
     }
     this.cancelDecalPlacement();
@@ -1880,7 +2424,7 @@ export default class SceneEditor {
     this.viewport.classList.remove('ed-placing-decal');
     this.transform.enabled = this.active && !this.loadingProject;
     this.transform.visible = true;
-    if (this.selected && this.active) this.transform.attach(this.selected);
+    if (this.selected && this.active && this.toolMode !== 'select') this.transform.attach(this.selected);
     this.refreshAssembly();
   }
 
@@ -1965,7 +2509,7 @@ export default class SceneEditor {
     } catch (error) { /* SQLite saving does not depend on browser storage. */ }
     if (window.history && window.history.replaceState) {
       const url = new URL(window.location);
-      if (this.editorEnabled && project) url.searchParams.set('project', project.id);
+      if (project && (this.editorEnabled || this.explicitProject)) { url.searchParams.set('project', project.id); url.searchParams.set('room', this.roomId); }
       else url.searchParams.delete('project');
       url.searchParams.delete('editor');
       window.history.replaceState(null, '', url.href);
@@ -2030,8 +2574,9 @@ export default class SceneEditor {
     return url.href;
   }
 
-  async applyServerProject(project) {
+  async applyServerProject(project, options = {}) {
     if (!project || !project.document) throw new Error('El proyecto recibido no contiene un escenario.');
+    const targetRoomId = ROOM_IDS.includes(options.roomId) ? options.roomId : this.roomId;
     this.cancelTransformDrag(); this.clearAssembly(true);
     this.projectGeneration++;
     this.clearNavigation();
@@ -2044,11 +2589,12 @@ export default class SceneEditor {
     const transformEnabled = this.transform.enabled;
     this.transform.enabled = false;
     try {
-      await this.document.load(project.document, {activeRoomId: this.roomId});
-      await this.prepareRoom(this.roomId);
+      await this.document.load(project.document, {activeRoomId: targetRoomId});
+      await this.prepareRoom(targetRoomId);
       this.currentProject = {id: project.id, name: project.name, revision: project.revision};
       this.clearObjectClipboard();
       this.projectName = project.name;
+      if (targetRoomId !== this.roomId) await this.hooks.gotoRoom(ROOM_IDS.indexOf(targetRoomId));
       this.historicalRevision = project.historicalRevision || null;
       // A project owns its edit history; previous projects stay in the database.
       this.document.undoStack.length = 0;
@@ -2079,13 +2625,15 @@ export default class SceneEditor {
     return true;
   }
 
-  async openServerProject(project) {
+  async openServerProject(project, roomId) {
     if (this.busy || this.loadingProject || this.pastingObject || this.importingFiles) throw new Error('Espera a que termine la operación actual.');
     const saved = await this.keepCurrentProject();
     if (saved && this.currentProject && this.currentProject.id === project.id) {
       project = await this.projectClient.getProject(project.id, project.historicalRevision);
     }
-    await this.applyServerProject(project);
+    const initialRoom = project.document && project.document.studio && project.document.studio.startRoomId;
+    const targetRoomId = ROOM_IDS.includes(roomId) ? roomId : (!this.currentProject || this.currentProject.id !== project.id) && ROOM_IDS.includes(initialRoom) ? initialRoom : this.roomId;
+    await this.applyServerProject(project, {roomId: targetRoomId});
     this.toast(project.historicalRevision ? 'Versión ' + project.historicalRevision + ' abierta. Guardar creará una nueva versión.' : 'Proyecto «' + project.name + '» abierto.');
     return true;
   }
@@ -2130,7 +2678,7 @@ export default class SceneEditor {
       this.toast('«' + saved.name + '» guardado · versión ' + saved.revision + (this.dirty ? '. Hay cambios posteriores pendientes.' : '.'));
       return saved;
     } catch (error) {
-      if (error.status === 409) throw new Error('Este proyecto cambió en otra ventana. Usa Proyectos → Guardar copia para conservar tus cambios o abre la versión actual.');
+      if (error.status === 409 && error.code !== 'session_changed') throw new Error('Este proyecto cambió en otra ventana. Usa Proyectos → Guardar copia para conservar tus cambios o abre la versión actual.');
       if (!error.status || error.status >= 500) this.storageAvailable = false;
       throw error;
     } finally { this.busy = false; this.updateStatus(); }
@@ -2165,10 +2713,12 @@ export default class SceneEditor {
   updateStatus() {
     if (!this.status) return;
     const persistence = this.currentProject ? this.projectName + ' · v' + this.currentProject.revision : this.projectName + ' · proyecto nuevo';
-    this.status.textContent = (this.importingFiles ? 'Importando archivos…' : this.busy ? 'Guardando…' : this.dirty ? '● Cambios sin guardar' : this.currentProject ? '○ Guardado' : '○ Escenario listo') + '   /   ' + persistence + '   /   ' + (this.storageAvailable ? 'SQLite' : 'Servidor sin conectar') + '   /   ' + ROOM_LABELS[this.ctx.room] + (this.remoteProject ? '   /   Versión ' + this.remoteProject.revision + ' disponible en SQLite' : '') + '   /   WebXR disponible en Probar';
+    const level = behaviorSchema.studio.sceneEntries(this.document).find(entry => entry.index === this.ctx.room);
+    this.status.textContent = (this.importingFiles ? 'Importando archivos…' : this.busy ? 'Guardando…' : this.dirty ? '● Cambios sin guardar' : this.currentProject ? '○ Guardado' : '○ Escenario listo') + '   /   ' + persistence + '   /   ' + (this.storageAvailable ? 'SQLite' : 'Servidor sin conectar') + '   /   ' + (level ? level.name : ROOM_LABELS[this.ctx.room]) + (this.remoteProject ? '   /   Versión ' + this.remoteProject.revision + ' disponible en SQLite' : '') + '   /   Probar: escritorio y dispositivos XR compatibles';
     if (this.saveButton) this.saveButton.disabled = this.busy || this.loadingProject || this.importingFiles;
     if (this.projectButton) {
-      this.projectButton.textContent = this.currentProject ? 'Proyectos · ' + this.projectName + ' · v' + this.currentProject.revision : 'Proyectos · escenario nuevo';
+      this.projectButton.textContent = 'Proyecto: ' + (this.currentProject ? this.projectName : 'Sin guardar') + ' ▾';
+      this.projectButton.setAttribute('aria-label', 'Proyecto actual: ' + (this.currentProject ? this.projectName : 'Sin guardar') + '. Abrir proyectos y niveles');
       this.projectButton.title = this.currentProject ? 'Proyecto: ' + this.projectName + ' · ID ' + this.currentProject.id + ' · Abrir biblioteca' : 'Abrir, crear y recuperar proyectos de SQLite';
     }
     if (this.projectUpdateButton) {
@@ -2179,6 +2729,7 @@ export default class SceneEditor {
     }
     this.undoButton.disabled = !this.document.canUndo;
     this.redoButton.disabled = !this.document.canRedo;
+    if (this.shell) this.shell.refresh();
   }
   formatSize(size) { return size >= 1048576 ? (size / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(size / 1024)) + ' KB'; }
   toast(message) {
@@ -2188,6 +2739,7 @@ export default class SceneEditor {
     this.toastTimeout = setTimeout(() => { this.toastNode.hidden = true; }, 4800);
   }
   onKey(event) {
+    if (this.pastingObject) { if (event.ctrlKey || event.metaKey || NAVIGATION_KEYS.includes(event.code) || ['Space', 'Delete', 'Backspace'].includes(event.code)) event.preventDefault(); this.clearNavigation(); return; }
     if (!this.active || this.ctx.vrMode || isTyping(event) || this.keyboardOverlayOpen()) {
       this.clearNavigation();
       return;
@@ -2211,6 +2763,8 @@ export default class SceneEditor {
       else if (event.code === 'KeyD' && this.selected) { event.preventDefault(); this.perform(() => this.duplicateObject()); }
       else if (event.code === 'KeyC' && this.selected && !event.shiftKey && !event.altKey) { event.preventDefault(); if (!event.repeat) this.perform(() => this.copyObject()); }
       else if (event.code === 'KeyV' && this.objectClipboard && !event.shiftKey && !event.altKey) { event.preventDefault(); if (!event.repeat) this.perform(() => this.pasteObject()); }
+      else if (event.code === 'KeyA' && this.studioTools) { event.preventDefault(); this.studioTools.selectAll(); }
+      else if (event.code === 'KeyG' && this.studioTools) { event.preventDefault(); this.studioTools[event.shiftKey ? 'ungroupSelection' : 'groupSelection'](); }
       return;
     }
     if (event.altKey) { this.clearNavigation(); return; }
@@ -2225,7 +2779,7 @@ export default class SceneEditor {
       if (!event.repeat && !this.loadingProject) this.setTool(TOOL_MODES[(TOOL_MODES.indexOf(this.toolMode) + 1) % TOOL_MODES.length]);
     }
     else if (event.code === 'KeyF') this.focus();
-    else if ((event.code === 'Delete' || event.code === 'Backspace') && this.selected) { event.preventDefault(); this.perform(() => this.document.remove(this.selected)); }
+    else if ((event.code === 'Delete' || event.code === 'Backspace') && this.selected) { event.preventDefault(); this.perform(() => this.shell ? this.shell.removeSelection() : this.document.remove(this.selected)); }
     else if (event.code === 'Escape') { if (this.decalPlacement || this.wearBrush) { this.cancelDecalPlacement(); this.renderInspector(); } else this.select(null); }
   }
 }

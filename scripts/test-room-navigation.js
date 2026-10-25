@@ -159,6 +159,7 @@ function frameHarness(options = {}) {
   const dependencies = {
     clock, document, context,
     updateKeyboardMovement: invoke('walk'),
+    syncXRControllers: invoke('syncControllers'),
     ecsyWorld: {execute: invoke('ecs')},
     scene, camera,
     controllers: [{getObjectByName: () => ({}), boundingBox: {setFromObject: invoke('controllerBounds')}}],

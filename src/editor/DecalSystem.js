@@ -8,7 +8,7 @@ const MAX_OUTPUT_VERTICES = 1000000;
 const IDENTITY_STAMP = {position: [0, 0, 0], quaternion: [0, 0, 0, 1], scale: [1, 1, 1]};
 
 function createMaterial(procedural) {
-  const options = {transparent: true, alphaTest: 0.01, depthWrite: false, side: THREE.DoubleSide,
+  const options = {transparent: true, alphaTest: 0.01, depthWrite: false, side: THREE.DoubleSide, dithering: true,
     polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4};
   return procedural ? new THREE.MeshStandardMaterial(options) : new THREE.MeshBasicMaterial(options);
 }
@@ -135,8 +135,8 @@ export default class DecalSystem {
     mesh.userData.editorDecal = true;
     mesh.userData.editorVisualOwnerId = owner.userData.editorId;
     mesh.renderOrder = 2;
+    mesh.receiveShadow = true;
     mesh.visible = false;
-    owner.add(mesh);
     return {owner, mesh, material, pattern: 'image', asset: null, generation: 0, resource: null, proceduralTextures: [], textureKey: null, signature: null};
   }
 
@@ -174,6 +174,8 @@ export default class DecalSystem {
       map.encoding = THREE.sRGBEncoding;
       [map, properties].forEach(texture => {
         texture.generateMipmaps = true; texture.minFilter = THREE.LinearMipmapLinearFilter; texture.magFilter = THREE.LinearFilter; texture.needsUpdate = true;
+        const capabilities = this.ctx && this.ctx.renderer && this.ctx.renderer.capabilities;
+        texture.anisotropy = capabilities && capabilities.getMaxAnisotropy ? Math.min(4, capabilities.getMaxAnisotropy()) : 1;
       });
       state.proceduralTextures = [map, properties];
       state.material.map = map; state.material.roughnessMap = properties; state.material.metalnessMap = properties; state.material.bumpMap = properties;
@@ -343,6 +345,12 @@ export default class DecalSystem {
   _replaceGeometry(state, geometry) {
     state.mesh.geometry.dispose();
     state.mesh.geometry = geometry;
+    // An empty projection stays in its reusable state, outside the scene tree.
+    // r112 Box3 expands an attached empty mesh's +/-Infinity bounds and makes
+    // selection helpers NaN after a visual/typology no longer intersects wear.
+    if (geometry.attributes.position.count) {
+      if (state.mesh.parent !== state.owner) state.owner.add(state.mesh);
+    } else if (state.mesh.parent) state.mesh.parent.remove(state.mesh);
   }
 
   sync(roomId) {
@@ -376,7 +384,8 @@ export default class DecalSystem {
         state.material.metalness = config.metalness === undefined ? defaults.metalness : config.metalness;
       }
       state.material.opacity = config.opacity;
-      state.material.color.set(config.color);
+      state.material.color.set(config.color).convertSRGBToLinear();
+      state.material.userData.studioColorSpace = 'linear';
       this._project(state, config, root, surfaces);
     });
   }

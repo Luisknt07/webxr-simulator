@@ -14,33 +14,65 @@
 
 var VRButton = {
 
-	createButton: function ( renderer, callback ) {
+	createButton: function ( renderer, callback, canStart ) {
 
 		function showEnterVR( /*device*/ ) {
 
 			var currentSession = null;
+			var pending = false;
+			var notified = false;
 
-			function onSessionStarted( session ) {
+			function setPending( value ) {
+				pending = value;
+				button.disabled = value;
+				button.setAttribute( 'aria-busy', value ? 'true' : 'false' );
+			}
+
+			async function onSessionStarted( session ) {
 
 				session.addEventListener( 'end', onSessionEnded );
-
-				renderer.xr.setSession( session );
-				button.textContent = 'EXIT VR';
-
 				currentSession = session;
+				var referenceSpaceType = 'local-floor';
 
-				callback('sessionStarted');
+				try {
+					// Three r112 requests local-floor without a rejection fallback.
+					// Negotiate it before handing over the session; local remains
+					// usable on devices that do not expose a floor reference space.
+					if ( renderer.xr.setReferenceSpaceType && session.requestReferenceSpace ) {
+						try { await session.requestReferenceSpace( referenceSpaceType ); }
+						catch ( error ) { referenceSpaceType = 'local'; await session.requestReferenceSpace( referenceSpaceType ); }
+						if ( currentSession !== session ) return;
+						renderer.xr.setReferenceSpaceType( referenceSpaceType );
+					}
+					await renderer.xr.setSession( session );
+				} catch ( error ) {
+					session.removeEventListener( 'end', onSessionEnded );
+					if ( currentSession === session ) currentSession = null;
+					try { await session.end(); } catch ( endError ) { /* The session may already have ended. */ }
+					throw error;
+				}
+				if ( currentSession !== session ) return;
+
+				button.textContent = 'Salir de VR';
+				button.title = '';
+				setPending( false );
+				notified = true;
+				callback('sessionStarted', {referenceSpaceType: referenceSpaceType});
 			}
 
 			function onSessionEnded( /*event*/ ) {
 
+				if ( !currentSession ) return;
 				currentSession.removeEventListener( 'end', onSessionEnded );
 
-				button.textContent = 'ENTER VR';
+				button.textContent = 'Entrar en VR';
 
 				currentSession = null;
-
-				callback('sessionEnded');
+				setPending( false );
+				if ( notified ) {
+					notified = false;
+					callback('sessionEnded');
+				}
 			}
 
 
@@ -52,7 +84,8 @@ var VRButton = {
 			button.style.left = 'calc(50% - 50px)';
 			button.style.width = '100px';
 
-			button.textContent = 'ENTER VR';
+			button.textContent = 'Entrar en VR';
+			button.removeAttribute('aria-disabled');
 
 			button.onmouseenter = function () {
 
@@ -66,9 +99,16 @@ var VRButton = {
 
 			};
 
-			button.onclick = function () {
+			button.onclick = async function () {
+				if ( pending ) return;
 
 				if ( currentSession === null ) {
+					var allowed = canStart ? canStart() : true;
+					if ( allowed !== true && allowed !== undefined ) {
+						button.title = typeof allowed === 'string' ? allowed : 'Espera a que termine la operación actual antes de entrar en VR.';
+						return;
+					}
+					setPending( true );
 
 					// WebXR's requestReferenceSpace only works if the corresponding feature
 					// was requested at session creation time. For simplicity, just ask for
@@ -78,11 +118,22 @@ var VRButton = {
 					// be requested separately.)
 
 					var sessionInit = { optionalFeatures: [ 'local-floor', 'bounded-floor' ] };
-					navigator.xr.requestSession( 'immersive-vr', sessionInit ).then( onSessionStarted );
+					try {
+						var session = await navigator.xr.requestSession( 'immersive-vr', sessionInit );
+						await onSessionStarted( session );
+					} catch ( error ) {
+						setPending( false );
+						button.textContent = 'Reintentar VR';
+						button.title = 'No se pudo iniciar la sesión inmersiva. Revisa el permiso del visor.';
+					}
 
 				} else {
 
-					currentSession.end();
+					setPending( true );
+					try { await currentSession.end(); } catch ( error ) {
+						setPending( false );
+						button.title = 'No se pudo salir de VR. Vuelve a intentarlo desde el visor o este botón.';
+					}
 
 				}
 
@@ -109,7 +160,9 @@ var VRButton = {
 
 			disableButton();
 
-			button.textContent = 'VR NOT SUPPORTED';
+			button.textContent = 'VR no disponible';
+			button.setAttribute('aria-disabled', 'true');
+			button.title = 'Puedes explorar con teclado y ratón.';
 
 		}
 
@@ -141,7 +194,7 @@ var VRButton = {
 
 				supported ? showEnterVR() : showWebXRNotFound();
 
-			} );
+			} ).catch(showWebXRNotFound);
 
 			return button;
 
@@ -152,12 +205,13 @@ var VRButton = {
 			if ( window.isSecureContext === false ) {
 
 				message.href = document.location.href.replace( /^http:/, 'https:' );
-				message.innerHTML = 'WEBXR NEEDS HTTPS'; // TODO Improve message
+				message.textContent = 'VR requiere HTTPS';
 
 			} else {
 
-				message.href = 'https://immersiveweb.dev/';
-				message.innerHTML = 'WEBXR NOT AVAILABLE';
+				message.removeAttribute('href');
+				message.textContent = 'VR no disponible';
+				message.setAttribute('aria-disabled', 'true');
 
 			}
 

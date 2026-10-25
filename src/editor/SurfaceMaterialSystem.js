@@ -14,6 +14,13 @@ const COPY_FIELDS = ['side', 'shadowSide', 'flatShading', 'vertexColors', 'fog',
 let sequence = 0;
 
 function materials(object) { return Array.isArray(object.material) ? object.material : object.material ? [object.material] : []; }
+function authoredColor(material) {
+  if (!material.userData || material.userData.studioColorSpace !== 'linear') return material.color.getHexString();
+  const colour = material.color.clone().convertLinearToSRGB();
+  // r112's getHex truncates a channel at 254 when the transfer function gives
+  // 0.9999999999999999. Quantize once to the nearest authored 8-bit value.
+  return [colour.r, colour.g, colour.b].map(value => Math.round(Math.max(0, Math.min(1, value)) * 255).toString(16).padStart(2, '0')).join('');
+}
 function within(object, parent) { for (let node = object; node; node = node.parent) if (node === parent) return true; return false; }
 function shaderMaterial(material) { return !material || material.isShaderMaterial || material.isRawShaderMaterial; }
 function protectedObject(object, allowButton = false) {
@@ -96,8 +103,8 @@ function proceduralBase(config) {
     const n = hash(x, y, config.seed), broad = noise(x / 18, y / 18, config.seed);
     let value = 0.94 + n * 0.06;
     if (config.preset === 'wood') value = 0.72 + 0.23 * (0.5 + 0.5 * Math.sin(y * 0.24 + noise(x / 35, y / 28, config.seed) * 8)) + n * 0.05;
-    else if (config.preset === 'steel' || config.preset === 'aluminum') value = 0.88 + hash(Math.floor(x / 19), y, config.seed) * 0.12;
-    else if (config.preset === 'concrete') value = 0.70 + broad * 0.2 + n * 0.1;
+    else if (config.preset === 'steel' || config.preset === 'aluminum') value = 0.89 + noise(x / 38, y * 1.7, config.seed) * 0.075 + n * .025;
+    else if (config.preset === 'concrete') value = 0.94 + broad * 0.035 + n * 0.025;
     else if (config.preset === 'rubber') value = 0.87 + broad * 0.07 + n * 0.06;
     const offset = (y * size + x) * 4;
     data[offset] = data[offset + 1] = data[offset + 2] = Math.round(value * 255); data[offset + 3] = 255;
@@ -109,15 +116,43 @@ function proceduralWear(config) {
   const color = new THREE.Color(config.wearType === 'rust' ? '#a54a21' : config.wearType === 'dirt' ? '#65543b' :
     config.preset === 'wood' ? '#d6b079' : config.wearType === 'chips' ? '#b6bfc5' : '#d3d9dd').convertSRGBToLinear();
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const broad = noise(x / 18, y / 18, config.seed), fine = hash(x, y, config.seed + 7);
-    let alpha;
-    if (config.wearType === 'scratches') alpha = hash(Math.floor(x / 48), y, config.seed) > 0.95 && fine > 0.15 ? 0.85 : 0;
-    else if (config.wearType === 'chips') alpha = broad > 0.67 && noise(x / 4, y / 4, config.seed + 3) > 0.37 ? 0.85 : 0;
-    else alpha = Math.max(0, Math.min(1, (broad - 0.35) * 2.1)) * (0.68 + fine * 0.32);
-    const offset = (y * size + x) * 4, shade = 0.78 + fine * 0.22;
-    data[offset] = Math.round(color.r * shade * 255); data[offset + 1] = Math.round(color.g * shade * 255); data[offset + 2] = Math.round(color.b * shade * 255); data[offset + 3] = Math.round(alpha * 255);
+    const broad = noise(x / 19, y / 19, config.seed), fine = hash(x, y, config.seed + 7), medium = noise(x / 3.5, y / 3.5, config.seed + 3);
+    let alpha, shade = .60 + medium * .32 + fine * .16;
+    if (config.wearType === 'scratches') {
+      // Broken, slightly wandering abrasion rather than uniform white stripes.
+      const track = Math.floor((y + noise(x / 26, y / 8, config.seed + 91) * 2.4) / 1.4);
+      const line = hash(Math.floor(x / 42), track, config.seed) > .955;
+      alpha = line ? (.52 + fine * .48) * Math.max(0, (noise(x / 9, y / 2, config.seed + 5) - .19) * 1.8) : 0;
+      shade = .68 + fine * .32;
+    } else if (config.wearType === 'chips') {
+      const islands = broad * .62 + medium * .38;
+      alpha = Math.max(0, Math.min(1, (islands - .58) * 11)) * (.65 + fine * .35);
+      shade = islands > .70 ? .85 + fine * .15 : .43 + fine * .2;
+    } else if (config.wearType === 'rust') {
+      alpha = Math.max(0, Math.min(1, (broad * .72 + medium * .28 - .38) * 3.3)) * (.6 + fine * .4);
+      shade = .37 + broad * .49 + medium * .37;
+    } else {
+      const runoff = noise(x / 6, y / 45, config.seed + 21);
+      alpha = Math.max(0, Math.min(1, (broad * .7 + runoff * .3 - .31) * 2.4)) * (.62 + medium * .38);
+    }
+    const offset = (y * size + x) * 4;
+    data[offset] = Math.round(Math.min(1, color.r * shade) * 255); data[offset + 1] = Math.round(Math.min(1, color.g * shade) * 255); data[offset + 2] = Math.round(Math.min(1, color.b * shade) * 255); data[offset + 3] = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
   }
   return dataTexture(data, size, size, false);
+}
+function proceduralProperties(config) {
+  const size = 128, data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const fine = hash(x, y, config.seed), broad = noise(x / 12, y / 12, config.seed), medium = noise(x / 3, y / 3, config.seed + 17);
+    const brushed = config.preset === 'steel' || config.preset === 'aluminum';
+    const height = brushed ? noise(x / 32, y * 1.6, config.seed) : config.preset === 'paintedMetal' ? medium * .72 + fine * .28 : fine * .4 + broad * .6;
+    const index = (y * size + x) * 4;
+    data[index] = Math.round((.43 + height * .14) * 255);
+    data[index + 1] = Math.round((brushed ? .62 + height * .30 + fine * .08 : config.preset === 'paintedMetal' ? .76 + medium * .18 + fine * .06 : .84 + broad * .10 + fine * .06) * 255);
+    data[index + 2] = data[index + 3] = 255;
+  }
+  const texture = dataTexture(data, size, size, false);
+  texture.repeat.set(config.repeatX, config.repeatY); return texture;
 }
 function installWear(material, original, config, texture) {
   const before = original.onBeforeCompile;
@@ -130,11 +165,12 @@ function installWear(material, original, config, texture) {
     if (before) before.call(this, shader, renderer);
     Object.assign(shader.uniforms, {
       surfaceWearMap: {value: texture}, surfaceWearStrength: {value: config.wear}, surfaceWearScale: {value: config.wearScale},
+      surfaceWearRepeat: {value: new THREE.Vector2(config.repeatX, config.repeatY)},
       surfaceWearRoughness: {value: config.wearType === 'scratches' ? 0.4 : 0.92},
       surfaceWearMetalness: {value: ['rust', 'dirt'].includes(config.wearType) || config.metalness < 0.25 ? 0 : 0.7}
     });
     if (independentUV) {
-      shader.vertexShader = 'varying vec2 surfaceWearUv;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nsurfaceWearUv = uv * vec2(' + Number(config.repeatX).toFixed(8) + ', ' + Number(config.repeatY).toFixed(8) + ');');
+      shader.vertexShader = 'uniform vec2 surfaceWearRepeat;\nvarying vec2 surfaceWearUv;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nsurfaceWearUv = uv * surfaceWearRepeat;');
       shader.fragmentShader = 'varying vec2 surfaceWearUv;\n' + shader.fragmentShader;
     }
     shader.fragmentShader = 'uniform sampler2D surfaceWearMap;\nuniform float surfaceWearStrength;\nuniform float surfaceWearScale;\nuniform float surfaceWearRoughness;\nuniform float surfaceWearMetalness;\n' + shader.fragmentShader;
@@ -211,30 +247,60 @@ export default class SurfaceMaterialSystem {
     const config = state.config, material = new THREE.MeshPhysicalMaterial();
     COPY_FIELDS.forEach(key => { if (original[key] !== undefined) material[key] = original[key]; });
     if (original.emissive) material.emissive.copy(original.emissive);
+    if (state.config.emissiveMode === 'custom') { material.emissive.set(state.config.emissive).convertSRGBToLinear(); material.emissiveIntensity = state.config.emissiveIntensity; }
     if (original.normalScale) material.normalScale.copy(original.normalScale);
     if (original.clearcoatNormalScale) material.clearcoatNormalScale.copy(original.clearcoatNormalScale);
     if (original.sheen) material.sheen = original.sheen.clone();
     material.visible = original.visible; material.name = config.name;
-    material.color.set(config.color); material.metalness = config.metalness; material.roughness = config.roughness;
+    // Typed document colours come from HTML colour inputs (sRGB). r112's
+    // Color.set(hex) only divides bytes by 255; it does not decode sRGB. PBR
+    // lighting and the renderer's final sRGB encoding require linear inputs.
+    // Decode once here; image maps already decode through their encoding and
+    // preserved native emission/maps keep their own established colour space.
+    material.color.set(config.color).convertSRGBToLinear(); material.metalness = config.metalness; material.roughness = config.roughness;
     material.opacity = config.opacity; material.transparent = config.opacity < 1 || original.transparent;
     if (config.opacity < 1) material.depthWrite = false;
     material.clearcoat = config.clearcoat; material.clearcoatRoughness = config.clearcoatRoughness;
-    material.userData = {surfaceMaterialBinding: state.id};
+    material.dithering = true;
+    material.userData = {surfaceMaterialBinding: state.id, studioColorSpace: 'linear'};
     material.defines = Object.assign({}, original.defines || {}, {STANDARD: '', PHYSICAL: ''});
     ['map', 'normalMap', 'roughnessMap', 'metalnessMap'].forEach(key => {
       if (key === 'map' && config.colorMapMode === 'none') return;
       if (original[key] && original[key].isTexture) material[key] = this._cloneTexture(state, original[key], key === 'map');
     });
     if (config.colorMapMode !== 'none' && !material.map && (config.preset !== 'custom' && config.preset !== 'glass' || config.wear > 0)) {
-      if (!state.base) { state.base = proceduralBase(config); state.textures.add(state.base); }
+      if (!state.base) state.base = this._procedural(state, 'base', proceduralBase);
       material.map = state.base;
     }
+    // Fine brushed/paint/rubber detail uses bounded maps rather than extra
+    // bolts or cable polygons. Original/imported property maps keep priority.
+    if (['steel', 'aluminum', 'paintedMetal', 'rubber', 'concrete', 'plastic', 'wood'].includes(config.preset) && (!material.roughnessMap || !material.bumpMap)) {
+      const properties = this._procedural(state, 'properties', proceduralProperties);
+      if (!material.roughnessMap) material.roughnessMap = properties;
+      // Large concrete floors span hundreds of metres of repeated UVs. Keep
+      // their aggregate in albedo/roughness; finite-difference bump aliases at
+      // shallow view angles on r112, especially under the directional key.
+      if (!material.bumpMap && !material.normalMap && config.preset !== 'concrete') { material.bumpMap = properties; material.bumpScale = config.preset === 'rubber' ? .0011 : config.preset === 'paintedMetal' ? .00045 : .0007; }
+    }
     if (config.wear > 0) {
-      if (!state.wear) { state.wear = proceduralWear(config); state.textures.add(state.wear); }
+      if (!state.wear) state.wear = this._procedural(state, 'wear', proceduralWear);
       installWear(material, original, config, state.wear);
     } else material.onBeforeCompile = original.onBeforeCompile;
     this.owned.add(material); state.materials.add(material); state.copies.set(original, material);
     return material;
+  }
+
+  _procedural(state, kind, create) {
+    const owner = state.root || state, config = state.config;
+    if (!owner.procedural) owner.procedural = new Map();
+    const key = JSON.stringify([kind, config.preset, config.seed, config.repeatX, config.repeatY,
+      kind === 'wear' ? config.wearType : '']);
+    if (!owner.procedural.has(key)) {
+      const texture = create(config); owner.procedural.set(key, texture); owner.textures.add(texture);
+      const capabilities = this.ctx.renderer && this.ctx.renderer.capabilities;
+      texture.anisotropy = capabilities && capabilities.getMaxAnisotropy ? Math.min(4, capabilities.getMaxAnisotropy()) : 1;
+    }
+    return owner.procedural.get(key);
   }
 
   _load(state, field, asset) {
@@ -299,7 +365,7 @@ export default class SurfaceMaterialSystem {
       this._originals(mesh).some((material, index) => {
         if (shaderMaterial(material) || !slotMatches(slot, mesh, material, index, owner)) return false;
         const values = {slot, name: material.name || materialSchema.defaults.name};
-        if (material.color) values.color = '#' + material.color.getHexString();
+        if (material.color) values.color = '#' + authoredColor(material);
         ['metalness', 'roughness', 'opacity', 'clearcoat', 'clearcoatRoughness'].forEach(key => {
           if (typeof material[key] === 'number' && Number.isFinite(material[key])) values[key] = Math.max(0, Math.min(1, material[key]));
         });

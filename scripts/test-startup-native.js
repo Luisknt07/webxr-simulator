@@ -208,10 +208,10 @@ async function testNativePanoramaSelection(ctx, document) {
 async function testNativeInformationPanels(ctx, document) {
   const infoPanels = await load('src/stations/InfoPanels.js');
   const panel = document.getObjects('hall').find(object =>
-    document.getBehaviors(object).some(behavior => behavior.type === 'info' && behavior.title === 'WELCOME!'));
+    document.getBehaviors(object).some(behavior => behavior.type === 'info' && behavior.title === '¡BIENVENIDO!'));
   assert.ok(panel, 'Use the real WELCOME panel created from the shipped hall');
   const glyph = panel.getObjectByName('textMesh');
-  assert.ok(glyph && glyph.text.includes('WELCOME!'), 'The native ECS creates the panel text before editor registration');
+  assert.ok(glyph && glyph.text.includes('¡BIENVENIDO!'), 'The native ECS creates the translated panel text before editor registration');
   const panelId = panel.userData.editorId, glyphId = glyph.userData.editorId;
   assert.equal(document.getObject(glyphId), glyph, 'Generated text keeps its saved native ID for project compatibility');
   assert.equal(document.getEditableObject(glyph), panel, 'Clicking native SDF letters selects their whole information panel');

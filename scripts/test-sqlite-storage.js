@@ -64,6 +64,79 @@ async function request(port, method, pathname, body, headers = {}) {
   });
 }
 
+function testQuaternionPersistence(temporaryRoot) {
+  // Separate SQLite database keeps the main fixture's project/revision counts exact.
+  const dataDir = path.join(temporaryRoot, 'quaternion-stability');
+  let store = new ProjectStore({dataDir});
+  try {
+    const half = Math.SQRT1_2;
+    const rotations = [
+      [0, half, 0, half + Number.EPSILON / 2],
+      [0.2, -0.4, 0.4, 0.8].map(value => value * (1 + 2 * Number.EPSILON)),
+      [0.25, -0.5, 0.125, Math.sqrt(1 - 0.25 ** 2 - 0.5 ** 2 - 0.125 ** 2)].map(value => value * (1 + Number.EPSILON))
+    ];
+    assert(rotations.some(rotation => Math.hypot(...rotation) !== 1), 'Fixtures include rounded unit poses that previously drifted.');
+    const bits = rotation => {
+      const bytes = Buffer.alloc(32);
+      rotation.forEach((value, index) => bytes.writeDoubleLE(value, index * 8));
+      return bytes.toString('hex');
+    };
+    const fixture = values => ({format: 'hello-webxr-editor', version: 1, imports: [], rooms: {hall: {
+      overrides: [{id: 'native:hall:root.0', quaternion: values[2].slice()}],
+      additions: [{id: 'custom-quaternion-storage', name: 'Rotation stability', descriptor: {nativeId: 'native:hall:root.1'},
+        position: [1, 2, 3], quaternion: values[0].slice(), scale: [1, 1, 1],
+        nodes: {'0': {name: 'Rotated descendant', position: [0, 1, 0], quaternion: values[1].slice(), scale: [1, 1, 1]}}
+      }]
+    }}});
+    const getRotations = data => [data.rooms.hall.additions[0].quaternion,
+      data.rooms.hall.additions[0].nodes['0'].quaternion, data.rooms.hall.overrides[0].quaternion];
+    const assertBits = (data, expected, label) => getRotations(data).forEach((rotation, index) =>
+      assert.equal(bits(rotation), bits(expected[index]), label + ' slot ' + index));
+    const roundTrip = (project, expected, label) => {
+      for (let cycle = 0; cycle < 20; cycle++) {
+        // Close/reopen ensures this compares the real JSON stored on disk, not cached objects.
+        store.close();
+        store = new ProjectStore({dataDir});
+        project = store.getProject(project.id);
+        assertBits(project.document, expected, label + ' read cycle ' + cycle);
+        project = store.saveProject(project.id, {name: project.name, expectedRevision: project.revision, document: project.document});
+        assertBits(project.document, expected, label + ' write cycle ' + cycle);
+      }
+      return project;
+    };
+    let project = store.saveProject(null, {name: 'Unit quaternion persistence', document: fixture(rotations)});
+    assertBits(project.document, rotations, 'First validation');
+    project = roundTrip(project, rotations, 'Already unit length');
+    for (const factor of [0.999, 1.001]) {
+      const scaled = rotations.map(rotation => rotation.map(value => value * factor));
+      let normalizedProject = store.saveProject(null, {name: 'Normalize ' + factor, document: fixture(scaled)});
+      const normalized = getRotations(normalizedProject.document);
+      normalized.forEach((rotation, index) => {
+        assert(Math.abs(Math.hypot(...rotation) - 1) <= 16 * Number.EPSILON, 'Near-unit input is actually normalized.');
+        assert.notEqual(bits(rotation), bits(scaled[index]), 'Near-unit input is not merely retained.');
+        rotation.forEach((value, component) => assert(Math.abs(value * Math.hypot(...scaled[index]) - scaled[index][component]) < 1e-14,
+          'Normalization preserves the rotation direction.'));
+      });
+      normalizedProject = roundTrip(normalizedProject, normalized, 'Normalized factor ' + factor);
+      assert.equal(normalizedProject.revision, 21);
+    }
+    const projectCount = store.listProjects().length;
+    for (const slot of ['root', 'node', 'override']) for (const rotation of [[0, 0, 0, 0], [1.02, 0, 0, 0], [0.98, 0, 0, 0], [1000001, 0, 0, 0]]) {
+      const invalid = fixture(rotations);
+      const state = slot === 'root' ? invalid.rooms.hall.additions[0] : slot === 'node' ? invalid.rooms.hall.additions[0].nodes['0'] : invalid.rooms.hall.overrides[0];
+      state.quaternion = rotation;
+      assert.throws(() => store.saveProject(project.id, {name: 'Invalid rotation', expectedRevision: project.revision, document: invalid}),
+        error => error.status === 400, 'Invalid ' + slot + ' rotation is rejected.');
+      const unchanged = store.getProject(project.id);
+      assert.equal(unchanged.revision, project.revision, 'Rejected rotations never add a revision.');
+      assertBits(unchanged.document, rotations, 'Rejected ' + slot + ' rotation leaves saved poses intact');
+      assert.equal(store.listProjects().length, projectCount);
+    }
+  } finally {
+    store.close();
+  }
+}
+
 async function run() {
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'hello-webxr-sqlite-test-'));
   let store;
@@ -241,6 +314,7 @@ async function run() {
     assert.match(svgResponse.headers['content-disposition'], /^attachment/);
     assert.match(svgResponse.headers['content-security-policy'], /sandbox/);
 
+    testQuaternionPersistence(temporaryRoot);
     console.log('SQLite storage: restart persistence, atomic history/restoration, optimistic concurrency, binary deduplication, schema validation and HTTP integration passed.');
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));

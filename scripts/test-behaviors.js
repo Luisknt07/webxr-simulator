@@ -8,7 +8,10 @@ const {definitions, normalizeBehaviors, defaultBehavior} = behaviorSchema;
 
 definitions.forEach(definition => {
   const defaults = defaultBehavior(definition.type);
-  assert.deepEqual(normalizeBehaviors([{type: definition.type}]), [defaults]);
+  const legacyDefaults = Object.assign({}, defaults);
+  if (definition.type === 'info') ['presentation', 'revealDistance', 'fadeDistance', 'fadeTime', 'gazeAngle', 'width'].forEach(key => delete legacyDefaults[key]);
+  if (definition.type === 'billboard') delete legacyDefaults.axis;
+  assert.deepEqual(normalizeBehaviors([{type: definition.type}]), [legacyDefaults]);
   assert.deepEqual(normalizeBehaviors([defaults]), [defaults]);
 });
 assert.deepEqual(normalizeBehaviors(), []);
@@ -92,6 +95,37 @@ decalHarness.runtime.states[0].state.onSelectStart({}, {});
 assert.equal(decalHarness.ctx.goto, 2, 'The original portal remains functional on a decorated object');
 decalHarness.runtime.stop();
 assert.deepEqual(decalHarness.notices, []);
+
+// LineMonitorSystem owns the persistent monitor surface and its mouse/VR ray
+// states. Starting generic behaviors must neither claim it nor issue a false
+// "unavailable" toast, including monitors with another interactive behavior.
+const monitorOnly = new THREE.Group();
+monitorOnly.userData.editorBehaviors = [{type: 'lineMonitor', targetId: 'custom-controller'}];
+const monitorHarness = harness([monitorOnly]);
+const monitorState = {colliderMesh: monitorOnly, onSelectStart() {}};
+monitorHarness.ctx.raycontrol.states['line-monitor-surface-fixture'] = monitorState;
+monitorHarness.ctx.raycontrol.active.add('line-monitor-surface-fixture');
+monitorHarness.runtime.start('hall');
+assert.deepEqual(monitorHarness.notices, [], 'A functioning persistent monitor never reports an unavailable generic behavior.');
+assert.equal(monitorHarness.runtime.components.length, 0, 'The persistent monitor never creates a duplicate behavior adapter.');
+assert.equal(monitorHarness.runtime.states.length, 0, 'Generic behaviors never register a duplicate monitor collider.');
+assert.equal(monitorHarness.ctx.raycontrol.states['line-monitor-surface-fixture'], monitorState);
+monitorHarness.runtime.stop();
+assert.equal(monitorHarness.ctx.raycontrol.states['line-monitor-surface-fixture'], monitorState, 'Stopping behaviors leaves the monitor-owned state intact.');
+assert(monitorHarness.ctx.raycontrol.active.has('line-monitor-surface-fixture'));
+
+const monitorWithPortal = new THREE.Group();
+monitorWithPortal.userData.editorBehaviors = [{type: 'lineMonitor', targetId: 'custom-controller'}, {type: 'portal', room: 3}];
+const monitorPortalHarness = harness([monitorWithPortal]);
+monitorPortalHarness.ctx.editorBehaviorAdapters = {lineMonitor() { throw new Error('LineMonitorSystem owns the monitor lifecycle'); }};
+monitorPortalHarness.runtime.start('hall');
+assert.deepEqual(monitorPortalHarness.notices, []);
+assert.equal(monitorPortalHarness.runtime.components.length, 1, 'Only the attached portal creates a generic component.');
+assert.equal(monitorPortalHarness.runtime.states.length, 1);
+monitorPortalHarness.runtime.states[0].state.onSelectStart({}, {});
+assert.equal(monitorPortalHarness.ctx.goto, 3, 'The portal on a monitor remains independently interactive.');
+monitorPortalHarness.runtime.stop();
+assert.deepEqual(monitorPortalHarness.notices, []);
 
 const original = new THREE.Object3D();
 original.userData.editorDefaultBehaviors = [{type: 'portal', room: 1}];

@@ -24,7 +24,14 @@ function inspect(kind, variant) {
   const object = createIndustrialPrefab(kind, variant);
   object.position.y = kind === 'plc' ? 1.28 : 1;
   object.updateMatrixWorld(true);
+  const conveyor = kind === 'conveyor' && object.userData.editorDefaultBehaviors.find(value => value.type === 'conveyor');
+  const catalogueEquipment = !!(conveyor && conveyor.equipmentId);
   const panel = kind === 'plc' ? object : object.children[kind === 'conveyor' ? 6 : kind === 'palletQueue' ? 1 : 2];
+  if (catalogueEquipment && conveyor.withPanel === false) {
+    assert.equal(panel.visible, false, 'An unpowered catalogue station never exposes an electric control panel.');
+    close(bounds(object).min.y, 0, 'New equipment feet use a common metric floor without the legacy 12.5 mm penetration.');
+    return;
+  }
   const controls = panel.children.filter(node => node.userData.editorPrefabKey === 'control');
   const expectedActions = kind === 'source' ? ['start', 'stop', 'pause', 'generate', 'dispatch', 'clearQueue'] :
     kind === 'palletQueue' ? ['start', 'stop', 'pause', 'dispatch'] : kind === 'processor' ?
@@ -63,7 +70,7 @@ function inspect(kind, variant) {
     assert(local.min.y >= cabinetLocal.min.y + 0.02 - 0.00001 && local.max.y <= cabinetLocal.max.y - 0.02 + 0.00001,
       'The panel title also stays inside its cabinet.');
   });
-  if (kind !== 'plc') close(bounds(object).min.y, kind === 'conveyor' ? -0.0125 : 0,
+  if (kind !== 'plc') close(bounds(object).min.y, kind === 'conveyor' && !catalogueEquipment ? -0.0125 : 0,
     'Machine feet and pallets keep their authored floor height.');
 }
 

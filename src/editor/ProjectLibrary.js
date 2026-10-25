@@ -62,9 +62,9 @@ export default class ProjectLibrary {
 
     const header = element('header', 'ed-project-header');
     const heading = element('div');
-    const title = element('h2', '', 'Proyectos');
+    const title = element('h2', '', 'Proyectos y niveles');
     title.id = prefix + '-title';
-    const description = element('p', '', 'Escenarios y versiones guardados en este servidor.');
+    const description = element('p', '', 'Selecciona un proyecto y abre uno de sus niveles guardados.');
     description.id = prefix + '-description';
     heading.appendChild(title);
     heading.appendChild(description);
@@ -188,7 +188,8 @@ export default class ProjectLibrary {
       const projects = await this.client.listProjects();
       if (generation !== this.generation || this.overlay.hidden) return;
       this.projects = projects;
-      const selectedId = this.selected && this.selected.id;
+      const current = this.callbacks.getCurrentProject && this.callbacks.getCurrentProject();
+      const selectedId = this.selected && this.selected.id || current && current.id;
       this.selected = projects.find(project => project.id === selectedId) || null;
       this.loading = false;
       this.renderList();
@@ -219,9 +220,12 @@ export default class ProjectLibrary {
       const item = element('li');
       const selected = !!this.selected && this.selected.id === project.id;
       const select = button('', 'ed-project-card' + (selected ? ' selected' : ''));
+      select.setAttribute('data-project-id', project.id);
       select.setAttribute('aria-pressed', String(selected));
       select.disabled = this.busy;
       select.appendChild(element('strong', '', project.name));
+      const current = this.callbacks.getCurrentProject && this.callbacks.getCurrentProject();
+      if (current && current.id === project.id) select.appendChild(element('span', 'ed-project-current-label', 'Proyecto abierto'));
       select.appendChild(element('span', '', 'Guardado: ' + dateLabel(timestamp(project, 'updated'))));
       select.addEventListener('click', () => this.selectProject(project));
       item.appendChild(select);
@@ -250,6 +254,15 @@ export default class ProjectLibrary {
     open.addEventListener('click', () => this.openProject(project.id));
     open.disabled = this.busy;
     this.details.appendChild(open);
+    this.levelList = null;
+    if (this.callbacks.listLevels) {
+      const levels = element('section', 'ed-project-levels');
+      levels.appendChild(element('h4', '', 'Niveles de este proyecto'));
+      this.levelList = element('div', 'ed-project-level-list');
+      this.levelStatus = element('p', 'ed-project-hint', 'Cargando niveles…');
+      this.levelStatus.setAttribute('role', 'status');
+      levels.appendChild(this.levelStatus); levels.appendChild(this.levelList); this.details.appendChild(levels);
+    }
     const versions = element('div', 'ed-project-versions');
     const label = element('label', 'ed-project-field', 'Historial de versiones');
     this.revisionSelect = element('select');
@@ -281,9 +294,13 @@ export default class ProjectLibrary {
     this.clearError();
     this.renderList();
     this.renderDetails();
-    try {
-      const revisions = await this.client.listRevisions(project.id);
-      if (selectionGeneration !== this.selectionGeneration || this.overlay.hidden) return;
+    const tasks = await Promise.allSettled([
+      this.client.listRevisions(project.id),
+      this.callbacks.listLevels ? this.client.getProject(project.id).then(value => this.callbacks.listLevels(value)) : Promise.resolve(null)
+    ]);
+    if (selectionGeneration !== this.selectionGeneration || this.overlay.hidden) return;
+    if (tasks[0].status === 'fulfilled') {
+      const revisions = tasks[0].value;
       revisions.forEach(revision => {
         const number = revisionNumber(revision);
         const option = element('option', '', 'Versión ' + number + ' · ' + dateLabel(timestamp(revision, 'created')));
@@ -293,17 +310,31 @@ export default class ProjectLibrary {
       this.revisionCount = revisions.length;
       this.revisionStatus.textContent = revisions.length + (revisions.length === 1 ? ' versión guardada.' : ' versiones guardadas.') + ' Abrir una versión no borra el historial.';
       this.revisionSelect.disabled = this.busy || !revisions.length;
-    } catch (error) {
-      if (selectionGeneration !== this.selectionGeneration || this.overlay.hidden) return;
+    } else {
       this.revisionStatus.textContent = 'El historial no está disponible. Puedes abrir la versión actual.';
-      this.showError(error, () => this.selectProject(project));
+      this.showError(tasks[0].reason, () => this.selectProject(project));
+    }
+    if (this.callbacks.listLevels && tasks[1].status === 'fulfilled') {
+      const levels = tasks[1].value;
+      this.levelStatus.textContent = levels.length + ' niveles · abrir un nivel cambia al proyecto seleccionado.';
+      levels.forEach(level => {
+        const open = button(level.name + (level.initial ? ' · inicial' : ''), 'ed-project-level');
+        open.setAttribute('data-room-id', level.id);
+        open.setAttribute('aria-label', 'Abrir nivel ' + level.name + ' de ' + project.name);
+        open.disabled = this.busy;
+        open.addEventListener('click', () => this.openProject(project.id, undefined, level.id));
+        this.levelList.appendChild(open);
+      });
+    } else if (this.callbacks.listLevels) {
+      this.levelStatus.textContent = 'No se pudieron consultar los niveles. Puedes reintentar o abrir el proyecto.';
+      this.showError(tasks[1].reason, () => this.selectProject(project));
     }
   }
 
-  openProject(id, revision) {
+  openProject(id, revision, roomId) {
     return this.runAction(async () => {
       const project = await this.client.getProject(id, revision);
-      return this.callbacks.onOpen(project);
+      return this.callbacks.onOpen(project, roomId);
     }, 'Abriendo proyecto…');
   }
 

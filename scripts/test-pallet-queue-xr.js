@@ -69,8 +69,8 @@ async function run() {
   assert.equal(vars(f).paused, true); assert.equal(f.runtime.getControlFeedback(pause.id).sequence, sequence + 1, 'Two hands on one cap cause one action.');
   select(f, f.left, 'selectend'); advance(f, 0.08); assert(f.runtime.getControlFeedback(pause.id).pressed);
   select(f, f.right, 'selectend'); advance(f, 0.3); assert(!f.runtime.getControlFeedback(pause.id).pressed); close(pause.cap.position.z, 0.025, 0.0001);
-  // Grip/squeeze currently has no production adapter. It must not duplicate
-  // trigger actions or accidentally invoke controls through this test harness.
+  // Grip/squeeze manipulates products only. It must not duplicate trigger
+  // actions or operate physical control buttons through this test harness.
   const beforeSqueeze = f.runtime.getControlFeedback(pause.id).sequence;
   [f.left, f.right].forEach(hand => { select(f, hand, 'squeezestart'); select(f, hand, 'squeezeend'); }); advance(f);
   assert.equal(f.runtime.getControlFeedback(pause.id).sequence, beforeSqueeze); assert.equal(vars(f).paused, true);

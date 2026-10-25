@@ -208,4 +208,37 @@ nativeRelease.data.enabled = false; releasedAt = null;
 nativeRelease.ray.onSelectEnd({target: nativeRelease.controller});
 assert.strictEqual(releasedAt, null); assert.strictEqual(nativeRelease.data.active, false);
 
+// Non-spatial native actions (panorama return, for example) must obey the same
+// handedness selector as spatial states. Repeated room activation is idempotent.
+const backgroundHands = fixture();
+backgroundHands.controller.userData.isDesktop = false;
+const leftHand = new THREE.Group();
+const leftSource = {handedness: 'left', gamepad: {id: 'old-left'}};
+const leftData = backgroundHands.ray.addController(leftHand, leftSource);
+let primaryBackground = 0, bothBackground = 0, cancelledReplacement = 0;
+backgroundHands.ray.addState('primary-return', {raycaster: false, controller: 'primary',
+  onSelectStart() { primaryBackground++; }, onSelectEnd() { primaryBackground++; }}, true);
+backgroundHands.ray.addState('bilateral-return', {raycaster: false, controller: 'both',
+  onSelectStart() { bothBackground++; }, onSelectEnd() { bothBackground++; }}, true);
+backgroundHands.ray.activateState('primary-return'); backgroundHands.ray.activateState('bilateral-return');
+assert.strictEqual(backgroundHands.ray.currentStates.length, 2, 'Activating an existing native state cannot duplicate its callbacks');
+backgroundHands.ray.onSelectStart({target: leftHand}); backgroundHands.ray.onSelectEnd({target: leftHand});
+assert.strictEqual(primaryBackground, 0, 'Secondary hand never starts or releases primary-only panorama return');
+assert.strictEqual(bothBackground, 2, 'Explicit bilateral native backgrounds remain usable from either hand');
+backgroundHands.ray.changeHandedness('left');
+backgroundHands.ray.onSelectStart({target: leftHand}); backgroundHands.ray.onSelectEnd({target: leftHand});
+assert.strictEqual(primaryBackground, 2);
+const replacementCapture = backgroundHands.ray.addState('replacement-button', {colliderMesh: surface, controller: 'both', captureSelect: true,
+  onSelectCancel() { cancelledReplacement++; }}, true);
+leftData.currentIntersection = {state: replacementCapture, intersection: {object: surface}};
+backgroundHands.ray.onSelectStart({target: leftHand});
+const nextSource = {handedness: 'right', gamepad: {id: 'new-right'}};
+const replacementData = backgroundHands.ray.addController(leftHand, nextSource);
+assert.notStrictEqual(replacementData, leftData);
+assert.strictEqual(replacementData.inputSource, nextSource, 'A reused XR target-ray group receives its replacement gamepad and handedness');
+assert.strictEqual(cancelledReplacement, 1, 'Replacing an input source releases the original physical capture');
+assert.strictEqual(replacementData.active, false); assert.strictEqual(replacementData.currentIntersection, null);
+assert.strictEqual(leftHand.children.filter(child => child.name === 'raycasterContext').length, 1, 'A reused XR group keeps one ray origin');
+assert.strictEqual(backgroundHands.ray.addController(leftHand, nextSource), replacementData, 'An identical connection notification stays idempotent');
+
 console.log('RayControl: hidden hierarchy, native teleport materials, logical clone/visual replacement identities, UV preservation through decals, merged native/component/legacy selection, unrelated occlusion, balanced hover cleanup, handedness and VR-only desktop filtering passed.');

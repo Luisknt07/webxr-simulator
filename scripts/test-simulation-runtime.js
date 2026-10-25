@@ -115,7 +115,7 @@ assert.throws(() => h.runtime.setVariable('belt', 'exitCount', 1), /lectura/);
 assert.throws(() => h.runtime.setVariable('missing', 'speed', 1), /objeto/);
 assert.doesNotThrow(() => JSON.stringify(h.runtime.getSnapshot()));
 assert(h.runtime.getSnapshot().objects.every(object => Object.entries(object.variables).every(([key, value]) =>
-  key === 'supplyMode' ? ['external', 'internal', 'manual'].includes(value) : typeof value === 'boolean' || Number.isFinite(value))));
+  key === 'supplyMode' ? ['external', 'internal', 'manual'].includes(value) : key === 'mechanismPhase' ? typeof value === 'string' && value.length > 0 : typeof value === 'boolean' || Number.isFinite(value))));
 h.runtime.stop(); assert.equal(belt.children.some(child => child.userData.editorRuntimeHelper), false);
 assert.equal(h.runtime.packageCount, 0); assert.equal(h.runtime.records.size, 0);
 assert.deepEqual(belt.position.toArray(), [2, 1, -3]);

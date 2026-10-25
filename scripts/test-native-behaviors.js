@@ -215,6 +215,25 @@ function testCopiedNotesAndSticks() {
   copy.userData.editorBehaviors[0].asset = 'ogg/xylophone3.ogg'; api.execute(ctx, 0.016, 2);
   assert.equal(copy.userData.sound.buffer.url, 'assets/ogg/xylophone3.ogg');
   ctx.editorXylophone.removeNote(copy); assert.equal(copy.userData.sound, undefined);
+
+  // A lost XR hand returns only its own native mallet. The other hand keeps
+  // playing with its ray suspended until it releases or the whole mode exits.
+  const other = new Three.Group(); other.userData.grabbing = null; other.boundingBox = new Three.Box3(); world.add(other); ctx.controllers.push(other);
+  const firstData = {controller, enabled: true}, otherData = {controller: other, enabled: true};
+  ctx.raycontrol.controllers = [firstData, otherData];
+  controller.position.set(0, 1, 0); other.position.set(0, 1, 8); world.updateMatrixWorld(true);
+  controller.boundingBox.setFromCenterAndSize(controller.position, new Three.Vector3(0.3, 0.3, 0.3));
+  other.boundingBox.setFromCenterAndSize(other.position, new Three.Vector3(0.3, 0.3, 0.3));
+  const firstStick = hall.getObjectByName('xylostick-left'), otherStick = hall.getObjectByName('xylostick-right');
+  api.onSelectStart({target: controller}); api.onSelectStart({target: other});
+  assert.equal(controller.userData.grabbing, firstStick); assert.equal(other.userData.grabbing, otherStick);
+  assert.equal(firstData.enabled, false); assert.equal(otherData.enabled, false);
+  ctx.editorXylophone.releaseHeld(controller);
+  assert.equal(controller.userData.grabbing, null); assert.equal(firstStick.parent, hall); assert.equal(firstData.enabled, true);
+  assert.equal(other.userData.grabbing, otherStick, 'Disconnecting the first hand must retain the other mallet');
+  assert.equal(otherStick.parent, other); assert.equal(otherData.enabled, false, 'The surviving mallet still owns only its own ray suspension');
+  ctx.editorXylophone.releaseHeld();
+  assert.equal(other.userData.grabbing, null); assert.equal(otherStick.parent, hall); assert.equal(otherData.enabled, true);
 }
 
 testPanoSettings(); testPaintingSettings(); testIndependentPaintAndBillboard(); testInfoEditorPreview(); testAreasAreAUnion(); testCopiedNotesAndSticks();

@@ -1,0 +1,41 @@
+'use strict';
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), THREE = require('three');
+const materialSchema = require('../shared/materials');
+const source = fs.readFileSync(path.join(__dirname, '../src/editor/SurfaceMaterialSystem.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class SurfaceMaterialSystem', 'return class SurfaceMaterialSystem');
+const Surface = new Function('THREE', 'materialSchema', source)(THREE, materialSchema);
+const root = new THREE.Group(), mesh = new THREE.Mesh(new THREE.BoxBufferGeometry(), new THREE.MeshStandardMaterial()); root.add(mesh);
+const original = mesh.material, geometry = mesh.geometry; original.color.set('#74838e'); original.emissive.setRGB(.05, .10, .15);
+const document = {getRoot: () => root, getObjects: () => [mesh]}, system = new Surface({}, document, {});
+const encode = colour => colour.clone().convertLinearToSRGB().getHexString();
+function author(patch) { mesh.userData.editorBehaviors = [materialSchema.normalizeMaterial(Object.assign({preset: 'custom', colorMapMode: 'none'}, patch))]; system.invalidate(); return system.sync('hall'); }
+async function run() {
+  await author({color: '#808080'});
+  assert(Math.abs(mesh.material.color.r - .2158605) < .000001, 'HTML middle gray is decoded to its physical linear reflectance, rather than the erroneous .502.');
+  assert.equal(encode(mesh.material.color), '808080');
+  assert.equal(mesh.material.userData.studioColorSpace, 'linear');
+  assert.deepEqual(mesh.material.emissive.toArray(), [.05, .10, .15], 'Native linear emission is preserved without a second conversion.');
+  assert.equal(mesh.userData.editorBehaviors[0].color, '#808080'); assert.equal(mesh.geometry, geometry);
+  const rawDefaults = system.getSlotDefaults(mesh, 'all'); assert.equal(rawDefaults.color, '#74838e', 'Unmanaged original factory colours retain their legacy interpretation.');
+  assert.equal(original.color.getHexString(), '74838e', 'Decoding an authored finish never changes the raw colour of its original native/factory material.');
+  original.color.set('#777c76').convertSRGBToLinear(); original.userData.studioColorSpace = 'linear';
+  assert.equal(system.getSlotDefaults(mesh, 'all').color, '#777c76', 'Explicitly managed linear source colours return their authored sRGB colour in the inspector.');
+  original.color.set('#fff0d2').convertSRGBToLinear();
+  assert.equal(system.getSlotDefaults(mesh, 'all').color, '#fff0d2', 'Managed colour extraction quantizes white channels correctly instead of truncating 255 to 254.');
+  const floorGroup = require('../shared/industrialFloor').createVisual(THREE, {type: 'industrialFloor', version: 1, bounds: [-10, -8, 10, 8], floorY: .02, zones: [[-3, -2, 3, 2]], signs: [[3, 3, 0, 1, 6]]});
+  const floorPaint = floorGroup.children.find(node => node.name === 'Pintura de seguridad amarilla'), paintBefore = floorPaint.material.color.toArray();
+  assert.equal(system.getSlotDefaults(floorPaint, 'all').color, '#cfb044', 'A linear floor-factory material returns its sRGB authoring colour for a subsequent roughness edit.');
+  assert.deepEqual(floorPaint.material.color.toArray(), paintBefore, 'Extracting an editable factory colour never converts the live material twice.');
+  floorGroup.children.forEach(node => { node.geometry.dispose(); node.material.dispose(); });
+  await author({preset: 'paintedMetal', color: '#355567', emissiveMode: 'custom', emissive: '#808080', emissiveIntensity: .6});
+  assert(Math.abs(mesh.material.color.r - .0356013) < .000001 && Math.abs(mesh.material.color.b - .1356333) < .000001);
+  assert.equal(encode(mesh.material.color), '355567'); assert.equal(encode(mesh.material.emissive), '808080'); assert.equal(mesh.material.emissiveIntensity, .6);
+  assert.equal(mesh.material.roughnessMap.encoding, THREE.LinearEncoding, 'Physical property channels remain linear data.');
+  const pixels = new Uint8Array([128, 128, 128, 255]), map = new THREE.DataTexture(pixels, 1, 1, THREE.RGBAFormat); map.encoding = THREE.sRGBEncoding; map.needsUpdate = true; original.map = map;
+  await author({color: '#ffffff', colorMapMode: 'preserve'});
+  assert.equal(mesh.material.color.r, 1); assert.equal(mesh.material.map.encoding, THREE.sRGBEncoding);
+  assert.equal(mesh.material.map.image.data, pixels); assert.deepEqual(Array.from(pixels), [128, 128, 128, 255], 'Imported albedo pixels are unchanged and decoded exactly once by the existing sRGB texture path.');
+  system.dispose(); assert.equal(mesh.material, original); assert.deepEqual(original.emissive.toArray(), [.05, .10, .15]);
+  geometry.dispose(); original.dispose(); map.dispose();
+  console.log('Surface colour management: physical middle-gray reflectance, faithful authored sRGB roundtrip, paint channels, custom versus preserved emission, untouched sRGB image pixels, linear property maps and original material restoration passed.');
+}
+run().catch(error => { console.error(error); process.exitCode = 1; });

@@ -327,6 +327,8 @@ browserGlobals.ProcessorRuntime = require('./load-processor-runtime.js')(THREE, 
 browserGlobals.ProductSourceRuntime = require('./load-product-source-runtime')(THREE, behaviorSchema);
 const SimulationRuntime = loadClass('SimulationRuntime.js', browserGlobals);
 const IndustrialVisuals = loadClass('IndustrialVisuals.js', browserGlobals);
+const LineMonitorSystem = loadClass('LineMonitorSystem.js', browserGlobals);
+const IndustrialAudioSystem = loadClass('IndustrialAudioSystem.js', browserGlobals);
 const SurfaceMaterialSystem = loadClass('SurfaceMaterialSystem.js', browserGlobals);
 const WearPaintSystem = loadClass('WearPaintSystem.js', Object.assign({}, browserGlobals, {DecalSystem}));
 const WearBrush = loadClass('WearBrush.js', browserGlobals);
@@ -334,6 +336,13 @@ const MaterialInspector = loadClass('MaterialInspector.js', browserGlobals);
 const ConveyorAssembly = loadClass('ConveyorAssembly.js', {THREE, conveyorLayout: behaviorSchema.conveyorLayout});
 const ObjectAssembly = loadClass('ObjectAssembly.js', browserGlobals);
 const EquipmentPlacement = loadClass('EquipmentPlacement.js', browserGlobals);
+const EditorShell = loadClass('EditorShell.js', browserGlobals);
+// The resource browser has independent DOM/thumbnail tests. Keep these legacy
+// editor scenarios on its original adapters to verify action compatibility.
+class ResourceBrowser {
+  setEntries() {} setProject() {} setActive() {} openTab() {} dropEvent() { return false; }
+  render() { return false; }
+}
 const ProjectSync = loadClass('ProjectSync.js', browserGlobals);
 const resolveProject = new Function(sourceFor('ProjectResolver.js').replace('export default async function resolveProject', 'return async function resolveProject'))();
 const recorderSource = sourceFor('TelemetryRecorder.js').replace(/export default class /g, 'class ').replace(/export function /g, 'function ') +
@@ -349,7 +358,8 @@ const nativeSource = sourceFor('NativeBindings.js').replace(/export function /g,
 const nativeBindings = new Function(nativeSource)();
 const SceneEditor = loadClass('SceneEditor.js', Object.assign({}, browserGlobals, nativeBindings,
   {OrbitControls, TransformControls, AssetLibrary, AssetThumbnails, DecalSystem, SurfaceMaterialSystem, WearPaintSystem, WearBrush, MaterialInspector, ConveyorAssembly, ObjectAssembly, EquipmentPlacement, SceneDocument, InteractionRuntime, BehaviorRuntime, InfoPanelPreview,
-    SimulationRuntime, SimulationPanel, IndustrialVisuals, CollisionWorld, ScenePerformance, industrialPrefabs, installNativeBehaviorAdapters, ProjectClient, ProjectLibrary, ProjectSync, resolveProject}));
+    SimulationRuntime, SimulationPanel, IndustrialVisuals, IndustrialAudioSystem, LineMonitorSystem, CollisionWorld, ScenePerformance, industrialPrefabs, installNativeBehaviorAdapters, ProjectClient, ProjectLibrary, ProjectSync, resolveProject, EditorShell, ResourceBrowser,
+    resourceUsage: () => [], removeResource: () => { throw new Error('Resource operations use their independent tests.'); }}));
 
 const ROOM_IDS = ['hall', 'sound', 'photogrammetry', 'vertigo', 'panoramastereo', 'panorama1', 'panorama2', 'panorama3', 'panorama4', 'panorama5'];
 function harness(withPanel = false) {
@@ -490,12 +500,18 @@ async function run() {
   ctx.goto = null; stalePortalAction.onSelectStart(hit); assert.strictEqual(ctx.goto, null);
 
   const beforeEmpty = await editor.document.serialize();
+  const StudioTools = loadClass('../studio/StudioTools.js', {THREE, schema: behaviorSchema, document: dom, window: browserWindow});
+  new StudioTools(editor);
   editor.emptyRoom(); await Promise.resolve(); await Promise.resolve();
   assert.strictEqual(nativeDoor.parent, roots.hall);
   assert.strictEqual(nativeDoor.visible, false);
   const base = editor.document.getObjects('hall').filter(object => !editor.document.isNative(object));
-  assert.strictEqual(base.length, 1);
-  assert.strictEqual(base[0].userData.editorInteraction.type, 'teleport');
+  assert.strictEqual(base.length, 3);
+  const baseFloor = base.find(object => object.name === 'Suelo del nivel');
+  assert.deepStrictEqual(editor.document.getBehaviors(baseFloor).map(item => item.type).sort(), ['collision', 'teleport']);
+  assert.strictEqual(editor.document.studio.environments.find(item => item.roomId === 'hall').sky, 'day');
+  assert(editor.document.studio.spawns.some(item => item.roomId === 'hall'));
+  assert(editor.document.studio.entities.some(item => item.roomId === 'hall' && item.type === 'camera'));
   editor.document.undo(); assert.deepStrictEqual(await editor.document.serialize(), beforeEmpty);
   editor.document.redo(); assert.strictEqual(nativeDoor.visible, false);
   editor.document.undo();
@@ -714,6 +730,7 @@ async function run() {
   await testSimulationPanel();
   await testIndustrialPanelBindings();
   await testModularConveyorAuthoring();
+  await testTypedConveyorInspector();
   await testMagneticEquipmentAuthoring();
   await testMagneticBoxAuthoring();
   await testProductSourceAuthoring();
@@ -1000,8 +1017,8 @@ async function testPublicRoutes() {
   const writesBefore = remote.writes.length;
   browserWindow.history = {replaceState(state, title, url) { browserWindow.location = url; }};
 
-  // Legacy query flags and project IDs cannot expose the editor on a public URL.
-  for (const path of ['/', '/?editor&project=unknown&room=hall', '/other?editor']) {
+  // Legacy query flags cannot expose the editor on a public URL.
+  for (const path of ['/', '/?editor&room=hall', '/other?editor']) {
     browserWindow.location = 'https://editor.test' + path;
     const {editor, ctx} = harness(); await editor.ready;
     assert.equal(editor.editorEnabled, false);
@@ -1045,6 +1062,15 @@ async function testPublicRoutes() {
   assert.equal(storage.get('hello-webxr-active-project'), 'another-browser-local-project');
   assert.equal(storage.get('hello-webxr-editor-v1'), draft, 'Public visits leave authoring backups intact.');
 
+  // A bad explicit link must not silently display an unrelated latest project.
+  browserWindow.location = 'https://editor.test/?editor&project=unknown&room=hall';
+  const missing = harness(); await missing.editor.ready;
+  assert.equal(missing.editor.currentProject, null);
+  assert.equal(missing.editor.document.getObject(bandId), undefined);
+  assert.equal(missing.editor.active, false);
+  assert.equal(new URL(browserWindow.location).searchParams.get('project'), 'unknown');
+  assert.equal(remote.writes.length, writesBefore);
+
   // Offline public visits also stay clean and do not expose a private draft.
   remote.online = false;
   browserWindow.location = 'https://editor.test/?editor&project=unknown';
@@ -1052,7 +1078,7 @@ async function testPublicRoutes() {
   assert.equal(offline.editor.currentProject, null);
   assert.equal(offline.editor.document.getObject(bandId), undefined);
   assert.equal(offline.editor.active, false);
-  assert.equal(new URL(browserWindow.location).searchParams.has('project'), false);
+  assert.equal(new URL(browserWindow.location).searchParams.get('project'), 'unknown');
   assert.equal(offline.ctx.renderer.xr.enabled, true);
   author.editor.projectSync.stop(); remote.online = true;
   delete browserWindow.history;
@@ -1421,10 +1447,13 @@ async function testModularConveyorAuthoring() {
   assert(!cfg(end).withPallet && !cfg(end).withPanel && cfg(end).powered);
   editor.select(curve);
   const original = await editor.document.serialize();
+  const previousPosition = first.position.clone(), endPosition = end.position.clone();
   const radius = labelled(editor.inspector, 'Banda transportadora simulada · Radio de curva (m)');
   radius.value = '2.2'; await radius.fire('change');
   assert.equal(cfg(curve).radius, 2.2);
-  assert(point(first, 'output').distanceTo(point(curve, 'input')) > 0.1, 'Changing a real radius moves both physical ports.');
+  assertJoined(first, curve); assertJoined(curve, end);
+  assert(first.position.equals(previousPosition), 'The preceding machine remains fixed while the edited curve is refitted.');
+  assert(end.position.distanceTo(endPosition) > .1, 'The following machine follows the new real curve outlet automatically.');
   await editor.perform(() => editor.historyStep('undo'));
   assert.deepEqual(await editor.document.serialize(), original, 'Undo restores the full configuration, anchors and ports.');
   assertJoined(first, curve); assertJoined(curve, end);
@@ -1453,6 +1482,36 @@ async function testModularConveyorAuthoring() {
   const rounded = value => JSON.parse(JSON.stringify(value, (key, item) => typeof item === 'number' ? Number(item.toFixed(10)) : item));
   assert.deepEqual(rounded(await loaded.serialize()), rounded(await editor.document.serialize()), 'Catalog variants, paths, links and optional components survive saving and a fresh editor, within quaternion normalization precision.');
   editor.projectSync.stop(); reloaded.editor.projectSync.stop();
+}
+
+async function testTypedConveyorInspector() {
+  storage.clear(); remote.projects.clear(); remote.online = true;
+  const {editor} = harness(); await editor.ready; editor.enter();
+  const all = root => [root].concat(root.children.flatMap(child => all(child)));
+  const labelled = label => all(editor.inspector).find(node => node.getAttribute('aria-label') === label);
+  const object = editor.document.addPrefab('hall', 'conveyor', 'roller-start'); editor.select(object);
+  const original = JSON.stringify(editor.document.getBehaviors(object));
+  assert.equal(labelled('Equipo · Variante del catálogo').value, '', 'Inspecting a legacy conveyor does not silently adopt a new equipment definition.');
+  assert.equal(JSON.stringify(editor.document.getBehaviors(object)), original);
+  let variant = labelled('Equipo · Variante del catálogo'); variant.value = 'conveyor.roller-curve'; await variant.fire('change');
+  assert.equal(editor.conveyorConfig(object).equipmentId, 'conveyor.roller-curve');
+  assert.equal(editor.conveyorConfig(object).equipmentVersion, 1);
+  assert.equal(labelled('Banda transportadora simulada · Radio del eje (m)').min, .4, 'Editable bounds use the same definition as the catalogue.');
+  const direction = labelled('Banda transportadora simulada · Sentido');
+  assert.deepEqual(direction.children.map(option => option.value), ['curveLeft', 'curveRight'], 'A curved variant changes direction without becoming an unrelated mechanism.');
+  assert.equal(labelled('Banda transportadora simulada · Superficie'), undefined);
+  variant = labelled('Equipo · Variante del catálogo'); variant.value = 'conveyor.roller-gravity'; await variant.fire('change');
+  assert.equal(editor.conveyorConfig(object).withPanel, false);
+  assert.equal(editor.conveyorConfig(object).drive, 'gravity');
+  assert.equal(labelled('Banda transportadora simulada · Consigna (m/s)'), undefined, 'Gravity has no hidden motor-speed control.');
+  variant = labelled('Equipo · Variante del catálogo'); variant.value = 'conveyor.pallet-chain'; await variant.fire('change');
+  const product = labelled('Equipo · Producto para comprobar compatibilidad'); product.value = 'box-small'; await product.fire('change');
+  assert(all(editor.inspector).some(node => node.textContent.startsWith('No compatible:') && node.textContent.includes('pallet')));
+  const design = await editor.document.serialize();
+  await editor.saveProject('Variantes verificadas');
+  const reopened = harness(); await reopened.editor.ready;
+  assert.deepEqual(await reopened.editor.document.serialize(), design, 'The inspector saves identity, version and configured mechanism through the existing document.');
+  editor.projectSync.stop(); reopened.editor.projectSync.stop();
 }
 
 async function testIndustrialPanelBindings() {
@@ -1889,8 +1948,9 @@ async function testMagneticEquipmentAuthoring() {
   editor.document.redo(); assert.equal(config(first).outputId, second.userData.editorId);
 
   const joined = second.position.clone(); depth = editor.document.undoStack.length;
+  editor.detachDragModifier = true;
   drag(true); second.position.x += 1.1; editor.transform.dispatchEvent({type: 'objectChange'});
-  assert.equal(config(first).outputId, '', 'Pulling away detaches the existing link during the drag.');
+  assert.equal(config(first).outputId, '', 'Ctrl plus dragging detaches only the selected module.');
   let prevented = false;
   editor.onKey({code: 'Escape', target: dom.body, preventDefault() { prevented = true; }});
   assert(prevented && second.position.equals(joined), 'Esc restores the pose before the complete drag.');

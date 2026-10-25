@@ -195,7 +195,74 @@ async function run() {
   await testPanoramaMaterialCopies();
   await testDecalAnchors();
   await testDeferredRoomResources();
+  await testQuaternionRoundTrips();
   console.log('SceneDocument: native identity, clipboard, texture copies, replacement assets, atomic lazy room loading/cancellation, save-before-visit and undo/redo history passed.');
+}
+
+async function testQuaternionRoundTrips() {
+  // Independent document: repeated loads must not alter the other history fixtures.
+  const root = new THREE.Group();
+  const native = new THREE.Group(), template = new THREE.Group();
+  template.add(new THREE.Group());
+  root.add(native, template);
+  const document = new SceneDocument({});
+  document.registerRoom('hall', root);
+  const half = Math.SQRT1_2;
+  const rotations = [
+    [0, half, 0, half + Number.EPSILON / 2],
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(0.31, -1.21, 2.07)).toArray(),
+    [0.25, -0.5, 0.125, Math.sqrt(1 - 0.25 ** 2 - 0.5 ** 2 - 0.125 ** 2)].map(value => value * (1 + Number.EPSILON))
+  ];
+  assert(rotations.some(rotation => Math.hypot(...rotation) !== 1), 'Fixtures include rounded unit poses that previously drifted.');
+  const bits = rotation => {
+    const bytes = Buffer.alloc(32);
+    rotation.forEach((value, index) => bytes.writeDoubleLE(value, index * 8));
+    return bytes.toString('hex');
+  };
+  const fixture = values => ({format: 'hello-webxr-editor', version: 1, imports: [], rooms: {hall: {
+    overrides: [{id: 'native:hall:root.0', quaternion: values[2].slice()}],
+    additions: [{id: 'custom-quaternion-roundtrip', name: 'Rotation stability', descriptor: {nativeId: 'native:hall:root.1'},
+      position: [1, 2, 3], quaternion: values[0].slice(), scale: [1, 1, 1],
+      nodes: {'0': {name: 'Rotated descendant', position: [0, 1, 0], quaternion: values[1].slice(), scale: [1, 1, 1]}}
+    }]
+  }}});
+  const getRotations = data => [data.rooms.hall.additions[0].quaternion,
+    data.rooms.hall.additions[0].nodes['0'].quaternion, data.rooms.hall.overrides[0].quaternion];
+  const assertBits = (data, expected, label) => {
+    getRotations(data).forEach((rotation, index) => assert.strictEqual(bits(rotation), bits(expected[index]), label + ' saved slot ' + index));
+    const entry = document.additions.get('custom-quaternion-roundtrip');
+    [entry.object, entry.nodes.get('0'), native].forEach((object, index) =>
+      assert.strictEqual(bits(object.quaternion.toArray()), bits(expected[index]), label + ' live slot ' + index));
+  };
+  const roundTrip = async (data, expected, label) => {
+    for (let cycle = 0; cycle < 20; cycle++) {
+      await document.load(JSON.parse(JSON.stringify(data)));
+      data = await document.serialize();
+      assertBits(data, expected, label + ' cycle ' + cycle);
+    }
+    return data;
+  };
+  await roundTrip(fixture(rotations), rotations, 'Already unit length');
+  for (const factor of [0.999, 1.001]) {
+    const scaled = rotations.map(rotation => rotation.map(value => value * factor));
+    await document.load(fixture(scaled));
+    const normalized = getRotations(await document.serialize());
+    normalized.forEach((rotation, index) => {
+      assert(Math.abs(Math.hypot(...rotation) - 1) <= 16 * Number.EPSILON, 'Near-unit input is actually normalized.');
+      assert.notStrictEqual(bits(rotation), bits(scaled[index]), 'Near-unit input is not merely retained.');
+      rotation.forEach((value, component) => assert(Math.abs(value * Math.hypot(...scaled[index]) - scaled[index][component]) < 1e-14,
+        'Normalization preserves the rotation direction.'));
+    });
+    await roundTrip(await document.serialize(), normalized, 'Normalized factor ' + factor);
+  }
+  const beforeInvalid = await document.serialize();
+  for (const slot of ['root', 'node', 'override']) for (const rotation of [[0, 0, 0, 0], [1.02, 0, 0, 0], [0.98, 0, 0, 0], [1000001, 0, 0, 0]]) {
+    const invalid = fixture(rotations);
+    const state = slot === 'root' ? invalid.rooms.hall.additions[0] : slot === 'node' ? invalid.rooms.hall.additions[0].nodes['0'] : invalid.rooms.hall.overrides[0];
+    state.quaternion = rotation;
+    await assert.rejects(document.load(invalid), /Rotaci|quaternion/);
+    assert.deepStrictEqual(await document.serialize(), beforeInvalid, 'Invalid ' + slot + ' rotation leaves the document untouched.');
+  }
 }
 
 async function testDeferredRoomResources() {

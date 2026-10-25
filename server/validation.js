@@ -73,7 +73,9 @@ function stateValue(value, partial, importIds) {
   if (state.quaternion) {
     const length = Math.hypot(...state.quaternion);
     if (length < 0.000001 || Math.abs(length - 1) > 0.01) invalid('La rotación del objeto no es válida.');
-    state.quaternion = state.quaternion.map(n => n / length);
+    // Unit quaternions already contain IEEE-754 rounding. Re-dividing them on
+    // every save changes untouched scenes by a few bits and is not idempotent.
+    if (Math.abs(length - 1) > 16 * Number.EPSILON) state.quaternion = state.quaternion.map(n => n / length);
   }
   if (value.visible !== undefined) {
     if (typeof value.visible !== 'boolean') invalid('La visibilidad del objeto no es válida.');
@@ -108,7 +110,8 @@ function descriptorValue(value, importIds) {
   if (['box', 'sphere', 'plane', 'cylinder'].includes(value.type)) {
     return {type: value.type, color: colorValue(value.color || '#60a5fa')};
   }
-  if (value.type === 'decal') return {type: 'decal'};
+  if (value.type === 'decal' || value.type === 'audioZone') return {type: value.type};
+  if (value.type === 'industrialFloor') return require('../shared/industrialFloor').normalize(value);
   if (typeof value.importId === 'string' && IMPORT_ID.test(value.importId)) {
     if (!importIds.has(value.importId)) invalid('Falta un archivo importado utilizado por la escena.');
     return {importId: value.importId};
@@ -194,7 +197,12 @@ function validateDocument(data, normalizeImport) {
     });
     rooms[roomId] = {overrides, additions};
   }
-  return {format: data.format, version: 1, rooms, imports: imports.map(normalizeImport)};
+  const result = {format: data.format, version: 1, rooms, imports: imports.map(normalizeImport)};
+  if (data.studio !== undefined) {
+    try { result.studio = require('../shared/studio-document').normalize(data.studio); }
+    catch (error) { invalid(error.message); }
+  }
+  return result;
 }
 
 module.exports = {ApiError, invalid, plain, safeTree, nameValue, pathValue, validateDocument};

@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const THREE = require('three');
+const {authoredHex} = require('./material-test-colors');
 const wearSchema = require('../shared/wear.js');
 const behaviorSchema = require('../shared/behaviors.js');
 const {getGeometryTree} = require('./load-geometry-acceleration.js')(THREE);
@@ -94,7 +95,7 @@ async function run() {
     for (let index = 0; index < 12; index++) f.system.sync('hall');
     assert.equal(f.system.stats.inputTriangles, initial.inputTriangles); assert.equal(f.system.stats.projections, initial.projections); assert.equal(f.system.stats.textureBuilds, initial.textureBuilds);
     f.config.opacity = 0.4; f.config.color = '#aa8844'; f.config.roughness = 0.5; f.config.metalness = 0.3; f.system.sync('hall');
-    assert.equal(state.mesh.geometry, geometry); assert.equal(state.material.map, map); assert.equal(state.material.color.getHexString(), 'aa8844');
+    assert.equal(state.mesh.geometry, geometry); assert.equal(state.material.map, map); assert.equal(authoredHex(state.material.color), 'aa8844');
     assert.equal(state.material.roughness, 0.5); assert.equal(state.material.metalness, 0.3); assert.equal(state.material.opacity, 0.4);
     let oldReleases = 0; state.proceduralTextures.forEach(texture => texture.addEventListener('dispose', () => oldReleases++));
     f.config.seed++; f.system.sync('hall'); assert.notEqual(state.material.map, map); assert.equal(oldReleases, 2); assert.equal(state.mesh.geometry, geometry);
@@ -106,6 +107,7 @@ async function run() {
     const inverse = new THREE.Matrix4().getInverse(f.machine.matrixWorld);
     assert(vertices(state).every(point => Math.abs(point.clone().applyMatrix4(inverse).z) < 1e-6));
     f.surface.position.x = 8; f.system.sync('hall'); assert.equal(state.mesh.geometry.attributes.position.count, 0, 'Independent target movement still invalidates clipping.');
+    assert.equal(state.mesh.parent, null, 'Unmatched wear stays editable without leaving an empty mesh in machine bounds.');
     const releases = {textures: 0, material: 0, geometry: 0};
     state.proceduralTextures.forEach(texture => texture.addEventListener('dispose', () => releases.textures++));
     state.material.addEventListener('dispose', () => releases.material++); state.mesh.geometry.addEventListener('dispose', () => releases.geometry++);

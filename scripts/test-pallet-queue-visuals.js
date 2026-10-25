@@ -25,7 +25,7 @@ async function run() {
   assert(Math.abs(bounds(marker).max.y + 0.85) <= 0.002, 'Nails may protrude at most two millimetres above the physical wood deck.');
   const size = bounds(marker).getSize(new THREE.Vector3()); close(size.x, 1.2); close(size.z, 1.05);
   assert.deepEqual(marker.scale.toArray(), [1, 1, 1], 'Physical slot metadata is expressed on an unscaled marker.');
-  assert.deepEqual(marker.userData.industrialPallet, {width: 1.2, depth: 1.05, columns: 4, rows: 3, layers: 4, capacity: 48, top: 0.15});
+  assert.deepEqual(marker.userData.industrialPallet, {width: 1.2, depth: 1.05, columns: 4, rows: 3, layers: 4, capacity: 48, palletCapacity: 1, acceptsPallets: false, top: 0.15});
   assert(!wood.userData.industrialPallet, 'Only the unscaled holder supplies physical slot coordinates.');
   assert.equal(queue.userData.industrialPalletQueue.top, -0.85);
   assert.equal(queue.userData.industrialPalletQueue.slots.length, 48);

@@ -1,0 +1,52 @@
+.conveyor-viewer { position: fixed; z-index: 10000; inset: 16px; display: flex; flex-direction: column; overflow: hidden; background: #111a24; color: #eaf4fa; border: 1px solid #3d5268; border-radius: 14px; box-shadow: 0 30px 100px #000b; font: 14px/1.5 system-ui,sans-serif; }
+.conveyor-viewer * { box-sizing: border-box; }
+.conveyor-viewer button,.conveyor-viewer input,.conveyor-viewer select { font: inherit; color: inherit; }
+.conveyor-viewer button { padding: 8px 12px; background: #233242; border: 1px solid #3d5268; border-radius: 6px; cursor: pointer; text-align: left; }
+.conveyor-viewer button:hover { border-color: #78e5cf; background: #294554; }
+.conveyor-viewer button:focus-visible,.conveyor-viewer input:focus-visible,.conveyor-viewer select:focus-visible { outline: 2px solid #7ff5d7; outline-offset: 2px; }
+.conveyor-viewer button[aria-selected=true],.conveyor-viewer button[aria-current=true],.conveyor-viewer button[aria-pressed=true] { border-color: #71eacf; background: #1b4b50; }
+.conveyor-viewer-header,.conveyor-viewer-footer { position: static; inset: auto; width: auto; margin: 0; text-align: left; flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; background: #182431; }
+.conveyor-viewer-header small { color: #8ca5bc; letter-spacing: .1em; font-size: 10px; }
+.conveyor-viewer h2 { font-size: 22px; margin: 3px 0 0; }
+.conveyor-viewer h3 { margin-top: 0; }
+.conveyor-viewer h4 { margin: 20px 0 8px; color: #a9d2e6; }
+.conveyor-viewer p { margin: 8px 0 14px; }
+.conveyor-viewer-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 156px minmax(250px,1fr) minmax(320px,380px); }
+.conveyor-viewer-families { display: flex; flex-direction: column; padding: 10px; gap: 6px; overflow: auto; border-right: 1px solid #2d3d50; }
+.conveyor-viewer-center { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.conveyor-viewer-variant { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px; }
+.conveyor-viewer label { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.conveyor-viewer input,.conveyor-viewer select { background: #0c1520; border: 1px solid #40536a; border-radius: 5px; padding: 6px; min-width: 0; max-width: 100%; }
+.conveyor-viewer-viewport { flex: 1; position: relative; min-height: 220px; overflow: hidden; background: #202b38; }
+.conveyor-viewer-viewport canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+.conveyor-viewer-caption { position: absolute; bottom: 10px; left: 10px; right: 10px; font-size: 11px; color: #e8f6fa; background: #121b25ce; border-radius: 5px; padding: 8px; pointer-events: none; }
+.conveyor-viewer-transport { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; border-top: 1px solid #314355; }
+.conveyor-viewer-transport label { font-size: 11px; }
+.conveyor-viewer-message { font-size: 12px; min-height: 36px; margin: 0 !important; padding: 0 12px 8px; color: #b8e8df; }
+.conveyor-viewer-stats { padding: 8px 12px; background: #0b141e; font: 11px/1.6 ui-monospace,monospace; color: #96e4d1; }
+.conveyor-viewer-context { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-left: 1px solid #314355; }
+.conveyor-viewer-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px; border-bottom: 1px solid #314355; }
+.conveyor-viewer-tabs button { font-size: 11px; padding: 6px 8px; flex: 1; text-align: center; }
+.conveyor-viewer-content { padding: 16px; flex: 1; overflow: auto; min-height: 0; }
+.conveyor-viewer-part { display: flex; width: 100%; gap: 10px; margin-bottom: 10px; padding: 8px !important; }
+.conveyor-viewer-part img { width: 104px; height: 70px; object-fit: cover; background: #263648; align-self: center; border-radius: 4px; }
+.conveyor-viewer-part img[hidden] { display: none; }
+.conveyor-viewer-part span { flex: 1; min-width: 0; }
+.conveyor-viewer-part small,.conveyor-viewer-example small { display: block; font-size: 11px; line-height: 1.5; font-weight: normal; color: #afc2d1; margin-top: 5px; }
+.conveyor-viewer-example { display: block; width: 100%; margin: 0 0 10px; }
+.conveyor-viewer-controls { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin: 14px 0; }
+.conveyor-viewer-controls button { text-align: center; font-size: 12px; min-height: 45px; }
+.conveyor-viewer-controls [data-action=emergency] { border-color: #c17c4a; background: #743d36; }
+.conveyor-viewer-signals { display: grid; grid-template-columns: 1fr auto; gap: 5px 12px; font: 11px/1.6 ui-monospace,monospace; margin: 16px 0 0; }
+.conveyor-viewer-signals dd { margin: 0; color: #82ead1; text-align: right; }
+.conveyor-viewer .cv-muted { color: #9fb5c6; font-size: 12px; }
+.conveyor-viewer .cv-parameter { margin-top: 10px; justify-content: space-between; font-size: 12px; }
+.conveyor-viewer .cv-parameter input[type=number] { max-width: 100px; }
+.conveyor-viewer .cv-connection { padding: 10px; border: 1px solid #34495d; margin-bottom: 10px; border-radius: 6px; }
+.conveyor-viewer .cv-connection p { font-size: 12px; margin: 4px 0; }
+.conveyor-viewer .cv-reference { display: block; color: #77d9e4; font-size: 12px; margin: 8px 0; }
+.conveyor-viewer-footer { font-size: 11px; color: #b1c9d7; border-top: 1px solid #34495d; }
+.conveyor-viewer .cv-primary { background: #77e4c4; color: #0c2827; font-weight: 600; }
+@media(max-width:1100px) { .conveyor-viewer { inset: 5px; } .conveyor-viewer-body { grid-template-columns: 124px minmax(240px,1fr) 300px; } .conveyor-viewer-part img { width: 78px; height: 54px; } }
+@media(max-width:800px) { .conveyor-viewer-body { grid-template-columns: minmax(200px,1fr) 280px; } .conveyor-viewer-families { display: none; } .conveyor-viewer-transport button { font-size: 11px; } }
+@media(max-width:560px) { .conveyor-viewer-body { display: flex; flex-direction: column; overflow: auto; } .conveyor-viewer-center { flex: 0 0 390px; } .conveyor-viewer-context { flex: 0 0 auto; overflow: visible; } .conveyor-viewer-content { overflow: visible; } .conveyor-viewer-header small { display:none; } .conveyor-viewer h2 { font-size:18px; } }

@@ -61,6 +61,11 @@ async function run() {
   }
   assert.throws(() => productSources.normalizeCatalog([Object.assign(Object.create({run() {}}), sku())]), /campos/);
   assert.equal(productSources.unitsFor(normal({loadMode: 'pallet', palletColumns: 4, palletRows: 4, palletLayers: 4})), 64);
+  const fitted = normal({loadMode: 'pallet', palletType: 'industrial-1200x1000', palletMaterial: 'plastic', palletPacking: 'fit', palletLayers: 5, width: .5, height: .23, depth: .3});
+  assert.equal(productSources.unitsFor(fitted), 30);
+  assert.throws(() => normal({loadMode: 'pallet', palletPacking: 'fit', palletType: 'half-800x600', width: 1, depth: 1}));
+  assert.throws(() => normal({loadMode: 'pallet', palletType: 'euro-1200x800', generationMode: 'sequence',
+    catalog: JSON.stringify([{id: 'big', name: 'Big', type: 'box', width: 1, height: .5, depth: 1, color: '#aa8855'}])}), /pallet/);
   for (const changed of [{loadMode: 'pallet', palletColumns: 8, palletRows: 8, palletLayers: 2}, {capacity: 0},
     {capacity: 1.5}, {initialCount: 1.5}, {capacity: 2, initialCount: 3}, {initialCount: 3, totalLimit: 2},
     {totalLimit: 2.5}, {seed: 1.5}, {palletColumns: 1.5}, {width: 2.1}, {height: 0}, {depth: Infinity},

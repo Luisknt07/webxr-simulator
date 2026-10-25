@@ -1,0 +1,215 @@
+{
+  "format": "hello-conveyor-model-metrics",
+  "version": 1,
+  "engine": "Three.js 112",
+  "method": "Counts from the real createIndustrialPrefab factory with the default registry configuration, including hidden reserved hardware. Meshes are not measured GPU draw calls.",
+  "scope": "Geometry and mesh budget only. No browser FPS, frame timing, GPU memory or physical headset result is asserted.",
+  "range": "Default variants; extreme user dimensions can increase geometry and mesh counts. Versioned accumulators reject more than 32 zones.",
+  "regenerate": "node scripts/test-conveyor-equipment-models.js --write-metrics",
+  "maximum": {
+    "meshes": 132,
+    "triangles": 15124
+  },
+  "equipment": [
+    {
+      "id": "conveyor.roller-motor",
+      "family": "straight",
+      "variant": "roller-motor",
+      "name": "Rodillos motorizados",
+      "meshes": 102,
+      "triangles": 14956
+    },
+    {
+      "id": "conveyor.belt",
+      "family": "straight",
+      "variant": "belt",
+      "name": "Banda continua",
+      "meshes": 104,
+      "triangles": 8144
+    },
+    {
+      "id": "conveyor.roller-gravity",
+      "family": "straight",
+      "variant": "roller-gravity",
+      "name": "Rodillos por gravedad",
+      "meshes": 102,
+      "triangles": 14956
+    },
+    {
+      "id": "conveyor.pallet-chain",
+      "family": "straight",
+      "variant": "pallet-chain",
+      "name": "Cadenas para pallets",
+      "meshes": 108,
+      "triangles": 8344
+    },
+    {
+      "id": "conveyor.roller-curve",
+      "family": "curved",
+      "variant": "roller-curve",
+      "name": "Curva de rodillos",
+      "meshes": 102,
+      "triangles": 11572
+    },
+    {
+      "id": "conveyor.belt-curve",
+      "family": "curved",
+      "variant": "belt-curve",
+      "name": "Curva de banda",
+      "meshes": 104,
+      "triangles": 7152
+    },
+    {
+      "id": "conveyor.modular-curve",
+      "family": "curved",
+      "variant": "modular-curve",
+      "name": "Curva de banda modular",
+      "meshes": 104,
+      "triangles": 7152
+    },
+    {
+      "id": "conveyor.belt-incline",
+      "family": "inclined",
+      "variant": "belt-incline",
+      "name": "Banda inclinada",
+      "meshes": 104,
+      "triangles": 8144
+    },
+    {
+      "id": "conveyor.cleated-incline",
+      "family": "inclined",
+      "variant": "cleated-incline",
+      "name": "Banda inclinada con tacos",
+      "meshes": 114,
+      "triangles": 8264
+    },
+    {
+      "id": "conveyor.modular-incline",
+      "family": "inclined",
+      "variant": "modular-incline",
+      "name": "Banda modular inclinada",
+      "meshes": 104,
+      "triangles": 8144
+    },
+    {
+      "id": "conveyor.popup-belt",
+      "family": "transfer",
+      "variant": "popup-belt",
+      "name": "Correas elevables",
+      "meshes": 107,
+      "triangles": 12920
+    },
+    {
+      "id": "conveyor.popup-chain",
+      "family": "transfer",
+      "variant": "popup-chain",
+      "name": "Cadenas elevables para pallets",
+      "meshes": 107,
+      "triangles": 14000
+    },
+    {
+      "id": "conveyor.roller-turntable",
+      "family": "transfer",
+      "variant": "roller-turntable",
+      "name": "Mesa giratoria de rodillos",
+      "meshes": 103,
+      "triangles": 11168
+    },
+    {
+      "id": "conveyor.pallet-turntable",
+      "family": "transfer",
+      "variant": "pallet-turntable",
+      "name": "Mesa giratoria para pallets",
+      "meshes": 109,
+      "triangles": 7568
+    },
+    {
+      "id": "conveyor.pusher",
+      "family": "diverter",
+      "variant": "pusher",
+      "name": "Desvío por empujador",
+      "meshes": 106,
+      "triangles": 12832
+    },
+    {
+      "id": "conveyor.steer",
+      "family": "diverter",
+      "variant": "steer",
+      "name": "Ruedas orientables",
+      "meshes": 126,
+      "triangles": 9048
+    },
+    {
+      "id": "conveyor.merge-angle",
+      "family": "diverter",
+      "variant": "merge-angle",
+      "name": "Unión angular coordinada",
+      "meshes": 102,
+      "triangles": 15072
+    },
+    {
+      "id": "conveyor.distributor",
+      "family": "diverter",
+      "variant": "distributor",
+      "name": "Distribuidor de rutas",
+      "meshes": 132,
+      "triangles": 10068
+    },
+    {
+      "id": "conveyor.roller-zones",
+      "family": "accumulation",
+      "variant": "roller-zones",
+      "name": "Acumulador de rodillos por zonas",
+      "meshes": 114,
+      "triangles": 15124
+    },
+    {
+      "id": "conveyor.belt-zones",
+      "family": "accumulation",
+      "variant": "belt-zones",
+      "name": "Acumulador de banda por zonas",
+      "meshes": 122,
+      "triangles": 9188
+    },
+    {
+      "id": "conveyor.box-elevator",
+      "family": "elevator",
+      "variant": "box-elevator",
+      "name": "Elevador de cajas",
+      "meshes": 108,
+      "triangles": 10784
+    },
+    {
+      "id": "conveyor.pallet-elevator",
+      "family": "elevator",
+      "variant": "pallet-elevator",
+      "name": "Elevador de pallets",
+      "meshes": 114,
+      "triangles": 7256
+    },
+    {
+      "id": "conveyor.loading-table",
+      "family": "loading",
+      "variant": "loading-table",
+      "name": "Mesa de carga y descarga",
+      "meshes": 102,
+      "triangles": 6292
+    },
+    {
+      "id": "conveyor.manual-station",
+      "family": "loading",
+      "variant": "manual-station",
+      "name": "Estación con operario",
+      "meshes": 102,
+      "triangles": 9772
+    },
+    {
+      "id": "conveyor.automatic-station",
+      "family": "loading",
+      "variant": "automatic-station",
+      "name": "Estación automática de carga",
+      "meshes": 102,
+      "triangles": 9772
+    }
+  ]
+}
