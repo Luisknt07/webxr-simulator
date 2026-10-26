@@ -3,10 +3,14 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), os = require('node:os'), https = require('node:https');
 const {createHash} = require('node:crypto');
 const {withBrowser: sharedBrowser} = require('./qa-project-workspace-browser');
+const {prepare} = require('./prepare-pages-site');
 const ROOT = path.resolve(__dirname, '..'), OUTPUT = path.join(ROOT, 'data/qa-studio');
 async function withBrowser(origin, action) {
   let completed = false, result;
-  try { return await sharedBrowser(origin, async browser => { result = await action(browser); completed = true; return result; }); }
+  try { return await sharedBrowser(origin, async browser => {
+    try { result = await action(browser); completed = true; return result; }
+    catch (error) { browser.report.resources = await browser.evaluate('performance.getEntriesByType("resource").map(e=>({url:e.name,status:e.responseStatus,bytes:e.transferSize}))').catch(()=>[]); throw error; }
+  }); }
   catch (error) {
     // Chrome can release its disposable Windows profile after the helper's
     // first cleanup attempts. Retry only that verified task-owned temp path.
@@ -22,6 +26,9 @@ async function withBrowser(origin, action) {
 }
 
 async function startStaticServer() {
+  // Exercise the exact allowlisted Pages artifact, never the larger checkout.
+  // Otherwise undeployed files can make a broken publication appear healthy.
+  const artifact = prepare(), siteRoot = fs.realpathSync(artifact.output);
   const requests = [], certificate = fs.readFileSync(path.join(ROOT, 'node_modules/webpack-dev-server/ssl/server.pem'));
   const mime = {'.html':'text/html','.js':'application/javascript','.mjs':'application/javascript','.css':'text/css','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.ogg':'audio/ogg','.mp3':'audio/mpeg','.wav':'audio/wav','.glb':'model/gltf-binary','.gltf':'model/gltf+json','.wasm':'application/wasm','.woff2':'font/woff2'};
   const server = https.createServer({key:certificate,cert:certificate}, (req,res) => {
@@ -31,17 +38,26 @@ async function startStaticServer() {
     let relative; try {relative=decodeURIComponent(pathname).replace(/^\/webxr-simulator\//,'/').replace(/^\/+/, '');} catch (_) {return end(400);}
     if (!relative || relative === 'editor' || relative === 'editor/') relative='index.html';
     if (/^api(?:\/|$)/.test(relative)) return end(404);
-    const allowed=['assets/','res/','src/','shared/','examples/'].some(prefix=>relative.startsWith(prefix)) || /^(?:index\.html|bundle\.js(?:\.map)?|collision-worker\.js(?:\.map)?|mesh-optimizer-worker\.js(?:\.map)?)$/.test(relative);
-    const file=path.resolve(ROOT,relative); if(!allowed||!file.startsWith(ROOT+path.sep)) return end(404);
+    const allowed=['assets/','res/','src/'].some(prefix=>relative.startsWith(prefix)) || /^(?:index\.html|publication\.json|bundle\.js|collision-worker\.js|mesh-optimizer-worker\.js)$/.test(relative);
+    const file=path.resolve(siteRoot,relative); if(!allowed||!file.startsWith(siteRoot+path.sep)) return end(404);
     fs.stat(file,(error,stat)=>{if(error||!stat.isFile())return end(404);entry.status=200;res.writeHead(200,{'Content-Type':mime[path.extname(file)]||'application/octet-stream','Content-Length':stat.size,'Cache-Control':'no-store'});if(req.method==='HEAD')res.end();else fs.createReadStream(file).pipe(res);});
   });
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  return {origin:'https://localhost:'+server.address().port,requests,close:()=>new Promise(resolve=>server.close(resolve))};
+  return {origin:'https://localhost:'+server.address().port,requests,publication:artifact.publication,close:()=>new Promise(resolve=>server.close(resolve))};
+}
+
+async function waitForApplication(browser, message) {
+  await browser.until(async()=>{
+    const state=await browser.evaluate('({ready:Boolean(window.context?.editor&&!context.editor.initializing&&!context.editor.loadingProject&&context.studio?.ready),failed:!!document.querySelector("#loading.loading-failed"),error:document.getElementById("loading-error")?.textContent})');
+    if(state.failed)throw new Error('Published startup failed: '+state.error);
+    return state.ready;
+  },message,180000);
+  await browser.evaluate('context.studio.ready');
 }
 
 async function verify(origin, base, expected, local) {
   return withBrowser(origin, async b => {
-    const ready=()=>b.until(()=>b.evaluate('Boolean(window.context?.editor&&!context.editor.initializing&&!context.editor.loadingProject&&context.studio?.ready)'), 'Public application did not initialize.', 180000);
+    const ready=()=>waitForApplication(b,'Public application did not initialize.');
     const state=()=>b.evaluate('(()=>{const e=context.editor;return {static:e.staticPublic,canEdit:e.canEditDocument(),room:e.roomId,allowed:e.currentProject?.allowedRoomIds,scene:e.currentProject?.publicSceneId,active:e.active,failed:e.accessLoadFailed,online:context.studio.online,loading:getComputedStyle(document.getElementById("loading")).display,triangles:context.renderer.info.render.triangles,gl:context.renderer.getContext().getError(),base:document.baseURI,entries:e.getSceneEntries().map(s=>s.id||s.roomId)}})()');
     console.log('Public Chrome:', origin + base);
     await b.send('Page.navigate',{url:origin+base}); await ready(); await b.evaluate('context.studio.ready');
@@ -66,6 +82,7 @@ async function verify(origin, base, expected, local) {
     assert.deepEqual(b.report.exceptions,[]);assert.deepEqual(b.report.consoleErrors,[]);assert.deepEqual(b.report.writes,[]);
     assert(b.report.apiFailures.every(v=>v.status===404&&new URL(v.url).pathname==='/api/health'),JSON.stringify(b.report.apiFailures));
     if(local){assert(local.requests.every(r=>['GET','HEAD'].includes(r.method)));assert(local.requests.filter(r=>r.status>=400).every(r=>r.path==='/api/health'||r.path==='/favicon.ico'),JSON.stringify(local.requests.filter(r=>r.status>=400)));}
+    if(local){assert.equal(local.publication.bundleSha256,expected);b.report.artifact=local.publication;}
     b.report.buildHash=expected;b.report.basePath=base;b.report.readOnly=true;
     fs.writeFileSync(path.join(OUTPUT,base==='/'?'public-root-browser.json':'public-subdirectory-browser.json'),JSON.stringify(b.report,null,2));
     console.log('Public Chrome passed:',JSON.stringify({base,scene:second.scene,triangles:second.triangles,screenshots:b.report.shots.length,exceptions:b.report.exceptions.length}));
@@ -83,7 +100,7 @@ async function run(){
       await b.until(()=>b.evaluate('Boolean(window.context?.editor)||/Continuar|Continue/.test(document.body?.innerText||"")'), 'The tunnel did not return the application or its one-time notice.');
       b.report.tunnelNotice=await b.evaluate('(()=>{if(window.context?.editor)return false;const button=[...document.querySelectorAll("a,button,input[type=submit]")].find(e=>/^(Continuar|Continue)$/i.test((e.textContent||e.value||"").trim()));if(!button)return false;button.click();return true;})()');
     }
-    await b.until(()=>b.evaluate('Boolean(window.context?.editor&&!context.editor.initializing&&!context.editor.loadingProject&&context.studio?.ready)'), 'Public tunnel application did not initialize.');await b.evaluate('context.studio.ready');
+    await waitForApplication(b,'Public tunnel application did not initialize.');
     const state=await b.evaluate('({static:!!context.editor.staticPublic,online:context.studio.online,canEdit:context.editor.canEditDocument(),user:context.studio.client.user,scene:context.editor.currentProject?.publicSceneId,room:context.editor.roomId,triangles:context.renderer.info.render.triangles,loading:getComputedStyle(document.getElementById("loading")).display,gl:context.renderer.getContext().getError()})');
     assert.equal(state.static,false);assert.equal(state.online,true);assert.equal(state.canEdit,false);assert.equal(state.user,null);assert(state.scene);assert(state.triangles>0);assert.equal(state.loading,'none');assert.equal(state.gl,0);b.report.publicTunnel=state;await b.screenshot('public-tunnel');
     await b.evaluate('context.studio.open("scenes")');await b.until(()=>b.evaluate('context.studio.content.querySelectorAll(".studio-card").length===2'), 'Public tunnel gallery must show exactly two examples.');

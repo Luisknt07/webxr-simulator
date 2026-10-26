@@ -4,7 +4,9 @@
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const {SCENES} = require('../shared/public-scenes');
 const FILES = ['index.html', 'bundle.js', 'mesh-optimizer-worker.js', 'collision-worker.js', '.nojekyll', 'LICENSE'];
-const DIRECTORIES = ['assets', 'res'];
+// Three.js loads these decoder files at runtime; they are not webpack imports.
+const DIRECTORIES = ['assets', 'res', 'src/vendor'];
+const DECODERS = ['basis_transcoder.js', 'basis_transcoder.wasm', 'draco_decoder.js', 'draco_decoder.wasm', 'draco_wasm_wrapper.js'];
 const forbidden = name => name.startsWith('.') && name !== '.nojekyll' || /^(?:data|server|node_modules)$/i.test(name) || /\.(?:pem|key|p12|pfx|sqlite(?:3)?|db|log)(?:-[\w]+)?$/i.test(name);
 
 function safeOutput(root, output) {
@@ -48,7 +50,7 @@ function prepare(options = {}) {
     const relative = value.split(/[?#]/)[0].replace(/^\.\//, '');
     if (relative.startsWith('/') || !available.has(relative)) throw new Error('El HTML referencia un recurso fuera de la publicación: ' + value);
   }
-  for (const file of ['src/lib/StartupStatus.js', 'assets/materials/ai-industrial-concrete-v1-512.jpg', 'assets/ai/native-texture-ai-worker.js', 'assets/public-scenes/catalog.json', ...SCENES.map(scene => 'assets/public-scenes/' + scene.id + '.json')]) {
+  for (const file of ['src/lib/StartupStatus.js', ...DECODERS.map(file => 'src/vendor/' + file), 'assets/materials/ai-industrial-concrete-v1-512.jpg', 'assets/ai/native-texture-ai-worker.js', 'assets/public-scenes/catalog.json', ...SCENES.map(scene => 'assets/public-scenes/' + scene.id + '.json')]) {
     if (!available.has(file)) throw new Error('Falta un recurso necesario para publicar: ' + file);
   }
   const published = fs.readdirSync(path.join(root, 'assets/public-scenes')).sort();

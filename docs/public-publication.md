@@ -24,4 +24,4 @@ $buildHash = (Get-FileHash bundle.js -Algorithm SHA256).Hash.ToLower()
 node scripts/qa-public-publication-browser.js --expected-bundle-sha256 $buildHash
 ```
 
-La prueba de Chrome usa un servidor estático temporal, tanto en la raíz como bajo la carpeta de repositorio. Comprueba carga 3D, cambio de los dos ejemplos públicos, acceso de sólo lectura, aviso de cuentas, menú móvil, rutas de recursos y ausencia de escrituras o errores de WebGL. Los reportes y capturas se guardan en `data/qa-studio/`, excluida del repositorio. No es una medición física en Quest 3.
+La prueba de Chrome genera y sirve exactamente el artefacto de Pages en `data/pages-site/`, tanto en la raíz como bajo la carpeta de repositorio. Comprueba carga 3D, cambio de los dos ejemplos públicos, acceso de sólo lectura, aviso de cuentas, menú móvil, rutas de recursos y ausencia de escrituras o errores de WebGL. Detecta también dependencias de ejecución ausentes del paquete, como los decodificadores Basis/Draco. Los reportes y capturas se guardan en `data/qa-studio/`, excluida del repositorio. No es una medición física en Quest 3.
