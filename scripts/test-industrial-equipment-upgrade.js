@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), os = require('node:os');
-const {DatabaseSync, backup} = require('node:sqlite'), schema = require('../shared/behaviors'), {validateDocument} = require('../server/validation');
+const {DatabaseSync} = require('node:sqlite'), schema = require('../shared/behaviors'), {validateDocument} = require('../server/validation');
 const migration = require('./upgrade-industrial-equipment-presentation'), floorMigration = require('./upgrade-industrial-floor'), publication = require('./publish-study-projects'), presentation = require('./upgrade-industrial-presentation');
 const clone = value => JSON.parse(JSON.stringify(value)), hash = presentation.hash, identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 async function fixtureGuards() {
@@ -45,9 +45,18 @@ async function fixtureGuards() {
   console.log('Equipment migration fixture: literal recipes/control nodes/custom coatings/content/targets/floorplan/Studio, bounded generated support removal, deterministic aging, helper repeat and ' + rejected + ' rejected mutations passed.');
 }
 async function sqliteCopies() {
+  // Test the guarded transition against its immutable pre-upgrade snapshot.
+  // The user's current database can already be migrated, or absent on a new PC.
+  const filename = path.join(__dirname, '../data/qa-studio/industrial-equipment-upgrade.json');
+  const report = fs.existsSync(filename) ? JSON.parse(fs.readFileSync(filename, 'utf8')) : null;
+  const archived = report && report.backup && report.backup.file;
+  if (!archived || !fs.existsSync(archived)) {
+    console.log('Temporary SQLite equipment transition: archived pre-upgrade snapshot unavailable; portable fixture guards passed above.');
+    return;
+  }
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'hello-equipment-upgrade-')); assert.equal(path.dirname(path.resolve(temporary)), path.resolve(os.tmpdir()));
   try {
-    const setup = async name => { const dataDir = path.join(temporary, name); fs.mkdirSync(dataDir); const reader = new DatabaseSync(path.join(__dirname, '../data/projects.sqlite'), {readOnly: true}); try { await backup(reader, path.join(dataDir, 'projects.sqlite')); } finally { reader.close(); } const options = migration.optionsFrom(['--data-dir', dataDir, '--output-dir', path.join(dataDir, 'qa'), '--exports-dir', path.join(dataDir, 'exports')]), db = new DatabaseSync(options.databasePath, {readOnly: true}), before = publication.inventory(db); db.close(); await migration.prepare(options); assert(!fs.existsSync(options.exportsDir)); return {options, before}; };
+    const setup = async name => { const dataDir = path.join(temporary, name); fs.mkdirSync(dataDir); fs.copyFileSync(archived, path.join(dataDir, 'projects.sqlite')); const options = migration.optionsFrom(['--data-dir', dataDir, '--output-dir', path.join(dataDir, 'qa'), '--exports-dir', path.join(dataDir, 'exports')]), db = new DatabaseSync(options.databasePath, {readOnly: true}), before = publication.inventory(db); db.close(); await migration.prepare(options); assert(!fs.existsSync(options.exportsDir)); return {options, before}; };
     const good = await setup('success'), saved = await migration.apply(good.options); assert.equal(saved.writes.length, 3); assert.deepEqual(saved.projects.map(project => project.revision), [17, 4, 4]); const db = new DatabaseSync(good.options.databasePath, {readOnly: true}), after = publication.inventory(db); presentation.assertOtherProjectsUnchanged(good.before, after); db.close();
     const repeated = await migration.apply(good.options); assert.equal(repeated.writes.length, 0); const repeatDb = new DatabaseSync(good.options.databasePath, {readOnly: true}); assert.equal(publication.inventory(repeatDb).fingerprint, after.fingerprint); repeatDb.close();
     const failed = await setup('third-write-failure'), failDb = new DatabaseSync(failed.options.databasePath); failDb.exec("CREATE TRIGGER reject_third_equipment BEFORE INSERT ON revisions WHEN NEW.project_id='05397448-a767-4f3b-8371-2aeb7ed18ae0' AND NEW.revision=4 BEGIN SELECT RAISE(ABORT, 'Injected third equipment failure'); END;"); failDb.close(); await assert.rejects(() => migration.apply(failed.options), /Injected third equipment failure/); const final = new DatabaseSync(failed.options.databasePath, {readOnly: true}); assert.equal(publication.inventory(final).fingerprint, failed.before.fingerprint, 'The third revision failure rolls back all three project changes.'); final.close();

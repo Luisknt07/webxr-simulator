@@ -28,8 +28,9 @@ export default class EducationRuntime {
   allMissions() { return (this.editor.document.studio && this.editor.document.studio.missions || []).filter(mission => mission.steps.length); }
   getProgress(mission) { const key = this.key(mission); if (!this.progress.has(key)) this.progress.set(key, {step: 0, count: 0, status: mission.start === 'manual' ? 'ready' : 'active'}); return this.progress.get(key); }
   key(mission) { return (this.client.user && this.client.user.id || 'guest') + ':' + (this.editor.currentProject && this.editor.currentProject.id || 'draft') + ':' + mission.id + ':' + signature(mission); }
+  canPersist() { const project = this.editor.currentProject; return Boolean(this.client.user && project && project.id && !/^(public-|library-)/.test(project.id)); }
   async restoreProgress() {
-    if (!this.client.user || !this.editor.currentProject) return;
+    if (!this.canPersist()) return;
     const generation = this.accountGeneration, projectId = this.editor.currentProject.id, result = await this.client.getProgress(projectId);
     if (generation !== this.accountGeneration || !this.editor.currentProject || projectId !== this.editor.currentProject.id) return;
     const rows = Array.isArray(result) ? result : Object.values(result || {});
@@ -51,13 +52,13 @@ export default class EducationRuntime {
     this.missions().forEach(mission => {
       const old = this.getProgress(mission), next = advanceMission(mission, old, event);
       if (JSON.stringify(old) === JSON.stringify(next)) return;
-      this.progress.set(this.key(mission), next); this.pending.add(mission.id);
+      this.progress.set(this.key(mission), next); if (this.canPersist()) this.pending.add(mission.id);
       if (next.status === 'completed') this.editor.toast('Objetivo completado: ' + mission.name);
       clearTimeout(this.saveTimer); this.saveTimer = setTimeout(() => this.saveProgress(), 750);
     });
   }
   async saveProgress() {
-    if (!this.client.user || !this.editor.currentProject) return;
+    if (!this.canPersist()) return;
     if (this.saving) { this.saveAgain = true; return this.saving; }
     this.saving = this.persistProgress();
     try { return await this.saving; }
@@ -82,7 +83,7 @@ export default class EducationRuntime {
     } catch (error) { if (generation === this.accountGeneration) { if (error.code === 'progress_incompatible' && writing) this.incompatible.add(writing); this.progressStatus = 'Error al guardar: ' + error.message + ' · Puedes reintentar desde Progreso.'; } }
   }
   async resetMissionVersion(mission) {
-    if (!this.client.user || !this.editor.currentProject) throw new Error('Inicia sesión y guarda el proyecto para reiniciar este progreso.');
+    if (!this.canPersist()) throw new Error('Inicia sesión y guarda una variante propia para reiniciar este progreso.');
     const generation = this.accountGeneration, projectId = this.editor.currentProject.id;
     const value = {step: 0, count: 0, status: mission.start === 'manual' ? 'ready' : 'active'};
     await this.client.saveProgress(projectId, mission.id, signature(mission), value, true);

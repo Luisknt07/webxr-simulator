@@ -11,11 +11,12 @@ const {once} = require('node:events');
 const {PassThrough, Readable} = require('node:stream');
 const {ProjectStore, MAX_ASSET_BYTES} = require('../server/storage');
 const {createApiHandler} = require('../server/api');
+const cookies = new Map();
 
 function responseRequest(port, method, pathname, body, headers = {}) {
   return new Promise((resolve, reject) => {
     const req = http.request({hostname: '127.0.0.1', port, method, path: pathname,
-      headers: Object.assign({'Connection': 'close'}, headers)}, res => {
+      headers: Object.assign({'Connection': 'close'}, cookies.has(port) ? {Cookie: cookies.get(port)} : {}, headers)}, res => {
       const chunks = [];
       res.on('error', reject);
       res.on('data', chunk => chunks.push(chunk));
@@ -45,12 +46,17 @@ function documentFixture(asset) {
 
 async function start(dataDir, options = {}) {
   const errors = [];
-  const handler = createApiHandler(Object.assign({dataDir, onError: error => errors.push(error)}, options));
+  const handler = createApiHandler(Object.assign({dataDir, maintenanceIntervalMs: 0, onError: error => errors.push(error)}, options));
   const server = http.createServer(handler);
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
+  const port = server.address().port, credentials = JSON.stringify({username: 'upload_fixture_admin', password: 'Private upload fixture password 123!'});
+  let auth = await responseRequest(port, 'POST', '/api/studio/register', credentials, {'Content-Type': 'application/json'});
+  if (auth.status === 409) auth = await responseRequest(port, 'POST', '/api/studio/login', credentials, {'Content-Type': 'application/json'});
+  assert([200, 201].includes(auth.status), 'Fixture authenticates through the real account API');
+  cookies.set(port, auth.headers['set-cookie'][0].split(';')[0]);
   return {handler, server, errors, port: server.address().port,
-    async close() { await new Promise(resolve => server.close(resolve)); handler.close(); }};
+    async close() { await new Promise(resolve => server.close(resolve)); handler.close(); cookies.delete(port); }};
 }
 
 async function run() {
@@ -81,7 +87,7 @@ async function run() {
     live = await start(dataDir, {maxAssetBytes: 128, maxBodyBytes: 1024});
     const port = live.port;
     assert.deepEqual((await responseRequest(port, 'GET', '/api/health')).json,
-      {storage: 'sqlite', version: 1, limits: {maxAssetBytes: 128, maxProjectBytes: 1024}, capabilities: {assetUpload: true}});
+      {storage: 'sqlite', version: 1, limits: {maxAssetBytes: 128, maxProjectBytes: 1024, defaultMaxProjects: 2, defaultStorageBytes: 20971520}, capabilities: {assetUpload: true, privateProjects: true, publicSceneCatalog: true, projectSharing: true}});
     const bytes = Buffer.alloc(128, 7);
     const expectedHash = createHash('sha256').update(bytes).digest('hex');
     const created = await upload(port, bytes, 'MODEL/GLTF-BINARY', {Origin: 'http://127.0.0.1:' + port});
@@ -94,11 +100,15 @@ async function run() {
     assert.equal(live.handler.store.db.prepare('SELECT COUNT(*) AS count FROM assets').get().count, 1);
     const tooBig = await upload(port, Buffer.alloc(129));
     assert.equal(tooBig.status, 413);
+    assert.equal(tooBig.json.code, 'payload_too_large', 'an administrator still receives the per-file limit, not an account-quota error');
     assert.match(tooBig.json.error, /128 bytes/);
     assert.match(tooBig.json.error, /129 bytes/);
     const chunked = await responseRequest(port, 'POST', '/api/assets', Readable.from([Buffer.alloc(64), Buffer.alloc(65)]),
       {'Content-Type': 'application/octet-stream'});
     assert.equal(chunked.status, 413, 'Chunked requests must enforce the measured size without Content-Length.');
+    assert.equal(chunked.json.code, 'payload_too_large');
+    const concurrent = await Promise.all([upload(port, Buffer.alloc(128, 1)), upload(port, Buffer.alloc(128, 2))]);
+    assert(concurrent.every(result => result.status === 201), 'administrator uploads do not share a per-account quota reservation');
     assert.equal(fs.readdirSync(path.join(dataDir, 'uploads')).filter(name => name.endsWith('.tmp')).length, 0);
     assert.equal((await upload(port, Buffer.from('x'), 'text/plain', {Origin: 'https://other.example'})).status, 403);
     assert.equal((await upload(port, Buffer.from('x'), 'text/plain', {'Sec-Fetch-Site': 'cross-site'})).status, 403);
@@ -144,7 +154,7 @@ async function run() {
 
     // Test a real HTTP abort after the spool exists, then wait for its cleanup.
     const abort = http.request({hostname: '127.0.0.1', port, path: '/api/assets', method: 'POST',
-      headers: {'Content-Type': 'application/octet-stream', 'Content-Length': '100', 'Connection': 'close'}});
+      headers: {'Content-Type': 'application/octet-stream', 'Content-Length': '100', 'Connection': 'close', Cookie: cookies.get(port)}});
     abort.on('error', () => {});
     abort.write(Buffer.alloc(10));
     for (let attempt = 0; attempt < 50 && !fs.readdirSync(path.join(dataDir, 'uploads')).some(name => name.endsWith('.tmp')); attempt++) {

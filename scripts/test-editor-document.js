@@ -643,7 +643,7 @@ async function testObjectClipboard() {
   const pastedRules = JSON.parse(document.getBehaviors(pastedPLC).find(item => item.type === 'automation').rules);
   assert.equal(pastedRules[0].sourceId, pastedSensor.userData.editorId);
   assert.equal(pastedRules[0].targetId, pastedBelt.userData.editorId);
-  assert.equal(pastedRules[1].targetId, external.userData.editorId, 'External references must remain linked to their original targets.');
+  assert.equal(pastedRules.length, 1, 'Cross-level copies keep internal rules and require new local bindings for external targets.');
   pastedEntry.nodes.forEach(node => {
     const control = document.getBehaviors(node).find(item => item.type === 'control');
     if (control) assert.equal(control.targetId, pastedBelt.userData.editorId);

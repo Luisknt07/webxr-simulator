@@ -154,7 +154,7 @@ function pickup(f, object, controller) {
 function editorVRChange(f, inVR) {
   const method = block(source('src/editor/SceneEditor.js'), 'onVRChange(inVR)');
   const invoke = new Function('inVR', method.slice(method.indexOf('{') + 1, -1));
-  invoke.call({ctx: f.ctx, simulation: f.runtime, active: false, editorEnabled: true, clearNavigation() {}, projectLibrary: {close() {}},
+  invoke.call({ctx: f.ctx, simulation: f.runtime, active: false, editorEnabled: true, canEditDocument() { return true; }, clearNavigation() {}, projectLibrary: {close() {}},
     launcher: {}, returnButton: {}, resize() {}, simulationPanel: {modeChanged() {}}}, inVR);
 }
 function connect(f, controller) { controller.dispatchEvent({type: 'connected', data: f.sources.get(controller)}); }

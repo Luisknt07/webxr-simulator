@@ -6,6 +6,8 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const {createApiHandler} = require('../server/api');
+let authenticationCookie = '';
+const authenticatedFetch = (url, options = {}) => global.fetch(url, Object.assign({}, options, {headers: Object.assign({}, options.headers || {}, authenticationCookie ? {Cookie: authenticationCookie} : {})}));
 
 const resolverSource = fs.readFileSync(path.join(__dirname, '../src/editor/ProjectResolver.js'), 'utf8')
   .replace('export default async function resolveProject', 'async function resolveProject');
@@ -14,7 +16,7 @@ const clientSource = fs.readFileSync(path.join(__dirname, '../src/editor/Project
   .replace(/^import[^\n]+\n/gm, '')
   .replace('export default class ProjectClient', 'class ProjectClient');
 const ProjectClient = new Function('fetch', 'MAX_ASSET_BYTES', clientSource + '\nreturn ProjectClient;')(
-  global.fetch, require('../shared/asset-limits').MAX_ASSET_BYTES);
+  authenticatedFetch, require('../shared/asset-limits').MAX_ASSET_BYTES);
 
 function failure(status, message = 'Project load failed') {
   return Object.assign(new Error(message), status === undefined ? {} : {status});
@@ -107,13 +109,17 @@ function scene(x) {
 async function testIndependentClients() {
   const temporaryRoot = path.resolve(os.tmpdir());
   const dataDir = fs.mkdtempSync(path.join(temporaryRoot, 'hello-webxr-project-resolution-'));
-  const handler = createApiHandler({dataDir});
+  const handler = createApiHandler({dataDir, maintenanceIntervalMs: 0});
   const server = http.createServer(handler);
   try {
     await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
     const base = 'http://127.0.0.1:' + server.address().port + '/api';
+    const auth = await fetch(base + '/studio/register', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: 'resolution_fixture_admin', password: 'Private project resolution fixture 123!'})});
+    assert.equal(auth.status, 201); const identity = (await auth.json()).user;
+    authenticationCookie = auth.headers.get('set-cookie').split(';')[0];
     // Neither client has localStorage or shares any remembered project state.
     const firstBrowser = new ProjectClient(base), otherBrowser = new ProjectClient(base);
+    firstBrowser.identityProvider = otherBrowser.identityProvider = () => identity.id;
     const created = await firstBrowser.createProject('Equipo compartido', scene(2));
     const saved = await firstBrowser.updateProject(created.id, created.name, scene(5), created.revision);
     const first = await resolveProject(firstBrowser);

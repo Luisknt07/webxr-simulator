@@ -1,0 +1,13 @@
+.mobile-navigation{position:fixed;inset:0;z-index:145;pointer-events:none;color:#eef7fb;font:12px/1.25 Segoe UI,Arial,sans-serif;box-sizing:border-box}
+.mobile-navigation[hidden]{display:none!important}.mobile-navigation *{box-sizing:border-box}
+.mobile-navigation-pad{position:absolute;bottom:calc(18px + env(safe-area-inset-bottom,0px));width:106px;height:106px;border:1px solid #92b8bc77;background:#14252d9c;border-radius:50%;touch-action:none;pointer-events:auto;user-select:none;-webkit-user-select:none}
+.mobile-navigation-move{left:14px}.mobile-navigation-look{right:14px}
+.mobile-navigation-knob{position:absolute;left:33px;top:33px;width:38px;height:38px;border-radius:50%;background:#8ad9d289;border:1px solid #c0f5e9ba;pointer-events:none}
+.mobile-navigation-pad-title{position:absolute;left:0;right:0;bottom:7px;text-align:center;pointer-events:none;font-size:11px;text-shadow:0 1px 3px #000}
+.mobile-navigation-actions{position:absolute;left:50%;bottom:calc(138px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(430px,calc(100% - 24px));display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;pointer-events:none}
+.mobile-navigation-actions button{position:static;display:block;min-width:0;min-height:44px;width:100%;margin:0;padding:7px 4px;border:1px solid #78939f;background:#18303be8;color:#edf8fb;border-radius:8px;font:600 12px Segoe UI,Arial,sans-serif;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none}
+.mobile-navigation-actions button:active{background:#316b69}.mobile-navigation-actions button:disabled{opacity:.38}.mobile-navigation-actions button:focus-visible{outline:2px solid #a2ffdc;outline-offset:2px}.mobile-navigation-actions button[aria-pressed=true]{border-color:#83e2cc;background:#255a50}
+@media(max-height:500px) and (orientation:landscape){.mobile-navigation-pad{width:94px;height:94px;bottom:calc(12px + env(safe-area-inset-bottom,0px))}.mobile-navigation-knob{left:28px;top:28px}.mobile-navigation-actions{bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(420px,55vw)}.mobile-navigation-actions button{min-height:40px}}
+body.mobile-navigation-active .studio-controls{bottom:auto;top:70px;left:12px;padding:8px 12px;font-size:12px}
+body.mobile-navigation-active .studio-notice{top:116px;bottom:auto;width:calc(100% - 28px);padding:8px 12px;font-size:12px;pointer-events:none}
+body.editor-active .mobile-navigation,body.vr-mode .mobile-navigation{display:none!important}

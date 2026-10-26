@@ -14,18 +14,21 @@ function readOnlySession() {
     return fetchOriginal(input, options);
   };
 }
-function browserForRoom(roomId) {
+function browserForRoom(roomId, options = {}) {
   let prefix = helperSource.slice(0, helperSource.indexOf('// Production runtime/CollisionWorld'))
     .replace('await send(\'Page.navigate\',', 'await send("Page.addScriptToEvaluateOnNewDocument", {source: ' + JSON.stringify('(' + readOnlySession.toString() + ')()') + '});\n    await send(\'Page.navigate\',')
     .replace("'https://localhost:8080/editor?project=' + projectId", "'https://localhost:8080/?project=' + projectId + '&room=' + QA_ROOM")
+    .replace('await send(\'Page.navigate\',', "if(QA_DEVICE){await send('Emulation.setDeviceMetricsOverride',{width:QA_DEVICE.width,height:QA_DEVICE.height,deviceScaleFactor:QA_DEVICE.deviceScaleFactor||2,mobile:true});await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});}\n    await send('Page.navigate',")
     .replace('window.context?.editor?.active&&!context.editor.initializing', 'window.context?.editor&&!context.editor.active&&!context.editor.initializing')
-    .replace('const result = await action({evaluate, screenshot, until, writes, exceptions, consoleErrors, transport, shots});', 'let result;try{result=await action({send,evaluate,screenshot,until,writes,exceptions,consoleErrors,transport,shots});}catch(error){console.error("Chrome QA failure:",error,{exceptions,consoleErrors,writes});throw error;}')
+    .replace('const result = await action({evaluate, screenshot, until, writes, exceptions, consoleErrors, transport, shots});', 'let result;try{result=await action({send,evaluate,screenshot,until,writes,exceptions,consoleErrors,transport,shots});}catch(error){console.error("Chrome QA failure:",error,{exceptions,consoleErrors,writes});await send("Browser.close").catch(()=>{});await delay(1200);throw error;}')
     .replace("socket.on('message', bytes =>", "socket.on('close', () => { for (const p of pending.values()) p.reject(new Error('Chrome CDP closed before completion.')); pending.clear(); }); socket.on('message', bytes =>")
     .replace('pending.set(id, {resolve, reject}); socket.send', "const timer=setTimeout(()=>{pending.delete(id);reject(new Error('CDP timeout: '+method));},180000);pending.set(id,{resolve:value=>{clearTimeout(timer);resolve(value)},reject:error=>{clearTimeout(timer);reject(error)}}); socket.send")
     .replace("await send('Browser.close').catch(() => {}); return result;", "await send('Browser.close').catch(() => {}); await delay(1200); return result;")
     .replace('fs.rmSync(directory, {recursive: true, force: true, maxRetries: 8, retryDelay: 200});', 'try{fs.rmSync(directory,{recursive:true,force:true,maxRetries:12,retryDelay:300});}catch(error){console.error("Temporary Chrome profile cleanup:",error.message);}');
   assert(prefix.includes('Page.addScriptToEvaluateOnNewDocument')); assert(prefix.includes('QA_ROOM'));
-  return new Function('require', '__dirname', 'QA_ROOM', prefix + '\nreturn withBrowser;')(createRequire(helperFile), __dirname, roomId);
+  const startup = prefix.split('\n').find(line => line.includes("'No abrió el proyecto esperado.'"));
+  if (startup) prefix = prefix.replace(startup, 'try{' + startup + '}catch(error){console.error("Browser startup failed",{exceptions,consoleErrors,body:await evaluate("document.body.innerText.slice(0,2000)").catch(()=>null)});await send("Browser.close").catch(()=>{});await delay(1200);throw error;}');
+  return new Function('require', '__dirname', 'QA_ROOM', 'QA_DEVICE', prefix + '\nreturn withBrowser;')(createRequire(helperFile), __dirname, roomId, options.mobile || null);
 }
 async function initializeFloorQA() {
   const e = context.editor; e.projectSync.stop(); e.keepCurrentProject = async () => false;

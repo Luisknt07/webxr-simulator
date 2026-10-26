@@ -9,6 +9,8 @@ function visible(object) { for (let node = object; node; node = node.parent) if 
 export default class SceneEntities {
   constructor(editor) {
     this.editor = editor; this.live = new Map(); this.preview = null; this.elapsed = 0; this.environment = new SceneEnvironment(editor);
+    this.qualityLights = new Set(); this.lightBudgetKey = null; this.lightBudgetPosition = new THREE.Vector3(); this.lightBudgetEye = new THREE.Vector3();
+    this.stats = {pointLights: 0, pointLightBudget: null};
   }
 
   remove(id) {
@@ -57,6 +59,39 @@ export default class SceneEntities {
       } else if (entry.object.fov !== config.fov) { entry.object.fov = config.fov; entry.object.updateProjectionMatrix(); }
     });
     Array.from(this.live.keys()).forEach(id => { if (!active.has(id)) this.remove(id); });
+    this.applyLightBudget();
+  }
+
+  applyLightBudget() {
+    const editor = this.editor, graphics = editor.ctx && editor.ctx.graphics, limits = graphics && graphics.getLimits && graphics.getLimits();
+    const candidates = Array.from(this.live.values()).filter(entry => {
+      if (entry.config.type !== 'pointLight' || !entry.object.visible) return false;
+      if (limits && entry.config.intensity <= 0) { entry.object.visible = false; return false; }
+      return true;
+    });
+    const budget = limits && Number.isFinite(limits.pointLights) ? Math.max(0, Math.floor(limits.pointLights)) : candidates.length;
+    this.stats.pointLightBudget = budget;
+    if (candidates.length > budget) {
+      let camera = editor.active && editor.camera || editor.ctx && editor.ctx.camera;
+      if (camera && editor.ctx.vrMode && editor.ctx.renderer && editor.ctx.renderer.xr && editor.ctx.renderer.xr.getCamera) {
+        camera = editor.ctx.renderer.xr.getCamera(camera) || camera; this.lightBudgetEye.setFromMatrixPosition(camera.matrixWorld);
+      } else if (camera) camera.getWorldPosition(this.lightBudgetEye);
+      else this.lightBudgetEye.set(0, 0, 0);
+      const key = editor.roomId + ':' + budget + ':' + candidates.map(entry => entry.config.id + ':' + entry.config.intensity + ':' + entry.object.position.toArray().join(',')).join('|');
+      // Keep nearby lighting stable while walking; rerank only after meaningful
+      // camera movement or a real inventory/quality/configuration change.
+      if (key !== this.lightBudgetKey || this.lightBudgetEye.distanceToSquared(this.lightBudgetPosition) > 2.25) {
+        this.lightBudgetKey = key; this.lightBudgetPosition.copy(this.lightBudgetEye);
+        candidates.sort((a, b) => {
+          const score = entry => entry.object.position.distanceToSquared(this.lightBudgetEye) / Math.max(.05, entry.config.intensity) * (this.qualityLights.has(entry.config.id) ? .85 : 1);
+          return score(a) - score(b);
+        });
+        this.qualityLights = new Set(candidates.slice(0, budget).map(entry => entry.config.id));
+      }
+      candidates.forEach(entry => { entry.object.visible = this.qualityLights.has(entry.config.id); });
+    } else { this.lightBudgetKey = null; this.qualityLights = new Set(candidates.map(entry => entry.config.id)); }
+    this.stats.pointLights = candidates.filter(entry => entry.object.visible).length;
+    this.environment.stats.pointLights = this.stats.pointLights; this.environment.stats.pointLightBudget = budget;
   }
 
   useCamera(id) {

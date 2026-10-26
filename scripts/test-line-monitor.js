@@ -227,7 +227,10 @@ async function authoringReferences() {
   const f = harness(), source = f.document.addPrefab('hall', 'source'), belt = f.document.addPrefab('hall', 'conveyor', 'roller-middle');
   f.document.setBehaviors(source, f.document.getBehaviors(source).map(config => config.type === 'source' ? Object.assign({}, config, {outputId: belt.userData.editorId}) : config));
   const board = f.document.addPrimitive('hall', 'box');
-  f.document.setBehaviors(board, [{type: 'lineMonitor', targetId: source.userData.editorId, scope: 'line', title: 'Plantilla de monitor', refreshHz: 4}]);
+  const external = f.document.addPrimitive('hall', 'box');
+  const internalRule = {sourceId: source.userData.editorId, variable: 'running', operator: 'eq', value: true, targetId: belt.userData.editorId, targetVariable: 'running', set: true, edge: 'rising'};
+  f.document.setBehaviors(board, [{type: 'lineMonitor', targetId: source.userData.editorId, scope: 'line', title: 'Plantilla de monitor', refreshHz: 4}, {type: 'automation', rules: JSON.stringify([internalRule, Object.assign({}, internalRule, {targetId: external.userData.editorId})])}]);
+  f.document.setInteraction(board, {type: 'toggle', targetId: belt.userData.editorId});
   f.tools.selection = new Set([source, belt, board]);
   const template = await f.tools.saveTemplate();
   const onlyPanel = await f.document.duplicate(board);
@@ -242,6 +245,8 @@ async function authoringReferences() {
   const crossRoom = await f.tools.placeTemplate(template, {preservePosition: true}), target = crossRoom[0].userData.editorId;
   assert.equal(f.document.getBehaviors(crossRoom[2]).find(value => value.type === 'lineMonitor').targetId, target,
     'Pasting into another level remaps object IDs inside the new level.');
+  assert.equal(crossRoom[2].userData.editorInteraction.targetId, crossRoom[1].userData.editorId, 'Batch copies remap interactions between independently copied members.');
+  const crossRules = JSON.parse(f.document.getBehaviors(crossRoom[2]).find(value => value.type === 'automation').rules); assert.equal(crossRules.length, 1, 'Batch copy clears rules that would control another level.'); assert.equal(crossRules[0].sourceId, target); assert.equal(crossRules[0].targetId, crossRoom[1].userData.editorId);
   f.document.undo(); assert(!f.document.getObject(target)); f.document.redo(); assert(f.document.getObject(target));
   const saved = await f.document.serialize(), reopened = harness(); await reopened.document.load(saved, {activeRoomId: 'sound'});
   const owner = reopened.document.getObject(crossRoom[2].userData.editorId);

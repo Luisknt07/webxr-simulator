@@ -12,7 +12,11 @@ const {MAX_ASSET_BYTES} = require('../shared/asset-limits');
 const source = fs.readFileSync(path.join(__dirname, '../src/editor/ProjectClient.js'), 'utf8')
   .replace(/^import[^\n]+\n/gm, '')
   .replace('export default class ProjectClient', 'class ProjectClient');
-const nativeFetch = global.fetch;
+const rawFetch = global.fetch, cookies = new Map();
+const nativeFetch = (url, options = {}) => {
+  const cookie = cookies.get(new URL(url).origin);
+  return rawFetch(url, Object.assign({}, options, {headers: Object.assign({}, options.headers || {}, cookie ? {Cookie: cookie} : {})}));
+};
 let activeFetch = (...args) => nativeFetch(...args);
 const ProjectClient = new Function('fetch', 'MAX_ASSET_BYTES', source + '\nreturn ProjectClient;')((...args) => activeFetch(...args), MAX_ASSET_BYTES);
 
@@ -41,7 +45,7 @@ function scene(x = 1) {
 }
 
 async function start(dataDir, options = {}) {
-  const handler = createApiHandler(Object.assign({dataDir}, options));
+  const handler = createApiHandler(Object.assign({dataDir, maintenanceIntervalMs: 0}, options));
   const server = http.createServer(handler);
   try {
     await new Promise((resolve, reject) => {
@@ -53,11 +57,21 @@ async function start(dataDir, options = {}) {
     throw error;
   }
   const origin = 'http://127.0.0.1:' + server.address().port;
+  // Each fixture owns a real authenticated administrator. Restarting a fixture
+  // logs in again; no anonymous private-project bypass is retained for tests.
+  const credentials = {username: 'client_fixture_admin', password: 'Private project client fixture 123!'};
+  let response = await rawFetch(origin + '/api/studio/register', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(credentials)});
+  if (response.status === 409) response = await rawFetch(origin + '/api/studio/login', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(credentials)});
+  assert(response.ok, 'Fixture authentication succeeded');
+  const identity = (await response.json()).user;
+  cookies.set(origin, response.headers.get('set-cookie').split(';')[0]);
+  const client = new ProjectClient(origin + '/api'); client.identityProvider = () => identity.id;
   return {
-    handler, origin, client: new ProjectClient(origin + '/api'),
+    handler, origin, client,
     async close() {
       await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
       handler.close();
+      cookies.delete(origin);
     }
   };
 }

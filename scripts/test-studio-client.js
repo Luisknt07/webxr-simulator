@@ -22,6 +22,9 @@ async function run() {
   await assert.rejects(client.login('ana', 'password'), error => error.status === 401 && error.code === 'invalid_credentials');
   assert.equal((await client.register('ana', 'long passphrase', 'Ana')).id, 'u1');
   assert.equal(client.user.displayName, 'Ana');
+  await client.register('ana', 'long passphrase', 'Ana', ' CODE-123 ');
+  assert.equal(JSON.parse(requests[requests.length - 1].options.body).code, 'CODE-123');
+  const current = client.user;
   await client.saveRoom('room/1', {time: 3}, 2, 7);
   const request = requests[requests.length - 1];
   assert.equal(request.url, '/api/studio/rooms/room%2F1/state');
@@ -29,6 +32,51 @@ async function run() {
   assert.equal(request.options.headers['X-Studio-User'], 'u1', 'private requests identify their expected current account without supplying authority');
   requests.forEach(value => { assert.equal(value.options.credentials, 'same-origin'); assert.equal(value.options.cache, 'no-store'); });
   await client.logout(); assert.equal(client.user, null);
+  const adminResponses = new Function('fetch', code + '\nreturn new StudioClient();')(async () => ({ok: true, json: async () => ({user: {id: 'managed-user'}})}));
+  adminResponses.user = current; await adminResponses.request('POST', '/admin/users', {username: 'student'});
+  assert.strictEqual(adminResponses.user, current, 'A managed account response never replaces the signed-in administrator.');
+  let completeProfile;
+  const delayed = new Function('fetch', code + '\nreturn new StudioClient();')(() => new Promise(resolve => { completeProfile = resolve; }));
+  delayed.user = {id: 'previous'}; const profile = delayed.updateProfile({displayName: 'Old profile'}); delayed.user = {id: 'next'};
+  completeProfile({ok: true, json: async () => ({user: {id: 'previous'}})});
+  await assert.rejects(profile, error => error.code === 'stale_account_response'); assert.equal(delayed.user.id, 'next', 'An older profile request cannot restore the previous identity.');
+  let completePrivate, invalidations = 0;
+  const stale = new Function('fetch', code + '\nreturn new StudioClient();')(() => new Promise(resolve => { completePrivate = resolve; }));
+  stale.user = {id: 'previous'}; stale.onSessionChange = () => invalidations++; const oldPrivate = stale.classroom(); stale.user = {id: 'next'};
+  completePrivate({ok: false, status: 401, json: async () => ({error: 'Sesión cambió', code: 'session_changed'})});
+  await assert.rejects(oldPrivate); assert.equal(invalidations, 0, 'A stale request cannot invalidate the next signed-in account.');
+
+  // Desktop and immersive forms share one client. Authentication must remain
+  // exclusive across both UIs and logout must follow the pending Set-Cookie.
+  const authenticationRequests = []; let finishAuthentication, finishLogout;
+  const exclusive = new Function('fetch', code + '\nreturn new StudioClient();')((url, options) => {
+    authenticationRequests.push({url, options});
+    return new Promise(resolve => { if (url.endsWith('/logout')) finishLogout = resolve; else finishAuthentication = resolve; });
+  });
+  const firstLogin = exclusive.login('vr-user', 'Disposable-password');
+  assert(exclusive.authenticationPending, 'A client-wide authentication gate begins before the network response.');
+  await assert.rejects(exclusive.login('desktop-user', 'Another-password'), error => error.code === 'authentication_busy');
+  await assert.rejects(exclusive.register('second-user', 'Another-password', 'Second'), error => error.code === 'authentication_busy');
+  assert.equal(authenticationRequests.length, 1, 'Concurrent desktop/VR login and registration never dispatch another Set-Cookie request.');
+  const logoutAfterAuthentication = exclusive.logout(); await Promise.resolve();
+  assert.equal(authenticationRequests.length, 1, 'Logout waits until the preceding authentication response finishes.');
+  finishAuthentication({ok: true, json: async () => ({user: {id: 'vr-user'}})}); await firstLogin;
+  for (let index = 0; index < 8 && !finishLogout; index++) await Promise.resolve();
+  assert(finishLogout); assert.equal(authenticationRequests[1].url, '/api/studio/logout'); assert.equal(authenticationRequests[1].options.headers['X-Studio-User'], 'vr-user');
+  await assert.rejects(exclusive.login('next-user', 'Another-password'), error => error.code === 'authentication_busy');
+  await assert.rejects(exclusive.register('next-user', 'Another-password', 'Next'), error => error.code === 'authentication_busy');
+  assert.equal(authenticationRequests.length, 2, 'A pending logout blocks new desktop/VR authentication requests until its cookie is cleared.');
+  finishLogout({ok: true, json: async () => ({ok: true})}); await logoutAfterAuthentication;
+  assert.equal(exclusive.user, null); assert(!exclusive.authenticationPending, 'A delayed login cannot restore an account after logout.');
+
+  const failedRequests = []; let finishFailure;
+  const failed = new Function('fetch', code + '\nreturn new StudioClient();')((url, options) => {
+    failedRequests.push(url); return url.endsWith('/logout') ? Promise.resolve({ok: true, json: async () => ({ok: true})}) : new Promise(resolve => { finishFailure = resolve; });
+  });
+  const failedLogin = failed.login('invalid', 'Disposable-password'); const cleanup = failed.logout();
+  finishFailure({ok: false, status: 401, json: async () => ({error: 'Invalid fixture', code: 'invalid_credentials'})});
+  await assert.rejects(failedLogin, error => error.code === 'invalid_credentials'); await cleanup;
+  assert.deepEqual(failedRequests, ['/api/studio/login', '/api/studio/logout']); assert.equal(failed.user, null); assert(!failed.authenticationPending);
 
   const log = [], cursors = [], actionRequests = [];
   let polled = 0, poseCount = 0, resolveDone;

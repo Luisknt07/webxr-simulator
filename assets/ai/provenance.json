@@ -1,0 +1,98 @@
+{
+  "model": {
+    "name": "ONNX Model Zoo Super Resolution (ESPCN x3, trained on BSD300)",
+    "source": "https://huggingface.co/onnxmodelzoo/super-resolution-10",
+    "revision": "395472c4b6b92f788357237983d83fd913cfe7e3",
+    "license": "Apache-2.0",
+    "sha256": "85f36ff88cc504a24af5e0602148bc56a8aa09a58eca8c0da2756f3e8186035e",
+    "bytes": 240078,
+    "input": "Original export: N x 1 x 224 x 224 luminance; equivalent dynamic conversion used for inference.",
+    "factor": 3,
+    "convolutions": [
+      [
+        64,
+        1,
+        5,
+        5
+      ],
+      [
+        64,
+        64,
+        3,
+        3
+      ],
+      [
+        32,
+        64,
+        3,
+        3
+      ],
+      [
+        9,
+        32,
+        3,
+        3
+      ]
+    ],
+    "circularPadding": 5,
+    "inferenceFile": "models/super-resolution-espcn-x3-dynamic.onnx",
+    "inferenceSha256": "f2645a31409ac2487242e1d8c42e627c3651dd1f6605f55bd0ca1754535ce62f",
+    "modification": "HELLO Studio changes spatial metadata and replaces the fixed PixelShuffle reshapes/transpose by equivalent single-channel DepthToSpace(blocksize=3); all eight learned TensorProto blobs are unchanged."
+  },
+  "runtime": {
+    "name": "onnxruntime-web",
+    "version": "1.30.0",
+    "source": "https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.30.0.tgz",
+    "integrity": "sha512-q0y+JrrtukXSzsBWEMccVfqX25LRmosXHF+CaRJmg8pZClzcV7svNc4rKY3jL02Vb7QmRMDs1SigqR4CXAfKYQ==",
+    "license": "MIT",
+    "provider": "wasm-single-thread",
+    "distribution": "Only the three WASM runtime files are vendored; npm installation is not required for the visitor."
+  },
+  "files": [
+    {
+      "path": "models/super-resolution-10.onnx",
+      "bytes": 240078,
+      "sha256": "85f36ff88cc504a24af5e0602148bc56a8aa09a58eca8c0da2756f3e8186035e"
+    },
+    {
+      "path": "models/LICENSE",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "onnxruntime-1.30.0/ort.wasm.min.js",
+      "bytes": 50196,
+      "sha256": "faece07e84faa9001f5104bbe4e5c70861d06cb2376a0dea1fa0ad33a67adc81"
+    },
+    {
+      "path": "onnxruntime-1.30.0/ort-wasm-simd-threaded.mjs",
+      "bytes": 24381,
+      "sha256": "e13f7f94fc51b4ca72b12faeb1ee95f4ace6dfbc8939bc718aabdc0a27c4299b"
+    },
+    {
+      "path": "onnxruntime-1.30.0/ort-wasm-simd-threaded.wasm",
+      "bytes": 14239897,
+      "sha256": "3398c10d07d229bd91b364548e130e0e51a8e5704b88c7c083ebbeb78842dee2"
+    },
+    {
+      "path": "onnxruntime-1.30.0/LICENSE",
+      "bytes": 1073,
+      "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+    },
+    {
+      "path": "onnxruntime-1.30.0/ThirdPartyNotices.txt",
+      "bytes": 338088,
+      "sha256": "143764b952fdb1a7c69ce653bfba74a7744d6a8a573bfb73e235fba356c83de3"
+    },
+    {
+      "path": "models/super-resolution-espcn-x3-dynamic.onnx",
+      "bytes": 240263,
+      "sha256": "f2645a31409ac2487242e1d8c42e627c3651dd1f6605f55bd0ca1754535ce62f"
+    },
+    {
+      "path": "models/conversion.json",
+      "bytes": 1199,
+      "sha256": "a7492f88927a7952824e90c040a6d816a5d7760ce3b42419ffa5e60646efdac7"
+    }
+  ]
+}

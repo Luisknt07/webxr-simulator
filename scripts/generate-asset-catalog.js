@@ -18,7 +18,8 @@ const extensions = {
 function visit(directory, root, outputPath) {
   return fs.readdirSync(directory, { withFileTypes: true }).reduce((entries, item) => {
     const absolute = path.join(directory, item.name);
-    if (absolute === outputPath || absolute === path.join(root, previewsDirectory) || item.isSymbolicLink()) return entries;
+    // The integrated inference runtime is application code, not scene assets.
+    if (absolute === outputPath || absolute === path.join(root, previewsDirectory) || absolute === path.join(root, 'ai') || item.isSymbolicLink()) return entries;
     if (item.isDirectory()) return entries.concat(visit(absolute, root, outputPath));
     if (!item.isFile()) return entries;
     const extension = path.extname(item.name).slice(1).toLowerCase();

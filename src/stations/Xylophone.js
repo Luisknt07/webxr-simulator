@@ -198,6 +198,7 @@ export function execute(ctx, delta, time) {
   lastTick = time;
   const controllers = (ctx.controllers || []).concat(ctx.desktopController || []);
   controllers.forEach(controller => {
+    if (ctx.vrMode && ctx.studioMenuOpen) { suspendRay(controller, false); return; }
     const held = controller.userData.grabbing;
     let nearStick = false;
     const nativeHeld = held && sticks.indexOf(held) !== -1;
@@ -280,6 +281,7 @@ function onDesktopGripToggle() {
 }
 
 export function onSelectStart(event) {
+  if (context.vrMode && (context.studioMenuOpen || event.target.userData.studioMenuTrigger)) return;
   if (context.editor && context.editor.active) return;
   const controller = event.target; if (controller.userData.grabbing || industrialOwnsHand(controller)) return;
   for (const stick of sticks) if (collide(controller, stick)) { grab(controller, stick); return false; }
@@ -287,6 +289,7 @@ export function onSelectStart(event) {
 }
 
 export function onSelectEnd(event) {
+  if (context.vrMode && (context.studioMenuOpen || event.target.userData.studioMenuTrigger)) return;
   if (context.editor && context.editor.active) return;
   if (event.target.userData.grabbing && sticks.indexOf(event.target.userData.grabbing) !== -1) { release(event.target, false); return false; }
   return true;

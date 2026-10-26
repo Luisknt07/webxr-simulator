@@ -79,7 +79,8 @@ function streamAsset(req, res, asset) {
     'X-Content-Type-Options': 'nosniff',
     'Content-Security-Policy': "sandbox; default-src 'none'",
     'Content-Disposition': (inline ? 'inline' : 'attachment') + '; filename="' + asset.hash + '.blob"',
-    'Cache-Control': 'public, max-age=31536000, immutable',
+    'Cache-Control': 'private, no-store',
+    Vary: 'Cookie',
     'Accept-Ranges': 'bytes',
     ETag: '"' + asset.hash + '"'
   };
@@ -120,13 +121,18 @@ function streamAsset(req, res, asset) {
 function createApiHandler(options = {}) {
   const store = options.store || new ProjectStore(options);
   const maximum = options.maxBodyBytes || MAX_BODY_BYTES;
-  const studio = new StudioService({store, json, readBody, verifyWrite});
+  const studio = new StudioService({store, json, readBody, verifyWrite, now: options.now});
+  // Future maintenance only. Existing installations receive a 30-day grace
+  // period during the additive migration, and tests can disable this timer.
+  const maintenanceInterval = options.maintenanceIntervalMs === undefined ? 3600000 : options.maintenanceIntervalMs;
+  const maintenanceTimer = maintenanceInterval > 0 ? setInterval(() => { try { studio.access.maintenance({dryRun: false}); } catch (error) { if (options.onError) options.onError(error); } }, maintenanceInterval) : null;
+  if (maintenanceTimer && maintenanceTimer.unref) maintenanceTimer.unref();
   const handler = async (req, res, next) => {
     let pathname;
     try { pathname = new URL(req.originalUrl || req.url, 'http://local.invalid').pathname; }
     catch (_) { json(res, 400, {error: 'Ruta inválida.', code: 'invalid_request'}, req.method); return; }
     const full = pathname === '/api' || pathname.startsWith('/api/');
-    const stripped = /^\/(?:health|projects|assets|studio)(?:\/|$)/.test(pathname);
+    const stripped = /^\/(?:health|projects|assets|studio|public|publication|library)(?:\/|$)/.test(pathname);
     if (!full && !stripped) {
       if (next) next();
       else json(res, 404, {error: 'Ruta no encontrada.', code: 'not_found'}, req.method);
@@ -138,31 +144,45 @@ function createApiHandler(options = {}) {
       const assetUpload = parts[0] === 'assets' && parts.length === 1 && req.method === 'POST';
       if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) verifyWrite(req, assetUpload);
       if (await studio.handle(req, res, pathname)) return;
+      const actor = studio.user(req, false), access = studio.access;
+      if (actor) studio._expectedUser(req, actor);
       if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) studio.requireEditor(req);
       if (parts.length === 1 && parts[0] === 'health' && ['GET', 'HEAD'].includes(req.method)) {
         json(res, 200, {storage: 'sqlite', version: 1,
-          limits: {maxAssetBytes: store.maxAssetBytes, maxProjectBytes: maximum}, capabilities: {assetUpload: true}}, req.method);
+          limits: {maxAssetBytes: store.maxAssetBytes, maxProjectBytes: maximum, defaultMaxProjects: 2, defaultStorageBytes: 20971520}, capabilities: {assetUpload: true, privateProjects: true, publicSceneCatalog: true, projectSharing: true}}, req.method);
+      } else if (parts[0] === 'public' && parts[1] === 'scenes' && req.method === 'GET' && parts.length <= 3) {
+        json(res, 200, parts.length === 2 ? access.publicCatalog() : {project: access.publicProject(parts[2])});
+      } else if (parts[0] === 'library' && parts[1] === 'scenes' && req.method === 'GET' && parts.length <= 3) {
+        json(res, 200, parts.length === 2 ? access.libraryCatalog(actor) : {project: access.libraryProject(actor, parts[2])});
+      } else if (parts[0] === 'publication' && parts[1] === 'scenes' && parts.length === 2 && ['GET', 'PUT'].includes(req.method)) {
+        if (!access.admin(actor)) throw new ApiError(403, 'Solo el administrador publica escenas.', 'owner_required');
+        json(res, 200, req.method === 'GET' ? {scenes: access.db.prepare('SELECT id,project_id AS projectId,room_id AS roomId,name,enabled,asset_ids AS assetIds FROM studio_public_scenes ORDER BY rowid').all().map(row => Object.assign({}, row, {enabled: !!row.enabled, assetIds: JSON.parse(row.assetIds)}))} : access.configurePublic(actor, (await readBody(req, 65536)).scenes));
       } else if (assetUpload) {
-        json(res, 201, {asset: await store.receiveAsset(req)});
+        json(res, 201, {asset: await access.upload(actor, req)});
       } else if (parts[0] === 'assets' && parts.length === 2 && ['GET', 'HEAD'].includes(req.method)) {
-        streamAsset(req, res, store.asset(parts[1]));
+        streamAsset(req, res, access.asset(actor, parts[1]));
       } else if (parts[0] === 'projects' && parts.length === 1 && req.method === 'GET') {
-        json(res, 200, {projects: store.listProjects()});
+        json(res, 200, {projects: access.list(actor)});
       } else if (parts[0] === 'projects' && parts.length === 1 && req.method === 'POST') {
-        json(res, 201, {project: store.saveProject(null, await readBody(req, maximum, projectLimitMessage(maximum)))});
+        json(res, 201, {project: access.save(actor, null, await readBody(req, maximum, projectLimitMessage(maximum)))});
       } else if (parts[0] === 'projects' && parts.length >= 2 && /^[a-zA-Z0-9-]{1,100}$/.test(parts[1])) {
         const id = parts[1];
-        if (parts.length === 2 && req.method === 'GET') json(res, 200, {project: store.getProject(id)});
-        else if (parts.length === 2 && req.method === 'PUT') json(res, 200, {project: store.saveProject(id, await readBody(req, maximum, projectLimitMessage(maximum)))});
-        else if (parts.length === 3 && parts[2] === 'revisions' && req.method === 'GET') json(res, 200, {revisions: store.listRevisions(id)});
-        else if (parts.length === 3 && parts[2] === 'runs' && req.method === 'GET') json(res, 200, {runs: store.listSimulationRuns(id)});
+        if (parts.length === 2 && req.method === 'GET') json(res, 200, {project: access.get(actor, id)});
+        else if (parts.length === 2 && req.method === 'PUT') json(res, 200, {project: access.save(actor, id, await readBody(req, maximum, projectLimitMessage(maximum)))});
+        else if (parts.length === 3 && parts[2] === 'shares' && req.method === 'GET') json(res, 200, {shares: access.shares(actor, id)});
+        else if (parts.length === 3 && parts[2] === 'shares' && req.method === 'PUT') { const data = await readBody(req, 4096); json(res, 200, {shares: access.share(actor, id, data, data.permission)}); }
+        else if (parts.length === 4 && parts[2] === 'shares' && req.method === 'DELETE') json(res, 200, {shares: access.unshare(actor, id, parts[3])});
+        else if (parts.length === 2 && req.method === 'DELETE') { access.deleteProject(actor, id); json(res, 200, {ok: true}); }
+        else if (parts.length === 3 && parts[2] === 'revisions' && req.method === 'GET') { access.require(actor, id); json(res, 200, {revisions: store.listRevisions(id)}); }
+        else if (parts.length === 3 && parts[2] === 'runs' && req.method === 'GET') { access.require(actor, id); json(res, 200, {runs: store.listSimulationRuns(id)}); }
         else if (parts.length === 3 && parts[2] === 'runs' && req.method === 'POST') {
-          json(res, 201, {run: store.saveSimulationRun(id, await readBody(req, Math.min(maximum, MAX_TELEMETRY_BYTES), 'La analítica supera el límite de 16 MiB por ejecución.'))});
+          access.require(actor, id, 'edit'); const data = await readBody(req, Math.min(maximum, MAX_TELEMETRY_BYTES), 'La analítica supera el límite de 16 MiB por ejecución.'); access.checkQuota(access.owner(id) || actor.id, Buffer.byteLength(JSON.stringify(data)));
+          json(res, 201, {run: store.saveSimulationRun(id, data)});
         } else if (parts.length === 4 && parts[2] === 'runs' && /^[a-zA-Z0-9-]{1,100}$/.test(parts[3]) && req.method === 'GET') {
-          json(res, 200, {run: store.getSimulationRun(id, parts[3])});
+          access.require(actor, id); json(res, 200, {run: store.getSimulationRun(id, parts[3])});
         }
         else if (parts.length === 4 && parts[2] === 'revisions' && /^\d+$/.test(parts[3]) && Number.isSafeInteger(Number(parts[3])) && req.method === 'GET') {
-          json(res, 200, {project: store.getProject(id, Number(parts[3]))});
+          json(res, 200, {project: access.get(actor, id, Number(parts[3]))});
         } else throw new ApiError(404, 'Ruta no encontrada.', 'not_found');
       } else throw new ApiError(404, 'Ruta no encontrada.', 'not_found');
     } catch (error) {
@@ -178,7 +198,7 @@ function createApiHandler(options = {}) {
   };
   handler.store = store;
   handler.studio = studio;
-  handler.close = () => store.close();
+  handler.close = () => { if (maintenanceTimer) clearInterval(maintenanceTimer); store.close(); };
   return handler;
 }
 

@@ -36,6 +36,7 @@ const application = {
           const pathname = require('path').posix.normalize(decodeURIComponent(raw).replace(/\\/g, '/'));
           const directory = pathname.split('/').filter(Boolean)[0];
           if (directory && ['data', 'server', '.git'].includes(directory.toLowerCase())) return response.status(404).end();
+          if (directory && directory.toLowerCase() === 'examples' && !api.studio.access.canDownloadExamples(request)) return response.status(401).end();
           next();
         } catch (error) { response.status(400).end(); }
       });

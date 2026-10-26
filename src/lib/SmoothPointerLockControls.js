@@ -7,8 +7,7 @@ export default class SmoothPointerLockControls extends THREE.EventDispatcher {
     this.isLocked = false; this.sensitivity = .00125; this.smoothingSeconds = .055; this.pending = new THREE.Vector2();
     this.mousemove = event => {
       if (!this.isLocked) return;
-      this.pending.x = THREE.Math.clamp(this.pending.x + THREE.Math.clamp(event.movementX || event.mozMovementX || 0, -200, 200) * this.sensitivity, -.7, .7);
-      this.pending.y = THREE.Math.clamp(this.pending.y + THREE.Math.clamp(event.movementY || event.mozMovementY || 0, -200, 200) * this.sensitivity, -.7, .7);
+      this.queueLook(event.movementX || event.mozMovementX || 0, event.movementY || event.mozMovementY || 0);
     };
     this.lockchange = () => { this.isLocked = this.document.pointerLockElement === this.domElement; this.reset(); this.dispatchEvent({type: this.isLocked ? 'lock' : 'unlock'}); };
     this.blur = () => this.reset(); this.connect();
@@ -23,9 +22,16 @@ export default class SmoothPointerLockControls extends THREE.EventDispatcher {
     this.document.removeEventListener('mousemove', this.mousemove); this.document.removeEventListener('pointerlockchange', this.lockchange);
     if (this.document.defaultView) this.document.defaultView.removeEventListener('blur', this.blur); this.reset();
   }
-  reset() { this.pending.set(0, 0); }
+  reset() { this.pending.set(0, 0); this.touchPending = false; }
+  queueLook(dx, dy) {
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+    this.pending.x = THREE.Math.clamp(this.pending.x + THREE.Math.clamp(dx, -200, 200) * this.sensitivity, -.7, .7);
+    this.pending.y = THREE.Math.clamp(this.pending.y + THREE.Math.clamp(dy, -200, 200) * this.sensitivity, -.7, .7);
+  }
+  addLookDelta(dx, dy) { if (!this.connected || !Number.isFinite(dx) || !Number.isFinite(dy) || !dx && !dy) return; this.touchPending = true; this.queueLook(dx, dy); }
   update(delta) {
-    if (!this.isLocked || !Number.isFinite(delta) || delta <= 0 || this.pending.lengthSq() < 1e-14) return;
+    if (!this.isLocked && !this.touchPending || !Number.isFinite(delta) || delta <= 0) return;
+    if (this.pending.lengthSq() < 1e-14) { this.touchPending = false; return; }
     const alpha = 1 - Math.exp(-Math.min(delta, .1) / this.smoothingSeconds), step = this.pending.clone().multiplyScalar(alpha);
     this.pending.sub(step); const euler = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ');
     euler.y -= step.x; euler.x = THREE.Math.clamp(euler.x - step.y, -Math.PI / 2 + .001, Math.PI / 2 - .001);

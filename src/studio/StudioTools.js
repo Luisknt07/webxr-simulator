@@ -3,7 +3,7 @@ import schema from '../../shared/behaviors.js';
 import {buildIndustrialLab} from '../editor/IndustrialLab.js';
 import {buildIndustrialCediLevel} from '../editor/IndustrialCediLevel.js';
 import {buildStudyScene, studySceneReport} from '../editor/IndustrialStudyScenes.js';
-import {compileStudyProject} from '../editor/StudySceneProject.js';
+import {compileStudyProject, compileBlankProject} from '../editor/StudySceneProject.js';
 import {STUDY_SCENES, studyScene} from '../editor/StudySceneCatalog.js';
 import {applyIndustrialAging} from '../editor/IndustrialAgingPresentation.js';
 
@@ -117,16 +117,26 @@ export default class StudioTools {
         for (const snapshot of template.objects) {
           const object = await document.pasteObject(snapshot, roomId, 0, () => {
             if (editor.projectGeneration !== generation || editor.roomId !== roomId) throw new Error('El proyecto o escenario cambió durante la inserción.');
-          });
+          }, {deferExternalReferences: true});
           copies.push(object); const entry = document.additions.get(object.userData.editorId);
           snapshot.sources.forEach(([path, original]) => { const child = path ? entry.nodes.get(path) : object; if (child) references.set(original, child.userData.editorId); });
         }
         document.begin();
-        copies.forEach(object => {
+        const copiedIds = new Set(references.values());
+        copies.forEach((object, index) => {
+          const crossRoom = String(template.objects[index].roomId) !== roomId;
+          const internal = id => references.has(id) || copiedIds.has(id);
+          const remap = id => references.has(id) ? references.get(id) : id;
           object.traverse(child => {
             if (!child.userData.editorId) return;
-            const behaviors = document.getBehaviors(child).map(behavior => { ['sourceId', 'targetId', 'outputId', 'branchId'].forEach(key => { if (references.has(behavior[key])) behavior[key] = references.get(behavior[key]); }); if (behavior.type === 'automation') { const rules = JSON.parse(behavior.rules); rules.forEach(rule => ['sourceId', 'targetId'].forEach(key => { if (references.has(rule[key])) rule[key] = references.get(rule[key]); })); behavior.rules = JSON.stringify(rules); } return behavior; });
+            const behaviors = document.getBehaviors(child).map(behavior => {
+              ['sourceId', 'targetId', 'outputId', 'branchId'].forEach(key => { if (references.has(behavior[key])) behavior[key] = remap(behavior[key]); else if (crossRoom && behavior[key] && !internal(behavior[key])) behavior[key] = ''; });
+              if (behavior.type === 'automation') { const rules = JSON.parse(behavior.rules).filter(rule => !crossRoom || internal(rule.sourceId) && internal(rule.targetId)); rules.forEach(rule => ['sourceId', 'targetId'].forEach(key => { rule[key] = remap(rule[key]); })); behavior.rules = JSON.stringify(rules); }
+              return behavior;
+            });
             document.setBehaviors(child, behaviors);
+            const interaction = child.userData.editorInteraction;
+            if (interaction && interaction.targetId) document.setInteraction(child, internal(interaction.targetId) ? Object.assign({}, interaction, {targetId: remap(interaction.targetId)}) : crossRoom ? {type: 'none'} : interaction);
           });
         });
         const delta = new THREE.Vector3();
@@ -170,7 +180,12 @@ export default class StudioTools {
   }
   setStartScene() { this.editor.document.setStudio({startRoomId: this.editor.roomId}); this.editor.toast('Escenario inicial guardado en la configuración del proyecto.'); }
   refreshLabels() {
-    const editor = this.editor, entries = schema.studio.sceneEntries(editor.document);
+    const editor = this.editor, entries = editor.getSceneEntries ? editor.getSceneEntries() : schema.studio.sceneEntries(editor.document);
+    if (editor.roomSelect.appendChild) {
+      editor.roomSelect.textContent = '';
+      entries.forEach(entry => { const option = node('option', entry.name + (entry.initial ? ' · inicial' : ''), editor.roomSelect); option.value = String(entry.index); });
+      editor.roomSelect.value = String(schema.studio.ROOM_IDS.indexOf(editor.roomId));
+    }
     Array.from(editor.roomSelect.options || []).forEach(option => {
       const entry = entries.find(item => item.index === Number(option.value));
       if (entry) option.textContent = entry.name + (entry.initial ? ' · inicial' : '');
@@ -210,6 +225,20 @@ export default class StudioTools {
     editor.creatingScene = true;
     const generation = editor.projectGeneration, previousRoom = editor.roomId;
     try {
+    let creation = null;
+    if (options.name === undefined && options.defaults !== false && editor.sceneCreationDialog) {
+      creation = await editor.sceneCreationDialog.request();
+      if (!creation) return;
+      if (!editor.active || editor.projectGeneration !== generation || editor.roomId !== previousRoom) throw new Error('El proyecto cambió. Vuelve a crear el escenario desde el proyecto actual.');
+      if (creation.kind === 'template') {
+        editor.creatingScene = false;
+        if (creation.templateId.startsWith('included:')) return await this.createStudyVariant(creation.templateId.slice(9), {name: creation.name});
+        const template = (document.studio && document.studio.templates || []).find(item => 'saved:' + item.id === creation.templateId);
+        if (!template) throw new Error('La plantilla guardada ya no está disponible.');
+        return await this.createTemplateScene(template, {name: creation.name});
+      }
+      options = Object.assign({}, options, {name: creation.name});
+    }
     const scenes = clone(document.studio && document.studio.scenes || []);
     if (!scenes.some(scene => scene.id === editor.roomId)) scenes.push({id: editor.roomId, name: this.nameScene(editor.roomId)});
     const used = new Set(scenes.map(scene => scene.id));
@@ -223,7 +252,10 @@ export default class StudioTools {
     if (name.trim().length > 160) throw new Error('El nombre admite hasta 160 caracteres.');
     if (!editor.active || editor.projectGeneration !== generation || editor.roomId !== previousRoom) throw new Error('El proyecto o el nivel cambió. Vuelve a crear el nivel desde el escenario actual.');
     editor.toast('Creando nivel…');
-    await editor.hooks.gotoRoom(schema.studio.ROOM_IDS.indexOf(roomId));
+    const previousAuthoringRoom = editor.authoringRoomId;
+    editor.authoringRoomId = roomId;
+    try { await editor.hooks.gotoRoom(schema.studio.ROOM_IDS.indexOf(roomId)); }
+    finally { editor.authoringRoomId = previousAuthoringRoom; }
     if (editor.roomId !== roomId || editor.projectGeneration !== generation) throw new Error('No se pudo activar la sala nueva. El escenario anterior conserva sus cambios.');
     let failure;
     let completed = false;
@@ -242,9 +274,39 @@ export default class StudioTools {
     if (!completed) throw new Error('No se pudo completar la creación. Vuelve a intentarlo al terminar la carga actual.');
     if (editor.entities) editor.entities.sync();
     if (editor.home) editor.home();
-    this.refreshLabels(); editor.toast('Nivel «' + name.trim() + '» creado. Pulsa Guardar para conservarlo en el proyecto.'); return roomId;
+    this.refreshLabels(); editor.toast('Nivel «' + name.trim() + '» creado. Pulsa Guardar para conservarlo en el proyecto.');
+    if (creation && creation.kind === 'guided' && editor.sceneGuide) editor.sceneGuide.open();
+    return roomId;
     } finally { editor.creatingScene = false; }
   }
+  async createTemplateScene(template, options = {}) {
+    const editor = this.editor, document = editor.document, before = document.capture(), undoLength = document.undoStack.length, redo = document.redoStack.slice(), previousRoom = editor.roomId;
+    try {
+      const roomId = await this.newScene({name: options.name || template.name}); if (!roomId) return;
+      await this.placeTemplate(template, {preservePosition: true});
+      document.undoStack.splice(undoLength); document.undoStack.push(before); if (editor.entities) editor.entities.sync(); editor.home(); return roomId;
+    } catch (error) { document.transaction = null; document._restore(before); document.undoStack.splice(undoLength); document.redoStack.splice(0, document.redoStack.length, ...redo); if (editor.roomId !== previousRoom) await editor.hooks.gotoRoom(schema.studio.ROOM_IDS.indexOf(previousRoom)); throw error; }
+  }
+  async newProject(name) {
+    this.assertStudyReady(); const editor = this.editor, generation = editor.projectGeneration;
+    if (editor.creatingProject) throw new Error('Termina de crear el proyecto actual antes de crear otro.');
+    editor.creatingProject = true;
+    try {
+      const creation = editor.sceneCreationDialog ? await editor.sceneCreationDialog.request({mode: 'project', name}) : {kind: 'empty', name: name || 'Nuevo proyecto'};
+      if (!creation) return null;
+      this.assertStudyReady(); editor.creatingStudy = true;
+      const prepared = creation.kind === 'template' ? await this.compileStudyProject([creation.templateId.slice(9)], {name: creation.name}) : await compileBlankProject({name: creation.name, nativeDocument: editor.document});
+      if (generation !== editor.projectGeneration) throw new Error('El proyecto cambió durante la preparación. Vuelve a crear el proyecto.');
+      if (!editor.projectTabs) await editor.keepCurrentProject();
+      const saved = await editor.projectClient.createProject(prepared.name, prepared.document);
+      if (generation !== editor.projectGeneration) throw new Error('El proyecto se creó. Ábrelo desde la biblioteca de proyectos.');
+      await editor.applyServerProject(saved, {roomId: schema.studio.ROOM_IDS[0]});
+      if (editor.entities) editor.entities.sync(); editor.home(); this.refreshLabels();
+      if (creation.kind === 'guided' && editor.sceneGuide) editor.sceneGuide.open();
+      return saved;
+    } finally { editor.creatingStudy = false; editor.creatingProject = false; }
+  }
+  addLineMonitor() { if (!this.editor.monitorWidgets) throw new Error('El catálogo de widgets se está preparando.'); return this.editor.monitorWidgets.add(); }
   async duplicateScene() {
     const editor = this.editor, document = editor.document;
     if (editor.creatingScene) throw new Error('Termina de crear el nivel actual antes de duplicar otro.');
@@ -526,6 +588,7 @@ export default class StudioTools {
   connect() { if (this.editor.shell) this.editor.shell.openWorkspace('connections'); }
   openWorkspace(id, container) {
     if (!container) return;
+    if (this.graphicsSettings) { this.graphicsSettings.dispose(); this.graphicsSettings = null; }
     container.textContent = ''; const editor = this.editor, document = editor.document;
     const studio = document.studio || {version: 1};
     if (['interface', 'ui', 'interfaz'].includes(id)) {
@@ -580,6 +643,7 @@ export default class StudioTools {
       node('h2', id === 'cameras' ? 'Cámaras del escenario' : 'Entorno e iluminación', container);
       node('p', id === 'cameras' ? 'Las cámaras conservan posición, orientación y campo de visión. Usa el gizmo del marcador para componer cada toma.' : 'El cielo y la iluminación se guardan para este nivel. Puedes añadir luces puntuales; los materiales se editan por pieza en Apariencia.', container);
       if (id === 'environment') {
+        if (editor.appendGraphicsSettings) this.graphicsSettings = editor.appendGraphicsSettings(container);
         const roomId = editor.roomId, generation = editor.projectGeneration;
         const saved = (studio.environments || []).find(item => item.roomId === editor.roomId);
         const resolved = editor.entities && editor.entities.environment && editor.entities.environment.getConfig();

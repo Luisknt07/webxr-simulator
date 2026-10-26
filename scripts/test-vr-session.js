@@ -37,12 +37,12 @@ async function setup(options = {}) {
     isSessionSupported: async () => { if (options.supportFailure) throw new Error('XR policy'); return options.supported !== false; },
     requestSession(type, init) { requests.push({type, init}); return options.request ? options.request() : Promise.resolve(session(options)); }
   }};
-  const renderer = {xr: {setReferenceSpaceType(type) { renderer.space = type; }, setSession(value) {
+  const renderer = options.renderer || {xr: {setReferenceSpaceType(type) { renderer.space = type; }, setSession(value) {
     assigned.push(value); if (options.assignFailure) throw new Error('WebGL unavailable');
   }}};
   const text = fs.readFileSync(path.join(__dirname, '../src/lib/VRButton.js'), 'utf8').replace('export { VRButton };', 'return VRButton;');
   const button = new Function('navigator', 'document', 'window', text)(navigator, document, {isSecureContext: options.insecure !== true})
-    .createButton(renderer, (type, info) => events.push({type, info}), options.canStart);
+    .createButton(renderer, (type, info) => events.push({type, info}), options.canStart, options.vrOptions);
   await tick();
   return {button, events, renderer, assigned, requests};
 }
@@ -68,6 +68,51 @@ async function run() {
   assert.equal(f.button.textContent, 'Entrar en VR'); assert.equal(f.button.disabled, false);
   live.dispatchEvent({type: 'end'}); assert.equal(f.events.length, 2, 'Repeated session-end events cannot repeat desktop restoration');
 
+  function eventManager(mode = 'deferred') {
+    const xr = new THREE.EventDispatcher(); xr.isPresenting = false;
+    xr.setReferenceSpaceType = type => { xr.space = type; };
+    xr.getSession = () => xr.session;
+    xr.start = () => { xr.dispatchEvent({type: 'sessionstart'}); xr.isPresenting = true; };
+    xr.setSession = value => {
+      xr.session = value;
+      if (mode === 'sync') xr.start();
+      if (mode === 'reject') return Promise.reject(new Error('Async WebGL session setup failed'));
+      // This is r112's real signature: undefined while reference-space setup
+      // continues asynchronously and readiness arrives through sessionstart.
+    };
+    return {xr};
+  }
+  const actualManager = eventManager(), deferredStart = await setup({renderer: actualManager});
+  const entering = deferredStart.button.onclick(); await tick();
+  assert.equal(deferredStart.button.disabled, true); assert.deepEqual(deferredStart.events, [], 'A void setSession must not announce immersive readiness before the manager event.');
+  const assignedSession = actualManager.xr.session; actualManager.xr.session = session(); actualManager.xr.start(); await tick();
+  assert.deepEqual(deferredStart.events, [], 'Readiness from a different XR session is ignored.');
+  actualManager.xr.isPresenting = false; actualManager.xr.session = assignedSession; actualManager.xr.start(); await entering;
+  assert.equal(deferredStart.events[0].type, 'sessionStarted'); assert.equal(actualManager.xr._listeners.sessionstart.length, 0, 'The readiness listener is released after entry.');
+  await assignedSession.end();
+  const syncManager = eventManager('sync'), synchronousStart = await setup({renderer: syncManager}); await synchronousStart.button.onclick();
+  assert.equal(synchronousStart.events[0].type, 'sessionStarted', 'Registering before assignment supports an immediate manager event.'); await syncManager.xr.session.end();
+  const cancelledManager = eventManager(), cancelledStart = await setup({renderer: cancelledManager}); const cancellation = cancelledStart.button.onclick(); await tick(); await cancelledManager.xr.session.end(); await cancellation;
+  assert.equal(cancelledManager.xr.session.ended, 1); assert.deepEqual(cancelledStart.events, []); assert.equal(cancelledStart.button.textContent, 'Entrar en VR');
+  assert.equal(cancelledManager.xr._listeners.sessionstart.length, 0, 'Ending during setup removes readiness listeners and timers.');
+  const timeoutManager = eventManager(), timedOut = await setup({renderer: timeoutManager, vrOptions: {sessionStartTimeoutMs: 10}}); await timedOut.button.onclick();
+  assert.equal(timeoutManager.xr.session.ended, 1); assert.deepEqual(timedOut.events, []); assert.equal(timedOut.button.textContent, 'Reintentar VR'); assert.equal(timeoutManager.xr._listeners.sessionstart.length, 0);
+  const rejectManager = eventManager('reject'), asyncFailure = await setup({renderer: rejectManager}); await asyncFailure.button.onclick();
+  assert.equal(rejectManager.xr.session.ended, 1); assert.deepEqual(asyncFailure.events, []); assert.equal(asyncFailure.button.textContent, 'Reintentar VR');
+
+  const rates = session(); rates.frameRate = 90; rates.supportedFrameRates = new Float32Array([72, 90, 120]); rates.rateRequests = [];
+  rates.updateTargetFrameRate = rate => { rates.rateRequests.push(rate); return Promise.resolve(); };
+  const requestedRate = await setup({request: () => Promise.resolve(rates), vrOptions: {preferredFrameRate: 72}}); await requestedRate.button.onclick();
+  assert.deepEqual(rates.rateRequests, [72]); assert.equal(rates.frameRate, 90, 'Requesting a rate does not claim the runtime has applied it.'); await rates.end();
+  for (const value of [undefined, 80, NaN, 15]) {
+    rates.rateRequests = []; const safe = await setup({request: () => Promise.resolve(rates), vrOptions: {preferredFrameRate: value}}); await safe.button.onclick();
+    assert.deepEqual(rates.rateRequests, [], 'Absent, invalid or unsupported preferences retain the runtime rate.'); await rates.end();
+  }
+  rates.updateTargetFrameRate = () => Promise.reject(new Error('Runtime refused optional rate'));
+  const rateRejected = await setup({request: () => Promise.resolve(rates), vrOptions: {preferredFrameRate: 72}}); await rateRejected.button.onclick(); await tick();
+  assert.equal(rateRejected.events[0].type, 'sessionStarted'); assert.equal(rateRejected.button.textContent, 'Salir de VR', 'A rejected optional frame-rate request never turns successful entry into failure.'); await rates.end();
+  delete rates.updateTargetFrameRate; const unavailableRate = await setup({request: () => Promise.resolve(rates), vrOptions: {preferredFrameRate: 72}}); await unavailableRate.button.onclick(); assert.equal(unavailableRate.events[0].type, 'sessionStarted'); await rates.end();
+
   const fallback = await setup({floor: false}); await fallback.button.onclick();
   assert.deepEqual(fallback.assigned[0].requests, ['local-floor', 'local']);
   assert.equal(fallback.renderer.space, 'local'); assert.equal(fallback.events[0].info.referenceSpaceType, 'local');
@@ -89,6 +134,8 @@ async function run() {
   }
   const insecure = await setup({noXR: true, insecure: true}); assert.equal(insecure.button.href, 'https://localhost/');
   assert.equal(insecure.button.textContent, 'VR requiere HTTPS');
+  const insecurePolyfill = await setup({insecure: true}); assert.equal(insecurePolyfill.button.href, 'https://localhost/');
+  assert.equal(insecurePolyfill.button.textContent, 'VR requiere HTTPS'); assert.deepEqual(insecurePolyfill.requests, [], 'An exposed/polyfilled navigator.xr never bypasses the secure-origin requirement.');
   const noXR = await setup({noXR: true}); assert.equal(noXR.button.attrs['aria-disabled'], 'true');
 
   const context = {cameraRig: new THREE.Group(), editor: {document: {}, toast() {}}};

@@ -2,6 +2,7 @@
 
 const {randomBytes, randomUUID, createHash, scrypt, timingSafeEqual} = require('node:crypto');
 const {ApiError, plain, safeTree} = require('./validation');
+const {ProjectAccess} = require('./project-access');
 
 const COOKIE = 'hello_studio_session';
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -143,6 +144,11 @@ class StudioService {
       const first = this.db.prepare('SELECT id FROM studio_users ORDER BY rowid LIMIT 1').get();
       if (first) this.db.prepare("INSERT OR IGNORE INTO studio_settings VALUES('owner',?)").run(first.id);
     }
+    this.access = new ProjectAccess(this);
+    const administrationPath = require('node:path').join(__dirname, 'studio-administration.js');
+    if (require('node:fs').existsSync(administrationPath)) {
+      const {StudioAdministration} = require(administrationPath); this.administration = new StudioAdministration(this);
+    }
   }
 
   _owner(userId) {
@@ -152,7 +158,8 @@ class StudioService {
 
   _profile(row) {
     return {id: row.id, username: row.username, displayName: row.display_name, avatar: JSON.parse(row.avatar),
-      profileImage: row.image, preferences: JSON.parse(row.preferences), role: row.role,
+      profileImage: row.image, preferences: JSON.parse(row.preferences), role: row.role, superadmin: this._owner(row.id),
+      quota: this.access && this.access.usage(row.id),
       permissions: {editor: row.role === 'creator', createProject: row.role === 'creator', manageUsers: this._owner(row.id)}};
   }
 
@@ -161,13 +168,11 @@ class StudioService {
     const row = token && this.db.prepare(`SELECT u.* FROM studio_sessions s JOIN studio_users u ON u.id=s.user_id
       WHERE s.token_hash=? AND s.expires_at>?`).get(hash(token), this.now());
     if (!row && required) fail(401, 'Inicia sesión para continuar.', 'authentication_required');
+    if (row && this.access) this.access.touch(row.id);
     return row || null;
   }
 
   requireEditor(req) {
-    // Local projects created before accounts remain accessible until an account
-    // is configured. Once configured, mutations require a real creator session.
-    if (!this.db.prepare('SELECT 1 FROM studio_users LIMIT 1').get()) return null;
     const user = this.user(req);
     this._expectedUser(req, user);
     if (user.role !== 'creator') fail(403, 'Tu cuenta no tiene permiso para editar.', 'editor_forbidden');
@@ -208,7 +213,8 @@ class StudioService {
     return this._profile(user);
   }
 
-  _project(projectId, revision) {
+  _project(projectId, revision, user) {
+    if (user) this.access.require(user, projectId);
     const project = this.store.getProject(id(projectId), integer(revision, 1));
     return project;
   }
@@ -230,6 +236,7 @@ class StudioService {
   _room(roomId, user, touch = true) {
     const room = this.db.prepare('SELECT * FROM studio_rooms WHERE id=? AND closed=0').get(id(roomId));
     if (!room) fail(404, 'La sala no está disponible.', 'room_not_found');
+    this.access.require(user, room.project_id);
     const member = this.db.prepare('SELECT * FROM studio_members WHERE room_id=? AND user_id=? AND active=1').get(room.id, user.id);
     if (!member) fail(403, 'Debes unirte a esta sala.', 'room_forbidden');
     if (touch) this.db.prepare('UPDATE studio_members SET seen_at=? WHERE room_id=? AND user_id=?').run(this.now(), room.id, user.id);
@@ -237,9 +244,12 @@ class StudioService {
   }
 
   _event(roomId, userId, type, payload) {
-    const room = this.db.prepare('SELECT next_sequence FROM studio_rooms WHERE id=?').get(roomId);
+    const room = this.db.prepare('SELECT next_sequence,host_id FROM studio_rooms WHERE id=?').get(roomId);
     const sequence = room.next_sequence;
-    this.db.prepare('INSERT INTO studio_room_events VALUES(?,?,?,?,?,?)').run(roomId, sequence, userId, type, JSON.stringify(payload), this.now());
+    const encoded = JSON.stringify(payload);
+    const retiredBytes = this.db.prepare('SELECT COALESCE(SUM(length(CAST(payload AS BLOB))),0) AS n FROM studio_room_events WHERE room_id=? AND sequence<?').get(roomId, sequence - 1000).n;
+    this.access.checkQuota(room.host_id, Buffer.byteLength(encoded) - retiredBytes);
+    this.db.prepare('INSERT INTO studio_room_events VALUES(?,?,?,?,?,?)').run(roomId, sequence, userId, type, encoded, this.now());
     this.db.prepare('UPDATE studio_rooms SET next_sequence=next_sequence+1 WHERE id=?').run(roomId);
     // A snapshot carries current state. Keep a bounded recent action window and
     // tell lagging clients to recover the snapshot instead of silently skipping.
@@ -289,12 +299,13 @@ class StudioService {
       object(value, limit);
       return value;
     };
+    if (this.administration && await this.administration.handle(req, res, url, pathname)) return true;
 
     if (parts.length === 1 && parts[0] === 'me' && method === 'GET') {
       const user = this.user(req, false);
       send(200, {user: user && this._profile(user), configured: !!this.db.prepare('SELECT 1 FROM studio_users LIMIT 1').get(),
         capabilities: {accounts: true, avatars: AVATAR_BASES, recovery: false, rooms: true, roomTransport: 'http-poll',
-          checkpointVersion: 1, maxStateBytes: MAX_STATE_BYTES, sharedEditing: false}});
+          checkpointVersion: 1, maxStateBytes: MAX_STATE_BYTES, sharedEditing: true, privateProjects: true, publicSceneCatalog: true}});
     } else if (parts.length === 1 && parts[0] === 'register' && method === 'POST') {
       this._limit(req, 'register', 10, 3600000);
       const data = await body();
@@ -306,15 +317,17 @@ class StudioService {
       const salt = randomBytes(32).toString('hex');
       const passwordHash = (await derive(data.password, salt)).toString('hex');
       const userId = randomUUID();
-      // Only the original local account receives creator access automatically.
-      // Subsequent registrations can explore/join rooms; that owner explicitly
-      // authorizes additional creators through the protected role endpoint.
+      // Normal accounts create private projects within their quota. Invitation
+      // codes can explicitly assign a read-only account instead.
       this.db.exec('BEGIN IMMEDIATE');
       try {
         const owner = this.db.prepare("SELECT value FROM studio_settings WHERE key='owner'").get();
-        this.db.prepare('INSERT INTO studio_users VALUES(?,?,?,?,?,?,?,?,?,?)').run(userId, username, salt, passwordHash,
-          displayName, JSON.stringify(DEFAULT_AVATAR), null, JSON.stringify({handedness: 'right', locomotion: 'smooth'}), owner ? 'viewer' : 'creator', this.now());
+        const invitation = owner && this.administration && this.administration.consumeRegistrationCode ? this.administration.consumeRegistrationCode(data.code) : null;
+        this.db.prepare('INSERT INTO studio_users(id,username,salt,password_hash,display_name,avatar,image,preferences,role,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)').run(userId, username, salt, passwordHash,
+          displayName, JSON.stringify(DEFAULT_AVATAR), null, JSON.stringify({handedness: 'right', locomotion: 'smooth'}), invitation && invitation.role || 'creator', this.now());
         if (!owner) this.db.prepare("INSERT INTO studio_settings VALUES('owner',?)").run(userId);
+        this.access.ensureUser(userId);
+        if (invitation && this.administration && this.administration.recordRegistration) this.administration.recordRegistration(userId, invitation);
         this.db.exec('COMMIT');
       } catch (error) {
         this.db.exec('ROLLBACK');
@@ -362,23 +375,30 @@ class StudioService {
         let image = data.profileImage === undefined ? user.image : data.profileImage;
         if (image !== null) {
           if (typeof image !== 'string' || !/^\/api\/assets\/[a-f0-9]{64}$/.test(image)) fail(400, 'Selecciona una imagen importada en este servidor.');
-          const asset = this.store.asset(image.slice('/api/assets/'.length));
+          const asset = this.access.asset(user, image.slice('/api/assets/'.length));
           if (!/^image\/(?:png|jpeg|webp|gif|avif)$/.test(asset.mime)) fail(400, 'La imagen de perfil debe ser una imagen raster compatible.');
         }
+        const imageHash = image && image.slice('/api/assets/'.length);
+        const ownsImage = imageHash && this.db.prepare('SELECT 1 FROM studio_asset_owners WHERE user_id=? AND asset_hash=?').get(user.id, imageHash);
+        const profileBytes = Buffer.byteLength(JSON.stringify(avatarValue) + JSON.stringify(preferenceValue) + (image || '')) - Buffer.byteLength(user.avatar + user.preferences + (user.image || ''));
+        this.access.checkQuota(user.id, profileBytes + (imageHash && !ownsImage ? this.store.asset(imageHash).size : 0));
+        if (imageHash && !ownsImage) this.db.prepare('INSERT INTO studio_asset_owners VALUES(?,?,?)').run(user.id, imageHash, this.now());
         this.db.prepare('UPDATE studio_users SET display_name=?,avatar=?,image=?,preferences=? WHERE id=?')
           .run(displayName, JSON.stringify(avatarValue), image, JSON.stringify(preferenceValue), user.id);
         send(200, {user: this._profile(this.db.prepare('SELECT * FROM studio_users WHERE id=?').get(user.id))});
       } else if (parts.length === 1 && parts[0] === 'progress' && method === 'GET') {
         const projectId = id(url.searchParams.get('projectId'));
-        this.store.getProject(projectId);
+        this.access.require(user, projectId);
         const rows = this.db.prepare('SELECT * FROM studio_progress WHERE user_id=? AND project_id=? ORDER BY mission_id').all(user.id, projectId);
         send(200, {progress: rows.map(row => ({projectId, missionId: row.mission_id, missionVersion: row.mission_version,
           value: JSON.parse(row.value), updatedAt: new Date(row.updated_at).toISOString()}))});
       } else if (parts.length === 1 && parts[0] === 'progress' && method === 'PUT') {
         const data = await body();
         const projectId = id(data.projectId), missionId = id(data.missionId), missionVersion = integer(data.missionVersion, 1);
-        this.store.getProject(projectId);
+        this.access.require(user, projectId);
         const value = object(data.value, 32768);
+        const oldValue = this.db.prepare('SELECT value FROM studio_progress WHERE user_id=? AND project_id=? AND mission_id=?').get(user.id, projectId, missionId);
+        this.access.checkQuota(user.id, Buffer.byteLength(value) - (oldValue ? Buffer.byteLength(oldValue.value) : 0));
         const previous = this.db.prepare('SELECT mission_version FROM studio_progress WHERE user_id=? AND project_id=? AND mission_id=?')
           .get(user.id, projectId, missionId);
         if (previous && previous.mission_version !== missionVersion && data.replaceVersion !== true) fail(409, 'La versión de esta misión cambió. Confirma el reinicio de su progreso.', 'progress_incompatible');
@@ -392,10 +412,11 @@ class StudioService {
         send(200, {checkpoints: rows.map(row => this._checkpoint(row))});
       } else if (parts.length === 1 && parts[0] === 'checkpoints' && method === 'POST') {
         const data = await body(MAX_STATE_BYTES + 16384);
-        this._project(data.projectId, data.projectRevision);
+        this._project(data.projectId, data.projectRevision, user);
         this._compatible(data.projectId, data.projectRevision);
         if (data.version !== 1) fail(409, 'El formato de sesión no es compatible.', 'checkpoint_incompatible');
         const state = object(data.state);
+        this.access.checkQuota(user.id, Buffer.byteLength(state));
         const checkpointId = randomUUID();
         this.db.prepare('INSERT INTO studio_checkpoints VALUES(?,?,?,?,?,?,?,?,?)').run(checkpointId, user.id,
           data.projectId, data.projectRevision, 1, text(data.name, 1, 120), id(data.roomId), state, this.now());
@@ -410,15 +431,17 @@ class StudioService {
           this.db.prepare('DELETE FROM studio_checkpoints WHERE id=? AND user_id=?').run(row.id, user.id);
           send(200, {ok: true});
         } else {
+          this.access.require(user, row.project_id);
           this._compatible(row.project_id, row.project_revision);
           send(200, {checkpoint: this._checkpoint(row, true)});
         }
       } else if (parts.length === 1 && parts[0] === 'rooms' && method === 'POST') {
         this._limit(req, 'room-create-' + user.id, 30, 3600000);
         const data = await body(MAX_STATE_BYTES + 16384);
-        this._project(data.projectId, data.projectRevision);
+        this._project(data.projectId, data.projectRevision, user);
         this._compatible(data.projectId, data.projectRevision);
         const state = object(data.state || {});
+        this.access.checkQuota(user.id, Buffer.byteLength(state));
         const roomId = randomUUID(), code = randomBytes(6).toString('hex').toUpperCase();
         const name = text(data.name || 'Sala compartida', 1, 100);
         this.db.prepare('INSERT INTO studio_rooms(id,code,host_id,project_id,project_revision,room_id,name,state,created_at) VALUES(?,?,?,?,?,?,?,?,?)')
@@ -432,10 +455,13 @@ class StudioService {
         const code = text(data.code, 12, 12).toUpperCase();
         const room = this.db.prepare('SELECT * FROM studio_rooms WHERE code=? AND closed=0').get(code);
         if (!room) fail(404, 'Código de sala incorrecto o sala cerrada.', 'room_not_found');
+        // Active membership grants temporary project viewing through the host's
+        // room code. Authoring still requires an explicit editor share.
         const previous = this.db.prepare('SELECT * FROM studio_members WHERE room_id=? AND user_id=?').get(room.id, user.id);
         const count = this.db.prepare('SELECT COUNT(*) AS count FROM studio_members WHERE room_id=? AND active=1 AND seen_at>?').get(room.id, this.now() - PRESENCE_MS).count;
         if (count >= 16 && (!previous || !previous.active || previous.seen_at <= this.now() - PRESENCE_MS)) fail(409, 'Esta sala alcanzó el límite de 16 participantes.', 'room_full');
         const role = room.host_id === user.id ? 'host' : data.role === 'observer' ? 'observer' : 'participant';
+        this.access.checkQuota(room.host_id, 1024);
         this.db.prepare(`INSERT INTO studio_members(room_id,user_id,role,active,pose,seen_at) VALUES(?,?,?,1,NULL,?)
           ON CONFLICT(room_id,user_id) DO UPDATE SET role=excluded.role,active=1,seen_at=excluded.seen_at`)
           .run(room.id, user.id, role, this.now());
@@ -461,6 +487,7 @@ class StudioService {
           if (integer(data.expectedRevision) !== room.revision) fail(409, 'El estado compartido cambió; vuelve a consultarlo.', 'room_revision_conflict');
           const appliedSequence = integer(data.appliedSequence, room.state_sequence, room.next_sequence - 1);
           const state = object(data.state);
+          this.access.checkQuota(user.id, Buffer.byteLength(state) - Buffer.byteLength(room.state) + 1024);
           this.db.prepare('UPDATE studio_rooms SET state=?,state_sequence=?,revision=revision+1 WHERE id=? AND revision=?').run(state, appliedSequence, room.id, room.revision);
           const sequence = this._event(room.id, user.id, 'state', {revision: room.revision + 1});
           send(200, {revision: room.revision + 1, sequence});
@@ -468,6 +495,7 @@ class StudioService {
           if (member.role === 'observer') fail(403, 'Los observadores no manipulan objetos.', 'observer_readonly');
           this._limit(req, 'room-action-' + user.id, 240, 10000);
           const data = await body(16384);
+          this.access.checkQuota(room.host_id, Buffer.byteLength(JSON.stringify(data)) + 1024);
           if (!['control', 'grab', 'release', 'pose-object', 'simulation'].includes(data.type)) fail(400, 'Acción de sala no compatible.');
           const payload = {type: data.type};
           if (data.type === 'simulation') {
@@ -508,9 +536,10 @@ class StudioService {
           const sequence = this._event(room.id, user.id, 'action', payload);
           send(200, {sequence, accepted: true});
         } else if (parts.length === 3 && parts[2] === 'leave' && method === 'POST') {
+          // Leaving and releasing leases must remain possible at a full quota.
+          try { this._event(room.id, user.id, 'left', {}); } catch (error) { if (error.code !== 'storage_quota_exceeded' && error.code !== 'project_quota_exceeded') throw error; }
           this.db.prepare('UPDATE studio_members SET active=0 WHERE room_id=? AND user_id=?').run(room.id, user.id);
           this.db.prepare('DELETE FROM studio_locks WHERE room_id=? AND user_id=?').run(room.id, user.id);
-          this._event(room.id, user.id, 'left', {});
           // The host can reconnect with the invitation code. The durable room
           // stays available; guests see host online=false and pause authority.
           send(200, {ok: true});

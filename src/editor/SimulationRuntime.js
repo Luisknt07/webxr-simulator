@@ -860,6 +860,7 @@ export default class SimulationRuntime {
     if (input && typeof input.onSelectStart === 'function') {
       const runtime = this, original = input.onSelectStart;
       const wrapper = function(event) {
+        if (runtime.ctx.vrMode && runtime.ctx.studioMenuOpen) return original.apply(this, arguments);
         const product = event && runtime.held.get(event.target);
         const grip = event && runtime.productGripInputs && runtime.productGripInputs.get(event.target);
         if ((product || grip && grip.down && grip.product) && runtime.running && !(runtime.ctx.editor && runtime.ctx.editor.active)) {
@@ -912,7 +913,7 @@ export default class SimulationRuntime {
     const binding = {controller, down: false};
     binding.start = () => {
       const input = this.ctx.raycontrol;
-      if (!this.running || !this.ctx.vrMode || this.ctx.editor && this.ctx.editor.active ||
+      if (!this.running || !this.ctx.vrMode || this.ctx.studioMenuOpen || controller.userData && controller.userData.studioMenuTrigger || this.ctx.editor && this.ctx.editor.active ||
         !input || input.enabled === false || !data.enabled || data.active || binding.down || this.held.has(controller)) return;
       binding.down = true;
       const entries = input.selectionEntries ? input.selectionEntries(data) : [];

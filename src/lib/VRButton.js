@@ -14,7 +14,9 @@
 
 var VRButton = {
 
-	createButton: function ( renderer, callback, canStart ) {
+	createButton: function ( renderer, callback, canStart, options ) {
+
+		options = options || {};
 
 		function showEnterVR( /*device*/ ) {
 
@@ -26,6 +28,63 @@ var VRButton = {
 				pending = value;
 				button.disabled = value;
 				button.setAttribute( 'aria-busy', value ? 'true' : 'false' );
+			}
+
+			function assignRendererSession( session ) {
+				var xr = renderer.xr;
+				// r112 returns undefined from setSession and reports readiness later.
+				// Newer managers may return a Promise; adapters without events retain
+				// that contract. Register before assignment to catch synchronous starts.
+				if ( !xr.addEventListener || !xr.removeEventListener || typeof xr.isPresenting !== 'boolean' ) {
+					return Promise.resolve( xr.setSession( session ) );
+				}
+				return new Promise( function ( resolve, reject ) {
+					var settled = false;
+					var timeout = Number( options.sessionStartTimeoutMs );
+					if ( !Number.isFinite( timeout ) || timeout <= 0 ) timeout = 10000;
+					timeout = Math.min( timeout, 30000 );
+					var timer;
+					function finish( error ) {
+						if ( settled ) return;
+						settled = true;
+						clearTimeout( timer );
+						xr.removeEventListener( 'sessionstart', started );
+						session.removeEventListener( 'end', ended );
+						error ? reject( error ) : resolve();
+					}
+					function started() {
+						if ( xr.getSession && xr.getSession() !== session ) return;
+						finish();
+					}
+					function ended() {
+						var error = new Error( 'La sesión VR terminó antes de estar lista.' );
+						error.cancelled = true;
+						finish( error );
+					}
+					xr.addEventListener( 'sessionstart', started );
+					session.addEventListener( 'end', ended );
+					timer = setTimeout( function () { finish( new Error( 'El visor no confirmó la entrada en VR.' ) ); }, timeout );
+					try {
+						var assigned = xr.setSession( session );
+						if ( assigned && typeof assigned.then === 'function' ) assigned.then( function () {
+							if ( xr.isPresenting ) started();
+						}, finish );
+						if ( xr.isPresenting ) started();
+					} catch ( error ) { finish( error ); }
+				} );
+			}
+
+			function requestPreferredFrameRate( session ) {
+				// A device-specific option is a request, not an achieved-FPS claim.
+				// Keep entry responsive and retain the runtime's rate if unsupported.
+				var rate = options.preferredFrameRate;
+				if ( currentSession !== session || !Number.isFinite( rate ) || rate < 30 ) return;
+				try {
+					if ( typeof session.updateTargetFrameRate !== 'function' || !session.supportedFrameRates ||
+						Array.from( session.supportedFrameRates ).indexOf( rate ) === -1 || session.frameRate === rate ) return;
+					var update = session.updateTargetFrameRate( rate );
+					if ( update && typeof update.catch === 'function' ) update.catch( function () {} );
+				} catch ( error ) { /* The browser retains its current supported rate. */ }
 			}
 
 			async function onSessionStarted( session ) {
@@ -44,11 +103,12 @@ var VRButton = {
 						if ( currentSession !== session ) return;
 						renderer.xr.setReferenceSpaceType( referenceSpaceType );
 					}
-					await renderer.xr.setSession( session );
+					await assignRendererSession( session );
 				} catch ( error ) {
 					session.removeEventListener( 'end', onSessionEnded );
-					if ( currentSession === session ) currentSession = null;
-					try { await session.end(); } catch ( endError ) { /* The session may already have ended. */ }
+					var needsEnd = currentSession === session;
+					if ( needsEnd ) currentSession = null;
+					if ( needsEnd ) try { await session.end(); } catch ( endError ) { /* The session may already have ended. */ }
 					throw error;
 				}
 				if ( currentSession !== session ) return;
@@ -58,6 +118,7 @@ var VRButton = {
 				setPending( false );
 				notified = true;
 				callback('sessionStarted', {referenceSpaceType: referenceSpaceType});
+				requestPreferredFrameRate( session );
 			}
 
 			function onSessionEnded( /*event*/ ) {
@@ -123,8 +184,8 @@ var VRButton = {
 						await onSessionStarted( session );
 					} catch ( error ) {
 						setPending( false );
-						button.textContent = 'Reintentar VR';
-						button.title = 'No se pudo iniciar la sesión inmersiva. Revisa el permiso del visor.';
+						button.textContent = error && error.cancelled ? 'Entrar en VR' : 'Reintentar VR';
+						button.title = error && error.cancelled ? '' : 'No se pudo iniciar la sesión inmersiva. Revisa el permiso del visor.';
 					}
 
 				} else {
@@ -183,7 +244,9 @@ var VRButton = {
 
 		}
 
-		if ( 'xr' in navigator ) {
+		// A polyfill may still expose navigator.xr on HTTP. Immersive entry needs
+		// a secure origin regardless of that property, including Quest Browser.
+		if ( 'xr' in navigator && window.isSecureContext !== false ) {
 
 			var button = document.createElement( 'button' );
 			button.style.display = 'none';

@@ -40,6 +40,10 @@ camera.position.set(0, 2, 10); camera.updateMatrixWorld(true); environment.sync(
 assert.equal(environment.stats.shadowFocus, 'equipment'); assert(Math.abs(sun.target.position.z + 30) < .1, 'An entrance view focuses its existing bounded map onto visible equipment rather than empty nearby floor.');
 assert(environment.shadowActors.includes(distantActor), 'Lazy room hydration invalidates shadow casters through the real object inventory without requiring an authored document edit.');
 assert.equal(sun.shadow.mapSize.x, 2048); assert(sun.shadow.camera.right - sun.shadow.camera.left <= 30);
+editor.ctx.graphics = {getLimits: () => require('../shared/graphics-quality').limitsFor('economy')}; environment.sync();
+assert.equal(sun.shadow.mapSize.x, 512); assert.equal(environment.stats.effectiveTier, 'economy');
+config.shadows = false; environment.sync(); assert.equal(sun.castShadow, false); assert.equal(environment.stats.shadowMaps, 0, 'A device tier never overrides an author who disabled shadows.');
+config.shadows = true; delete editor.ctx.graphics; environment.sync();
 const xrCamera = new THREE.ArrayCamera(); xrCamera.matrixWorld.makeTranslation(100, 1.6, -12); renderer.xr.getCamera = () => xrCamera;
 editor.ctx.vrMode = true; environment.sync(); assert.equal(sun.shadow.mapSize.x, 1024); assert.equal(environment.stats.profile, 'high-xr');
 assert(Math.abs(sun.target.position.x - 100) < .1 && Math.abs(sun.target.position.z + 17) < .1, 'XR shadow focus uses the headset world matrix without overwriting its tracked pose.');
@@ -56,16 +60,59 @@ markingGroup.children.forEach(mesh => { mesh.geometry.dispose(); mesh.material.d
 // public-method guard and off-screen pass lifecycle without requiring a GPU.
 let reflectionPasses = 0, generatorDisposals = 0, reflectionDisposals = 0;
 const reflectionTexture = new THREE.Texture({width: 768, height: 768}), targetState = {previous: true}, viewportState = new THREE.Vector4(2, 3, 100, 80), scissorState = new THREE.Vector4(4, 5, 60, 50);
-const mockRenderer = {capabilities: {}, getContext() {}, xr: {enabled: true}, getRenderTarget: () => targetState,
+const contextListeners = new Map(); let mockTarget = targetState;
+const mockRenderer = {capabilities: {}, getContext() {}, xr: {enabled: true}, getRenderTarget: () => mockTarget,
+  domElement: {addEventListener(name, listener) { contextListeners.set(name, listener); }, removeEventListener(name, listener) { if (contextListeners.get(name) === listener) contextListeners.delete(name); }},
+  shadowMap: {enabled: false, type: THREE.BasicShadowMap}, toneMapping: THREE.NoToneMapping, toneMappingExposure: .6, outputEncoding: THREE.sRGBEncoding,
   getViewport: target => target.copy(viewportState), getScissor: target => target.copy(scissorState), getScissorTest: () => true,
-  setRenderTarget(value) { assert.equal(value, targetState); }, setViewport(value) { assert(value.equals(viewportState)); }, setScissor(value) { assert(value.equals(scissorState)); }, setScissorTest(value) { assert.equal(value, true); }};
+  setRenderTarget(value) { assert(value === targetState || value.isWebGLRenderTarget && value.width === 1 && value.height === 1); mockTarget = value; },
+  setViewport(value) { assert(value.equals(viewportState)); }, setScissor(value) { assert(value.equals(scissorState)); }, setScissorTest(value) { assert.equal(typeof value, 'boolean'); },
+  render() { throw new Error('Context recovery must not add scene warmup renders.'); }};
 const MockThree = Object.assign({}, THREE, {PMREMGenerator: class {
-  fromScene(room) { reflectionPasses++; assert.equal(mockRenderer.xr.enabled, false); assert(room.children.length >= 8); return {texture: reflectionTexture, dispose() { reflectionDisposals++; }}; }
+  fromScene(room) { reflectionPasses++; assert.equal(mockRenderer.xr.enabled, false); assert(room.children.length >= 8); return {texture: reflectionPasses === 1 ? reflectionTexture : new THREE.Texture({width: 768, height: 768}), dispose() { reflectionDisposals++; }}; }
   dispose() { generatorDisposals++; }
 }});
 const MockEnvironment = new Function('THREE', 'schema', source)(MockThree, schema), reflections = new MockEnvironment({});
 assert.equal(mockRenderer.isWebGLRenderer, undefined);
 assert.equal(reflections.createReflections(mockRenderer), reflectionTexture); assert.equal(mockRenderer.xr.enabled, true);
 assert.equal(reflections.createReflections(mockRenderer), reflectionTexture); assert.equal(reflectionPasses, 1); assert.equal(generatorDisposals, 1);
-reflections.dispose(); assert.equal(reflectionDisposals, 1); reflectionTexture.dispose();
-console.log('Render quality: one local shadow key, bounded PCF maps, XR cap, caster exclusions, idle reuse, actor geometry preservation, inactive rooms, release and exact native renderer/light restoration passed.');
+const recoveryScene = new THREE.Scene(), recoveryRoot = new THREE.Group(), recoverySun = new THREE.DirectionalLight(); recoverySun.name = 'sun'; recoveryScene.add(recoveryRoot, recoverySun);
+const recoveryMesh = new THREE.Mesh(new THREE.BoxBufferGeometry(), new THREE.MeshStandardMaterial()); recoveryRoot.add(recoveryMesh);
+const recoveryConfig = Object.assign(schema.defaultEnvironment('hall'), {sky: 'color', renderQuality: 'high', shadows: true}), savedRecovery = JSON.stringify(recoveryConfig), nativeShadow = recoverySun.shadow;
+let releasedHandles = 0, restoredHandles = 0;
+reflections.editor = {roomId: 'hall', active: true, camera, ctx: {renderer: mockRenderer, camera}, performance: {releaseContextTextureHandles() { releasedHandles++; }, restoreContextTextureHandles() { restoredHandles++; }}, hooks: {renderScene: recoveryScene}, document: {studio: {environments: [recoveryConfig]}, getRoot: () => recoveryRoot, getObjects: () => [recoveryMesh]}};
+reflections.sync(); assert.equal(recoveryScene.environment, reflectionTexture); assert.notEqual(recoverySun.shadow, nativeShadow);
+let shadowDisposals = 0, prevented = 0; recoverySun.shadow.map = {dispose() { shadowDisposals++; }}; recoverySun.shadow.mapPass = {dispose() { shadowDisposals++; }};
+contextListeners.get('webglcontextlost')({preventDefault() { prevented++; }});
+assert.equal(prevented, 1); assert.equal(reflections.stats.contextLost, true); assert.equal(reflectionDisposals, 1); assert.equal(shadowDisposals, 2);
+assert.equal(releasedHandles, 1);
+assert.equal(recoveryScene.environment, null); assert.equal(recoverySun.shadow.map, null); assert.equal(recoverySun.shadow.mapPass, null);
+for (let frame = 0; frame < 10; frame++) reflections.sync();
+assert.equal(reflectionPasses, 1, 'A lost context cannot rebuild or cache an empty PMREM target.');
+contextListeners.get('webglcontextrestored')(); contextListeners.get('webglcontextrestored')();
+assert.equal(reflections.stats.contextRestores, 1); assert.equal(reflectionPasses, 1, 'Recovery defers GPU allocation until the next active sync.');
+assert.equal(restoredHandles, 1);
+reflections.sync(); const restoredTexture = recoveryScene.environment;
+assert(restoredTexture && restoredTexture !== reflectionTexture, 'A restored context needs freshly rendered IBL pixels, not the old render-target object.');
+assert.equal(reflectionPasses, 2); assert.equal(reflections.stats.shadowMaps, 0); assert.equal(mockRenderer.shadowMap.enabled, false);
+assert.equal(reflections.stats.recoveryShadowFallback, true); assert.equal(reflections.stats.shadowFocus, 'context-recovery-fallback');
+assert.equal(recoveryMesh.frustumCulled, true); assert.equal(mockTarget, targetState); assert.equal(mockRenderer.xr.enabled, true);
+for (let frame = 0; frame < 20; frame++) reflections.sync(); assert.equal(reflectionPasses, 2, 'Idle restored frames reuse the single rebuilt PMREM.');
+const hydratedCaster = new THREE.Mesh(recoveryMesh.geometry, recoveryMesh.material); hydratedCaster.position.x = 200; recoveryRoot.add(hydratedCaster); reflections.sync();
+assert.equal(mockRenderer.shadowMap.enabled, false, 'Newly hydrated casters cannot re-enable r112 shadow caches from a lost context.'); assert.equal(hydratedCaster.frustumCulled, true);
+for (let frame = 0; frame < 10; frame++) reflections.sync();
+hydratedCaster.geometry.setIndex(hydratedCaster.geometry.index.clone()); reflections.sync();
+assert.equal(mockRenderer.shadowMap.enabled, false, 'A lossless optimized-index replacement also keeps the derived recovery fallback.');
+assert.equal(JSON.stringify(recoveryConfig), savedRecovery, 'Recovery never edits the authored environment.');
+reflections.dispose(); assert.equal(reflectionDisposals, 2); assert.equal(contextListeners.size, 0); assert.equal(recoverySun.shadow, nativeShadow);
+reflectionTexture.dispose(); restoredTexture.dispose(); recoveryMesh.geometry.dispose(); recoveryMesh.material.dispose();
+const nativeEnvironment = new THREE.Texture(), nativeMap = {dispose() { throw new Error('A foreign native shadow target must remain owned by its original renderer.'); }};
+recoveryScene.environment = nativeEnvironment; recoverySun.shadow.map = nativeMap;
+const nativeRecovery = new MockEnvironment({roomId: 'hall', ctx: {renderer: mockRenderer}, hooks: {renderScene: recoveryScene}, document: {studio: {version: 1}}});
+nativeRecovery.sync(); assert.equal(nativeRecovery.stats.recoveryShadowFallback, true, 'Recreating an environment does not re-enable the broken cache on the same renderer.'); contextListeners.get('webglcontextlost')({preventDefault() {}}); contextListeners.get('webglcontextrestored')(); nativeRecovery.sync();
+assert.equal(recoveryScene.environment, nativeEnvironment); assert.equal(recoverySun.shadow.map, nativeMap); assert.equal(reflectionPasses, 2);
+nativeRecovery.dispose(); assert.equal(contextListeners.size, 0); nativeEnvironment.dispose(); recoverySun.shadow.map = null;
+const freshRenderer = Object.assign({}, mockRenderer, {shadowMap: {enabled: false, type: THREE.BasicShadowMap}}), freshScene = new THREE.Scene(), freshSun = new THREE.DirectionalLight(); freshSun.name = 'sun'; freshScene.add(freshSun);
+const freshEnvironment = new MockEnvironment({roomId: 'hall', ctx: {renderer: freshRenderer, camera}, hooks: {renderScene: freshScene}, document: {studio: {environments: [recoveryConfig]}, getRoot: () => recoveryRoot}});
+freshEnvironment.sync(); assert.equal(freshEnvironment.stats.recoveryShadowFallback, false); assert.equal(freshRenderer.shadowMap.enabled, true, 'A fresh renderer starts with the unchanged authored shadow setting.'); freshEnvironment.dispose();
+console.log('Render quality: bounded shadows, XR cap, cached indoor IBL, context-loss single rebuild/session shadow fallback, author/native resource preservation and fresh-renderer restoration passed.');

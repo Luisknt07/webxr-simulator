@@ -8,7 +8,7 @@ export default class StudioClient {
   }
 
   async request(method, path, body) {
-    let response;
+    let response; const identity = this.user && this.user.id;
     try {
       const expected = this.user && !['/me', '/login', '/register'].includes(path) ? {'X-Studio-User': this.user.id} : {};
       response = await fetch(this.base + path, {method, credentials: 'same-origin', cache: 'no-store',
@@ -24,10 +24,12 @@ export default class StudioClient {
       const error = new Error(typeof detail === 'string' ? detail : detail && detail.message || 'No se pudo completar la operación.');
       error.status = response.status;
       error.code = result && result.code;
-      if ((error.code === 'session_changed' || error.status === 401 && this.user) && this.onSessionChange) this.onSessionChange(error);
+      if ((error.code === 'session_changed' || error.status === 401 && this.user) && identity === (this.user && this.user.id) && this.onSessionChange) this.onSessionChange(error);
       throw error;
     }
-    if (Object.prototype.hasOwnProperty.call(result, 'user')) this.user = result.user;
+    // Administrative responses describe a target account, never the session.
+    if (['/me', '/profile'].includes(path) && identity !== (this.user && this.user.id)) throw Object.assign(new Error('La cuenta cambió durante la solicitud.'), {code: 'stale_account_response'});
+    if (['/me', '/login', '/register', '/profile'].includes(path) && Object.prototype.hasOwnProperty.call(result, 'user')) this.user = result.user;
     return result;
   }
 
@@ -37,11 +39,30 @@ export default class StudioClient {
     this.configured = result.configured;
     return result;
   }
-  async register(username, password, displayName) { return (await this.request('POST', '/register', {username, password, displayName})).user; }
-  async login(username, password) { return (await this.request('POST', '/login', {username, password})).user; }
-  async logout() { await this.request('POST', '/logout', {}); this.user = null; }
+  async authenticate(path, data) {
+    if (this.authenticationPending || this.logoutPending) throw Object.assign(new Error('Hay un acceso en curso. Espera a que termine antes de iniciar otra sesión.'), {code: 'authentication_busy'});
+    const pending = this.request('POST', path, data); this.authenticationPending = pending;
+    try { return (await pending).user; }
+    finally { if (this.authenticationPending === pending) this.authenticationPending = null; }
+  }
+  async register(username, password, displayName, code) { return this.authenticate('/register', {username, password, displayName, ...(code ? {code: code.trim()} : {})}); }
+  async login(username, password) { return this.authenticate('/login', {username, password}); }
+  async logout() {
+    // Finish an earlier Set-Cookie exchange before revoking the session, even
+    // when moving from the immersive keyboard back to the desktop form.
+    if (this.logoutPending) return this.logoutPending;
+    const authentication = this.authenticationPending;
+    const pending = (async () => {
+      if (authentication) await authentication.catch(() => {});
+      await this.request('POST', '/logout', {}); this.user = null;
+    })();
+    this.logoutPending = pending;
+    try { return await pending; }
+    finally { if (this.logoutPending === pending) this.logoutPending = null; }
+  }
   async updateProfile(profile) { return (await this.request('PUT', '/profile', profile)).user; }
   async listUsers() { return (await this.request('GET', '/users')).users; }
+  async classroom() { return this.request('GET', '/classroom'); }
   async setUserRole(id, role) {
     const previous = this.user;
     const result = await this.request('PUT', '/users/' + encodeURIComponent(id) + '/role', {role});

@@ -235,6 +235,27 @@
     "kind": "image"
   },
   {
+    "path": "materials/ai-industrial-concrete-v1-1024.jpg",
+    "name": "ai-industrial-concrete-v1-1024.jpg",
+    "extension": "jpg",
+    "size": 345338,
+    "kind": "image"
+  },
+  {
+    "path": "materials/ai-industrial-concrete-v1-256.jpg",
+    "name": "ai-industrial-concrete-v1-256.jpg",
+    "extension": "jpg",
+    "size": 16979,
+    "kind": "image"
+  },
+  {
+    "path": "materials/ai-industrial-concrete-v1-512.jpg",
+    "name": "ai-industrial-concrete-v1-512.jpg",
+    "extension": "jpg",
+    "size": 81590,
+    "kind": "image"
+  },
+  {
     "path": "mozillamr.basis",
     "name": "mozillamr.basis",
     "extension": "basis",

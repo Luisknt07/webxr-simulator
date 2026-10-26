@@ -14,6 +14,10 @@ for (let frame = 0; frame < 120; frame++) controls.update(1 / 60);
 const settled = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ'); assert(Math.abs(settled.y + .125) < 1e-6); assert(Math.abs(settled.z) < 1e-9, 'Smoothed desktop look never adds roll.');
 document.fire('mousemove', {movementX: 150}); controls.unlock(); const unlocked = camera.quaternion.clone(); controls.update(.1); controls.lock(); controls.update(.1); assert(camera.quaternion.equals(unlocked), 'Esc/relock clears pending camera motion.');
 document.fire('mousemove', {movementX: 100}); document.defaultView.fire('blur'); controls.update(.1); assert(camera.quaternion.equals(unlocked));
+controls.unlock(); const touchStart = camera.quaternion.clone(), touchPosition = camera.position.clone(); controls.addLookDelta(60, -20); controls.update(1 / 60);
+assert(!camera.quaternion.equals(touchStart) && !controls.isLocked, 'Touch look uses the same smoothing without pretending to hold pointer lock.'); assert(camera.position.equals(touchPosition));
+for (let frame = 0; frame < 120; frame++) controls.update(1 / 60); assert.equal(controls.touchPending, false, 'A completed touch queue stops updating without hidden camera work.');
+const touchSettled = camera.quaternion.clone(); controls.addLookDelta(NaN, 10); controls.update(.1); assert(camera.quaternion.equals(touchSettled)); controls.addLookDelta(40, 20); document.defaultView.fire('blur'); controls.update(.1); assert(camera.quaternion.equals(touchSettled), 'Blur cancels a queued swipe before it can move a hidden camera.');
 
 const index = fs.readFileSync(path.join(__dirname, '../src/index.js'), 'utf8'), extract = name => { const match = index.match(new RegExp('function ' + name + '\\([^]*?\\n\\}')); assert(match); return match[0]; };
 const calls = [], ctx = {cameraRig: rig, desktopFlight: false, studioLocomotion: 'smooth', vrMode: false, collisionWorld: {
@@ -32,6 +36,11 @@ ctx.studioLocomotion = 'teleport'; ctx.desktopFlight = false; const count = call
 ctx.desktopFlight = true; input.update(.1); assert.equal(calls.length, count + 1); input.clear();
 ctx.vrMode = true; input.down(key('KeyQ')); const position = camera.position.clone(), rotation = camera.quaternion.clone(); input.update(.1); assert(camera.position.equals(position) && camera.quaternion.equals(rotation), 'Drone input never changes tracked XR poses.');
 assert(held.quaternion.equals(heldRotation), 'Camera smoothing/flight does not rewrite a grabbed product orientation.');
+ctx.vrMode = false; ctx.studioLocomotion = 'smooth'; ctx.desktopFlight = false; input.clear(); let mobileInput = {forward: .25, right: 0, vertical: 0, lookX: 0, lookY: 0};
+ctx.mobileNavigation = {consume: () => mobileInput, reset: () => { mobileInput = {forward: 0, right: 0, vertical: 0, lookX: 0, lookY: 0}; }};
+input.update(.1); assert.equal(calls.at(-1).type, 'capsule'); assert(Math.abs(calls.at(-1).desired.distanceTo(calls.at(-1).from) - .075) < 1e-6, 'A light analog touch walks at quarter speed through the same collision path.');
+ctx.desktopFlight = true; mobileInput = {forward: 0, right: 0, vertical: .25, lookX: 0, lookY: 0}; input.update(.1); assert.equal(calls.at(-1).type, 'sphere'); assert(Math.abs(calls.at(-1).desired.y - calls.at(-1).from.y - .075) < 1e-6, 'Analog drone input preserves its pressure instead of jumping to full speed.');
+ctx.vrMode = true; mobileInput = {forward: 1, right: 0, vertical: 1, lookX: 100, lookY: 30}; const xrTouchPosition = camera.position.clone(), xrTouchRotation = camera.quaternion.clone(); input.update(.1); assert(camera.position.equals(xrTouchPosition) && camera.quaternion.equals(xrTouchRotation), 'Pending mobile input cannot move a tracked XR camera.'); delete ctx.mobileNavigation;
 ctx.vrMode = false; input.clear(); const typing = key('KeyW'); typing.target.tagName = 'INPUT'; input.down(typing); assert.equal(input.keys().KeyW, undefined); controls.dispose(); assert.equal(document.events.get('mousemove').size, 0);
 
 async function editorZoom() {

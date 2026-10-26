@@ -36,13 +36,16 @@ function cloneMaterial(material) {
   return copy;
 }
 
-function remapBehaviorReferences(behaviors, references) {
+function remapBehaviorReferences(behaviors, references, clearExternal = false) {
   return clone(behaviors).map(behavior => {
     ['sourceId', 'targetId', 'outputId', 'branchId'].forEach(key => {
       if (references.has(behavior[key])) behavior[key] = references.get(behavior[key]);
+      else if (clearExternal && behavior[key]) behavior[key] = '';
     });
     if (behavior.type === 'automation') {
-      const rules = JSON.parse(behavior.rules);
+      // A copied machine retains its own controls. Rules involving a machine
+      // outside the copied subtree need a new local binding in another level.
+      const rules = JSON.parse(behavior.rules).filter(rule => !clearExternal || references.has(rule.sourceId) && references.has(rule.targetId));
       rules.forEach(rule => ['sourceId', 'targetId'].forEach(key => {
         if (references.has(rule[key])) rule[key] = references.get(rule[key]);
       }));
@@ -976,7 +979,7 @@ export default class SceneDocument {
     return clone(snapshot);
   }
 
-  async pasteObject(snapshot, roomId, offset = 0.5, prepare) {
+  async pasteObject(snapshot, roomId, offset = 0.5, prepare, options = {}) {
     if (this.loading) throw new Error('Espera a que termine de cargar el proyecto.');
     if (!isPlain(snapshot) || snapshot.format !== 'hello-webxr-object' || snapshot.version !== 1 ||
         !isPlain(snapshot.record) || !Array.isArray(snapshot.sources) ||
@@ -987,6 +990,7 @@ export default class SceneDocument {
     if (!this.rooms.has(roomId)) throw new Error('Sala desconocida.');
     if (typeof offset !== 'number' || !Number.isFinite(offset)) throw new Error('Desplazamiento de copia inv\u00e1lido.');
     const prepared = clone(snapshot);
+    const sourceRoomId = String(snapshot.roomId);
     let entity;
     if (prepared.studioEntity !== undefined) {
       entity = behaviorSchema.studio.normalize({version: 1, entities: [prepared.studioEntity]}).entities[0];
@@ -1016,9 +1020,13 @@ export default class SceneDocument {
         if (node) remap.set(sourceId, node.userData.editorId);
       });
       [copy].concat(Array.from(copied.nodes.values())).forEach(node => {
-        node.userData.editorBehaviors = normalizeBehaviors(remapBehaviorReferences(this.getBehaviors(node), remap));
+        // Group/template insertion resolves its complete graph after every member
+        // exists. It owns the final cross-level cleanup in the same transaction.
+        const clearExternal = sourceRoomId !== roomId && !options.deferExternalReferences;
+        node.userData.editorBehaviors = normalizeBehaviors(remapBehaviorReferences(this.getBehaviors(node), remap, clearExternal));
         const interaction = node.userData.editorInteraction;
         if (interaction && remap.has(interaction.targetId)) interaction.targetId = remap.get(interaction.targetId);
+        else if (clearExternal && interaction && interaction.targetId) node.userData.editorInteraction = {type: 'none'};
       });
       this._installPreparedVisuals(copied, preparedVisuals);
       if (entity) this.setStudio({entities: (this.studio && this.studio.entities || []).concat(Object.assign({}, entity, {

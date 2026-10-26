@@ -119,6 +119,8 @@ export default class EditorShell {
     this.newButton = button('▱ Nuevo escenario', () => this.run(() => this.studio('newScene')));
     this.newButton.title = 'Crear un escenario en una sala disponible'; toolbar.appendChild(this.newButton);
     toolbar.appendChild(editor.saveButton);
+    const guide = button('Guía', () => editor.sceneGuide ? editor.sceneGuide.open() : editor.toast('La guía se está preparando.'));
+    guide.title = 'Construir un escenario a partir de instrucciones'; toolbar.appendChild(guide);
     toolbar.appendChild(editor.undoButton); toolbar.appendChild(editor.redoButton);
     const tools = node('div', 'ed-toolbar-group'); tools.setAttribute('role', 'group'); tools.setAttribute('aria-label', 'Herramienta de transformación');
     this.selectButton = button('↖ Seleccionar', () => editor.setTool('select'));
@@ -184,6 +186,8 @@ export default class EditorShell {
       ]],
       ['Añadir', [
         ['Equipo de biblioteca', () => this.openResources('library')],
+        ['Monitor de producción', () => e.monitorWidgets && e.monitorWidgets.add()],
+        ['Vincular monitor seleccionado…', () => e.monitorWidgets && e.monitorWidgets.openBinding(e.selected), '', selected],
         ...[['box', 'Cubo'], ['sphere', 'Esfera'], ['plane', 'Plano'], ['cylinder', 'Cilindro']].map(([kind, label]) => [label, mutate(() => e.createPlacedObject(() => e.document.addPrimitive(e.roomId, kind)))]),
         null, ['Luz', () => this.studio('addLight'), '', canStudio], ['Cámara', () => this.studio('addCamera'), '', canStudio],
         ['Decal de imagen', () => { this.openResources('project'); e.startDecalPlacement(); }],
@@ -194,6 +198,7 @@ export default class EditorShell {
       ]],
       ['Escenario', [
         ['Catálogo de escenas…', () => this.openSceneCatalog()],
+        ['Construir con instrucciones…', () => e.sceneGuide && e.sceneGuide.open()],
         ['Ver niveles del proyecto', () => this.openScenes()],
         ['Nuevo escenario', () => this.studio('newScene'), '', canStudio], ['Duplicar escenario…', () => this.studio('duplicateScene'), '', canStudio],
         ['Crear nivel de ejemplos industriales', () => this.studio('createIndustrialExamples'), '', canStudio],
@@ -317,7 +322,7 @@ export default class EditorShell {
   }
   modeChanged() {
     this.closeMenus();
-    this.previewControls.hidden = this.editor.active || this.editor.ctx.vrMode || !this.editor.editorEnabled;
+    this.previewControls.hidden = this.editor.active || this.editor.ctx.vrMode || !this.editor.editorEnabled || Boolean(this.editor.canEditDocument && !this.editor.canEditDocument());
     this.previewPause.textContent = this.editor.simulationPaused ? '▶ Continuar' : 'Ⅱ Pausar';
     this.previewPause.setAttribute('aria-pressed', String(Boolean(this.editor.simulationPaused)));
     if (!this.editor.active && this.workspace) this.closeWorkspace();

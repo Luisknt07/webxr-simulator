@@ -51,6 +51,7 @@ class Element {
   setAttribute(key, value) { this.attributes[key] = String(value); }
   getAttribute(key) { return this.attributes[key]; }
   addEventListener(type, callback) { (this.listeners[type] || (this.listeners[type] = [])).push(callback); }
+  removeEventListener(type, callback) { this.listeners[type] = (this.listeners[type] || []).filter(value => value !== callback); }
   async fire(type, event = {}) {
     event.target = event.target || this;
     for (const callback of this.listeners[type] || []) await callback(event);
@@ -317,6 +318,9 @@ const {industrialPrefabs, createIndustrialPrefab, createProductVisual} = new Fun
 const browserGlobals = {THREE, behaviorSchema, automationSchema, materialSchema, wearSchema, createIndustrialPrefab, createProductVisual, document: dom, window: browserWindow, localStorage, URL: BrowserURL, Blob,
   setTimeout: () => 1, clearTimeout: () => {}};
 const SceneDocument = loadClass('SceneDocument.js', browserGlobals);
+browserGlobals.RuntimeResourceMemory = loadClass('RuntimeResourceMemory.js', browserGlobals);
+browserGlobals.CosmeticVisualLod = loadClass('CosmeticVisualLod.js', browserGlobals);
+browserGlobals.GraphicsSettings = loadClass('GraphicsSettings.js', browserGlobals);
 const ScenePerformance = loadClass('ScenePerformance.js', browserGlobals);
 const InteractionRuntime = loadClass('InteractionRuntime.js', browserGlobals);
 const BehaviorRuntime = loadClass('BehaviorRuntime.js', browserGlobals);
@@ -343,6 +347,15 @@ class ResourceBrowser {
   setEntries() {} setProject() {} setActive() {} openTab() {} dropEvent() { return false; }
   render() { return false; }
 }
+// These legacy editor scenarios run without the optional server privacy feature.
+// Access enforcement and public projections use their own server-backed tests.
+class ProjectAccessView {
+  constructor(editor) { this.editor = editor; this.user = null; }
+  get enabled() { return false; }
+  canEdit() { return true; }
+  canVisit() { return true; }
+}
+const ProjectSharing = loadClass('ProjectSharing.js', browserGlobals);
 const ProjectSync = loadClass('ProjectSync.js', browserGlobals);
 const resolveProject = new Function(sourceFor('ProjectResolver.js').replace('export default async function resolveProject', 'return async function resolveProject'))();
 const recorderSource = sourceFor('TelemetryRecorder.js').replace(/export default class /g, 'class ').replace(/export function /g, 'function ') +
@@ -358,7 +371,7 @@ const nativeSource = sourceFor('NativeBindings.js').replace(/export function /g,
 const nativeBindings = new Function(nativeSource)();
 const SceneEditor = loadClass('SceneEditor.js', Object.assign({}, browserGlobals, nativeBindings,
   {OrbitControls, TransformControls, AssetLibrary, AssetThumbnails, DecalSystem, SurfaceMaterialSystem, WearPaintSystem, WearBrush, MaterialInspector, ConveyorAssembly, ObjectAssembly, EquipmentPlacement, SceneDocument, InteractionRuntime, BehaviorRuntime, InfoPanelPreview,
-    SimulationRuntime, SimulationPanel, IndustrialVisuals, IndustrialAudioSystem, LineMonitorSystem, CollisionWorld, ScenePerformance, industrialPrefabs, installNativeBehaviorAdapters, ProjectClient, ProjectLibrary, ProjectSync, resolveProject, EditorShell, ResourceBrowser,
+    SimulationRuntime, SimulationPanel, IndustrialVisuals, IndustrialAudioSystem, LineMonitorSystem, CollisionWorld, ScenePerformance, industrialPrefabs, installNativeBehaviorAdapters, ProjectClient, ProjectLibrary, ProjectSync, resolveProject, ProjectAccessView, ProjectSharing, EditorShell, ResourceBrowser,
     resourceUsage: () => [], removeResource: () => { throw new Error('Resource operations use their independent tests.'); }}));
 
 const ROOM_IDS = ['hall', 'sound', 'photogrammetry', 'vertigo', 'panoramastereo', 'panorama1', 'panorama2', 'panorama3', 'panorama4', 'panorama5'];

@@ -42,6 +42,9 @@ export const industrialPrefabs = [
 ]);
 
 const kinds = ['conveyor', 'sensor', 'plc', 'control', 'product', 'source', 'processor', 'palletQueue'];
+// Rendering-only LOD eligibility follows the original part semantics. A batch
+// containing even one structural/body part must keep its full silhouette.
+const COSMETIC_HARDWARE = /^(?:Tornillo|Tuerca|Arandela|Perno|Pasador|Fijación del resguardo|Aleta longitudinal de refrigeración|Nervio de la rejilla|Tapón de aceite)(?:\b|$)/u;
 
 function material(color, extra = {}) {
   const surface = new THREE.MeshStandardMaterial(Object.assign({color, roughness: 0.46, metalness: 0.65}, extra));
@@ -65,6 +68,7 @@ function builder() {
     }
     const object = new THREE.Mesh(geometries.get(key), materials.get(materialKey));
     object.name = name;
+    if (COSMETIC_HARDWARE.test(name)) object.userData.industrialCosmeticDetail = true;
     if (position) object.position.fromArray(position);
     object.castShadow = true; object.receiveShadow = true;
     return object;
@@ -100,16 +104,18 @@ function indexedParts(parts) {
 }
 
 function batchDetails(group) {
-  const batches = new Map(), names = new Map();
+  const batches = new Map(), names = new Map(), cosmetic = new Map();
   group.children.slice().forEach(mesh => {
-    if (!mesh.isMesh || mesh.children.length || Object.keys(mesh.userData).length) return;
+    if (!mesh.isMesh || mesh.children.length || Object.keys(mesh.userData).some(key => key !== 'industrialCosmeticDetail')) return;
     mesh.updateMatrix();
     const geometry = mesh.geometry.clone();
     geometry.applyMatrix(mesh.matrix);
     if (!batches.has(mesh.material)) {
       batches.set(mesh.material, []);
       names.set(mesh.material, mesh.material.userData.industrialSurfaceName || mesh.name || mesh.material.name || 'Acabado');
+      cosmetic.set(mesh.material, true);
     }
+    cosmetic.set(mesh.material, cosmetic.get(mesh.material) && mesh.userData.industrialCosmeticDetail === true);
     batches.get(mesh.material).push(geometry);
     group.remove(mesh);
   });
@@ -123,6 +129,7 @@ function batchDetails(group) {
     const partName = names.get(mat);
     surface.name = partName.indexOf(prefix) === 0 ? partName : prefix + partName;
     const mesh = new THREE.Mesh(geometry, surface); mesh.name = 'Herrajes / ' + group.name;
+    if (cosmetic.get(mat)) mesh.userData.industrialCosmeticDetail = true;
     mesh.castShadow = true; mesh.receiveShadow = true; group.add(mesh);
     parts.forEach(part => part.dispose());
   });
@@ -1756,4 +1763,3 @@ createIndustrialPrefab.stats = object => {
   result.geometryCount = geometries.size; result.materialCount = materials.size; result.textureCount = textures.size;
   return result;
 };
-

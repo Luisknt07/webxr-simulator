@@ -9,11 +9,13 @@ const {once} = require('node:events');
 const {DatabaseSync} = require('node:sqlite');
 const {ProjectStore} = require('../server/storage');
 const {createApiHandler} = require('../server/api');
+let authenticationCookie = '';
+const authenticatedFetch = (url, options = {}) => global.fetch(url, Object.assign({}, options, {headers: Object.assign({}, options.headers || {}, authenticationCookie ? {Cookie: authenticationCookie} : {})}));
 
 function browserModule(filename, names) {
   const source = fs.readFileSync(path.join(__dirname, '../src/editor/', filename), 'utf8')
     .replace(/export default class /g, 'class ').replace(/export function /g, 'function ');
-  return new Function(source + '\nreturn {' + names.join(',') + '};')();
+  return new Function('fetch', source + '\nreturn {' + names.join(',') + '};')(authenticatedFetch);
 }
 const {TelemetryRecorder, csv} = browserModule('TelemetryRecorder.js', ['TelemetryRecorder', 'csv']);
 const {TelemetryClient} = browserModule('TelemetryClient.js', ['TelemetryClient']);
@@ -120,11 +122,13 @@ async function main() {
     assert.equal(store.getProject('legacy-project').name, 'Proyecto existente');
     store.close(); store = null;
 
-    handler = createApiHandler({dataDir: directory});
+    handler = createApiHandler({dataDir: directory, maintenanceIntervalMs: 0});
     server = http.createServer(handler);
     server.listen(0, '127.0.0.1');
     await once(server, 'listening');
     const origin = 'http://127.0.0.1:' + server.address().port;
+    const auth = await fetch(origin + '/api/studio/register', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: 'telemetry_fixture_admin', password: 'Private telemetry fixture password 123!'})});
+    assert.equal(auth.status, 201); authenticationCookie = auth.headers.get('set-cookie').split(';')[0];
     const client = new TelemetryClient(origin + '/api');
     assert.equal((await client.list(project.id)).length, 2);
     assert.deepEqual(await client.get(project.id, saved.id), saved);
@@ -133,7 +137,7 @@ async function main() {
     assert.equal((await client.list(project.id)).length, 3);
     await assert.rejects(client.get(other.id, saved.id), error => error.status === 404);
     await assert.rejects(client.save(project.id, Object.assign({}, payload, {projectRevision: 999})), error => error.status === 400);
-    const stripped = await fetch(origin + '/projects/' + project.id + '/runs');
+    const stripped = await authenticatedFetch(origin + '/projects/' + project.id + '/runs');
     assert.equal(stripped.status, 200);
     assert.equal((await stripped.json()).runs.length, 3);
     const refused = await fetch(origin + '/api/projects/' + project.id + '/runs', {method: 'POST',

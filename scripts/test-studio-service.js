@@ -57,7 +57,7 @@ async function main() {
     return {status: response.status, value, cookie: response.headers.get('set-cookie')};
   };
   const call = (route, method, body, cookie, headers) => request('/api/studio' + route, method, body, cookie, headers);
-  assert.equal((await request('/editor-permission')).status, 200, 'legacy local editor works before accounts');
+  assert.equal((await request('/editor-permission')).status, 401, 'editor requires an account even before bootstrap');
   let result = await call('/me');
   assert.equal(result.value.configured, false);
   assert.equal(result.value.user, null);
@@ -107,8 +107,8 @@ async function main() {
 
   result = await call('/register', 'POST', {username: 'participant', password: 'Another strong password'});
   const participantCookie = result.cookie.split(';')[0], participant = result.value.user;
-  assert.equal(participant.role, 'viewer', 'new registrations cannot grant themselves editing access');
-  assert.equal(participant.permissions.editor, false);
+  assert.equal(participant.role, 'creator', 'normal registrations create private projects within their own quota');
+  assert.equal(participant.permissions.editor, true);
   assert.equal((await call('/progress', 'PUT', {projectId: project.id, missionId: 'classify20', missionVersion: 1, value: {count: 999}}, participantCookie, {'X-Studio-User': creator.id})).value.code, 'session_changed', 'a cookie account switch cannot write stale tab progress into another account');
   assert.equal((await call('/profile', 'PUT', {displayName: 'Wrong account'}, participantCookie, {'X-Studio-User': creator.id})).value.code, 'session_changed');
   assert.equal((await call('/logout', 'POST', {}, participantCookie, {'X-Studio-User': creator.id})).value.code, 'session_changed');
@@ -128,7 +128,7 @@ async function main() {
   assert.equal((await request('/editor-permission', 'GET', undefined, participantCookie)).status, 200, 'owner authorizes another real creator');
   assert.equal((await call('/users/' + participant.id + '/role', 'PUT', {role: 'viewer'}, creatorCookie)).status, 200);
   assert.equal((await call('/checkpoints/' + checkpoint.id, 'GET', undefined, participantCookie)).status, 404, 'checkpoints private per account');
-  assert.equal((await call('/progress?projectId=' + project.id, 'GET', undefined, participantCookie)).value.progress.length, 0);
+  assert.equal((await call('/progress?projectId=' + project.id, 'GET', undefined, participantCookie)).status, 403, 'private project progress requires project access');
   result = await call('/rooms', 'POST', {projectId: project.id, projectRevision: 1, roomId: 'hall', state, name: 'Línea 1'}, creatorCookie);
   assert.equal(result.status, 201, JSON.stringify(result.value));
   const room = result.value.room;

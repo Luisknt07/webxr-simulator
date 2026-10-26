@@ -198,7 +198,8 @@
 .xr-editor .ed-placing-decal canvas { cursor: crosshair; }
 .xr-editor .ed-decal-placement { position: absolute; z-index: 6; top: 48px; left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--ed-accent); border-radius: 5px; background: #152b2a; color: #defff4; font-size: 11px; }
 .xr-editor .ed-decal-placement[hidden] { display: none; }
-.xr-editor .ed-performance { position: absolute; z-index: 4; top: 53px; right: 12px; max-width: calc(100% - 24px); padding: 9px 12px; border: 1px solid var(--ed-border); border-radius: 5px; background: #111c2be8; color: #bceada; font: 11px/1.7 Consolas, monospace; white-space: pre-wrap; pointer-events: none; }
+.xr-editor .ed-performance { position: absolute; z-index: 4; top: 53px; right: 12px; width: 340px; max-width: calc(100% - 24px); max-height: calc(100% - 75px); overflow: auto; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--ed-border); border-radius: 5px; background: #111c2be8; color: #bceada; font: 11px/1.7 Consolas, monospace; white-space: pre-wrap; pointer-events: auto; }
+.xr-editor .ed-performance-metrics { display: block; margin-bottom: 8px; }
 .xr-editor .ed-performance[hidden] { display: none; }
 .xr-editor .ed-preview-title { width: 100%; overflow-wrap: anywhere; text-align: center; }
 .xr-editor .ed-preview p { margin: 5px 0; }

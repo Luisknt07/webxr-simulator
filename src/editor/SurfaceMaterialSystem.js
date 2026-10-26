@@ -180,6 +180,34 @@ function installWear(material, original, config, texture) {
   };
 }
 
+function preparedConcreteFloor(state, original) {
+  const config = state.config, owner = state.owner, data = owner.userData || {};
+  // This optional presentation belongs only to the generated neutral floor.
+  // Imported albedo, an edited colour/name/slot, and explicit map removal keep
+  // their authored result; walls and other concrete objects are never opted in.
+  return config.preset === 'concrete' && config.color === '#777c76' && config.colorMapMode === 'preserve' && config.slot === 'all' &&
+    ['Material personalizado', 'Hormigón'].includes(config.name) && !Object.keys(MAP_FIELDS).some(field => config[field]) && !original.map && !data.editorGeometryReplaced &&
+    !data.editorColor && !data.editorVisualOwnerId && /(?:^|[·\s])piso\b/i.test(owner.name || '') && /hormig[oó]n/i.test(owner.name || '');
+}
+function installPreparedConcrete(material) {
+  const before = material.onBeforeCompile;
+  const uniforms = {preparedConcreteMap: {value: null}, preparedConcreteMean: {value: new THREE.Vector3(1, 1, 1)}, preparedConcreteStrength: {value: 0}};
+  material.defines.SURFACE_PREPARED_CONCRETE = 1;
+  // Keep a discoverable texture reference for the periodic resource estimator;
+  // this is derived runtime state, never serialized into the document/userData.
+  material.preparedConcreteUniforms = uniforms;
+  material.onBeforeCompile = function(shader, renderer) {
+    if (before) before.call(this, shader, renderer);
+    Object.assign(shader.uniforms, uniforms);
+    shader.fragmentShader = 'uniform sampler2D preparedConcreteMap;\nuniform vec3 preparedConcreteMean;\nuniform float preparedConcreteStrength;\n' + shader.fragmentShader;
+    // A custom sampler must decode sRGB explicitly in r112. Dividing by the
+    // measured *linear* mean preserves the authored physical base reflectance,
+    // instead of multiplying middle gray by a second dark gray image.
+    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\nif (preparedConcreteStrength > 0.0) {\nvec3 preparedConcreteAlbedo = sRGBToLinear(texture2D(preparedConcreteMap, vUv)).rgb;\nvec3 preparedConcreteDetail = clamp(preparedConcreteAlbedo / preparedConcreteMean, vec3(0.65), vec3(1.4));\ndiffuseColor.rgb *= mix(vec3(1.0), preparedConcreteDetail, preparedConcreteStrength);\n}');
+  };
+  return uniforms;
+}
+
 /** Private PBR customization; the document stores only its typed behavior. */
 export default class SurfaceMaterialSystem {
   constructor(ctx, document, library, notify) {
@@ -218,6 +246,8 @@ export default class SurfaceMaterialSystem {
     });
     state.groups.forEach(group => {
       group.generation++;
+      if (group.preparedTicket) group.preparedTicket.release();
+      if (group.preparedBindings) group.preparedBindings.forEach(uniforms => { uniforms.preparedConcreteMap.value = null; uniforms.preparedConcreteStrength.value = 0; });
       group.materials.forEach(material => material.dispose());
       group.textures.forEach(texture => texture.dispose());
       group.resources.forEach(resource => disposeResource(resource));
@@ -286,8 +316,24 @@ export default class SurfaceMaterialSystem {
       if (!state.wear) state.wear = this._procedural(state, 'wear', proceduralWear);
       installWear(material, original, config, state.wear);
     } else material.onBeforeCompile = original.onBeforeCompile;
+    if (this.ctx.preparedMaterials && preparedConcreteFloor(state, original)) this._prepareConcrete(state, material);
     this.owned.add(material); state.materials.add(material); state.copies.set(original, material);
     return material;
+  }
+
+  _prepareConcrete(state, material) {
+    const uniforms = installPreparedConcrete(material);
+    if (!state.preparedBindings) state.preparedBindings = new Set(); state.preparedBindings.add(uniforms);
+    const apply = value => { uniforms.preparedConcreteMap.value = value ? value.texture : null; uniforms.preparedConcreteStrength.value = value ? .85 : 0; if (value) uniforms.preparedConcreteMean.value.copy(value.mean); };
+    if (state.preparedValue) apply(state.preparedValue);
+    if (!state.preparedTicket) {
+      const generation = state.generation;
+      state.preparedTicket = this.ctx.preparedMaterials.acquireConcrete(value => {
+        if (!this._alive(state) || state.generation !== generation) return;
+        state.preparedValue = value;
+        state.preparedBindings.forEach(binding => { binding.preparedConcreteMap.value = value ? value.texture : null; binding.preparedConcreteStrength.value = value ? .85 : 0; if (value) binding.preparedConcreteMean.value.copy(value.mean); });
+      });
+    }
   }
 
   _procedural(state, kind, create) {
@@ -439,7 +485,10 @@ export default class SurfaceMaterialSystem {
         state.meshes.set(row.mesh, entry); row.mesh.material = installed;
         this.stats.applications++;
       });
-      state.groups.forEach(group => { if (group.copies.size) Object.keys(MAP_FIELDS).forEach(field => { if (group.config[field]) pending.push(this._load(group, field, group.config[field])); }); });
+      state.groups.forEach(group => {
+        if (group.preparedTicket) pending.push(group.preparedTicket.ready);
+        if (group.copies.size) Object.keys(MAP_FIELDS).forEach(field => { if (group.config[field]) pending.push(this._load(group, field, group.config[field])); });
+      });
     });
     this.dirty = false; this.ready = pending.length ? Promise.all(pending).then(() => undefined) : DONE;
     return this.ready;

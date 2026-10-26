@@ -1,12 +1,15 @@
 import * as THREE from 'three';
+import RuntimeResourceMemory from './RuntimeResourceMemory.js';
+import CosmeticVisualLod from './CosmeticVisualLod.js';
 
 function resources() {
-  return {geometries: new Set(), materials: new Set(), textures: new Set(), attributes: new Set()};
+  return {geometries: new Set(), materials: new Set(), textures: new Set(), attributes: new Set(), objects: new Set(), renderTargets: new Set(), renderTargetTextures: new Set(), cpuArrays: new Set(), audioBuffers: new Set(), encodedStrings: new Set()};
 }
 
 function texturesIn(value, target, seen = new Set(), depth = 0) {
   if (!value || typeof value !== 'object' || seen.has(value) || depth > 5) return;
   if (value.isTexture) { target.add(value); return; }
+  if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return;
   seen.add(value);
   if (Array.isArray(value)) value.forEach(item => texturesIn(item, target, seen, depth + 1));
   else Object.keys(value).forEach(key => texturesIn(value[key], target, seen, depth + 1));
@@ -19,22 +22,70 @@ function attributesOf(geometry) {
   return attributes.map(attribute => attribute.isInterleavedBufferAttribute ? attribute.data : attribute);
 }
 
+function collectMaterial(value, target) {
+  (Array.isArray(value) ? value : [value]).filter(material => material && material.isMaterial).forEach(material => {
+    if (target.materials.has(material)) return; target.materials.add(material);
+    // Uniform structures are visited only during the periodic resource scan.
+    const seen = new Set(); Object.keys(material).forEach(key => texturesIn(material[key], target.textures, seen));
+  });
+}
+function collectTarget(value, target) {
+  if (!value || !value.isWebGLRenderTarget || target.renderTargets.has(value)) return;
+  target.renderTargets.add(value);
+  [value.texture, value.depthTexture].filter(Boolean).forEach(texture => { target.textures.add(texture); target.renderTargetTextures.add(texture); });
+}
+function mergeResources(target, source) { Object.keys(target).forEach(key => source[key].forEach(value => target[key].add(value))); }
+
 function collect(root, target, stopRoots) {
-  if (!root || !root.isObject3D || (stopRoots && stopRoots.has(root))) return;
+  if (!root || !root.isObject3D || (stopRoots && stopRoots.has(root)) || target.objects.has(root)) return;
+  target.objects.add(root);
   if (root.geometry && !target.geometries.has(root.geometry)) {
     target.geometries.add(root.geometry);
     attributesOf(root.geometry).forEach(attribute => target.attributes.add(attribute));
   }
-  const materials = Array.isArray(root.material) ? root.material : [root.material];
-  materials.filter(Boolean).forEach(material => {
-    if (target.materials.has(material)) return;
-    target.materials.add(material);
-    // Includes conventional maps and textures nested in ShaderMaterial uniforms.
-    Object.keys(material).forEach(key => texturesIn(material[key], target.textures));
-  });
+  collectMaterial(root.material, target);
+  if (root.shadow) { collectTarget(root.shadow.map, target); collectTarget(root.shadow.mapPass, target); }
+  if (root.skeleton) { if (root.skeleton.boneTexture) target.textures.add(root.skeleton.boneTexture); if (root.skeleton.boneMatrices) target.cpuArrays.add(root.skeleton.boneMatrices); }
+  (root.animations || []).forEach(clip => (clip.tracks || []).forEach(track => { if (track.times) target.cpuArrays.add(track.times); if (track.values) target.cpuArrays.add(track.values); }));
   if (root.background && root.background.isTexture) target.textures.add(root.background);
   if (root.environment && root.environment.isTexture) target.textures.add(root.environment);
   root.children.forEach(child => collect(child, target, stopRoots));
+}
+
+function collectAsset(asset, target) {
+  if (!asset) return;
+  if (asset.isTexture) target.textures.add(asset);
+  else if (asset.isObject3D || asset.scene && asset.scene.isObject3D) collect(asset.scene || asset, target);
+  else if (ArrayBuffer.isView(asset)) target.cpuArrays.add(asset);
+  else if (typeof asset.getChannelData === 'function' && Number.isFinite(asset.numberOfChannels) && Number.isFinite(asset.length)) target.audioBuffers.add(asset);
+}
+function retainSnapshot(snapshot, target) {
+  if (!snapshot) return;
+  (snapshot.native || []).forEach(value => { if (value.visual) collect(value.visual.content, target); });
+  (snapshot.additions || []).forEach(value => {
+    if (value.entry) collect(value.entry.object, target);
+    if (value.visuals && value.visuals.forEach) value.visuals.forEach(visual => { if (visual) collect(visual.content, target); });
+  });
+  (snapshot.imports || []).forEach(value => { if (value.dataUrl) target.encodedStrings.add(value.dataUrl); });
+}
+
+// These are the private resource owners used by the editor's derived visuals.
+// Do not walk their document/context references or arbitrary application objects.
+function retainRuntimeResources(value, target, seen = new Set(), depth = 0) {
+  if (!value || typeof value !== 'object' || seen.has(value) || depth > 7) return;
+  seen.add(value);
+  if (value.isMaterial) { collectMaterial(value, target); return; }
+  if (value.isWebGLRenderTarget) { collectTarget(value, target); return; }
+  if (value.isTexture || value.isObject3D) { collectAsset(value, target); return; }
+  if (value.isBufferGeometry || value.isGeometry) {
+    target.geometries.add(value); attributesOf(value).forEach(attribute => target.attributes.add(attribute)); return;
+  }
+  if (Array.isArray(value) || value instanceof Set) { value.forEach(entry => retainRuntimeResources(entry, target, seen, depth + 1)); return; }
+  if (value instanceof Map) { value.forEach((entry, key) => { retainRuntimeResources(key, target, seen, depth + 1); retainRuntimeResources(entry, target, seen, depth + 1); }); return; }
+  ['original', 'originals', 'installed', 'binding', 'material', 'materials', 'privateMaterials', 'texture', 'textures', 'textureCopies', 'copies',
+    'resource', 'resources', 'proceduralTextures', 'groups', 'meshes', 'geometry', 'object', 'mesh', 'plane', 'backPlane', 'preview', 'surface', 'surfaces', 'loaded'].forEach(key => {
+    retainRuntimeResources(value[key], target, seen, depth + 1);
+  });
 }
 
 /**
@@ -50,6 +101,7 @@ export default class ScenePerformance {
     this.elapsed = 0;
     this.dirty = true;
     this.disposed = false;
+    this.contextTextureHandlesReleased = false;
     this.evicted = new WeakSet();
     this.bounds = new WeakMap();
     this.frame = 0;
@@ -57,12 +109,15 @@ export default class ScenePerformance {
     this.matrix = new THREE.Matrix4();
     this.inverse = new THREE.Matrix4();
     this.testBox = new THREE.Box3();
-    this.stats = {inactiveGPUEvictions: 0, releasedGeometries: 0, releasedMaterials: 0, releasedTextures: 0, inactiveRooms: 0};
+    this.memory = new RuntimeResourceMemory(); this.lod = new CosmeticVisualLod(); this.cameras = [];
+    this.memoryStats = {gpuGeometryBytes: 0, gpuTextureBytes: 0, retainedCpuBytesEstimated: 0, memoryEstimated: true, estimateKind: 'reachable-resource-backing-stores', estimateConfidence: 'low'};
+    this.stats = {inactiveGPUEvictions: 0, releasedGeometries: 0, releasedMaterials: 0, releasedTextures: 0, inactiveRooms: 0, contextTextureReleaseCycles: 0, contextReleasedTextures: 0, contextReleasedRenderTargets: 0, contextReleasedGeometries: 0, contextReleasedMaterials: 0};
   }
 
   setRoom(roomId) {
     roomId = String(roomId);
     if (this.disposed || roomId === this.roomId) return;
+    this.lod.clear();
     this.roomId = roomId;
     this.dirty = true;
     this.reconcile();
@@ -70,8 +125,7 @@ export default class ScenePerformance {
 
   invalidate() { this.dirty = true; }
 
-  reconcile() {
-    if (this.disposed || this.roomId === null || !this.document.getRoot(this.roomId)) return;
+  resourceInventory() {
     const resident = resources();
     const inactive = resources();
     const roomRoots = new Set();
@@ -87,11 +141,90 @@ export default class ScenePerformance {
     // Global lights/controllers/camera helpers can share materials with a room.
     // Asset-cache references themselves are CPU ownership, not GPU residency.
     [this.ctx.scene, this.ctx.cameraRig, this.ctx.camera].concat(this.ctx.controllers || []).forEach(root => collect(root, resident, roomRoots));
+    // The mono XR canvas owns one private quad/texture outside the world.
+    collect(this.ctx.xrMirror && this.ctx.xrMirror.scene, resident);
     Object.keys(this.ctx.assets || {}).filter(key => /controller|(?:^|_)hand(?:_|$)|pointer/i.test(key)).forEach(key => {
       const asset = this.ctx.assets[key];
       if (asset && asset.isTexture) resident.textures.add(asset);
       else collect(asset && (asset.scene || asset), resident, roomRoots);
     });
+
+    const editor = this.ctx.editor, entities = editor && editor.entities;
+    collectTarget(entities && entities.target, resident);
+    collectTarget(entities && entities.environment && entities.environment.reflections, resident);
+    if (this.ctx.renderer && this.ctx.renderer.getRenderTarget) collectTarget(this.ctx.renderer.getRenderTarget(), resident);
+    // Optional explicit targets owned by integrations; no arbitrary traversal of
+    // renderer internals or WebGL allocation queries is needed.
+    (this.ctx.performanceRenderTargets || []).forEach(target => collectTarget(target, resident));
+
+    const retained = resources(); mergeResources(retained, resident); mergeResources(retained, inactive);
+    Object.keys(this.ctx.assets || {}).forEach(key => collectAsset(this.ctx.assets[key], retained));
+    const runtimeSeen = new Set();
+    const roomAssets = this.ctx.roomAssets;
+    retainRuntimeResources(roomAssets && roomAssets.records, retained, runtimeSeen);
+    retainRuntimeResources(this.ctx.retainedRoomAssets, retained, runtimeSeen);
+    const surfaces = editor && editor.materials, visuals = editor && editor.industrialVisuals;
+    retainRuntimeResources(surfaces && surfaces.states, retained, runtimeSeen);
+    ['displays', 'colors', 'rollers', 'belts', 'steerBanks', 'rollerTextures', 'rollerMaterials'].forEach(key => retainRuntimeResources(visuals && visuals[key], retained, runtimeSeen));
+    [editor && editor.decals, editor && editor.wearPaint && editor.wearPaint.engine].forEach(system => {
+      retainRuntimeResources(system && system.states, retained, runtimeSeen);
+      retainRuntimeResources(system && system.convertedResources, retained, runtimeSeen);
+    });
+    retainRuntimeResources(editor && editor.lineMonitors && editor.lineMonitors.entries, retained, runtimeSeen);
+    if (this.document.native && this.document.native.forEach) this.document.native.forEach(entry => { collectMaterial(entry.material, retained); (entry.children || []).forEach(child => collect(child, retained)); });
+    if (this.document.visualMasks && this.document.visualMasks.forEach) this.document.visualMasks.forEach(value => collectMaterial(value.material, retained));
+    const snapshots = (this.document.undoStack || []).concat(this.document.redoStack || [], this.document.transaction ? [this.document.transaction] : []);
+    snapshots.forEach(snapshot => retainSnapshot(snapshot, retained));
+    const workspace = editor && editor.projectTabs;
+    (workspace && workspace.retainedSnapshots ? workspace.retainedSnapshots() : []).forEach(snapshot => retainSnapshot(snapshot, retained));
+    const clipboard = editor && editor.objectClipboard;
+    if (clipboard) { collect(clipboard.content, retained); if (clipboard.visuals && clipboard.visuals.forEach) clipboard.visuals.forEach(value => collect(value && (value.content || value), retained)); }
+    (workspace && workspace.retainedClipboards ? workspace.retainedClipboards() : []).forEach(value => { collect(value.content, retained); if (value.visuals && value.visuals.forEach) value.visuals.forEach(visual => collect(visual && (visual.content || visual), retained)); });
+    const library = this.document.assetLibrary;
+    (library && library.imports || []).forEach(value => { if (value.dataUrl) retained.encodedStrings.add(value.dataUrl); });
+    // GPU eviction releases allocations only. CPU data reachable through history,
+    // original assets or paste remains retained and is included in RAM estimates.
+    mergeResources(inactive, retained);
+
+    return {resident, inactive, retained, snapshots};
+  }
+
+  // Three r112 retains old renderer dispose listeners across restoration. Detach
+  // those while that renderer still owns its GPU handles. Keep this API name for
+  // its existing caller; geometry/material dispose also preserves the CPU object,
+  // arrays, BVH, configuration, colors and image data used on the next upload.
+  releaseContextTextureHandles() {
+    if (this.disposed || this.contextTextureHandlesReleased) return {textures: 0, renderTargets: 0, geometries: 0, materials: 0};
+    this.contextTextureHandlesReleased = true;
+    const {retained} = this.resourceInventory();
+    const released = {textures: 0, renderTargets: 0, geometries: 0, materials: 0};
+    retained.renderTargets.forEach(target => { target.dispose(); released.renderTargets++; });
+    ['geometries', 'materials'].forEach(kind => retained[kind].forEach(resource => {
+      if (typeof resource.dispose !== 'function') return;
+      resource.dispose(); this.evicted.add(resource); released[kind]++;
+    }));
+    retained.textures.forEach(texture => {
+      if (retained.renderTargetTextures.has(texture) || texture.isRenderTargetTexture || typeof texture.dispose !== 'function') return;
+      texture.dispose(); texture.needsUpdate = true; this.evicted.add(texture); released.textures++;
+    });
+    this.stats.contextTextureReleaseCycles++;
+    this.stats.contextReleasedTextures += released.textures;
+    this.stats.contextReleasedRenderTargets += released.renderTargets;
+    this.stats.contextReleasedGeometries += released.geometries;
+    this.stats.contextReleasedMaterials += released.materials;
+    this.invalidate();
+    return released;
+  }
+
+  restoreContextTextureHandles() {
+    if (this.disposed) return;
+    this.contextTextureHandlesReleased = false;
+    this.invalidate(); this.elapsed = 1;
+  }
+
+  reconcile() {
+    if (this.disposed || this.contextTextureHandlesReleased || this.roomId === null || !this.document.getRoot(this.roomId)) return;
+    const {resident, inactive, retained, snapshots} = this.resourceInventory();
 
     ['geometries', 'materials', 'textures'].forEach(kind => {
       resident[kind].forEach(resource => {
@@ -107,7 +240,7 @@ export default class ScenePerformance {
         // data). Disposing one must not delete an active geometry's GPU buffer.
         if (kind === 'geometries' && attributesOf(resource).some(attribute => resident.attributes.has(attribute))) return;
         // Render-target textures are owned and recreated by their render target.
-        if (kind === 'textures' && resource.isRenderTargetTexture) return;
+        if (kind === 'textures' && (resource.isRenderTargetTexture || retained.renderTargetTextures.has(resource))) return;
         resource.dispose();
         // This flag allocates nothing until a renderer actually uses the map.
         // It also keeps resources valid if another renderer draws a cached room
@@ -118,6 +251,8 @@ export default class ScenePerformance {
         this.stats['released' + kind.charAt(0).toUpperCase() + kind.slice(1)]++;
       });
     });
+    this.memoryStats = this.memory.sample(resident, retained, {capabilities: this.ctx.renderer && this.ctx.renderer.capabilities, historySnapshots: snapshots.length});
+    this.lod.reconcile(this.document.getRoot(this.roomId));
     this.dirty = false;
     this.elapsed = 0;
   }
@@ -125,21 +260,28 @@ export default class ScenePerformance {
   update(camera, delta = 0) {
     if (this.disposed) return;
     this.elapsed += Math.max(0, Number.isFinite(delta) ? delta : 0);
-    if (this.dirty || this.elapsed >= 1) this.reconcile();
+    // A continuous transform/paint drag can invalidate every frame. Expensive
+    // ownership/texture scans stay at most once a second, except room switches.
+    if (this.elapsed >= 1) this.reconcile();
     this.frame++;
     this.frustums.length = 0;
+    this.cameras.length = 0;
     if (!camera) return;
     let view = camera;
     if (this.ctx.vrMode && this.ctx.renderer && this.ctx.renderer.xr) view = this.ctx.renderer.xr.getCamera(camera) || camera;
     // An XR ArrayCamera's projection alone does not cover both eyes. Test the
     // union so an object seen by just one eye keeps receiving visual updates.
     const cameras = view.isArrayCamera && view.cameras.length ? view.cameras : [view];
+    this.cameras.push(...cameras);
     cameras.forEach(eye => {
       if (!view.isArrayCamera) eye.updateMatrixWorld(true);
       this.inverse.getInverse(eye.matrixWorld);
       this.matrix.multiplyMatrices(eye.projectionMatrix, this.inverse);
       this.frustums.push(new THREE.Frustum().setFromMatrix(this.matrix));
     });
+    const limits = this.ctx.graphics && this.ctx.graphics.getLimits ? this.ctx.graphics.getLimits() : {tier: 'high', visualDistanceScale: 1};
+    const renderer = this.ctx.renderer, height = renderer && renderer.domElement && renderer.domElement.height || 720;
+    this.lod.update(cameras, delta, limits, height, this.frustums);
   }
 
   objectBounds(object) {
@@ -176,7 +318,7 @@ export default class ScenePerformance {
 
   getStats() {
     const info = this.ctx.renderer && this.ctx.renderer.info;
-    return Object.assign({}, this.stats, {
+    return Object.assign({}, this.stats, this.memoryStats, this.lod.getStats(), {
       roomId: this.roomId,
       drawCalls: info && info.render ? info.render.calls : 0,
       triangles: info && info.render ? info.render.triangles : 0,
@@ -189,6 +331,7 @@ export default class ScenePerformance {
     // Resources still belong to the document; disposing this manager must not
     // destroy the active room or invalidate undo/copy references.
     this.disposed = true;
+    this.lod.dispose();
     this.frustums.length = 0;
     this.bounds = new WeakMap();
   }

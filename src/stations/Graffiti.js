@@ -49,7 +49,7 @@ export function setup(ctx, hall) {
 
   const bindings = new Map();
   const sprayTemplate = ctx.assets['spray_model'].scene;
-  const activeInput = data => data.enabled !== false && Boolean(data.desktop) !== Boolean(ctx.vrMode);
+  const activeInput = data => !(ctx.vrMode && ctx.studioMenuOpen) && data.enabled !== false && Boolean(data.desktop) !== Boolean(ctx.vrMode);
   const refreshState = () => {
     const painting = Array.from(bindings.values()).some(binding => binding.spray && binding.inside && activeInput(binding.data));
     if (painting && ctx.room === 0) ctx.raycontrol.activateState('graffiti');

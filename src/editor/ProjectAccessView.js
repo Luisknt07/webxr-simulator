@@ -1,0 +1,123 @@
+import {compileBlankProject} from './StudySceneProject.js';
+
+const ROOMS = ['hall', 'sound', 'photogrammetry', 'vertigo', 'panoramastereo', 'panorama1', 'panorama2', 'panorama3', 'panorama4', 'panorama5'];
+function node(tag, text, parent) { const result = document.createElement(tag); if (text !== undefined) result.textContent = text; if (parent) parent.appendChild(result); return result; }
+
+/** Server-backed scene selection. Public projections contain one authorized
+ * room, never a hidden copy of the owner's complete private project. */
+export default class ProjectAccessView {
+  constructor(editor) { this.editor = editor; this.user = null; this.generation = 0; this.identityGeneration = 0; }
+  get enabled() { return Boolean(this.editor.serverCapabilities && this.editor.serverCapabilities.privateProjects); }
+  canEdit() {
+    if (!this.enabled) return true;
+    const user = this.editor.ctx.studio ? this.editor.ctx.studio.client.user : this.user;
+    const access = this.editor.currentProject && this.editor.currentProject.access;
+    return Boolean(user && user.permissions && user.permissions.editor && (!access || access.canEdit === true));
+  }
+  canVisit(roomId) {
+    if (!this.enabled) return true;
+    if (this.editor.accessLoadFailed && !this.editor.loadingProject) return false;
+    // Creating a level prepares its destination before the scene metadata is
+    // committed. This one room is reachable only during an authorized edit.
+    if (this.editor.active && this.editor.creatingScene && this.editor.authoringRoomId === roomId && ROOMS.includes(roomId) && this.canEdit()) return true;
+    const editor = this.editor, allowed = editor.loadingAllowedRoomIds || editor.currentProject && editor.currentProject.allowedRoomIds;
+    if (allowed) return allowed.includes(roomId);
+    const scenes = editor.document.studio && editor.document.studio.scenes;
+    return !scenes || !scenes.length || scenes.some(scene => scene.id === roomId || scene.roomId === roomId);
+  }
+  async initialize(parameters) {
+    const editor = this.editor, scope = this.identityGeneration;
+    const identity = await editor.projectClient.request('GET', '/studio/me');
+    if (scope !== this.identityGeneration) return false;
+    this.user = identity.user || null;
+    editor.initialIdentity = identity;
+    editor.projectClient.identityProvider = () => this.user && this.user.id;
+    const rawId = parameters.get('project') || this.requestedProjectId;
+    const explicitId = rawId && !/^(public-|library-)/.test(rawId) ? rawId : null;
+    const libraryId = parameters.get('libraryScene') || (rawId && rawId.startsWith('library-') ? rawId.slice(8) : null);
+    if (explicitId && !this.user && !/^(public-|library-)/.test(explicitId)) this.requestedProjectId = explicitId;
+    if (explicitId && this.user && !/^public-|^library-/.test(explicitId)) {
+      try { const project = await editor.projectClient.getProject(explicitId); if (scope !== this.identityGeneration) return false; await editor.applyServerProject(project, {roomId: parameters.get('room'), accessGeneration: scope}); return true; }
+      catch (error) { editor.toast(error.message); }
+    }
+    if (editor.editorEnabled && this.user && this.user.permissions.editor && !explicitId && !libraryId && !(rawId && rawId.startsWith('public-')) && !parameters.get('scene')) {
+      const result = await editor.projectClient.listProjects(); const list = Array.isArray(result) ? result : result.projects || [];
+      if (scope !== this.identityGeneration) return false;
+      let remembered; try { remembered = localStorage.getItem(editor.scopedStorageKey('hello-webxr-active-project')); } catch (_) { /* Optional browser state. */ }
+      const project = list.find(value => value.id === remembered && (!value.access || value.access.canEdit)) || list.find(value => !value.access || value.access.canEdit);
+      if (project) { const saved = await editor.projectClient.getProject(project.id); if (scope !== this.identityGeneration) return false; await editor.applyServerProject(saved, {accessGeneration: scope}); return true; }
+      const blank = await compileBlankProject({nativeDocument: editor.document, name: 'Nuevo proyecto'});
+      if (scope !== this.identityGeneration) return false;
+      await editor.applyServerProject({name: blank.name, revision: 0, document: blank.document, access: {canEdit: true, role: 'owner'}}, {accessGeneration: scope});
+      editor.currentProject = null; editor.dirty = false; return true;
+    }
+    if (libraryId && this.user) {
+      const result = await editor.projectClient.request('GET', '/library/scenes/' + encodeURIComponent(libraryId));
+      if (scope !== this.identityGeneration) return false;
+      await editor.applyServerProject(result.project, {accessGeneration: scope}); return true;
+    }
+    await this.loadPublic(parameters.get('scene') || (rawId && rawId.startsWith('public-') ? rawId.slice(7) : null)); return true;
+  }
+  async loadPublic(id) {
+    const editor = this.editor, generation = ++this.generation;
+    const catalog = await editor.projectClient.request('GET', '/public/scenes'); this.catalog = catalog.scenes || [];
+    const scene = this.catalog.find(value => value.id === id) || this.catalog[0];
+    if (!scene) throw new Error('No hay escenas públicas disponibles. Inicia sesión para abrir tus proyectos.');
+    const result = await editor.projectClient.request('GET', '/public/scenes/' + encodeURIComponent(scene.id));
+    if (generation !== this.generation) return false;
+    if (editor.active) editor.leave();
+    await editor.applyServerProject(result.project, {roomId: scene.roomId});
+    editor.accessLoadFailed = false;
+    editor.projectSync.stop(); editor.dirty = false;
+    return true;
+  }
+  async accountChanged(user, options = {}) {
+    const old = this.user && this.user.id; this.user = user || null;
+    if (old === (this.user && this.user.id) && !options.reload) return;
+    this.generation++; this.identityGeneration++; const editor = this.editor;
+    const canvas = editor.ctx.renderer && editor.ctx.renderer.domElement; if (canvas) canvas.style.visibility = 'hidden';
+    editor.projectSync.stop(); editor.clearObjectClipboard();
+    if (editor.sceneGuide) editor.sceneGuide.close();
+    if (editor.monitorWidgets) editor.monitorWidgets.close();
+    if (editor.sceneCreationDialog) editor.sceneCreationDialog.dispose();
+    if (editor.sharePanel) { editor.sharePanel.hidden = true; if (editor.sharing && editor.sharing.host) { editor.sharing.host.remove(); editor.sharing.host = null; } if (editor.shareLinkInput) editor.shareLinkInput.value = ''; }
+    if (editor.projectLibrary) { const library = editor.projectLibrary; library.close(); library.projects = []; library.selected = null; if (library.list) library.list.textContent = ''; if (library.details) library.details.textContent = ''; }
+    if (editor.projectTabs) editor.projectTabs.syncIdentity();
+    if (editor.active) editor.leave();
+    if (editor.returnButton) editor.returnButton.hidden = true;
+    try { if (!user || options.reload) {
+      // Hide a previous identity's world immediately, before the network read.
+      editor.document.rooms.forEach(entry => { if (entry.root) entry.root.visible = false; });
+      await this.loadPublic();
+    } else if (editor.editorEnabled && !options.preserveWorld) {
+      const parameters = new URL(window.location).searchParams;
+      if (!this.requestedProjectId) { parameters.delete('scene'); parameters.delete('libraryScene'); if (/^(public-|library-)/.test(parameters.get('project') || '')) parameters.delete('project'); }
+      await this.initialize(parameters);
+    }
+    if (canvas) canvas.style.visibility = '';
+    } catch (error) { editor.accessLoadFailed = true; throw error; }
+  }
+  async gallery(host, studio) {
+    const generation = this.galleryGeneration = (this.galleryGeneration || 0) + 1;
+    const scope = this.identityGeneration;
+    const publicCatalog = await this.editor.projectClient.request('GET', '/public/scenes');
+    if (!host.isConnected || generation !== this.galleryGeneration) return;
+    node('p', 'Dos ejemplos públicos. Inicia sesión para consultar el catálogo completo y tus proyectos.', host).className = 'studio-muted';
+    const render = (title, entries, included) => {
+      node('h3', title, host);
+      entries.forEach(scene => { const card = node('div', undefined, host); card.className = 'studio-card'; node('strong', scene.name || scene.title, card); if (scene.collection) node('p', scene.collection, card);
+        const open = node('button', 'Explorar escenario', card); open.type = 'button';
+        open.addEventListener('click', () => studio.guard(async () => {
+          const result = await this.editor.projectClient.request('GET', (included ? '/library/scenes/' : '/public/scenes/') + encodeURIComponent(scene.id));
+          if (scope !== this.identityGeneration) return;
+          if (this.editor.active) this.editor.leave(); await this.editor.applyServerProject(result.project, {roomId: scene.roomId, accessGeneration: scope}); studio.close();
+        }));
+      });
+    };
+    render('Disponibles para todos', publicCatalog.scenes || [], false);
+    if (studio.client.user) {
+      const result = await this.editor.projectClient.request('GET', '/library/scenes');
+      if (host.isConnected && generation === this.galleryGeneration) render('Ejemplos incluidos · acceso con cuenta', result.scenes || [], true);
+    } else { const login = node('button', 'Iniciar sesión para ver más escenarios', host); login.addEventListener('click', () => studio.open('account')); }
+  }
+}

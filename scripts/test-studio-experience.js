@@ -8,10 +8,12 @@ const code = fs.readFileSync(path.join(__dirname, '../src/studio/StudioExperienc
 const captures = [], restores = [], calls = [];
 const location = new URL('https://localhost:8080/'); location.assign = url => calls.push(['navigate', url]);
 const createAvatar = config => { const avatar = new THREE.Group(); avatar.userData.dispose = () => { avatar.userData.disposed = true; }; return avatar; };
-const Experience = new Function('THREE', 'StudioClient', 'StudioRoomConnection', 'StudioTools', 'EducationRuntime', 'SharedGrabs', 'RemotePresentation', 'createAvatar', 'avatarBadge', 'DEFAULT_AVATAR', 'captureSimulation', 'restoreSimulation', 'window',
+class ImmersiveMenuMock { constructor(studio) { this.studio = studio; } open(page) { calls.push(['immersiveOpen', page]); } close() { calls.push(['immersiveClose']); } setVR(active) { calls.push(['immersiveVR', active]); } identityChanged() { calls.push(['immersiveIdentity']); } }
+class AdministrationMock { close() { calls.push(['administrationClose']); } }
+const Experience = new Function('THREE', 'StudioClient', 'StudioRoomConnection', 'StudioTools', 'EducationRuntime', 'SharedGrabs', 'RemotePresentation', 'createAvatar', 'avatarBadge', 'DEFAULT_AVATAR', 'captureSimulation', 'restoreSimulation', 'window', 'AdminWorkspace', 'ImmersiveStudioMenu', 'document',
   code + '\nreturn StudioExperience;')(THREE, class {}, class {}, class {}, class {}, class {}, class {}, createAvatar, () => ({}), {},
   (runtime, options) => { captures.push(options); if (runtime.held && !options.allowHeld) throw new Error('Suelta las cargas'); return {version: 1, time: runtime.time}; },
-  (runtime, state, options) => { restores.push({runtime, state, options}); }, {location});
+  (runtime, state, options) => { restores.push({runtime, state, options}); }, {location}, AdministrationMock, ImmersiveMenuMock, {querySelectorAll() { return []; }});
 
 function setup() {
   const experience = Object.create(Experience.prototype), cameraRig = new THREE.Group(), camera = new THREE.PerspectiveCamera();
@@ -28,6 +30,7 @@ function setup() {
     avatars: new Map(), appliedEvents: new Set(), roomRevision: 0, messages: [],
     message(message) { this.messages.push(message); }, open(page) { calls.push(['open', page]); }, close() {}, renderParticipants() {},
     connection: {async action(action) { calls.push(['roomAction', action]); return {accepted: true}; }, async save(state) { calls.push(['saveRoom', state]); return {revision: 1}; }} });
+  experience.immersiveMenu = new ImmersiveMenuMock(experience); experience.administration = new AdministrationMock();
   return experience;
 }
 
@@ -152,6 +155,14 @@ async function run() {
   const permission = setup(); permission.client.user.permissions.editor = false;
   permission.openEditor(); assert.match(permission.messages[0], /permiso de edición/);
   permission.client.user = null; permission.openEditor(); assert.deepEqual(calls.pop(), ['open', 'account']);
+  const immersive = setup(); immersive.ctx.vrMode = true; immersive.editor.projectLibrary = {close() { calls.push(['libraryClose']); }};
+  immersive.editor.sceneGuide = {close() { calls.push(['guideClose']); }}; immersive.editor.monitorWidgets = {close() { calls.push(['monitorBindingClose']); }};
+  immersive.editor.sceneCreationDialog = {dispose() { calls.push(['creationClose']); }}; immersive.editor.sharePanel = {hidden: false}; immersive.editor.conveyorViewer = {close() { calls.push(['equipmentViewerClose']); }}; immersive.editor.simulationPanel = {toggle(value) { calls.push(['simulationPanel', value]); }};
+  const vrStart = calls.length; immersive.onVRChange(true); const vrCalls = calls.slice(vrStart);
+  for (const name of ['administrationClose', 'libraryClose', 'guideClose', 'monitorBindingClose', 'creationClose', 'equipmentViewerClose']) assert(vrCalls.some(value => value[0] === name)); assert(immersive.editor.sharePanel.hidden); assert.deepEqual(vrCalls[vrCalls.length - 1], ['immersiveVR', true]);
+  immersive.onVRChange(false); assert.deepEqual(calls.pop(), ['immersiveVR', false]);
+  immersive.ctx.goto = 8; immersive.ctx.teleport = {active: true, onHoverLeave() { calls.push(['teleportLeave']); }}; immersive.ctx.editorXylophone = {releaseHeld() { calls.push(['releaseStick']); }}; immersive.editor.simulation.onInputModeChange = () => calls.push(['inputModeChanged']);
+  immersive.beforeImmersiveMenuOpen(); assert.equal(immersive.ctx.goto, null); assert.equal(immersive.ctx.teleport.active, false); assert(calls.some(value => value[0] === 'inputModeChanged')); assert(calls.some(value => value[0] === 'releaseStick'));
   assert.match(code, /password\.minLength = 12/, 'registration form matches actual password requirements');
   console.log('Studio experiencia: permisos, mandos con ámbito, autoridad, rechazo de acciones, snapshots sin recarga GPU y reanudación contextual OK.');
 }

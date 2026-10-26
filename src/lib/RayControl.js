@@ -276,6 +276,7 @@ export default class RayControl extends EventDispatcher {
 
       // Check no raycaster states
       this.currentStates.forEach(state => {
+        if (!this.allowedState(state)) return;
         if (selected.some(entry => entry.state.consumeSelect)) return;
         if (controllerData.desktop && state.vrOnly) {
           return;
@@ -326,6 +327,7 @@ export default class RayControl extends EventDispatcher {
 
       for (var i = 0; i < this.currentStates.length; i++) {
         let state = this.currentStates[i];
+        if (!this.allowedState(state)) { controllerData.intersections[state.name] = null; continue; }
         if (!state.raycaster) {
           continue;
         }
@@ -365,7 +367,7 @@ export default class RayControl extends EventDispatcher {
         controllerData.line0.scale.z = controllerData.lineBasic.scale.z = Math.min(this.rayLength, 1);
       }
       controllerData.prevHoverEntries = controllerData.hoverEntries || [];
-      let intersections = Object.entries(controllerData.intersections).filter(i => i[1] && this.states[i[0]]);
+      let intersections = Object.entries(controllerData.intersections).filter(i => i[1] && this.states[i[0]] && this.allowedState(this.states[i[0]]));
       if (intersections.length > 0) {
 
         intersections.sort((a,b) => {
@@ -422,11 +424,11 @@ export default class RayControl extends EventDispatcher {
 
   selectionEntries(controllerData) {
     const current = controllerData.currentIntersection;
-    if (!current) return [];
+    if (!current || !this.allowedState(current.state)) return [];
     const entries = [current];
     Object.keys(controllerData.intersections).forEach(name => {
       const state = this.states[name], hit = controllerData.intersections[name];
-      if (!state || state === current.state || !hit || (!state.mergeSelection && !current.state.mergeSelection)) return;
+      if (!state || !this.allowedState(state) || state === current.state || !hit || (!state.mergeSelection && !current.state.mergeSelection)) return;
       if (Math.abs(hit.distance - current.intersection.distance) > 0.025) return;
       const within = (object, parent) => {
         for (let node = object; node; node = node.parent) if (node === parent) return true;
@@ -436,6 +438,8 @@ export default class RayControl extends EventDispatcher {
     });
     return entries;
   }
+
+  allowedState(state) { return Boolean(state && (!(this.ctx && this.ctx.vrMode && this.ctx.studioMenuOpen) || state.xrMenu === true)); }
 
   getIntersections( controller, colliderMesh ) {
     let raycasterContext = controller.getObjectByName('raycasterContext');
@@ -495,11 +499,14 @@ export default class RayControl extends EventDispatcher {
     if (!controllerData.enabled) { this.cancelSelect(controllerData); return; }
 
     if (controllerData) {
-      const selected = controllerData.selectionCapture || this.selectionEntries(controllerData);
+      const captured = controllerData.selectionCapture || this.selectionEntries(controllerData);
+      captured.filter(entry => !this.allowedState(entry.state)).forEach(entry => entry.state.onSelectCancel && entry.state.onSelectCancel(entry.intersection, controllerData.controller));
+      const selected = captured.filter(entry => this.allowedState(entry.state));
       selected.forEach(entry => entry.state.onSelectEnd && entry.state.onSelectEnd(entry.intersection, controllerData.controller));
 
       // Check no raycaster states
       this.currentStates.forEach(state => {
+        if (!this.allowedState(state)) return;
         if (controllerData.captureConsumed || selected.some(entry => entry.state.consumeSelect)) return;
         if (controllerData.desktop && state.vrOnly) return;
         if (!this.matchController(controllerData, state.controller)) return;

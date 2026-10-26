@@ -13,7 +13,11 @@ async function fixtures() {
   const compiler = publish.productionCompiler(), built = await compiler.compileStudyProject(['lab-transfer-l', 'lab-sorting', 'lab-assembly', 'advanced-rework'], {nativeDocument: publish.nativeMask(), continuous: false});
   const before = built.document;
   upgrade.ROOMS.forEach(roomId => {
-    const row = config(before, roomId, 'source'); row.behaviors.push(Object.assign(material('Industrial · fixture', .8, .1), {overrides: [material('Industrial · superior', .7, .6), material('Material del usuario', .8, .1), material('Industrial · caucho', 0, .1), material('Industrial · umbral', .15, .1)]}));
+    const row = config(before, roomId, 'source');
+    // Builders now install generated finishes/wear. Replace only those fixture
+    // inputs so each deliberately tested behavior occurs exactly once.
+    row.behaviors = row.behaviors.filter(value => !['surfaceMaterial', 'surfaceWear'].includes(value.type));
+    row.behaviors.push(Object.assign(material('Industrial · fixture', .8, .1), {overrides: [material('Industrial · superior', .7, .6), material('Material del usuario', .8, .1), material('Industrial · caucho', 0, .1), material('Industrial · umbral', .15, .1)]}));
     row.behaviors.push({type: 'surfaceWear', enabled: true, layers: wear.normalizeLayerJSON([{id: 'industrial-light-scratches', pattern: 'scratches', opacity: .3, density: .4, matrix}, {id: 'user-layer', pattern: 'grime', opacity: .2, density: .3, matrix}])});
   });
   before.studio.entities.filter(entity => entity.type === 'pointLight').forEach(entity => { entity.intensity = 1.2; });

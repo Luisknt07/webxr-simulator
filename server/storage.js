@@ -233,6 +233,7 @@ class ProjectStore {
   // Binary uploads are streamed to disk and hashed incrementally. No full-sized
   // buffer or base64 string is retained while receiving a large model.
   async receiveAsset(req) {
+    const maximum = Number.isSafeInteger(req.assetBudgetBytes) ? Math.min(this.maxAssetBytes, req.assetBudgetBytes) : this.maxAssetBytes;
     const mime = assetMime(req.headers['x-asset-mime']);
     const contentLength = req.headers['content-length'];
     let expected;
@@ -241,7 +242,7 @@ class ProjectStore {
         throw new ApiError(400, 'El tamaño del archivo no es válido.');
       }
       expected = Number(contentLength);
-      if (expected > this.maxAssetBytes) throw this.assetLimitError(expected);
+      if (expected > maximum) { if (maximum === this.maxAssetBytes) throw this.assetLimitError(expected); throw new ApiError(413, 'El archivo supera el espacio disponible de tu cuenta.', 'storage_quota_exceeded'); }
     }
     const temporary = path.join(this.uploadDir, 'upload.' + randomUUID() + '.tmp');
     let handle;
@@ -255,7 +256,7 @@ class ProjectStore {
       handle = await fs.promises.open(temporary, 'wx');
       for await (const chunk of req.iterator({destroyOnReturn: false})) {
         bytes += chunk.length;
-        if (bytes > this.maxAssetBytes) throw this.assetLimitError(bytes);
+        if (bytes > maximum) { if (maximum === this.maxAssetBytes) throw this.assetLimitError(bytes); throw new ApiError(413, 'El archivo supera el espacio disponible de tu cuenta.', 'storage_quota_exceeded'); }
         hash.update(chunk);
         let written = 0;
         while (written < chunk.length) {
@@ -269,7 +270,8 @@ class ProjectStore {
       }
       await handle.close();
       handle = null;
-      return this._commitAsset(temporary, hash.digest('hex'), mime, bytes);
+      const digest = hash.digest('hex'); req.committedNewAsset = !this.sql.asset.get(digest);
+      return this._commitAsset(temporary, digest, mime, bytes);
     } catch (error) {
       if (error instanceof ApiError) throw error;
       if (req.aborted || req.destroyed && !req.complete) throw new ApiError(400, 'La carga del archivo se interrumpió.');
@@ -325,7 +327,7 @@ class ProjectStore {
     };
   }
 
-  saveProject(id, payload) {
+  saveProject(id, payload, hooks = {}) {
     if (!plain(payload)) invalid('Los datos del proyecto no son válidos.');
     safeTree(payload);
     const name = nameValue(payload.name);
@@ -340,11 +342,12 @@ class ProjectStore {
       if (row && row.revision !== payload.expectedRevision) {
         throw new ApiError(409, 'El proyecto cambió en otra ventana. Abre la versión actual o guarda una copia para conservar tus cambios.', 'revision_conflict');
       }
-      const document = validateDocument(payload.document, record => this._saveImport(record));
+      const document = validateDocument(payload.document, record => { if (hooks.beforeImport) hooks.beforeImport(record); return this._saveImport(record); });
       const revision = row ? row.revision + 1 : 1;
       if (row) this.sql.update.run(name, revision, timestamp, id, row.revision);
       else this.sql.create.run(projectId, name, timestamp, timestamp);
       this.sql.insertRevision.run(projectId, revision, name, JSON.stringify(document), timestamp);
+      if (hooks.beforeCommit) hooks.beforeCommit({projectId, revision, document, row});
       this.db.exec('COMMIT');
       // Return this committed write even if another server process saves again immediately.
       return {id: projectId, name, revision, createdAt: row ? row.created_at : timestamp, updatedAt: timestamp, document};

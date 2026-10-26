@@ -16,6 +16,7 @@ import WearPaintSystem from './WearPaintSystem.js';
 import WearBrush from './WearBrush.js';
 import MaterialInspector from './MaterialInspector.js';
 import ScenePerformance from './ScenePerformance.js';
+import GraphicsSettings from './GraphicsSettings.js';
 import IndustrialVisuals from './IndustrialVisuals.js';
 import IndustrialAudioSystem from './IndustrialAudioSystem.js';
 import LineMonitorSystem from './LineMonitorSystem.js';
@@ -32,6 +33,8 @@ import ProjectClient from './ProjectClient.js';
 import ProjectLibrary from './ProjectLibrary.js';
 import ProjectSync from './ProjectSync.js';
 import resolveProject from './ProjectResolver.js';
+import ProjectAccessView from './ProjectAccessView.js';
+import ProjectSharing from './ProjectSharing.js';
 import {describeNative, prepareNativeEdit, syncNativeTransforms} from './NativeBindings.js';
 
 const STORAGE_KEY = 'hello-webxr-editor-v1';
@@ -182,11 +185,13 @@ export default class SceneEditor {
     this.audioControls = []; this.industrialAudio.onChange = () => this.refreshAudioControls();
     this.lineMonitors = new LineMonitorSystem(ctx, this.document, this.simulation);
     this.projectClient = new ProjectClient();
+    this.accessView = new ProjectAccessView(this);
+    this.sharing = new ProjectSharing(this);
     this.projectLibrary = new ProjectLibrary(this.projectClient, {
       onOpen: (project, roomId) => this.openServerProject(project, roomId),
       getCurrentProject: () => this.currentProject,
-      listLevels: project => behaviorSchema.studio.sceneEntries(project.document).sort((a, b) => Number(b.initial) - Number(a.initial) || Number(b.custom) - Number(a.custom) || a.index - b.index),
-      onNew: name => this.createServerProject(name),
+      listLevels: project => behaviorSchema.studio.sceneEntries(project.document).filter(scene => !this.accessView.enabled || !(project.document.studio && project.document.studio.scenes || []).length || scene.custom).sort((a, b) => Number(b.initial) - Number(a.initial) || Number(b.custom) - Number(a.custom) || a.index - b.index),
+      onNew: name => this.studioTools ? this.studioTools.newProject(name) : this.createServerProject(name),
       onSaveAs: name => this.saveProject(name, true),
       notify: message => this.toast(message)
     });
@@ -293,7 +298,7 @@ export default class SceneEditor {
     window.addEventListener('blur', () => { this.clearNavigation(); this.wearBrushTool.cancelStroke(); });
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('beforeunload', event => {
-      if (!this.dirty && !this.importingFiles) return;
+      if (!this.dirty && !this.importingFiles && !(this.projectTabs && this.projectTabs.hasUnsaved())) return;
       event.preventDefault();
       event.returnValue = '';
     });
@@ -305,7 +310,7 @@ export default class SceneEditor {
       onError: () => { this.storageAvailable = false; this.updateStatus(); }
     });
     window.addEventListener('pagehide', () => this.projectSync.stop());
-    window.addEventListener('pageshow', () => { if (this.editorEnabled && !this.initializing) this.projectSync.start(); });
+    window.addEventListener('pageshow', () => { if (this.editorEnabled && !this.initializing && this.canEditDocument()) this.projectSync.start(); });
     this.ready = this.initialize();
   }
 
@@ -322,6 +327,16 @@ export default class SceneEditor {
     } catch (error) { this.toast('Biblioteca: ' + error.message); }
     try { await this.checkStorageHealth(); }
     catch (error) { /* Static copies retain local/JSON loading without a server. */ }
+    if (this.accessView.enabled) {
+      try { await this.accessView.initialize(parameters); }
+      catch (error) { this.toast('Escenarios: ' + error.message); this.accessLoadFailed = true; }
+      if (this.accessLoadFailed) { this.document.rooms.forEach(entry => { entry.root.visible = false; }); }
+      await this.prepareRoom(this.roomId);
+      if (!this.accessLoadFailed) this.startRuntime();
+      this.initializing = false;
+      if (this.editorEnabled && this.canEditDocument()) { this.enter(); this.projectSync.start(); }
+      this.updateStatus(); return;
+    }
     let lastProject, localBackup;
     try {
       if (this.editorEnabled) {
@@ -365,7 +380,9 @@ export default class SceneEditor {
 
   get roomId() { return ROOM_IDS[this.ctx.room]; }
   get root() { return this.document.getRoot(this.roomId); }
-  getSceneEntries() { return behaviorSchema.studio.sceneEntries(this.document); }
+  getSceneEntries() { return behaviorSchema.studio.sceneEntries(this.document).filter(entry => !this.accessView || this.accessView.canVisit(entry.id || entry.roomId || ROOM_IDS[entry.index])); }
+  canEditDocument() { return !this.accessView || this.accessView.canEdit(); }
+  scopedStorageKey(key) { const user = this.ctx.studio && this.ctx.studio.client.user || this.accessView && this.accessView.user; return this.accessView && this.accessView.enabled ? key + ':' + (user ? user.id : 'guest') : key; }
 
   buildUI() {
     this.launcher = button('◇ Abrir editor', 'Editar el escenario', () => this.enter());
@@ -517,6 +534,7 @@ export default class SceneEditor {
       this.resetPerformancePanel();
     }));
     this.performancePanel = el('div', 'ed-performance'); this.performancePanel.hidden = true;
+    this.performanceMetrics = el('output', 'ed-performance-metrics'); this.performancePanel.appendChild(this.performanceMetrics);
     this.viewport.appendChild(this.performancePanel);
     this.viewport.appendChild(viewTools);
     this.assemblyHint = el('div', 'ed-assembly-hint'); this.assemblyHint.hidden = true;
@@ -696,6 +714,7 @@ export default class SceneEditor {
 
   enter() {
     if (!this.editorEnabled || this.active || this.ctx.vrMode) return;
+    if (!this.canEditDocument()) { if (this.ctx.studio) this.ctx.studio.open('account'); return; }
     this.resetPerformancePanel();
     this.clearNavigation();
     this.stopRuntime();
@@ -751,7 +770,7 @@ export default class SceneEditor {
     this.ctx.raycontrol.enable();
     this.hooks.clearKeyboard();
     this.launcher.hidden = true;
-    this.returnButton.hidden = !this.editorEnabled || this.ctx.vrMode;
+    this.returnButton.hidden = !this.editorEnabled || this.ctx.vrMode || !this.canEditDocument();
     this.resize();
     this.startRuntime();
     this.simulationPanel.modeChanged();
@@ -766,8 +785,8 @@ export default class SceneEditor {
     if (this.ctx.editorXylophone && this.ctx.editorXylophone.releaseHeld) this.ctx.editorXylophone.releaseHeld();
     if (inVR) this.projectLibrary.close();
     if (inVR && this.active) this.leave();
-    this.launcher.hidden = !this.editorEnabled || inVR || this.active;
-    this.returnButton.hidden = !this.editorEnabled || inVR || this.active;
+    this.launcher.hidden = !this.editorEnabled || inVR || this.active || !this.canEditDocument();
+    this.returnButton.hidden = !this.editorEnabled || inVR || this.active || !this.canEditDocument();
     this.resize();
     this.simulationPanel.modeChanged();
     if (this.shell) this.shell.modeChanged();
@@ -873,6 +892,7 @@ export default class SceneEditor {
   resize() {
     const width = this.active ? Math.max(1, this.viewport.clientWidth) : window.innerWidth;
     const height = this.active ? Math.max(1, this.viewport.clientHeight) : window.innerHeight;
+    if (this.ctx.graphics && this.ctx.graphics.setViewport) this.ctx.graphics.setViewport(width, height, window.devicePixelRatio || 1);
     this.ctx.renderer.setSize(width, height);
     this.camera.aspect = width / height; this.camera.updateProjectionMatrix();
     this.ctx.camera.aspect = window.innerWidth / window.innerHeight; this.ctx.camera.updateProjectionMatrix();
@@ -1065,11 +1085,19 @@ export default class SceneEditor {
     this.performanceElapsed = 0;
     this.performanceFrames = 0;
     this.skipPerformanceFrame = true;
-    if (this.performancePanel) this.performancePanel.textContent = '';
+    if (this.performancePanel) (this.performanceMetrics || this.performancePanel).textContent = '';
+    if (!this.performanceGraphics && this.ctx.graphics) this.performanceGraphics = this.appendGraphicsSettings(this.performancePanel, {compact: true});
+    if (this.performanceGraphics) this.performanceGraphics.update();
+  }
+
+  appendGraphicsSettings(parent, options = {}) {
+    if (!parent || !this.ctx.graphics) return null;
+    return new GraphicsSettings(this.ctx.graphics, Object.assign({ctx: this.ctx}, options)).mount(parent);
   }
 
   updatePerformancePanel(delta) {
     if (!this.performancePanel || this.performancePanel.hidden) return;
+    const metrics = this.performanceMetrics || this.performancePanel;
     // Ignore the interval spent opening the panel or returning from a hidden
     // tab. Sample rendered frames over a short window rather than averaging 1/dt.
     if (this.skipPerformanceFrame) this.skipPerformanceFrame = false;
@@ -1078,12 +1106,12 @@ export default class SceneEditor {
       this.performanceFrames = (this.performanceFrames || 0) + 1;
     }
     const elapsed = this.performanceElapsed || 0;
-    if (elapsed < 0.4 && this.performancePanel.textContent) return;
+    if (elapsed < 0.4 && metrics.textContent) return;
     const timing = elapsed >= 0.4 ? Math.round(this.performanceFrames / elapsed) +
       ' · ' + (1000 * elapsed / this.performanceFrames).toFixed(1) + ' ms/fotograma' : 'calculando…';
     if (elapsed >= 0.4) { this.performanceElapsed = 0; this.performanceFrames = 0; }
     const stats = this.performance.getStats();
-    this.performancePanel.textContent = 'Sala activa · ' + ROOM_LABELS[this.ctx.room] + '\nFPS: ' + timing + '\nDibujos: ' + stats.drawCalls +
+    metrics.textContent = 'Sala activa · ' + ROOM_LABELS[this.ctx.room] + '\nFPS: ' + timing + '\nDibujos: ' + stats.drawCalls +
       ' · Triángulos: ' + Number(stats.triangles || 0).toLocaleString() + '\nGPU: ' + stats.gpuGeometries +
       ' geometrías · ' + stats.gpuTextures + ' texturas\nSalas inactivas: ' + stats.inactiveRooms;
   }
@@ -1099,7 +1127,8 @@ export default class SceneEditor {
       if (this.selected && this.toolMode !== 'select') this.transform.attach(this.selected); else this.transform.detach();
     }
     this.renderTree(); this.renderInspector(); this.updateStatus();
-    this.library.getCatalog().then(entries => { this.entries = entries; this.renderAssets(); }).catch(() => {});
+    const generation = this.projectGeneration;
+    this.library.getCatalog().then(entries => { if (generation === this.projectGeneration) { this.entries = entries; this.renderAssets(); } }).catch(() => {});
   }
 
   async checkStorageHealth() {
@@ -2503,13 +2532,15 @@ export default class SceneEditor {
   rememberProject(project) {
     try {
       if (this.editorEnabled) {
-        if (project) localStorage.setItem(ACTIVE_PROJECT_KEY, project.id);
-        else localStorage.removeItem(ACTIVE_PROJECT_KEY);
+        if (project && project.id && !/^public-|^library-/.test(project.id)) localStorage.setItem(this.scopedStorageKey(ACTIVE_PROJECT_KEY), project.id);
+        else localStorage.removeItem(this.scopedStorageKey(ACTIVE_PROJECT_KEY));
       }
     } catch (error) { /* SQLite saving does not depend on browser storage. */ }
     if (window.history && window.history.replaceState) {
       const url = new URL(window.location);
-      if (project && (this.editorEnabled || this.explicitProject)) { url.searchParams.set('project', project.id); url.searchParams.set('room', this.roomId); }
+      if (project && project.publicSceneId) { url.searchParams.set('scene', project.publicSceneId); url.searchParams.delete('project'); if (ROOM_IDS.includes(url.searchParams.get('room'))) url.searchParams.delete('room'); }
+      else if (project && project.librarySceneId) { url.searchParams.set('libraryScene', project.librarySceneId); url.searchParams.delete('project'); url.searchParams.delete('scene'); url.searchParams.delete('room'); }
+      else if (project && (this.editorEnabled || this.explicitProject)) { url.searchParams.set('project', project.id); url.searchParams.set('room', this.roomId); url.searchParams.delete('scene'); }
       else url.searchParams.delete('project');
       url.searchParams.delete('editor');
       window.history.replaceState(null, '', url.href);
@@ -2517,11 +2548,11 @@ export default class SceneEditor {
   }
 
   projectSyncState() {
-    return {project: this.currentProject, dirty: this.dirty, busy: this.busy || this.ctx.roomTransition || this.importingFiles || this.pendingEdits > 0 || Boolean(this.projectLibrary.busy),
+    return {project: this.canEditDocument() ? this.currentProject : null, dirty: this.dirty, busy: !this.canEditDocument() || this.busy || this.ctx.roomTransition || this.importingFiles || this.pendingEdits > 0 || Boolean(this.projectLibrary.busy),
       loading: this.loadingProject || this.initializing,
       transaction: this.document.transaction || this.transform && this.transform.dragging || isTyping({target: document.activeElement || {}}),
       pinned: Boolean(this.historicalRevision), active: this.active, vrMode: this.ctx.vrMode,
-      allowDiscover: !this.currentProject && !this.explicitProject && !this.dirty};
+      allowDiscover: this.canEditDocument() && !this.currentProject && !this.explicitProject && !this.dirty};
   }
 
   markRemoteProject(project) {
@@ -2563,6 +2594,7 @@ export default class SceneEditor {
     url.searchParams.set('room', this.roomId);
     url.searchParams.delete('editor');
     this.shareLinkInput.value = url.href; this.shareOpenLink.href = url.href; this.sharePanel.hidden = false;
+    if (this.sharing) await this.sharing.open();
     if (this.shareLinkInput.focus) this.shareLinkInput.focus();
     if (this.shareLinkInput.select) this.shareLinkInput.select();
     try {
@@ -2575,8 +2607,22 @@ export default class SceneEditor {
   }
 
   async applyServerProject(project, options = {}) {
+    if (!this.accessView || !this.accessView.enabled) return this.applyServerProjectNow(project, options);
+    const generation = options.accessGeneration === undefined ? this.accessView.identityGeneration : options.accessGeneration;
+    const execute = async () => {
+      if (generation !== this.accessView.identityGeneration) throw new Error('La cuenta cambió durante la apertura del proyecto.');
+      return this.applyServerProjectNow(project, Object.assign({}, options, {accessGeneration: generation}));
+    };
+    const task = (this.projectApplicationTail || Promise.resolve()).catch(() => {}).then(execute);
+    this.projectApplicationTail = task; return task;
+  }
+
+  async applyServerProjectNow(project, options = {}) {
     if (!project || !project.document) throw new Error('El proyecto recibido no contiene un escenario.');
-    const targetRoomId = ROOM_IDS.includes(options.roomId) ? options.roomId : this.roomId;
+    const declared = project.allowedRoomIds || (this.accessView && this.accessView.enabled ? (project.document.studio && project.document.studio.scenes || []).map(scene => scene.id || scene.roomId) : []);
+    const initial = project.document.studio && project.document.studio.startRoomId;
+    const requested = ROOM_IDS.includes(options.roomId) ? options.roomId : initial || this.roomId;
+    const targetRoomId = declared.length && !declared.includes(requested) ? declared[0] : requested;
     this.cancelTransformDrag(); this.clearAssembly(true);
     this.projectGeneration++;
     this.clearNavigation();
@@ -2586,12 +2632,17 @@ export default class SceneEditor {
     this.infoPreview.dispose();
     this.stopRuntime();
     this.loadingProject = true;
+    this.loadingAllowedRoomIds = declared.length ? declared : null;
     const transformEnabled = this.transform.enabled;
     this.transform.enabled = false;
     try {
-      await this.document.load(project.document, {activeRoomId: targetRoomId});
+      if (options.workspaceSnapshot) this.document._restore(options.workspaceSnapshot);
+      else await this.document.load(project.document, {activeRoomId: targetRoomId});
+      if (this.accessView && this.accessView.enabled && options.accessGeneration !== this.accessView.identityGeneration) throw new Error('La cuenta cambió durante la carga.');
       await this.prepareRoom(targetRoomId);
-      this.currentProject = {id: project.id, name: project.name, revision: project.revision};
+      if (this.accessView && this.accessView.enabled && options.accessGeneration !== this.accessView.identityGeneration) throw new Error('La cuenta cambió durante la preparación.');
+      this.currentProject = {id: project.id, name: project.name, revision: project.revision, access: project.access, allowedRoomIds: project.allowedRoomIds, publicSceneId: project.publicSceneId, librarySceneId: project.librarySceneId};
+      this.publicView = Boolean(project.access && project.access.canEdit === false);
       this.clearObjectClipboard();
       this.projectName = project.name;
       if (targetRoomId !== this.roomId) await this.hooks.gotoRoom(ROOM_IDS.indexOf(targetRoomId));
@@ -2610,8 +2661,11 @@ export default class SceneEditor {
       this.updateStatus();
     } finally {
       this.loadingProject = false;
+      this.loadingAllowedRoomIds = null;
       this.transform.enabled = transformEnabled && this.active;
-      if (!this.active) this.startRuntime();
+      const scopeValid = !this.accessView || !this.accessView.enabled || options.accessGeneration === this.accessView.identityGeneration;
+      if (!scopeValid) this.document.rooms.forEach(entry => { entry.root.visible = false; });
+      if (!this.active && scopeValid) this.startRuntime();
       this.simulationPanel.modeChanged();
       this.updateStatus();
     }
@@ -2650,22 +2704,27 @@ export default class SceneEditor {
   }
 
   async saveProject(name, asCopy = false) {
+    if (!this.canEditDocument()) throw new Error('Este escenario es de consulta. Crea una variante propia desde las plantillas para editarlo.');
     if (this.importingFiles) { this.toast('Espera a que termine la importación antes de guardar.'); return false; }
     if (this.busy || this.loadingProject) return false;
     this.busy = true;
+    const identityGeneration = this.accessView && this.accessView.identityGeneration, projectGeneration = this.projectGeneration;
+    const assertScope = () => { if (identityGeneration !== (this.accessView && this.accessView.identityGeneration) || projectGeneration !== this.projectGeneration) throw Object.assign(new Error('La cuenta o el proyecto cambió durante el guardado. El resultado anterior no se aplicó.'), {status: 409, code: 'session_changed'}); };
     this.updateStatus();
     try {
       const document = await this.document.serialize();
+      assertScope();
       const version = this.changeVersion;
       const projectName = name || this.projectName;
       const saved = asCopy || !this.currentProject ?
         await this.projectClient.createProject(projectName, document) :
         await this.projectClient.updateProject(this.currentProject.id, projectName, document, this.currentProject.revision);
+      assertScope();
       // Imported file identities are immutable. Keep imports added during the
       // request while replacing saved base64 data with lightweight server URLs.
       const references = new Map(saved.document.imports.map(record => [record.id, record]));
       this.library.restoreImports(this.library.exportImports().map(record => references.get(record.id) || record));
-      this.currentProject = {id: saved.id, name: saved.name, revision: saved.revision};
+      this.currentProject = {id: saved.id, name: saved.name, revision: saved.revision, access: saved.access};
       this.projectName = saved.name;
       this.historicalRevision = null;
       this.storageAvailable = true;
@@ -2673,8 +2732,8 @@ export default class SceneEditor {
       this.rememberProject(saved);
       this.markRemoteProject(null);
       this.projectSync.publish(saved);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(saved.document)); } catch (error) { /* Server save already succeeded. */ }
-      this.entries = await this.library.getCatalog(); this.renderAssets();
+      try { localStorage.setItem(this.scopedStorageKey(STORAGE_KEY), JSON.stringify(saved.document)); } catch (error) { /* Server save already succeeded. */ }
+      const catalog = await this.library.getCatalog(); assertScope(); this.entries = catalog; this.renderAssets();
       this.toast('«' + saved.name + '» guardado · versión ' + saved.revision + (this.dirty ? '. Hay cambios posteriores pendientes.' : '.'));
       return saved;
     } catch (error) {
@@ -2685,14 +2744,17 @@ export default class SceneEditor {
   }
 
   async saveLocal() {
+    if (!this.canEditDocument()) return;
     if (this.busy) return;
     this.busy = true;
+    const identityGeneration = this.accessView && this.accessView.identityGeneration, projectGeneration = this.projectGeneration, key = this.scopedStorageKey(STORAGE_KEY);
     try {
       const project = await this.document.serialize();
       const version = this.changeVersion;
       const wasDirty = this.dirty;
       project.imports = await this.library.exportPortableImports();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(project));
+      if (identityGeneration !== (this.accessView && this.accessView.identityGeneration) || projectGeneration !== this.projectGeneration) throw new Error('La cuenta o el proyecto cambió. La copia anterior no se guardó en otra cuenta.');
+      localStorage.setItem(key, JSON.stringify(project));
       this.dirty = this.changeVersion !== version || Boolean(this.currentProject && wasDirty);
       this.toast('Copia guardada en este navegador.' + (this.dirty ? ' El proyecto del servidor aún tiene cambios pendientes.' : ''));
     } catch (error) { this.toast('No se pudo guardar aquí. Descarga el JSON para conservarlo. ' + error.message); }
@@ -2700,9 +2762,11 @@ export default class SceneEditor {
   }
 
   async exportProject() {
+    const scope = this.accessView && this.accessView.identityGeneration, generation = this.projectGeneration;
     try {
       const project = await this.document.serialize();
       project.imports = await this.library.exportPortableImports();
+      if (scope !== (this.accessView && this.accessView.identityGeneration) || generation !== this.projectGeneration) throw new Error('La cuenta o el proyecto cambió. Vuelve a solicitar la exportación.');
       const url = URL.createObjectURL(new Blob([JSON.stringify(project, null, 2)], {type: 'application/json'}));
       const link = el('a'); link.href = url; link.download = this.projectName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-') + '.json'; link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -2715,7 +2779,7 @@ export default class SceneEditor {
     const persistence = this.currentProject ? this.projectName + ' · v' + this.currentProject.revision : this.projectName + ' · proyecto nuevo';
     const level = behaviorSchema.studio.sceneEntries(this.document).find(entry => entry.index === this.ctx.room);
     this.status.textContent = (this.importingFiles ? 'Importando archivos…' : this.busy ? 'Guardando…' : this.dirty ? '● Cambios sin guardar' : this.currentProject ? '○ Guardado' : '○ Escenario listo') + '   /   ' + persistence + '   /   ' + (this.storageAvailable ? 'SQLite' : 'Servidor sin conectar') + '   /   ' + (level ? level.name : ROOM_LABELS[this.ctx.room]) + (this.remoteProject ? '   /   Versión ' + this.remoteProject.revision + ' disponible en SQLite' : '') + '   /   Probar: escritorio y dispositivos XR compatibles';
-    if (this.saveButton) this.saveButton.disabled = this.busy || this.loadingProject || this.importingFiles;
+    if (this.saveButton) this.saveButton.disabled = !this.canEditDocument() || this.busy || this.loadingProject || this.importingFiles;
     if (this.projectButton) {
       this.projectButton.textContent = 'Proyecto: ' + (this.currentProject ? this.projectName : 'Sin guardar') + ' ▾';
       this.projectButton.setAttribute('aria-label', 'Proyecto actual: ' + (this.currentProject ? this.projectName : 'Sin guardar') + '. Abrir proyectos y niveles');

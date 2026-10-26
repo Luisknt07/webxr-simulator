@@ -76,7 +76,10 @@ export default class ProjectClient {
     return typeof userId === 'string' && userId ? {'X-Studio-User': userId} : {};
   }
 
-  async responseResult(response) {
+  scopeIdentity() { return typeof this.identityProvider === 'function' ? this.identityProvider() || null : null; }
+  assertIdentity(identity) { if (identity !== this.scopeIdentity()) throw Object.assign(new Error('La cuenta cambió durante la operación. El resultado anterior no se aplicó.'), {status: 409, code: 'session_changed'}); }
+
+  async responseResult(response, identity = this.scopeIdentity()) {
     let result;
     try { result = await response.json(); }
     catch (cause) {
@@ -87,13 +90,14 @@ export default class ProjectClient {
       const error = new Error(typeof detail === 'string' ? detail : detail && detail.message || 'No se pudo completar la operación.');
       error.status = response.status;
       error.code = result && (result.code || detail && detail.code);
-      if ((error.code === 'session_changed' || error.status === 401) && this.onSessionChange) this.onSessionChange(error);
+      if ((error.code === 'session_changed' || error.status === 401) && this.onSessionChange && identity === this.scopeIdentity()) this.onSessionChange(error);
       throw error;
     }
     return result;
   }
 
   async request(method, path, body) {
+    const identity = this.scopeIdentity();
     let response;
     try {
       response = await fetch(this.base + path, {
@@ -104,7 +108,8 @@ export default class ProjectClient {
     } catch (cause) {
       throw new Error('No se pudo conectar con el guardado del servidor. Comprueba que npm.cmd start siga ejecutándose.');
     }
-    return this.responseResult(response);
+    this.assertIdentity(identity);
+    const result = await this.responseResult(response, identity); this.assertIdentity(identity); return result;
   }
 
   async health() {
@@ -118,6 +123,7 @@ export default class ProjectClient {
   }
 
   async uploadAsset(fileOrBlob, mime, name) {
+    const identity = this.scopeIdentity();
     name = name || fileOrBlob && fileOrBlob.name || '';
     if (!fileOrBlob || !Number.isSafeInteger(fileOrBlob.size) || fileOrBlob.size < 0 ||
         typeof fileOrBlob.arrayBuffer !== 'function' || typeof fileOrBlob.slice !== 'function') {
@@ -128,7 +134,7 @@ export default class ProjectClient {
     if (typeof mime !== 'string' || !MIME.test(mime)) throw new Error('El tipo del archivo no es válido.');
     mime = mime.toLowerCase();
     const previous = this.uploads.get(fileOrBlob);
-    if (previous && previous.mime === mime) return Object.assign({}, await previous.promise);
+    if (previous && previous.mime === mime && previous.identity === identity) { const result = await previous.promise; this.assertIdentity(identity); return Object.assign({}, result); }
     const promise = (async () => {
       let response;
       try {
@@ -138,7 +144,8 @@ export default class ProjectClient {
           body: fileOrBlob
         });
       } catch (_) { throw new Error('No se pudo subir el archivo al servidor. Comprueba que npm.cmd start siga ejecutándose.'); }
-      const result = await this.responseResult(response);
+      this.assertIdentity(identity);
+      const result = await this.responseResult(response, identity); this.assertIdentity(identity);
       const asset = result && result.asset;
       if (!asset || typeof asset.sha256 !== 'string' || !HASH.test(asset.sha256) ||
           asset.url !== '/api/assets/' + asset.sha256 || typeof asset.mime !== 'string' || !MIME.test(asset.mime) ||
@@ -147,7 +154,7 @@ export default class ProjectClient {
       }
       return {url: asset.url, sha256: asset.sha256, mime: asset.mime, size: asset.size};
     })();
-    const pending = {mime, promise};
+    const pending = {mime, promise, identity};
     this.uploads.set(fileOrBlob, pending);
     try { return Object.assign({}, await promise); }
     catch (error) {
@@ -157,22 +164,27 @@ export default class ProjectClient {
   }
 
   async stageDocument(document) {
+    const identity = this.scopeIdentity();
     // Old servers and offline adapters keep accepting their original JSON API.
     if (!this.assetUploadAvailable || !document || !Array.isArray(document.imports)) return document;
     for (const record of document.imports) {
+      this.assertIdentity(identity);
       if (!record || record.dataUrl === undefined) continue;
       const blob = inlineBlob(record, this.maxAssetBytes);
       let hash;
       if (typeof crypto !== 'undefined' && crypto.subtle) {
         const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+        this.assertIdentity(identity);
         hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
       }
-      let asset = hash && this.inlineAssets.get(hash);
+      const cacheKey = hash && (identity || 'legacy') + ':' + hash;
+      let asset = cacheKey && this.inlineAssets.get(cacheKey);
       if (!asset) {
         asset = await this.uploadAsset(blob, blob.type, record.path);
+        this.assertIdentity(identity);
         if (hash && asset.sha256 !== hash) throw new Error('El archivo recibido no coincide con el archivo importado.');
         if (hash) {
-          this.inlineAssets.set(hash, asset);
+          this.inlineAssets.set(cacheKey, asset);
           if (this.inlineAssets.size > 128) this.inlineAssets.delete(this.inlineAssets.keys().next().value);
         }
       }
@@ -188,11 +200,15 @@ export default class ProjectClient {
   }
   async listRevisions(id) { return (await this.request('GET', '/projects/' + encodeURIComponent(id) + '/revisions')).revisions; }
   async createProject(name, document) {
+    const identity = this.scopeIdentity();
     const savedDocument = await this.stageDocument(snapshot(document));
+    this.assertIdentity(identity);
     return (await this.request('POST', '/projects', {name, document: savedDocument})).project;
   }
   async updateProject(id, name, document, expectedRevision) {
+    const identity = this.scopeIdentity();
     const savedDocument = await this.stageDocument(snapshot(document));
+    this.assertIdentity(identity);
     return (await this.request('PUT', '/projects/' + encodeURIComponent(id), {name, document: savedDocument, expectedRevision})).project;
   }
 }

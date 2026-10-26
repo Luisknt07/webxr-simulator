@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import schema from '../../shared/studio-document.js';
 
 const SHADOW_ACTORS = new Set(['conveyor', 'source', 'processor', 'palletQueue']);
+const RECOVERED_RENDERERS = new WeakSet();
 
 const vertexShader = `
   varying vec3 skyDirection;
@@ -38,7 +39,64 @@ export default class SceneEnvironment {
     this.shadowScale = new THREE.Vector3();
     this.shadowBounds = new THREE.Box3();
     this.shadowActors = []; this.shadowAnchor = new THREE.Vector3(); this.actorFocus = new THREE.Vector3();
-    this.stats = {profile: 'native', shadowMaps: 0, shadowMapSize: 0, shadowFocus: 'native', reflectionBuilds: 0};
+    this.contextRenderer = null; this.contextCanvas = null; this.contextLost = false; this.recoveryShadowsDisabled = false;
+    this.stats = {profile: 'native', shadowMaps: 0, shadowMapSize: 0, shadowFocus: 'native', reflectionBuilds: 0, contextLost: false, contextRestores: 0, recoveryShadowFallback: false};
+    this.onContextLost = event => {
+      if (event && event.preventDefault) event.preventDefault();
+      if (this.contextLost) return;
+      this.contextLost = this.stats.contextLost = true;
+      // Release while r112 still owns the old WebGLProperties/listeners. Once
+      // its restore handler replaces those caches, an RT's CPU object remains
+      // valid but its rendered pixels cannot be recovered by texture upload.
+      this.releaseRenderTargets();
+      const performance = this.editor.performance;
+      if (performance && performance.releaseContextTextureHandles) performance.releaseContextTextureHandles();
+    };
+    this.onContextRestored = () => {
+      if (!this.contextLost) return;
+      this.contextLost = this.stats.contextLost = false; this.stats.contextRestores++;
+      // r112's shadow renderer closes over WebGLObjects from the lost context.
+      // A warmup is insufficient when a room switch renders before entity sync.
+      // Keep this recovered renderer usable with a derived session fallback;
+      // fresh renderer instances retain the author's normal shadow settings.
+      if (this.contextRenderer) RECOVERED_RENDERERS.add(this.contextRenderer);
+      this.recoveryShadowsDisabled = this.stats.recoveryShadowFallback = true;
+      this.signature = null; this.meshVersion = null;
+      const renderer = this.contextRenderer;
+      if (renderer && renderer.shadowMap) { renderer.shadowMap.enabled = false; renderer.shadowMap.needsUpdate = true; }
+      const performance = this.editor.performance;
+      if (performance && performance.restoreContextTextureHandles) performance.restoreContextTextureHandles();
+      // Rebuild derived lighting on the next active sync, after Three's own
+      // restore handler has initialized its new context. No work in the event.
+    };
+  }
+
+  watchRenderer(renderer) {
+    if (renderer === this.contextRenderer) return;
+    if (this.contextCanvas && this.contextCanvas.removeEventListener) {
+      this.contextCanvas.removeEventListener('webglcontextlost', this.onContextLost);
+      this.contextCanvas.removeEventListener('webglcontextrestored', this.onContextRestored);
+    }
+    this.contextRenderer = renderer; this.contextCanvas = renderer && renderer.domElement;
+    this.contextLost = this.stats.contextLost = false;
+    this.recoveryShadowsDisabled = this.stats.recoveryShadowFallback = RECOVERED_RENDERERS.has(renderer);
+    if (this.contextCanvas && this.contextCanvas.addEventListener) {
+      this.contextCanvas.addEventListener('webglcontextlost', this.onContextLost);
+      this.contextCanvas.addEventListener('webglcontextrestored', this.onContextRestored);
+    }
+  }
+
+  releaseRenderTargets() {
+    if (this.reflections) {
+      if (this.scene && this.scene.environment === this.reflections.texture) this.scene.environment = this.original && this.original.environment || null;
+      this.reflections.dispose(); this.reflections = null;
+    }
+    this.reflectionRenderer = null;
+    if (this.original) this.original.lights.forEach(entry => {
+      const shadow = entry.object.shadow;
+      if (!shadow || shadow === entry.shadow) return;
+      for (const field of ['map', 'mapPass']) if (shadow[field]) { shadow[field].dispose(); shadow[field] = null; }
+    });
   }
 
   getConfig() {
@@ -53,6 +111,7 @@ export default class SceneEnvironment {
     const lights = ['sun', 'fillLight'].map(name => scene.children.find(object => object.isLight && object.name === name)).filter(Boolean);
     this.scene = scene;
     const renderer = this.editor.ctx && this.editor.ctx.renderer;
+    this.watchRenderer(renderer);
     this.original = {background: scene.background, environment: scene.environment, lights: lights.map(object => ({object, color: object.color.clone(), intensity: object.intensity,
       position: object.position.clone(), target: object.target, castShadow: object.castShadow, shadow: object.shadow})), renderer: renderer && {
       object: renderer, toneMapping: renderer.toneMapping, exposure: renderer.toneMappingExposure,
@@ -75,13 +134,14 @@ export default class SceneEnvironment {
     if (this.original.renderer) {
       const saved = this.original.renderer, renderer = saved.object;
       renderer.toneMapping = saved.toneMapping; renderer.toneMappingExposure = saved.exposure;
-      if (renderer.shadowMap) { renderer.shadowMap.enabled = saved.shadows; renderer.shadowMap.type = saved.shadowType; }
+      if (renderer.shadowMap) { renderer.shadowMap.enabled = this.recoveryShadowsDisabled ? false : saved.shadows; renderer.shadowMap.type = saved.shadowType; }
     }
     this.shadowMeshes.forEach((saved, mesh) => { mesh.castShadow = saved.cast; mesh.receiveShadow = saved.receive; }); this.shadowMeshes.clear();
     this.meshVersion = null;
     this.shadowActors.length = 0;
     if (this.shadowTarget && this.shadowTarget.parent) this.shadowTarget.parent.remove(this.shadowTarget);
     this.stats.profile = 'native'; this.stats.shadowMaps = this.stats.shadowMapSize = 0;
+    this.stats.effectiveTier = 'native';
     this.stats.shadowFocus = 'native';
     if (this.sky && this.sky.parent) this.sky.parent.remove(this.sky);
     this.signature = null;
@@ -91,6 +151,8 @@ export default class SceneEnvironment {
   // reflections that let brushed metal read as metal. It is rendered once,
   // never captures the production scene and has no per-frame cube cameras.
   createReflections(renderer) {
+    this.watchRenderer(renderer);
+    if (this.contextLost) return null;
     if (this.reflections && this.reflectionRenderer === renderer) return this.reflections.texture;
     // r112 predates WebGLRenderer.isWebGLRenderer; inspect its public WebGL
     // capabilities instead so the real renderer enters this path as well.
@@ -121,23 +183,30 @@ export default class SceneEnvironment {
 
   syncRender(config) {
     const editor = this.editor, renderer = editor.ctx && editor.ctx.renderer;
-    if (!renderer || !config) return;
+    if (!renderer || !config || this.contextLost) return;
     const profile = ['performance', 'balanced', 'high'].includes(config.renderQuality) ? config.renderQuality : 'balanced';
     const xr = !!(editor.ctx.vrMode || renderer.xr && renderer.xr.isPresenting);
+    const graphics = editor.ctx.graphics, limits = graphics && graphics.getLimits ? graphics.getLimits() : null;
     this.stats.profile = profile + (xr ? '-xr' : '');
+    this.stats.effectiveTier = limits && limits.tier || profile;
     renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = config.exposure === undefined ? 1 : config.exposure;
     if (!this.original.environment) this.scene.environment = this.createReflections(renderer);
     const sun = this.original.lights.find(entry => entry.object.name === 'sun');
-    const enabled = profile !== 'performance' && config.shadows === true && !!sun && !!renderer.shadowMap;
+    const enabled = !this.recoveryShadowsDisabled && profile !== 'performance' && config.shadows === true && !!sun && !!renderer.shadowMap;
     if (renderer.shadowMap) { renderer.shadowMap.enabled = enabled; renderer.shadowMap.type = THREE.PCFSoftShadowMap; }
     if (!sun) return;
     const light = sun.object; light.castShadow = enabled;
     if (!enabled) {
       if (light.shadow !== sun.shadow && light.shadow.map) { light.shadow.map.dispose(); light.shadow.map = null; }
-      this.stats.shadowMaps = this.stats.shadowMapSize = 0; this.stats.shadowFocus = 'disabled'; return;
+      this.stats.shadowMaps = this.stats.shadowMapSize = 0; this.stats.shadowFocus = this.recoveryShadowsDisabled ? 'context-recovery-fallback' : 'disabled'; return;
     }
     if (light.shadow === sun.shadow) light.shadow = sun.shadow.clone();
-    const size = profile === 'high' && !xr ? 2048 : 1024, radius = xr ? 11 : profile === 'high' ? 13 : 15;
+    const authoredSize = profile === 'high' && !xr ? 2048 : 1024;
+    const mapLimit = limits && (xr ? limits.xrShadowMapSize : limits.shadowMapSize);
+    const size = Math.min(authoredSize, Number.isFinite(mapLimit) && mapLimit > 0 ? mapLimit : authoredSize);
+    const authoredRadius = xr ? 11 : profile === 'high' ? 13 : 15;
+    const radiusLimit = limits && (xr ? limits.xrShadowRadius : limits.shadowRadius);
+    const radius = Math.min(authoredRadius, Number.isFinite(radiusLimit) && radiusLimit > 0 ? radiusLimit : authoredRadius);
     const root = editor.document.getRoot && editor.document.getRoot(editor.roomId);
     const version = [root, editor.changeVersion, editor.document.loadGeneration, editor.document.additions && editor.document.additions.size,
       editor.document.objects && editor.document.objects.size, root && root.children.length];
@@ -220,6 +289,8 @@ export default class SceneEnvironment {
     const scene = this.editor.hooks && this.editor.hooks.renderScene;
     if (!scene) return;
     if (scene !== this.scene) { this.restore(); this.capture(scene); }
+    this.watchRenderer(this.editor.ctx && this.editor.ctx.renderer);
+    if (this.contextLost) return;
     const config = this.getConfig();
     const signature = config ? JSON.stringify(config) : '';
     if (signature === this.signature) { this.syncRender(config); return; }
@@ -245,6 +316,7 @@ export default class SceneEnvironment {
     if (this.sky) { this.sky.geometry.dispose(); this.sky.material.dispose(); this.sky = null; }
     if (this.reflections) { this.reflections.dispose(); this.reflections = null; }
     this.reflectionRenderer = null; this.shadowTarget = null;
+    this.watchRenderer(null);
     this.scene = null; this.original = null; this.configCache = null;
   }
 }

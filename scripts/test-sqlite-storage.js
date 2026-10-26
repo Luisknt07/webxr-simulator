@@ -44,10 +44,11 @@ function documentFixture() {
   };
 }
 
+let sessionCookie = '';
 async function request(port, method, pathname, body, headers = {}) {
   const payload = body === undefined ? null : typeof body === 'string' ? body : JSON.stringify(body);
   return new Promise((resolve, reject) => {
-    const requestHeaders = Object.assign({}, payload === null ? {} : {'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload)}, headers);
+    const requestHeaders = Object.assign({}, sessionCookie ? {Cookie: sessionCookie} : {}, payload === null ? {} : {'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload)}, headers);
     const req = http.request({hostname: '127.0.0.1', port, method, path: pathname, headers: requestHeaders}, res => {
       const chunks = [];
       res.on('data', chunk => chunks.push(chunk));
@@ -259,7 +260,11 @@ async function run() {
     await once(server, 'listening');
     const port = server.address().port;
     assert.deepEqual((await request(port, 'GET', '/api/health')).json, {storage: 'sqlite', version: 1,
-      limits: {maxAssetBytes: 1024, maxProjectBytes: 1024 * 1024}, capabilities: {assetUpload: true}});
+      limits: {maxAssetBytes: 1024, maxProjectBytes: 1024 * 1024, defaultMaxProjects: 2, defaultStorageBytes: 20 * 1024 * 1024},
+      capabilities: {assetUpload: true, privateProjects: true, publicSceneCatalog: true, projectSharing: true}});
+    const registered = await request(port, 'POST', '/api/studio/register', {username: 'storage-admin', password: 'A strong storage test password'});
+    assert.equal(registered.status, 201);
+    sessionCookie = registered.headers['set-cookie'][0].split(';')[0];
     assert.equal((await request(port, 'GET', '/health')).status, 200, 'Express mount-stripped paths are supported.');
     const loaded = await request(port, 'GET', '/api/projects/' + created.id);
     assert.equal(loaded.status, 200);
@@ -274,7 +279,7 @@ async function run() {
     assert.deepEqual(assetResponse.buffer, bytes);
     assert.equal(assetResponse.headers['content-type'], 'model/gltf-binary');
     assert.equal(assetResponse.headers['x-content-type-options'], 'nosniff');
-    assert.match(assetResponse.headers['cache-control'], /immutable/);
+    assert.match(assetResponse.headers['cache-control'], /private, no-store/);
     const range = await request(port, 'GET', imported.url, undefined, {Range: 'bytes=2-6'});
     assert.equal(range.status, 206);
     assert.deepEqual(range.buffer, bytes.subarray(2, 7));

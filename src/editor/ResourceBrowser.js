@@ -41,6 +41,13 @@ function procedural(resource) {
   const action = resource && resource.action;
   if (!action) throw new Error('Este recurso todavía no se puede insertar.');
   if (action.type === 'prefab') return createIndustrialPrefab(action.kind, action.variant);
+  if (action.type === 'studio' && action.method === 'addLineMonitor') {
+    const group = new THREE.Group(), bezel = new THREE.Mesh(new THREE.BoxBufferGeometry(3, 1.75, .1), new THREE.MeshStandardMaterial({color: '#111e2a', roughness: .7})); group.add(bezel);
+    const display = new THREE.Mesh(new THREE.PlaneBufferGeometry(2.8, 1.55), new THREE.MeshBasicMaterial({color: '#203a4c'})); display.position.z = .056; group.add(display);
+    const frame = new THREE.Mesh(new THREE.BoxBufferGeometry(1.8, .2, .012), new THREE.MeshBasicMaterial({color: '#77e1ca'})); frame.position.set(-.2, .17, .07); group.add(frame);
+    for (let index = 0; index < 5; index++) { const bar = new THREE.Mesh(new THREE.BoxBufferGeometry(.16, .12 + index * .06, .012), new THREE.MeshBasicMaterial({color: '#74a7c1'})); bar.position.set(.35 + index * .21, -.38 + index * .03, .07); group.add(bar); }
+    return group;
+  }
   if (action.type === 'primitive') {
     const geometry = action.kind === 'plane' ? new THREE.PlaneBufferGeometry(2, 2) : new THREE.BoxBufferGeometry(1, 1, 1);
     const object = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({color: '#6f929b', roughness: 0.75, metalness: 0.15, side: THREE.DoubleSide}));

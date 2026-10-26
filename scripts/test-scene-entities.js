@@ -59,4 +59,29 @@ renderer.render = () => { throw new Error('GPU fixture'); }; entities.tick(.125)
 editor.ctx.vrMode = true; entities.tick(.1); assert.equal(entities.preview, null); assert.equal(disposed, 1); assert.equal(container.children.length, 0);
 editor.roomId = 'sound'; entities.sync(); assert.equal(entities.live.size, 0); assert.equal(light.parent, null); assert.equal(lightMarker.material.visible, true);
 entities.dispose();
+// Adaptive light budgets operate on derived Three lights, leaving their saved
+// records, marker visibility and intensities intact when tiers/cameras change.
+{
+  const budgetScene = new THREE.Scene(), budgetRoot = new THREE.Group(), markers = new Map(), entries = [];
+  budgetScene.add(budgetRoot);
+  for (let index = 0; index < 4; index++) {
+    const marker = new THREE.Mesh(new THREE.BoxBufferGeometry(), new THREE.MeshBasicMaterial()); marker.position.set(index * 10, 3, 0);
+    Object.assign(marker.userData, {editorId: 'budget-marker-' + index, editorRoom: 'hall'}); markers.set(marker.userData.editorId, marker); budgetRoot.add(marker);
+    entries.push({id: 'budget-light-' + index, objectId: marker.userData.editorId, roomId: 'hall', type: 'pointLight', color: '#fff0dc', intensity: .65, range: 40});
+  }
+  let limit = 1;
+  const budgetDocument = {studio: {entities: entries}, getObject: id => markers.get(id)}, saved = JSON.stringify(budgetDocument.studio);
+  const eye = new THREE.PerspectiveCamera(); eye.position.set(0, 2, 0);
+  const host = {document: budgetDocument, ctx: {graphics: {getLimits: () => ({pointLights: limit})}, camera: eye}, camera: eye, roomId: 'hall', active: false, hooks: {renderScene: budgetScene}};
+  const budgetEntities = new SceneEntities(host); budgetEntities.sync();
+  assert.equal(budgetEntities.stats.pointLights, 1); assert(budgetEntities.live.get('budget-light-0').object.visible);
+  eye.position.x = 30; budgetEntities.sync(); assert(budgetEntities.live.get('budget-light-3').object.visible);
+  assert.equal(Array.from(budgetEntities.live.values()).filter(entry => entry.object.visible).length, 1);
+  limit = 4; budgetEntities.sync(); assert.equal(budgetEntities.stats.pointLights, 4);
+  assert(Array.from(budgetEntities.live.values()).every(entry => entry.object.intensity === .65 && !entry.object.castShadow));
+  assert.equal(JSON.stringify(budgetDocument.studio), saved);
+  assert(Array.from(markers.values()).every(marker => marker.visible && marker.material.visible === false), 'Quality does not hide authored actors or turn their markers back on in public mode.');
+  delete host.ctx.graphics; budgetEntities.sync(); assert.equal(budgetEntities.stats.pointLights, 4);
+  budgetEntities.dispose(); markers.forEach(marker => { assert.equal(marker.material.visible, true); marker.geometry.dispose(); marker.material.dispose(); });
+}
 console.log('Scene entities: real point lights/cameras, physical pose independent of marker scale, settings, hidden-room release, bounded single-renderer preview, pixel orientation, error restoration and XR cleanup passed (renderer adapter).');
