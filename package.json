@@ -18,7 +18,7 @@
     "test:graphics": "node scripts/test-adaptive-graphics.js && node scripts/test-runtime-resource-memory.js && node scripts/test-cosmetic-visual-lod.js && node scripts/test-prepared-material-textures.js && node scripts/test-device-controls.js && node scripts/test-editor-graphics-settings.js",
     "test:webxr-ai": "node scripts/test-vr-session.js && node scripts/test-xr-mirror.js && node scripts/test-native-texture-ai.js && node scripts/test-native-material-ai.js",
     "test:workspace": "node scripts/test-project-access.js && node scripts/test-studio-administration.js && node scripts/test-project-access-view.js && node scripts/test-project-workspace-tabs.js && node scripts/test-scene-creation-workspace.js && node scripts/test-guided-scene-builder.js && node scripts/test-monitor-widget.js && node scripts/test-studio-access-ux.js && node scripts/test-project-save-identity.js && node scripts/test-guided-scene-diagram.js",
-    "test:studio-ui": "node scripts/test-admin-workspace-modal.js && node scripts/test-immersive-studio-menu.js && node scripts/test-vr-menu-input-isolation.js && node scripts/test-studio-experience.js && node scripts/test-studio-access-ux.js && node scripts/test-studio-client.js",
+    "test:studio-ui": "node scripts/test-admin-workspace-modal.js && node scripts/test-immersive-studio-menu.js && node scripts/test-vr-menu-input-isolation.js && node scripts/test-studio-experience.js && node scripts/test-studio-access-ux.js && node scripts/test-studio-client.js && node scripts/test-vr-login-rays.js && node scripts/test-account-service-reconnect.js",
     "test:public-static": "node scripts/test-public-static-viewer.js && node scripts/test-pages-package.js",
     "pages:prepare": "node scripts/prepare-pages-site.js"
   },

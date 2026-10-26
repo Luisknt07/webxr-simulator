@@ -7,7 +7,7 @@ let serial = 0;
 const short = (text, length = 58) => { const value = String(text === undefined ? '' : text); return value.length > length ? value.slice(0, length - 1) + '…' : value; };
 function helper(object) { Object.assign(object.userData, {editorHelper: true, editorRuntimeHelper: true, editorNonCollidable: true, studioImmersiveMenu: true}); object.frustumCulled = false; object.renderOrder = 10000; return object; }
 
-/** Native world-space Studio UI. Its two bounded canvases are temporary render
+/** Native world-space Studio UI. Its bounded canvas is a temporary render
  * resources; credentials never enter scene data, preferences, logs or exports. */
 export default class ImmersiveStudioMenu {
   constructor(studio, options = {}) {
@@ -36,15 +36,13 @@ export default class ImmersiveStudioMenu {
       return {canvas, drawing, texture, mesh};
     };
     const panel = create(WIDTH, HEIGHT, 1.12, 1.05, 'Menú inmersivo · pantalla');
-    const launcher = create(256, 128, .20, .10, 'Menú inmersivo · abrir');
-    if (!panel || !launcher) { [panel, launcher].filter(Boolean).forEach(value => { value.mesh.geometry.dispose(); value.mesh.material.dispose(); value.texture.dispose(); }); return false; }
-    this.surface = panel; this.launcherSurface = launcher; this.canvas = panel.canvas; this.drawing = panel.drawing; this.texture = panel.texture;
-    this.panel = panel.mesh; this.launcher = launcher.mesh; this.group = helper(new THREE.Group()); this.group.name = 'HELLO / STUDIO · interfaz VR';
-    this.group.add(this.panel, this.launcher); this.ctx.scene.add(this.group);
-    const drawing = launcher.drawing; drawing.fillStyle = C.bg; drawing.fillRect(0, 0, 256, 128); drawing.strokeStyle = C.accent; drawing.lineWidth = 5;
-    if (drawing.strokeRect) drawing.strokeRect(3, 3, 250, 122); drawing.fillStyle = C.accent; drawing.textAlign = 'center'; drawing.font = 'bold 36px Arial'; drawing.fillText('☰ MENÚ', 128, 77); launcher.texture.needsUpdate = true;
+    if (!panel) return false;
+    this.surface = panel; this.canvas = panel.canvas; this.drawing = panel.drawing; this.texture = panel.texture;
+    this.panel = panel.mesh; this.group = helper(new THREE.Group()); this.group.name = 'HELLO / STUDIO · interfaz VR';
+    this.group.visible = false; this.panel.visible = false;
+    this.group.add(this.panel); this.ctx.scene.add(this.group);
     this.state = {xrMenu: true, vrOnly: true, controller: 'both', raycaster: true, captureSelect: true, consumeSelect: true,
-      colliderMesh: [this.panel, this.launcher], isSelectable: (hit, controller) => this.valid(hit, controller),
+      colliderMesh: this.panel, isSelectable: (hit, controller) => this.valid(hit, controller),
       onHover: (hit, pressed, controller) => this.hover(hit, controller), onHoverLeave: (hit, pressed, controller) => this.hover(null, controller),
       onSelectStart: (hit, controller) => this.press(hit, controller), onSelectEnd: (hit, controller) => this.release(controller), onSelectCancel: (hit, controller) => this.release(controller)};
     this.installState(); this.dirty = true; return true;
@@ -52,7 +50,7 @@ export default class ImmersiveStudioMenu {
   installState() {
     const ray = this.ctx.raycontrol; if (!ray || !this.state) return;
     if (!ray.states[this.stateName]) ray.addState(this.stateName, this.state);
-    if (ray.states[this.stateName] === this.state) ray.activateState(this.stateName);
+    if (ray.states[this.stateName] === this.state && this.opened) ray.activateState(this.stateName);
   }
   cancelWorldInput() {
     const ray = this.ctx.raycontrol; if (!ray) return;
@@ -64,8 +62,9 @@ export default class ImmersiveStudioMenu {
     enabled = Boolean(enabled);
     if (this.active === enabled) return;
     this.active = enabled; this.padButtons = new WeakMap();
-    if (enabled) { this.pendingOpen = true; if (this.ensureResources()) { this.panel.visible = false; this.launcher.visible = false; } }
-    else { this.pendingOpen = false; this.close(); this.releaseResources(); }
+    // Entering/re-entering VR never opens a panel or allocates a floating label.
+    // Only a fresh X/A press creates the menu, once the XR pose is available.
+    if (!enabled) { this.close(); this.releaseResources(); }
   }
   headPose() {
     const renderer = this.ctx.renderer, camera = this.ctx.camera;
@@ -82,23 +81,19 @@ export default class ImmersiveStudioMenu {
     this.target.copy(this.position).addScaledVector(this.forward, 1.35); this.target.y = this.position.y - .08;
     this.panel.position.copy(this.target); this.panel.lookAt(this.position); this.panel.updateWorldMatrix(true, false);
   }
-  placeLauncher() {
-    if (!this.launcher || !this.headPose()) return;
-    this.forward.set(0, 0, -1).applyQuaternion(this.headQuaternion); this.right.set(1, 0, 0).applyQuaternion(this.headQuaternion);
-    this.target.copy(this.position).addScaledVector(this.forward, .78).addScaledVector(this.right, -.36); this.target.y -= .24;
-    this.launcher.position.copy(this.target); this.launcher.lookAt(this.position); this.launcher.updateWorldMatrix(true, false);
-  }
   open(page = 'home') {
     if (!this.active || !this.ctx.vrMode || this.disposed || !this.ensureResources()) return;
     if (this.studio.beforeImmersiveMenuOpen) this.studio.beforeImmersiveMenuOpen();
-    this.cancelWorldInput(); this.opened = true; this.ctx.studioMenuOpen = true; this.pendingOpen = false; this.panel.visible = true; this.launcher.visible = false;
+    this.cancelWorldInput(); this.opened = true; this.ctx.studioMenuOpen = true; this.group.visible = true; this.panel.visible = true; this.installState();
     this.placePanel(); this.navigate(page === 'personal' ? 'home' : page);
   }
   close() {
     this.generation++; this.opened = false; this.ctx.studioMenuOpen = false; this.clearCredentials(); this.items = []; this.privateProject = null;
     this.regions = []; this.presses.clear(); this.hovers.clear(); this.error = ''; this.notice = ''; this.cancelWorldInput();
     if (this.panel) { this.panel.visible = false; this.drawing.fillStyle = C.bg; this.drawing.fillRect(0, 0, WIDTH, HEIGHT); this.texture.needsUpdate = true; }
-    if (this.launcher) this.launcher.visible = this.active; this.dirty = true;
+    if (this.group) this.group.visible = false;
+    const ray = this.ctx.raycontrol; if (ray && this.state && ray.states[this.stateName] === this.state) ray.deactivateState(this.stateName);
+    this.dirty = true;
   }
   clearCredentials() { this.fields.username = ''; this.fields.password = ''; this.fields.code = ''; this.keyboardField = ''; this.shift = false; this.keyboardMode = 'letters'; }
   identityChanged() {
@@ -108,17 +103,16 @@ export default class ImmersiveStudioMenu {
   valid(hit, controller) {
     const object = hit && (hit.actualObject || hit.object), data = this.ctx.raycontrol && this.ctx.raycontrol.controllers.find(value => value.controller === controller);
     return Boolean(this.active && this.ctx.vrMode && this.group && this.group.visible && hit && hit.uv && hit.distance <= 5 &&
-      (object === this.panel && this.opened || object === this.launcher && !this.opened) && object.visible && (!data || !data.desktop && data.enabled !== false));
+      object === this.panel && this.opened && object.visible && (!data || !data.desktop && data.enabled !== false));
   }
   regionAt(hit) {
-    const object = hit && (hit.actualObject || hit.object); if (object === this.launcher) return {key: 'launcher', action: () => this.open()};
     if (!hit || !hit.uv) return null; const x = hit.uv.x * WIDTH, y = (1 - hit.uv.y) * HEIGHT;
     return this.regions.slice().reverse().find(region => x >= region.x && x <= region.x + region.width && y >= region.y && y <= region.y + region.height) || null;
   }
   hover(hit, controller) { const region = hit && this.valid(hit, controller) && this.regionAt(hit), key = region && region.key || ''; if (this.hovers.get(controller) !== key) { key ? this.hovers.set(controller, key) : this.hovers.delete(controller); this.dirty = true; } }
   press(hit, controller) {
     if (!this.valid(hit, controller) || this.presses.has(controller)) return;
-    const region = this.regionAt(hit); if (!region || region.disabled || this.busy && !['close', 'home', 'launcher'].includes(region.key)) return;
+    const region = this.regionAt(hit); if (!region || region.disabled || this.busy && !['close', 'home'].includes(region.key)) return;
     const held = Array.from(this.presses.values()).some(key => key === region.key); this.presses.set(controller, region.key); this.pressedUntil = this.lastTime + .12; this.pressedKey = region.key; this.dirty = true;
     if (held) return;
     const data = this.ctx.raycontrol && this.ctx.raycontrol.controllers.find(value => value.controller === controller), gamepad = data && data.inputSource && data.inputSource.gamepad;
@@ -131,6 +125,7 @@ export default class ImmersiveStudioMenu {
   navigate(page) {
     this.generation++; this.page = page; this.error = ''; this.notice = ''; this.listPage = 0; this.items = []; this.privateProject = null;
     if (!['account', 'register', 'rooms'].includes(page)) this.clearCredentials(); this.dirty = true;
+    if (['account', 'register'].includes(page) && !this.editor.staticPublic && !this.client.user) this.keyboardField = 'username';
     if (page === 'scenes' || page === 'projects' || page === 'users' || page === 'progress' || page === 'classroom') this.loadList(page);
   }
   async loadList(page) {
@@ -175,6 +170,16 @@ export default class ImmersiveStudioMenu {
       } finally { this.fields.password = ''; this.fields.code = ''; }
     });
   }
+  async reconnectAccount() {
+    return this.run(async () => {
+      if (!this.studio.reconnectAccountService) throw new Error('El acceso necesita la versión conectada al servidor de Studio.');
+      const generation = this.generation;
+      await this.studio.reconnectAccountService();
+      if (!this.active || !this.opened || generation !== this.generation) return;
+      this.clearCredentials(); this.navigate(this.client.user ? 'home' : 'account');
+      this.notice = this.client.user ? 'Sesión disponible.' : 'Conexión disponible. Escribe tu usuario y contraseña.';
+    });
+  }
   async chooseItem(item) {
     if (!['public', 'library', 'project', 'room'].includes(item.kind)) return;
     return this.run(async () => {
@@ -203,7 +208,11 @@ export default class ImmersiveStudioMenu {
     else if (value === 'clear') this.fields[key] = '';
     else if (value === 'shift') this.shift = !this.shift;
     else if (value === 'symbols') this.keyboardMode = this.keyboardMode === 'letters' ? 'symbols' : 'letters';
-    else if (value === 'done') this.keyboardField = '';
+    else if (value === 'done') {
+      if (key === 'username') this.keyboardField = 'password';
+      else if (key === 'password' && this.page === 'register') this.keyboardField = 'code';
+      else { this.keyboardField = ''; this.dirty = true; return this.authenticate(this.page === 'register'); }
+    }
     else if (this.fields[key].length < maximum) this.fields[key] += this.shift ? value.toUpperCase() : value;
     this.dirty = true;
   }
@@ -226,7 +235,8 @@ export default class ImmersiveStudioMenu {
     rows.forEach((row, index) => { const keys = Array.from(row), width = 83, gap = 10, total = keys.length * (width + gap) - gap, x = (WIDTH - total) / 2;
       keys.forEach((value, at) => this.button('key:' + index + ':' + at, this.shift ? value.toUpperCase() : value, x + at * (width + gap), y + index * 61, width, 52, () => this.keyboard(value), {size: 29}));
     });
-    [['shift', 'Mayús'], ['symbols', this.keyboardMode === 'letters' ? 'Símbolos' : 'Letras'], ['delete', 'Borrar'], ['clear', 'Vaciar'], ['done', 'Listo']].forEach(([key, label], index) => this.button('key:' + key, label, 46 + index * 187, y + 250, 176, 54, () => this.keyboard(key), {size: 24, accent: key === 'done'}));
+    const next = this.keyboardField === 'username' || this.keyboardField === 'password' && this.page === 'register';
+    [['shift', 'Mayús'], ['symbols', this.keyboardMode === 'letters' ? 'Símbolos' : 'Letras'], ['delete', 'Borrar'], ['clear', 'Vaciar'], ['done', next ? 'Siguiente' : this.page === 'register' ? 'Crear cuenta' : 'Entrar']].forEach(([key, label], index) => this.button('key:' + key, label, 46 + index * 187, y + 250, 176, 54, () => this.keyboard(key), {size: 24, accent: key === 'done'}));
   }
   paintList() {
     const pages = Math.max(1, Math.ceil(this.items.length / PAGE_SIZE)); this.listPage = Math.min(this.listPage, pages - 1);
@@ -250,9 +260,9 @@ export default class ImmersiveStudioMenu {
     else actions.push(['account', 'Iniciar sesión', () => this.navigate('account')]);
     actions.push(['settings', 'Sonido y controles', () => this.navigate('settings')], ['controls', 'Controles del visor', () => this.navigate('controls')]);
     if (user && user.permissions.manageUsers) actions.push(['users', 'Usuarios · resumen', () => this.navigate('users')]);
-    if (user) actions.push(['logout', 'Cerrar sesión', () => this.run(async () => { await this.studio.logout(); if (this.active) { this.open('home'); this.notice = 'Sesión cerrada.'; } })]);
+    if (user) actions.push(['logout', 'Cerrar sesión', () => this.run(async () => { await this.studio.logout(); if (this.active && this.opened) { this.navigate('home'); this.notice = 'Sesión cerrada.'; } })]);
     actions.forEach(([key, label, action], index) => this.button(key, label, 46, 225 + index * 83, 932, 64, action, {accent: key === 'account'}));
-    this.text('X / A o el botón flotante abren este menú.', 46, 902, 25, C.dim);
+    this.text('X (izquierdo) / A (derecho): abrir o cerrar el menú.', 46, 902, 25, C.dim);
   }
   paintAccount() {
     const register = this.page === 'register';
@@ -260,7 +270,9 @@ export default class ImmersiveStudioMenu {
     if (this.editor.staticPublic) {
       this.text('Publicación pública sin servidor de cuentas.', 46, 215, 31, C.dim);
       this.text('Los proyectos privados requieren Studio con servidor.', 46, 275, 26, C.dim);
-      this.button('public-scenes', 'Explorar escenarios públicos', 46, 355, 932, 66, () => this.navigate('scenes'), {accent: true});
+      this.text('Usa el enlace HTTPS del servidor o túnel para iniciar sesión.', 46, 330, 25, C.dim);
+      this.button('reconnect-account', this.busy ? 'Comprobando conexión…' : 'Reintentar conexión de cuentas', 46, 385, 932, 66, () => this.reconnectAccount(), {accent: true});
+      this.button('public-scenes', 'Explorar escenarios públicos', 46, 480, 932, 66, () => this.navigate('scenes'));
       return;
     }
     this.field('username', 'Usuario', 190); this.field('password', 'Contraseña', 300); if (register) this.field('code', 'Código de registro · si lo recibiste', 410);
@@ -269,7 +281,7 @@ export default class ImmersiveStudioMenu {
     else { this.text('Selecciona un campo y apunta a las teclas con el mando.', 46, keyboardY + 16, 27, C.dim); this.text('Pulsa el gatillo para escribir. La contraseña siempre se oculta.', 46, keyboardY + 60, 25, C.dim); }
     const y = register ? 852 : 795;
     this.button('authenticate', this.busy ? 'Conectando…' : register ? 'Crear cuenta' : 'Iniciar sesión', 46, y, 552, 64, () => this.authenticate(register), {accent: true});
-    this.button('account-mode', register ? 'Ya tengo cuenta' : 'Crear cuenta', 620, y, 358, 64, () => { this.clearCredentials(); this.page = register ? 'account' : 'register'; this.dirty = true; }, {size: 26});
+    this.button('account-mode', register ? 'Ya tengo cuenta' : 'Crear cuenta', 620, y, 358, 64, () => { this.clearCredentials(); this.navigate(register ? 'account' : 'register'); }, {size: 26});
   }
   paintSettings() {
     const audio = this.editor.industrialAudio, volume = audio ? audio.volume : .7;
@@ -290,7 +302,7 @@ export default class ImmersiveStudioMenu {
     });
   }
   paintControls() {
-    const lines = ['X (izquierdo) / A (derecho): abrir o cerrar el menú.', 'Botón flotante MENÚ: apunta con cualquier mando.', 'Gatillo: seleccionar botones y teclas del panel.', 'Grip lateral: agarrar productos fuera del menú.', 'Suelta el grip para depositar una carga.', 'Teletransporte: apunta al suelo habilitado y confirma.', 'El menú bloquea los mandos de las máquinas al abrirse.', 'Puedes iniciar sesión sin salir de la realidad virtual.', 'El botón del sistema Meta pertenece al visor.'];
+    const lines = ['X (izquierdo) / A (derecho): abrir o cerrar el menú.', 'Gatillo: seleccionar botones y teclas del panel.', 'Grip lateral: agarrar productos fuera del menú.', 'Suelta el grip para depositar una carga.', 'Teletransporte: apunta al suelo habilitado y confirma.', 'El menú bloquea los mandos de las máquinas al abrirse.', 'Puedes iniciar sesión sin salir de la realidad virtual.', 'El botón del sistema Meta pertenece al visor.'];
     lines.forEach((line, index) => this.text(line, 46, 195 + index * 63, index === 0 ? 29 : 27, index === 0 ? C.accent : C.text));
     this.button('recenter', 'Recentrar este menú', 46, 795, 932, 65, () => this.placePanel());
   }
@@ -308,11 +320,9 @@ export default class ImmersiveStudioMenu {
   tick(delta = 0) {
     if (this.disposed || !this.active || !this.ctx.vrMode) return;
     const session = this.ctx.renderer && this.ctx.renderer.xr && this.ctx.renderer.xr.getSession && this.ctx.renderer.xr.getSession();
-    if (session && session.visibilityState && session.visibilityState !== 'visible') { if (this.opened) this.close(); this.padButtons = new WeakMap(); if (this.launcher) this.launcher.visible = false; return; }
-    if (!this.ensureResources()) return; this.installState();
+    if (session && session.visibilityState && session.visibilityState !== 'visible') { if (this.opened) this.close(); this.padButtons = new WeakMap(); return; }
+    if (this.opened) this.installState();
     this.lastTime += Math.max(0, Number.isFinite(delta) ? delta : 0);
-    if (this.pendingOpen) this.open('home');
-    if (!this.opened) { this.launcher.visible = true; this.placeLauncher(); }
     const sources = this.ctx.raycontrol && this.ctx.raycontrol.controllers || [];
     let toggle = false;
     sources.forEach(data => {
@@ -330,9 +340,9 @@ export default class ImmersiveStudioMenu {
   releaseResources() {
     const ray = this.ctx.raycontrol;
     if (ray && this.state && ray.states[this.stateName] === this.state) { ray.deactivateState(this.stateName); delete ray.states[this.stateName]; }
-    [this.surface, this.launcherSurface].filter(Boolean).forEach(value => { value.mesh.geometry.dispose(); value.mesh.material.dispose(); value.texture.dispose(); value.canvas.width = value.canvas.height = 1; });
+    if (this.surface) { const value = this.surface; value.mesh.geometry.dispose(); value.mesh.material.dispose(); value.texture.dispose(); value.canvas.width = value.canvas.height = 1; }
     if (this.group && this.group.parent) this.group.parent.remove(this.group);
-    this.group = this.panel = this.launcher = this.surface = this.launcherSurface = this.canvas = this.drawing = this.texture = this.state = null;
+    this.group = this.panel = this.surface = this.canvas = this.drawing = this.texture = this.state = null;
   }
   dispose() {
     if (this.disposed) return; this.close(); this.active = false; this.releaseResources(); this.padButtons = new WeakMap();

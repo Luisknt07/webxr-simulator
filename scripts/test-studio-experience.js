@@ -161,6 +161,11 @@ async function run() {
   const vrStart = calls.length; immersive.onVRChange(true); const vrCalls = calls.slice(vrStart);
   for (const name of ['administrationClose', 'libraryClose', 'guideClose', 'monitorBindingClose', 'creationClose', 'equipmentViewerClose']) assert(vrCalls.some(value => value[0] === name)); assert(immersive.editor.sharePanel.hidden); assert.deepEqual(vrCalls[vrCalls.length - 1], ['immersiveVR', true]);
   immersive.onVRChange(false); assert.deepEqual(calls.pop(), ['immersiveVR', false]);
+  const closedMenuStart = calls.length;
+  Experience.prototype.open.call(immersive, 'account');
+  assert(!calls.slice(closedMenuStart).some(value => value[0] === 'immersiveOpen'), 'Account/network events cannot open a closed VR menu.');
+  immersive.immersiveMenu.opened = true; Experience.prototype.open.call(immersive, 'account');
+  assert.deepEqual(calls.pop(), ['immersiveOpen', 'account'], 'An already open VR menu may show its login form.');
   immersive.ctx.goto = 8; immersive.ctx.teleport = {active: true, onHoverLeave() { calls.push(['teleportLeave']); }}; immersive.ctx.editorXylophone = {releaseHeld() { calls.push(['releaseStick']); }}; immersive.editor.simulation.onInputModeChange = () => calls.push(['inputModeChanged']);
   immersive.beforeImmersiveMenuOpen(); assert.equal(immersive.ctx.goto, null); assert.equal(immersive.ctx.teleport.active, false); assert(calls.some(value => value[0] === 'inputModeChanged')); assert(calls.some(value => value[0] === 'releaseStick'));
   assert.match(code, /password\.minLength = 12/, 'registration form matches actual password requirements');

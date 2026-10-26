@@ -80,7 +80,47 @@ export default class StudioExperience {
     }
     this.ctx.studioLocomotion = ['teleport', 'smooth'].includes(preferences.locomotion) ? preferences.locomotion : 'smooth';
   }
+  async reconnectAccountService() {
+    if (this.accountServicePending) return this.accountServicePending;
+    const editor = this.editor, client = this.client, user = client.user || null;
+    const epoch = this.accountServiceEpoch || 0, accessEpoch = editor.accessView && editor.accessView.identityGeneration;
+    const current = () => (this.accountServiceEpoch || 0) === epoch && !this.loggingOut && !client.logoutPending && !client.authenticationPending &&
+      (client.user || null) === user && (!editor.accessView || editor.accessView.identityGeneration === accessEpoch);
+    const stale = () => Object.assign(new Error('La cuenta cambió durante la conexión. Vuelve a abrir el acceso.'), {code: 'session_changed'});
+    const pending = (async () => {
+      if (!current()) throw stale();
+      const origin = new URL(window.location.href).origin;
+      for (const base of [client.base || '/api/studio', editor.projectClient && editor.projectClient.base || '/api']) {
+        if (new URL(base, window.location.href).origin !== origin) throw new Error('Las cuentas deben conectarse al mismo servidor de esta aplicación.');
+      }
+      // Use the pure request: checkStorageHealth()/health() also mutate live
+      // upload capabilities before identity or stale-response checks finish.
+      const health = await editor.projectClient.request('GET', '/health');
+      if (!current()) throw stale();
+      if (!health || health.storage !== 'sqlite' || !health.capabilities || health.capabilities.privateProjects !== true) throw new Error('Este sitio no ofrece el servidor de cuentas de Studio.');
+      // A separate read-only client cannot resurrect the live user when a
+      // delayed /me response arrives after logout or another login.
+      const probe = new StudioClient(client.base || '/api/studio'); probe.user = user;
+      const identity = await probe.me();
+      if (!current()) throw stale();
+      if (!identity || typeof identity.configured !== 'boolean' || !Object.prototype.hasOwnProperty.call(identity, 'user') ||
+        identity.user !== null && (!identity.user || typeof identity.user.id !== 'string' || !identity.user.permissions || typeof identity.user.permissions !== 'object')) throw new Error('El servidor no devolvió una identidad de Studio válida.');
+      if (user && (!identity.user || identity.user.id !== user.id)) throw stale();
+      editor.serverCapabilities = health.capabilities; editor.serverLimits = health.limits || {}; editor.storageAvailable = true;
+      if (editor.projectClient) { editor.projectClient.assetUploadAvailable = health.capabilities.assetUpload === true; if (health.limits && Number.isSafeInteger(health.limits.maxAssetBytes) && health.limits.maxAssetBytes > 0) editor.projectClient.maxAssetBytes = health.limits.maxAssetBytes; }
+      editor.staticPublic = false; editor.initialIdentity = identity;
+      client.user = identity.user; client.configured = identity.configured; client.capabilities = identity.capabilities;
+      this.online = true; this.connectionError = '';
+      if (identity.user) await this.authenticated({immersive: true});
+      else if (this.accountButton) this.accountButton.textContent = 'Iniciar sesión';
+      return {online: true, user: client.user, identity};
+    })();
+    this.accountServicePending = pending;
+    try { return await pending; }
+    finally { if (this.accountServicePending === pending) this.accountServicePending = null; }
+  }
   clearAccountContext() {
+    this.accountServiceEpoch = (this.accountServiceEpoch || 0) + 1;
     const editor = this.editor;
     if (this.administration) this.administration.close();
     if (this.connection) this.connection.stop(); if (this.sharedGrabs) this.sharedGrabs.detach(); if (this.presentation) this.presentation.clear();
@@ -149,7 +189,13 @@ export default class StudioExperience {
   async guard(action) { if (this.busy) return; this.busy = true; try { return await action(); } catch (error) { this.message(error.message); } finally { this.busy = false; } }
   close() { if (this.graphicsSettings) { this.graphicsSettings.dispose(); this.graphicsSettings = null; } if (this.avatarCleanup) { this.avatarCleanup(); this.avatarCleanup = null; } this.drawer.hidden = true; this.shade.hidden = true; this.menuButton.setAttribute('aria-expanded', 'false'); this.menuButton.focus(); }
   open(page = 'personal') {
-    if (this.ctx.vrMode && this.immersiveMenu) { if (this.administration) this.administration.close(); return this.immersiveMenu.open(page === 'personal' ? 'home' : page); }
+    if (this.ctx.vrMode && this.immersiveMenu) {
+      if (this.administration) this.administration.close();
+      // Delayed account/network events may change an already open menu, but
+      // only the controller shortcut opens it while the user is in the world.
+      if (this.immersiveMenu.opened) return this.immersiveMenu.open(page === 'personal' ? 'home' : page);
+      return;
+    }
     if (page === 'users' && this.client.user && this.client.user.permissions.manageUsers && this.administration.openModal) return this.guard(() => this.users());
     if (this.administration) this.administration.close();
     if (!this.client.user && ['avatar', 'sessions', 'rooms', 'progress', 'users', 'classroom'].includes(page)) page = 'account';

@@ -43,10 +43,21 @@ function aim(f, controller, mesh, u = .5, v = .5) {
   const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(mesh.getWorldQuaternion(new THREE.Quaternion())); controller.position.copy(point).addScaledVector(normal, .6);
   controller.quaternion.setFromRotationMatrix(new THREE.Matrix4().lookAt(controller.position, point, new THREE.Vector3(0, 1, 0))); f.scene.updateMatrixWorld(true);
 }
+function toggleMenu(f, index = 1) {
+  const pad = f.controls[index].data.inputSource.gamepad;
+  pad.mapping = 'xr-standard';
+  pad.buttons[4] = {pressed: false, value: 0}; f.menu.tick(.016);
+  pad.buttons[4] = {pressed: true, value: 1}; f.menu.tick(.016);
+  pad.buttons[4] = {pressed: false, value: 0}; f.menu.tick(.016);
+}
 async function run() {
   const f = harness(), {menu, controls, ctx} = f;
-  assert.equal(f.canvases.length, 0); menu.setVR(true); assert.equal(menu.opened, false, 'First world placement waits for the XR frame/floor offset.'); menu.tick(.016);
-  assert.equal(menu.opened, true); assert.equal(ctx.studioMenuOpen, true); assert.equal(f.canvases.length, 2); assert.equal(menu.canvas.width, 1024); assert.equal(menu.canvas.height, 960);
+  assert.equal(f.canvases.length, 0); menu.setVR(true); menu.tick(.016);
+  assert.equal(menu.opened, false); assert.equal(Boolean(ctx.studioMenuOpen), false); assert.equal(menu.group, undefined); assert.equal(f.canvases.length, 0, 'Entering VR creates no floating label, panel or GPU canvas.');
+  f.camera.position.x += .2; menu.tick(.016); assert.equal(f.canvases.length, 0, 'Head movement does not create any menu UI.');
+  toggleMenu(f, 0);
+  assert.equal(menu.opened, true); assert.equal(ctx.studioMenuOpen, true); assert.equal(f.canvases.length, 1); assert.equal(menu.canvas.width, 1024); assert.equal(menu.canvas.height, 960);
+  assert.equal(menu.group.children.length, 1, 'The panel is the only menu object; no launcher exists.');
   assert(menu.state.consumeSelect && menu.state.captureSelect && menu.state.xrMenu && menu.state.vrOnly); assert.equal(menu.state.controller, 'both');
   assert.equal(menu.panel.parent, menu.group); assert(menu.group.parent === f.scene); assert.equal(menu.panel.userData.editorId, undefined); assert.equal(menu.texture.generateMipmaps, false); assert.equal(menu.panel.material.depthTest, false);
   assert(Math.abs(menu.panel.position.y - (f.camera.position.y - .08)) < 1e-8);
@@ -64,8 +75,8 @@ async function run() {
   await menu.chooseItem(menu.items[1]); assert.equal(f.applications[0].settings.roomId, 'sound'); assert.equal(menu.opened, false); assert.equal(menu.privateProject, null);
   menu.open('settings'); menu.tick(.016); press(f, 'volume-down'); assert(Math.abs(f.editor.industrialAudio.volume - .6) < 1e-8); await menu.setPreferences({locomotion: 'teleport'}); assert.equal(ctx.studioLocomotion, 'teleport');
   menu.open('account'); menu.fields.password = 'discard-me'; menu.close(); assert.equal(menu.fields.password, ''); assert(!menu.canvas.text.some(value => value.includes('discard-me')));
-  menu.tick(.016); aim(f, controls[0].controller, menu.launcher); ctx.raycontrol.execute(ctx, .016, 1); assert(controls[0].data.currentIntersection && controls[0].data.currentIntersection.state === menu.state);
-  ctx.raycontrol.onSelectStart({target: controls[0].controller}); ctx.raycontrol.onSelectEnd({target: controls[0].controller}); menu.tick(.016); assert(menu.opened, 'Left controller can open the floating menu through its real ray.');
+  menu.tick(.016); assert.equal(menu.group.visible, false); assert.equal(menu.panel.visible, false); assert(!ctx.raycontrol.currentStates.includes(menu.state), 'A closed menu has no active ray target.');
+  toggleMenu(f, 1); assert(menu.opened, 'The right A button can reopen the menu without any floating launcher.');
   // Both controllers operate actual panel UVs through RayControl. An unrelated
   // machine closer to the controller is excluded by the modal owner gate.
   const blocker = new THREE.Mesh(new THREE.PlaneBufferGeometry(4, 4), new THREE.MeshBasicMaterial({side: THREE.DoubleSide})); f.scene.add(blocker); blocker.position.copy(menu.panel.position).add(new THREE.Vector3(0, 0, .25)); blocker.quaternion.copy(menu.panel.quaternion);
@@ -85,20 +96,20 @@ async function run() {
   // Reserved menu buttons and arbitrary unmapped button arrays are not bound.
   controls[1].source.gamepad.buttons[5] = {pressed: true, value: 1}; menu.tick(.016); assert(!menu.opened);
   controls[1].source.gamepad.mapping = ''; controls[1].source.gamepad.buttons[4] = {pressed: true, value: 1}; menu.tick(.016); assert(!menu.opened);
-  menu.open(); menu.fields.password = 'hidden-secret'; f.session.visibilityState = 'visible-blurred'; menu.tick(.016); assert(!menu.opened); assert.equal(menu.fields.password, ''); assert.equal(menu.launcher.visible, false); f.session.visibilityState = 'visible'; menu.tick(.016);
+  menu.open(); menu.fields.password = 'hidden-secret'; f.session.visibilityState = 'visible-blurred'; menu.tick(.016); assert(!menu.opened); assert.equal(menu.fields.password, ''); assert.equal(menu.group.visible, false); f.session.visibilityState = 'visible'; menu.tick(.016); assert(!menu.opened, 'Returning from a system overlay does not reopen the menu.');
   menu.open(); menu.fields.password = 'lost-controller'; ctx.raycontrol.dispatchEvent('controllerDisconnected', controls[0].data); assert.equal(menu.fields.password, '');
   // Stale catalogue responses cannot leak another account's projects.
   menu.open('home'); const pending = deferred(); f.editor.projectClient.listProjects = () => pending.promise; menu.navigate('projects'); f.client.user = user('other'); menu.identityChanged(); pending.resolve([{id: 'old-user-project', name: 'Old private data'}]); await flush(); assert.equal(menu.items.length, 0);
-  let geometries = 0, materials = 0, textures = 0; [menu.surface, menu.launcherSurface].forEach(value => { value.mesh.geometry.addEventListener('dispose', () => geometries++); value.mesh.material.addEventListener('dispose', () => materials++); value.texture.addEventListener('dispose', () => textures++); });
-  const stateName = menu.stateName; menu.setVR(false); assert.equal(ctx.raycontrol.states[stateName], undefined); assert.equal(ctx.studioMenuOpen, false); assert.equal(menu.group, null); assert.equal(geometries, 2); assert.equal(materials, 2); assert.equal(textures, 2); assert.equal(f.canvases[0].width, 1);
-  menu.setVR(true); menu.tick(.016); assert(menu.opened); assert.equal(f.canvases.length, 4); menu.dispose(); assert.equal(menu.disposed, true); assert.equal(menu.group, null); assert(!ctx.raycontrol.hasEventListener('controllerDisconnected', menu.controllerDisconnected));
+  let geometries = 0, materials = 0, textures = 0; [menu.surface].forEach(value => { value.mesh.geometry.addEventListener('dispose', () => geometries++); value.mesh.material.addEventListener('dispose', () => materials++); value.texture.addEventListener('dispose', () => textures++); });
+  const stateName = menu.stateName; menu.setVR(false); assert.equal(ctx.raycontrol.states[stateName], undefined); assert.equal(ctx.studioMenuOpen, false); assert.equal(menu.group, null); assert.equal(geometries, 1); assert.equal(materials, 1); assert.equal(textures, 1); assert.equal(f.canvases[0].width, 1);
+  menu.setVR(true); menu.tick(.016); assert(!menu.opened); assert.equal(f.canvases.length, 1); toggleMenu(f); assert(menu.opened); assert.equal(f.canvases.length, 2); menu.dispose(); assert.equal(menu.disposed, true); assert.equal(menu.group, null); assert(!ctx.raycontrol.hasEventListener('controllerDisconnected', menu.controllerDisconnected));
   const head = harness(); head.ctx.renderer.xr.isPresenting = true; const arrayCamera = new THREE.ArrayCamera(); arrayCamera.matrixWorld.makeTranslation(5, 2, -4); head.ctx.renderer.xr.getCamera = () => arrayCamera;
-  head.menu.setVR(true); head.menu.tick(.016); assert(Math.abs(head.menu.panel.position.x - 5) < 1e-8); assert(Math.abs(head.menu.panel.position.y - 1.92) < 1e-8, 'Reads r112 XR matrixWorld without recomposing its stale local pose.'); head.menu.dispose();
-  const registration = harness(); registration.menu.setVR(true); registration.menu.tick(.016); registration.menu.navigate('register'); registration.menu.tick(.016);
+  head.menu.setVR(true); head.menu.tick(.016); toggleMenu(head); assert(Math.abs(head.menu.panel.position.x - 5) < 1e-8); assert(Math.abs(head.menu.panel.position.y - 1.92) < 1e-8, 'Reads r112 XR matrixWorld without recomposing its stale local pose.'); head.menu.dispose();
+  const registration = harness(); registration.menu.setVR(true); registration.menu.tick(.016); registration.menu.open('register'); registration.menu.tick(.016);
   assert(registration.menu.regions.some(region => region.key === 'field:code'));
   Object.assign(registration.menu.fields, {username: 'nuevo', password: 'registration-fixture-123', code: 'INVITE-FIXTURE'});
   await registration.menu.authenticate(true); assert.equal(registration.writes[0].kind, 'register'); assert.equal(registration.writes[0].code, 'INVITE-FIXTURE'); assert.equal(registration.menu.fields.password, ''); assert.equal(registration.menu.fields.code, ''); registration.menu.dispose();
-  const rejected = harness(); rejected.menu.setVR(true); rejected.menu.tick(.016); rejected.menu.navigate('account'); rejected.client.login = async () => { throw new Error('Usuario o contraseña incorrectos.'); };
+  const rejected = harness(); rejected.menu.setVR(true); rejected.menu.tick(.016); rejected.menu.open('account'); rejected.client.login = async () => { throw new Error('Usuario o contraseña incorrectos.'); };
   Object.assign(rejected.menu.fields, {username: 'incorrecto', password: 'rejected-fixture-secret'}); await rejected.menu.authenticate(); rejected.menu.tick(.016);
   assert.equal(rejected.menu.busy, false); assert(rejected.menu.error.includes('incorrectos')); assert.equal(rejected.menu.fields.password, ''); assert(!rejected.menu.canvas.text.some(text => text.includes('rejected-fixture-secret'))); rejected.menu.dispose();
   const occupiedHand = harness(); occupiedHand.menu.setVR(true); occupiedHand.menu.tick(.016); occupiedHand.menu.close(); occupiedHand.menu.tick(.016);
@@ -107,6 +118,24 @@ async function run() {
   occupiedHand.controls[0].source.gamepad.buttons[4] = {pressed: true, value: 1}; occupiedHand.menu.tick(.016);
   assert(occupiedHand.menu.opened, 'A physical X/A press opens the menu even when a held native stick suspended its target ray.');
   assert.equal(occupiedHand.controls[0].data.enabled, true, 'The opening hook releases the held item and restores the hand ray.'); assert(occupiedHand.calls.includes('releaseOccupiedHand')); occupiedHand.menu.dispose();
+  const shortcut = harness(); shortcut.menu.setVR(true); toggleMenu(shortcut); press(shortcut, 'account');
+  assert.equal(shortcut.menu.keyboardField, 'username', 'Opening sign-in immediately exposes the VR keyboard.');
+  shortcut.menu.fields.username = 'demo'; press(shortcut, 'key:done'); assert.equal(shortcut.menu.keyboardField, 'password');
+  shortcut.menu.fields.password = 'shortcut-fixture'; press(shortcut, 'key:done'); await flush();
+  assert.equal(shortcut.writes.length, 1); assert.equal(shortcut.client.user.id, 'demo'); assert.equal(shortcut.menu.fields.password, ''); shortcut.menu.dispose();
+  const retry = harness(); retry.editor.staticPublic = true; retry.menu.setVR(true); toggleMenu(retry); press(retry, 'account');
+  assert(!retry.menu.regions.some(region => region.key.startsWith('field:')));
+  retry.studio.reconnectAccountService = async () => { retry.editor.staticPublic = false; };
+  press(retry, 'reconnect-account'); await flush(); retry.menu.tick(.016);
+  assert.equal(retry.menu.page, 'account'); assert.equal(retry.menu.keyboardField, 'username'); assert(retry.menu.regions.some(region => region.key === 'field:password')); assert.equal(retry.writes.length, 0); retry.menu.dispose();
+  const late = harness(); late.editor.staticPublic = true; late.menu.setVR(true); toggleMenu(late); press(late, 'account');
+  const probe = deferred(); late.studio.reconnectAccountService = () => probe.promise;
+  press(late, 'reconnect-account'); late.menu.close(); probe.resolve(); await flush(); late.menu.tick(.016);
+  assert.equal(late.menu.opened, false, 'A delayed server probe cannot reopen the menu after closing.'); assert.equal(late.menu.keyboardField, ''); late.menu.dispose();
+  const delayedLogout = harness(); delayedLogout.client.user = user('demo'); delayedLogout.menu.setVR(true); toggleMenu(delayedLogout);
+  const logoutReply = deferred(); delayedLogout.studio.logout = async () => { await logoutReply.promise; delayedLogout.client.user = null; delayedLogout.menu.identityChanged(); };
+  press(delayedLogout, 'logout'); delayedLogout.menu.close(); logoutReply.resolve(); await flush(); delayedLogout.menu.tick(.016);
+  assert.equal(delayedLogout.menu.opened, false, 'Finishing logout never reopens a menu the user closed.'); assert.equal(delayedLogout.menu.group.visible, false); delayedLogout.menu.dispose();
   console.log('Immersive Studio menu: native bounded canvases, both real controller rays/UVs, modal machine isolation, masked XR keyboard, login, authorized paginated scenes/projects, face-button edges, r112 head pose, identity/visibility/disconnect cleanup and resource disposal passed.');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });

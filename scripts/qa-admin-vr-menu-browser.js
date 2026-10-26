@@ -56,9 +56,26 @@ async function run() {
         window.__qaXR = {getCamera:context.renderer.xr.getCamera,vrMode:context.vrMode};
         context.renderer.xr.getCamera = () => context.camera;
         context.vrMode = true; document.body.classList.add('vr-mode'); context.editor.onVRChange(true); context.studio.onVRChange(true);
-        context.studio.immersiveMenu.open('home');
+        const menu=context.studio.immersiveMenu;
+        menu.tick(.016);
+        if(menu.opened||context.studioMenuOpen||[menu.panel,menu.launcher].some(mesh=>mesh&&mesh.visible))throw Error('Entering VR must leave every menu surface hidden.');
+        window.__qaInputs=context.controllers.map((controller,index)=>{
+          controller.visible=true;
+          const source={handedness:index?'right':'left',targetRayMode:'tracked-pointer',gamepad:{mapping:'xr-standard',buttons:Array.from({length:6},()=>({pressed:false,value:0})),axes:[0,0,0,0]}};
+          const data=context.raycontrol.addController(controller,source);return {controller,source,data};
+        });
+        menu.tick(.016);
+        __qaInputs[0].source.gamepad.buttons[4]={pressed:true,value:1};menu.tick(.016);
+        __qaInputs[0].source.gamepad.buttons[4]={pressed:false,value:0};menu.tick(.016);
+        if(!menu.opened)throw Error('The left controller X button must open the hidden VR menu.');
+        __qaInputs[1].source.gamepad.buttons[4]={pressed:true,value:1};menu.tick(.016);
+        __qaInputs[1].source.gamepad.buttons[4]={pressed:false,value:0};menu.tick(.016);
+        if(menu.opened||context.studioMenuOpen||[menu.panel,menu.launcher].some(mesh=>mesh&&mesh.visible))throw Error('The right controller A button must close the menu without leaving a floating label.');
+        __qaInputs[0].source.gamepad.buttons[4]={pressed:true,value:1};menu.tick(.016);
+        __qaInputs[0].source.gamepad.buttons[4]={pressed:false,value:0};menu.tick(.016);
+        if(!menu.opened)throw Error('The assigned controller button must reopen the menu.');
       });
-      await b.until(() => b.evaluate('Boolean(context.studio.immersiveMenu&&context.studioMenuOpen)'), 'Immersive menu did not enter its initial page.');
+      await b.until(() => b.evaluate('Boolean(context.studio.immersiveMenu&&context.studioMenuOpen)'), 'Immersive menu did not open with its assigned controller button.');
       const desktopHidden = await b.evaluate('(()=>{const selectors=[".studio-header",".studio-drawer",".studio-shade",".studio-notice",".studio-context",".studio-controls",".ed-share-project",".ed-project-overlay",".simulation-panel",".ed-preview-controls",".studio-admin-modal-overlay"];return selectors.flatMap(selector=>[...document.querySelectorAll(selector)].map(element=>({selector,visible:!!(element.getBoundingClientRect().width&&element.getBoundingClientRect().height)&&getComputedStyle(element).display!=="none"&&getComputedStyle(element).visibility!=="hidden"})));})()');
       assert(desktopHidden.every(row => !row.visible), JSON.stringify(desktopHidden)); b.report.desktopHidden = desktopHidden;
       await b.evaluate('context.studio.immersiveMenu.open("home")'); await delay(200); await b.screenshot('immersive-home');
@@ -82,17 +99,12 @@ async function run() {
 async function immersiveChecks(b, privateProjectId) {
   await b.call(() => {
     const ctx=context, menu=ctx.studio.immersiveMenu, ray=ctx.raycontrol;
-    window.__qaInputs=ctx.controllers.map((controller,index)=>{
-      controller.visible=true;
-      const source={handedness:index?'right':'left',targetRayMode:'tracked-pointer',gamepad:{mapping:'xr-standard',buttons:Array.from({length:6},()=>({pressed:false,value:0})),axes:[0,0,0,0]}};
-      const data=ray.addController(controller,source); return {controller,source,data};
-    });
     window.__qaRayHits=[];
     window.__qaMenuRay=(key,hand=0)=>{
       menu.tick(.016);
-      const row=__qaInputs[hand],controller=row.controller,mesh=key==='launcher'?menu.launcher:menu.panel,region=key==='launcher'?null:menu.regions.find(value=>value.key===key);
-      if(!mesh||key!=='launcher'&&!region)throw Error('Missing 3D menu region '+key);
-      const u=region?(region.x+region.width/2)/1024:.5,v=region?1-(region.y+region.height/2)/960:.5;
+      const row=__qaInputs[hand],controller=row.controller,mesh=menu.panel,region=menu.regions.find(value=>value.key===key);
+      if(!mesh||!region)throw Error('Missing 3D menu region '+key);
+      const u=(region.x+region.width/2)/1024,v=1-(region.y+region.height/2)/960;
       mesh.updateWorldMatrix(true,false);const size=mesh.geometry.parameters;
       const point=mesh.localToWorld(menu.position.clone().set((u-.5)*size.width,(v-.5)*size.height,0));
       const normal=menu.forward.clone().set(0,0,1).applyQuaternion(mesh.getWorldQuaternion(menu.headQuaternion.clone()));
@@ -104,6 +116,12 @@ async function immersiveChecks(b, privateProjectId) {
       if(!row.data.currentIntersection||row.data.currentIntersection.state!==menu.state||menu.regionAt(row.data.currentIntersection.intersection)?.key!==key)throw Error('3D ray did not reach '+key+' with '+row.source.handedness+'; hit '+JSON.stringify({state:row.data.currentIntersection?.state?.name,key:menu.regionAt(row.data.currentIntersection?.intersection)?.key,uv:row.data.currentIntersection?.intersection?.uv,enabled:row.data.enabled,menuOpen:menu.opened,rayEnabled:ray.enabled,states:ray.currentStates.map(v=>[v.name,v.xrMenu]),origin:ray.raycaster.ray.origin.toArray(),direction:ray.raycaster.ray.direction.toArray(),point:point.toArray(),normal:normal.toArray(),matrix:controller.matrixWorld.elements,raw:ray.getIntersections(controller,mesh).map(v=>({distance:v.distance,uv:v.uv}))}));
       __qaRayHits.push({key,hand:row.source.handedness});controller.dispatchEvent({type:'selectstart'});controller.dispatchEvent({type:'selectend'});menu.tick(.016);
     };
+    window.__qaToggleMenu=(hand=0)=>{
+      const input=__qaInputs[hand].source.gamepad;
+      input.buttons[4]={pressed:false,value:0};menu.tick(.016);
+      input.buttons[4]={pressed:true,value:1};menu.tick(.016);
+      input.buttons[4]={pressed:false,value:0};menu.tick(.016);
+    };
     window.__qaText=[];const text=menu.drawing.fillText.bind(menu.drawing);menu.drawing.fillText=(value,...args)=>{if(__qaText.length<10000)__qaText.push(String(value));return text(value,...args);};
   });
   console.log('Admin/VR Chrome: actual 3D controller rays and modal machine isolation');
@@ -112,7 +130,19 @@ async function immersiveChecks(b, privateProjectId) {
   await b.evaluate('__qaMenuRay("home",1);__qaMenuRay("settings",0);__qaMenuRay("volume-down",1)');await b.screenshot('immersive-settings');
   await b.evaluate('__qaMenuRay("home",0);__qaMenuRay("logout",1)');
   await b.until(()=>b.evaluate('!context.studio.client.user&&!context.studio.immersiveMenu.busy'), 'VR logout did not complete.');
-  await b.evaluate('context.studio.immersiveMenu.open("home");__qaMenuRay("account",0);__qaMenuRay("field:username",1)');
+  console.log('Admin/VR Chrome: reconnect a temporarily unavailable same-origin account service');
+  await b.call(()=>{
+    context.editor.staticPublic=true;context.studio.client.configured=false;context.studio.online=false;
+    context.studio.immersiveMenu.close();__qaToggleMenu(0);__qaMenuRay('account',0);
+    if(!context.studio.immersiveMenu.regions.some(region=>region.key==='reconnect-account'))throw Error('The VR account page must offer connection retry after an unavailable initial health check.');
+  });
+  const writesBeforeReconnect=b.report.writes.length;
+  await b.evaluate('__qaMenuRay("reconnect-account",1)');
+  await b.until(()=>b.evaluate('!context.editor.staticPublic&&context.studio.online&&!context.studio.immersiveMenu.busy&&context.studio.immersiveMenu.page==="account"&&context.studio.immersiveMenu.keyboardField==="username"'), 'VR account retry did not recover the real temporary service.');
+  assert.equal(b.report.writes.length,writesBeforeReconnect,'Retry must probe health/identity with GET, never submit authentication or passwords.');
+  const reconnect=await b.evaluate('({online:context.studio.online,staticPublic:context.editor.staticPublic,user:context.studio.client.user,page:context.studio.immersiveMenu.page,keyboardField:context.studio.immersiveMenu.keyboardField,passwordEmpty:context.studio.immersiveMenu.fields.password===""})');
+  assert.equal(reconnect.user,null);assert.equal(reconnect.passwordEmpty,true);b.report.accountReconnect=reconnect;
+  await b.evaluate('__qaMenuRay("field:username",1)');
   console.log('Admin/VR Chrome: login using the world-space keyboard');
   await b.call((username,password)=>{
     const menu=context.studio.immersiveMenu;
