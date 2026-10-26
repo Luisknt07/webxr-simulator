@@ -100,6 +100,10 @@ export default class IndustrialVisuals {
     this.elapsed = DISPLAY_INTERVAL;
     this.snapshot = null;
     this.scale = new THREE.Vector3();
+    this.contactHands = new Map(); this.contactButtons = [];
+    this.contactProbe = new THREE.Vector3(); this.contactCenter = new THREE.Vector3(); this.contactPoint = new THREE.Vector3(); this.contactOrigin = new THREE.Vector3();
+    this.contactInverse = new THREE.Matrix4(); this.contactMatrix = new THREE.Matrix4(); this.contactLocal = new THREE.Matrix4();
+    this.contactStates = new Map(); this.contactInput = null;
   }
 
   invalidate() { this.dirty = true; }
@@ -140,6 +144,7 @@ export default class IndustrialVisuals {
   }
 
   scan(roomId, root, objectCount) {
+    this.resetContactHands();
     this.roomId = String(roomId);
     this.root = root;
     this.objectCount = objectCount;
@@ -242,6 +247,16 @@ export default class IndustrialVisuals {
           kind: isZone ? 'zone' : isVolume ? 'volume' : isLamp ? 'sensor' : isButton ? 'button' : 'tower', tower: data.industrialTower, zone: data.industrialZoneLamp,
           action: owner.object.userData.industrialAction || owner.object.userData.editorPrefabVariant || owner.configurations.control && owner.configurations.control.command});
       }
+    });
+    this.contactButtons = this.bindings.filter(binding => binding.kind === 'button' && binding.owner.configurations.control && binding.entry.object.userData.industrialButton).map(binding => {
+      const cap = binding.entry.object, owner = binding.owner.object, entry = this.buttons.get(cap);
+      if (!cap.geometry.boundingBox) cap.geometry.computeBoundingBox();
+      owner.updateWorldMatrix(true, false); cap.parent.updateWorldMatrix(true, false);
+      this.contactInverse.getInverse(owner.matrixWorld);
+      this.contactMatrix.multiplyMatrices(this.contactInverse, cap.parent.matrixWorld);
+      this.contactLocal.compose(entry.rest, cap.quaternion, cap.scale); this.contactMatrix.multiply(this.contactLocal);
+      const bounds = cap.geometry.boundingBox.clone().applyMatrix4(this.contactMatrix), sphere = bounds.getBoundingSphere(new THREE.Sphere());
+      return {cap, owner, bounds, center: sphere.center, radius: sphere.radius, round: /Cylinder|Sphere/.test(cap.geometry.type)};
     });
     this.displays.forEach((entry, object) => { if (!foundDisplays.has(object)) { this.restoreDisplay(entry); this.displays.delete(object); } });
     this.colors.forEach((entry, object) => { if (!foundColors.has(object)) { this.restoreColor(entry); this.colors.delete(object); } });
@@ -507,6 +522,7 @@ export default class IndustrialVisuals {
       if (object.material !== entry.installed) { this.restoreRoller(entry); this.belts.delete(object); this.dirty = true; }
     });
     if (this.dirty || this.roomId !== String(roomId) || this.root !== root || this.objectCount !== objectCount) this.scan(roomId, root, objectCount);
+    this.syncContactButtons(editing);
     const elapsed = Math.max(0, Math.min(number(delta), 0.25));
     this.elapsed += elapsed;
     const paint = this.elapsed >= DISPLAY_INTERVAL;
@@ -866,11 +882,119 @@ export default class IndustrialVisuals {
     entry.amount = 0; entry.pulseRemaining = 0;
   }
 
+  releaseContact(hand, cancel = false) {
+    if (hand.contact) {
+      const {state, hit} = hand.contact;
+      const callback = cancel ? state.onSelectCancel || state.onSelectEnd : state.onSelectEnd;
+      if (callback) callback(hit, hand.token);
+      if (state.onHoverLeave) state.onHoverLeave(hit, false, hand.token);
+      hand.contact = null;
+    }
+    hand.armed = false;
+  }
+
+  resetContactHands() {
+    this.contactHands.forEach(hand => this.releaseContact(hand, true)); this.contactHands.clear();
+  }
+
+  syncContactButtons(editing) {
+    const ctx = this.ctx, simulation = this.simulation, input = ctx.raycontrol;
+    if (this.contactInput !== input) {
+      if (this.contactInput && this.contactInput.removeEventListener) {
+        this.contactInput.removeEventListener('controllerDisconnected', this.contactCancelled);
+        this.contactInput.removeEventListener('controllerInputCancelled', this.contactCancelled);
+      }
+      this.resetContactHands(); this.contactInput = input;
+      this.contactCancelled = data => {
+        const hand = this.contactHands.get(data && data.controller);
+        if (hand) { this.releaseContact(hand, true); this.contactHands.delete(data.controller); }
+      };
+      if (input && input.addEventListener) {
+        input.addEventListener('controllerDisconnected', this.contactCancelled);
+        input.addEventListener('controllerInputCancelled', this.contactCancelled);
+      }
+    }
+    const dom = ctx.document || (typeof document !== 'undefined' ? document : null), editor = ctx.editor;
+    const xr = ctx.renderer && ctx.renderer.xr, session = xr && xr.getSession && xr.getSession();
+    const blocked = editing || !ctx.vrMode || ctx.studioMenuOpen || ctx.xrEntryPending || ctx.xrExitPending || ctx.roomTransition ||
+      editor && (editor.active || editor.initializing || editor.loadingProject || editor.busy || editor.importingFiles) || dom && dom.hidden ||
+      !simulation || !simulation.running || !input || input.enabled === false || xr && xr.getSession && !session || session && session.visibilityState && session.visibilityState !== 'visible';
+    if (blocked) { this.resetContactHands(); return; }
+    this.contactStates.clear();
+    (simulation.states || []).forEach(entry => { if (input.states[entry.name] === entry.state && input.currentStates.includes(entry.state)) this.contactStates.set(entry.state.colliderMesh, entry.state); });
+    const connected = new Set();
+    (input.controllers || []).forEach(data => {
+      const controller = data.controller, source = data.inputSource;
+      if (!controller || data.desktop || !source || source.targetRayMode !== 'tracked-pointer' || source.hand || !['left', 'right'].includes(source.handedness)) return;
+      connected.add(controller);
+      let hand = this.contactHands.get(controller);
+      if (!hand || hand.source !== source) {
+        if (hand) this.releaseContact(hand, true);
+        // A separate physical contact identity shares the existing control's
+        // mechanical latch with trigger presses without releasing that trigger.
+        const token = {getWorldPosition: target => controller.getWorldPosition(target), getObjectByName: name => controller.getObjectByName(name)};
+        hand = {source, token, armed: false, contact: null}; this.contactHands.set(controller, hand);
+      }
+      const grip = simulation.productGripInputs && simulation.productGripInputs.get(controller);
+      if (data.enabled === false || !visible(controller) || controller.userData && (controller.userData.grabbing || controller.userData.studioMenuTrigger) ||
+        simulation.held && simulation.held.has(controller) || grip && grip.product) { this.releaseContact(hand, true); return; }
+      controller.updateWorldMatrix(true, false);
+      // A small probe at the visible controller's front, never its long ray.
+      this.contactProbe.set(0, 0, -.045).applyMatrix4(controller.matrixWorld);
+      let near = null;
+      for (const button of this.contactButtons) {
+        const state = this.contactStates.get(button.owner);
+        if (!state || input.allowedState && !input.allowedState(state) || !visible(button.cap)) continue;
+        const elements = button.owner.matrixWorld.elements;
+        this.contactCenter.copy(button.center).applyMatrix4(button.owner.matrixWorld);
+        // Frobenius norm is conservative even under scaled/rotated ancestors.
+        const scale = Math.hypot(elements[0], elements[1], elements[2], elements[4], elements[5], elements[6], elements[8], elements[9], elements[10]);
+        if (this.contactProbe.distanceToSquared(this.contactCenter) > Math.pow(button.radius * scale + .055, 2)) continue;
+        this.contactInverse.getInverse(button.owner.matrixWorld);
+        this.contactPoint.copy(this.contactProbe).applyMatrix4(this.contactInverse);
+        const inverse = this.contactInverse.elements, point = this.contactPoint, bounds = button.bounds;
+        const radius = !hand.armed || hand.contact ? .05 : .018;
+        const rx = radius * Math.hypot(inverse[0], inverse[4], inverse[8]), ry = radius * Math.hypot(inverse[1], inverse[5], inverse[9]), rz = radius * Math.hypot(inverse[2], inverse[6], inverse[10]);
+        if (point.z < bounds.max.z - rz || point.z > bounds.max.z + rz || point.x < bounds.min.x - rx || point.x > bounds.max.x + rx || point.y < bounds.min.y - ry || point.y > bounds.max.y + ry) continue;
+        this.contactOrigin.setFromMatrixPosition(controller.matrixWorld).applyMatrix4(this.contactInverse);
+        if (this.contactOrigin.z <= bounds.max.z) continue;
+        if (button.round && Math.pow((point.x - button.center.x) / ((bounds.max.x - bounds.min.x) / 2 + rx), 2) + Math.pow((point.y - button.center.y) / ((bounds.max.y - bounds.min.y) / 2 + ry), 2) > 1) continue;
+        const surface = new THREE.Vector3(Math.max(bounds.min.x, Math.min(bounds.max.x, point.x)), Math.max(bounds.min.y, Math.min(bounds.max.y, point.y)), bounds.max.z).applyMatrix4(button.owner.matrixWorld);
+        const hit = {object: button.cap, point: surface, distance: controller.getWorldPosition(this.contactCenter).distanceTo(surface)};
+        if (simulation.validInteraction && !simulation.validInteraction(button.owner, hit, hand.token, true)) continue;
+        const distance = this.contactProbe.distanceToSquared(surface);
+        if (!near || hand.contact && hand.contact.button === button || distance < near.distance) near = {button, state, hit, distance};
+        if (hand.contact && hand.contact.button === button) break;
+      }
+      if (hand.contact) {
+        if (!near || near.button !== hand.contact.button || near.state !== hand.contact.state) this.releaseContact(hand);
+        return;
+      }
+      // Re-entry after session/menu changes or reconnect must first see the
+      // hand outside a cap. A hand left resting on a button cannot actuate it.
+      if (!near) { hand.armed = true; return; }
+      if (!hand.armed || data.active && !(data.selectionCapture || []).some(entry => entry.state === near.state)) return;
+      hand.armed = false; hand.contact = near;
+      if (near.state.onHover) near.state.onHover(near.hit, false, hand.token);
+      const before = simulation.getControlFeedback && simulation.getControlFeedback(near.button.owner.userData.editorId).sequence;
+      if (near.state.onSelectStart) near.state.onSelectStart(near.hit, hand.token);
+      const after = simulation.getControlFeedback && simulation.getControlFeedback(near.button.owner.userData.editorId).sequence;
+      if (after !== before && simulation.pulse) simulation.pulse(controller, .2, 30);
+    });
+    this.contactHands.forEach((hand, controller) => { if (!connected.has(controller)) { this.releaseContact(hand, true); this.contactHands.delete(controller); } });
+  }
+
   restoreRoller(entry) {
     if (entry.object.material === entry.installed) entry.object.material = entry.original;
   }
 
   dispose() {
+    this.resetContactHands();
+    if (this.contactInput && this.contactInput.removeEventListener) {
+      this.contactInput.removeEventListener('controllerDisconnected', this.contactCancelled);
+      this.contactInput.removeEventListener('controllerInputCancelled', this.contactCancelled);
+    }
+    this.contactInput = null; this.contactButtons = [];
     this.displays.forEach(entry => this.restoreDisplay(entry));
     this.colors.forEach(entry => this.restoreColor(entry));
     this.buttons.forEach(entry => this.restoreButton(entry));

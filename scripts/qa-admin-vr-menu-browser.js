@@ -8,7 +8,7 @@ const ROOT = path.resolve(__dirname, '..'), OUTPUT = path.join(ROOT, 'data/qa-st
 const PASSWORD = 'Disposable-immersive-fixture-2026!';
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const pem = () => fs.readFileSync(path.join(ROOT, 'node_modules/webpack-dev-server/ssl/server.pem'));
-function cleanup(directory) { const value = path.resolve(directory); assert.equal(path.dirname(value), path.resolve(os.tmpdir())); assert(path.basename(value).startsWith(PREFIX)); fs.rmSync(value, {recursive: true, force: true, maxRetries: 15, retryDelay: 250}); }
+function cleanup(directory) { const value = path.resolve(directory); assert.equal(path.dirname(value), path.resolve(os.tmpdir())); assert(path.basename(value).startsWith(PREFIX)); fs.rmSync(value, {recursive: true, force: true, maxRetries: 30, retryDelay: 250}); }
 const browserSource = helper.withBrowser.toString().replace(/'workspace-'/g, "'admin-vr-'").replace(/'project-workspace-browser\.json'/g, "'admin-vr-menu-browser.json'");
 const withBrowser = new Function('assert', 'fs', 'path', 'os', 'spawn', 'createHash', 'X509Certificate', 'WebSocket', 'OUTPUT', 'PREFIX', 'pem', 'delay', 'cleanup', 'return (' + browserSource + ');')
   (assert, fs, path, os, spawn, createHash, X509Certificate, WebSocket, OUTPUT, PREFIX, pem, delay, cleanup);
@@ -52,10 +52,31 @@ async function run() {
       await b.send('Input.dispatchKeyEvent', {type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27});
       await b.until(() => b.evaluate('!document.querySelector(".studio-admin-modal-overlay")'), 'Escape did not dismiss the administrator modal.');
       step('immersive mode suppresses every desktop overlay');
-      await b.call(() => {
-        window.__qaXR = {getCamera:context.renderer.xr.getCamera,vrMode:context.vrMode};
+      await b.call(async () => {
+        // The headset boundary is simulated, but the real VRButton factory owns
+        // session start/end. Exiting through the native menu must drive that
+        // lifecycle instead of a test directly clearing vrMode or the menu.
+        const {VRButton}=await import(new URL('src/lib/VRButton.js',document.baseURI).href);
+        window.__qaXR = {getCamera:context.renderer.xr.getCamera,getSession:context.renderer.xr.getSession,navigatorOwn:Object.getOwnPropertyDescriptor(navigator,'xr'),events:[]};
+        const session=new EventTarget();session.visibilityState='visible';session.endCalls=0;
+        session.requestReferenceSpace=async type=>({type});
+        session.end=async()=>{session.endCalls++;session.dispatchEvent(new Event('end'));};
+        const adapter=new EventTarget();adapter.isPresenting=false;adapter.getSession=()=>adapter.session;
+        adapter.setReferenceSpaceType=()=>{};
+        adapter.setSession=value=>{adapter.session=value;adapter.isPresenting=true;value.addEventListener('end',()=>{adapter.session=null;adapter.isPresenting=false;},{once:true});adapter.dispatchEvent(new Event('sessionstart'));};
+        Object.defineProperty(navigator,'xr',{configurable:true,value:{isSessionSupported:async()=>true,requestSession:async()=>session}});
+        __qaXR.session=session;
         context.renderer.xr.getCamera = () => context.camera;
-        context.vrMode = true; document.body.classList.add('vr-mode'); context.editor.onVRChange(true); context.studio.onVRChange(true);
+        context.renderer.xr.getSession = () => adapter.getSession();
+        __qaXR.button=VRButton.createButton({xr:adapter},status=>{
+          __qaXR.events.push(status);
+          const active=status==='sessionStarted';context.vrMode=active;document.body.classList.toggle('vr-mode',active);context.editor.onVRChange(active);context.studio.onVRChange(active);
+          if(!active){context.renderer.xr.getCamera=__qaXR.getCamera;context.renderer.xr.getSession=__qaXR.getSession;if(__qaXR.navigatorOwn)Object.defineProperty(navigator,'xr',__qaXR.navigatorOwn);else delete navigator.xr;}
+        });
+        await Promise.resolve();await Promise.resolve();
+        if(typeof __qaXR.button.onclick!=='function')throw Error('The real VRButton did not expose the simulated supported session.');
+        await __qaXR.button.onclick();
+        if(!context.vrMode||__qaXR.events.join(',')!=='sessionStarted')throw Error('The real VRButton session-start callback did not enter immersive mode.');
         const menu=context.studio.immersiveMenu;
         menu.tick(.016);
         if(menu.opened||context.studioMenuOpen||[menu.panel,menu.launcher].some(mesh=>mesh&&mesh.visible))throw Error('Entering VR must leave every menu surface hidden.');
@@ -81,9 +102,11 @@ async function run() {
       await b.evaluate('context.studio.immersiveMenu.open("home")'); await delay(200); await b.screenshot('immersive-home');
       b.report.syntheticVR = {hardwareSession: false, actualWebGLRenderer: true};
       await immersiveChecks(b, project.body.project.id);
-      step('return to desktop clears the immersive interface and secrets');
-      await b.call(() => { context.studio.onVRChange(false); context.vrMode=false; context.editor.onVRChange(false); document.body.classList.remove('vr-mode'); context.renderer.xr.getCamera=__qaXR.getCamera; });
-      await b.until(() => b.evaluate('!context.studioMenuOpen&&!context.studio.header.hidden'), 'Desktop presentation did not restore.');
+      step('exit through the native menu drives real VRButton session-end cleanup');
+      await b.evaluate('__qaMenuRay("exit-vr",1)');
+      await b.until(() => b.evaluate('!context.vrMode&&!context.studioMenuOpen&&!context.studio.header.hidden'), 'The native exit button did not restore desktop presentation.');
+      const exit=await b.evaluate('({endCalls:__qaXR.session.endCalls,events:__qaXR.events,buttonText:__qaXR.button.textContent,menuActive:context.studio.immersiveMenu.active,resourcesReleased:context.studio.immersiveMenu.group===null,passwordEmpty:context.studio.immersiveMenu.fields.password==="",bodyVR:document.body.classList.contains("vr-mode")})');
+      assert.equal(exit.endCalls,1);assert.deepEqual(exit.events,['sessionStarted','sessionEnded']);assert.equal(exit.buttonText,'Entrar en VR');assert(!exit.menuActive&&exit.resourcesReleased&&exit.passwordEmpty&&!exit.bodyVR);b.report.exitVR=exit;
       b.report.finish = await b.evaluate('({gl:context.renderer.getContext().getError(),menuOpen:context.studioMenuOpen,user:context.studio.client.user&&context.studio.client.user.username})'); assert.equal(b.report.finish.gl, 0);
       step('responsive administrator modal on a narrow mobile viewport');
       await b.call(async (username,password)=>{await context.studio.client.login(username,password);await context.studio.client.me();await context.studio.authenticated();},'qa_immersive_admin',PASSWORD);

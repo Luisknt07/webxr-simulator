@@ -64,7 +64,7 @@ export default class ImmersiveStudioMenu {
     this.active = enabled; this.padButtons = new WeakMap();
     // Entering/re-entering VR never opens a panel or allocates a floating label.
     // Only a fresh X/A press creates the menu, once the XR pose is available.
-    if (!enabled) { this.close(); this.releaseResources(); }
+    if (!enabled) { this.ctx.xrExitPending = false; this.close(); this.releaseResources(); }
   }
   headPose() {
     const renderer = this.ctx.renderer, camera = this.ctx.camera;
@@ -112,7 +112,7 @@ export default class ImmersiveStudioMenu {
   hover(hit, controller) { const region = hit && this.valid(hit, controller) && this.regionAt(hit), key = region && region.key || ''; if (this.hovers.get(controller) !== key) { key ? this.hovers.set(controller, key) : this.hovers.delete(controller); this.dirty = true; } }
   press(hit, controller) {
     if (!this.valid(hit, controller) || this.presses.has(controller)) return;
-    const region = this.regionAt(hit); if (!region || region.disabled || this.busy && !['close', 'home'].includes(region.key)) return;
+    const region = this.regionAt(hit); if (!region || region.disabled || this.busy && !['close', 'home', 'exit-vr'].includes(region.key)) return;
     const held = Array.from(this.presses.values()).some(key => key === region.key); this.presses.set(controller, region.key); this.pressedUntil = this.lastTime + .12; this.pressedKey = region.key; this.dirty = true;
     if (held) return;
     const data = this.ctx.raycontrol && this.ctx.raycontrol.controllers.find(value => value.controller === controller), gamepad = data && data.inputSource && data.inputSource.gamepad;
@@ -154,6 +154,17 @@ export default class ImmersiveStudioMenu {
     try { return await action(); }
     catch (error) { this.error = short(error.message, 100); this.fields.password = ''; this.dirty = true; }
     finally { this.busy = false; this.dirty = true; }
+  }
+  async exitVR() {
+    if (this.exiting || !this.active || !this.ctx.vrMode) return;
+    const xr = this.ctx.renderer && this.ctx.renderer.xr, session = xr && xr.getSession && xr.getSession();
+    if (!session || typeof session.end !== 'function') { this.error = 'No se encontró una sesión de RV activa. Vuelve a intentarlo.'; this.dirty = true; return; }
+    this.exiting = true; this.ctx.xrExitPending = true; this.error = ''; this.clearCredentials(); this.dirty = true;
+    try { await session.end(); }
+    catch (_) { if (this.active && this.opened) this.error = 'No se pudo salir de RV. Pulsa Salir de RV para reintentarlo.'; }
+    finally { this.exiting = false; this.ctx.xrExitPending = false; this.dirty = true; }
+    // Session-end restores the renderer, desktop, controllers and mirror.
+    // Never simulate an exit by changing vrMode here.
   }
   async authenticate(register = false) {
     if (this.editor.staticPublic) { this.clearCredentials(); this.error = 'Las cuentas requieren el servidor de Studio. Puedes explorar los dos ejemplos públicos.'; this.dirty = true; return; }
@@ -220,8 +231,8 @@ export default class ImmersiveStudioMenu {
   text(value, x, y, size = 28, color = C.text, weight = '') { const d = this.drawing; d.fillStyle = color; d.textAlign = 'left'; d.font = weight + ' ' + size + 'px Arial'; d.fillText(String(value), x, y); }
   button(key, label, x, y, width, height, action, options = {}) {
     const d = this.drawing, active = Array.from(this.hovers.values()).includes(key), pressed = Array.from(this.presses.values()).includes(key) || this.pressedKey === key && this.lastTime < this.pressedUntil;
-    const disabled = options.disabled || this.busy && !['close', 'home'].includes(key), accent = options.accent;
-    d.fillStyle = disabled ? '#253640' : pressed ? '#437686' : active ? C.active : accent ? C.accent : C.card; d.fillRect(x, y + (pressed ? 3 : 0), width, height);
+    const disabled = options.disabled || this.busy && !['close', 'home', 'exit-vr'].includes(key), accent = options.accent;
+    d.fillStyle = disabled ? '#253640' : pressed ? '#437686' : active ? C.active : options.danger ? '#603841' : accent ? C.accent : C.card; d.fillRect(x, y + (pressed ? 3 : 0), width, height);
     if (d.strokeRect) { d.lineWidth = active || options.selected ? 3 : 1; d.strokeStyle = active || options.selected ? C.accent : '#527084'; d.strokeRect(x, y + (pressed ? 3 : 0), width, height); }
     d.textAlign = 'center'; d.fillStyle = disabled ? '#8198a6' : accent && !active && !pressed ? C.dark : C.text; d.font = (options.bold ? 'bold ' : '') + (options.size || 28) + 'px Arial'; d.fillText(short(label, Math.max(5, Math.floor(width / ((options.size || 28) * .56)))), x + width / 2, y + height / 2 + 10 + (pressed ? 3 : 0));
     this.regions.push({key, x, y, width, height, action, disabled});
@@ -290,8 +301,8 @@ export default class ImmersiveStudioMenu {
     this.button('volume-down', '− Volumen', 46, 365, 445, 66, () => { if (audio) audio.setVolume(Math.max(0, volume - .1)); this.dirty = true; });
     this.button('volume-up', '+ Volumen', 514, 365, 464, 66, () => { if (audio) audio.setVolume(Math.min(1, volume + .1)); this.dirty = true; });
     this.text('Controles en realidad virtual', 46, 505, 32);
-    this.text('Teletransporte: apunta al suelo habilitado', 46, 560, 29, C.dim);
-    this.text('con la mano preferida y confirma con el gatillo.', 46, 605, 28, C.dim);
+    this.text('Stick izquierdo: caminar · Derecho: giro de 30°', 46, 555, 27, C.dim);
+    this.button('movement', this.ctx.studioLocomotion === 'teleport' ? 'Movimiento: solo teletransporte' : 'Movimiento: stick izquierdo y teletransporte', 46, 585, 932, 64, () => this.setPreferences({locomotion: this.ctx.studioLocomotion === 'teleport' ? 'smooth' : 'teleport'}), {size: 25});
     this.button('hand', 'Mano preferida: ' + (this.ctx.handedness === 'left' ? 'izquierda' : 'derecha'), 46, 665, 932, 66, () => this.setPreferences({handedness: this.ctx.handedness === 'left' ? 'right' : 'left'}));
     this.button('recenter', 'Recentrar el menú frente a mí', 46, 765, 932, 66, () => this.placePanel());
   }
@@ -302,8 +313,8 @@ export default class ImmersiveStudioMenu {
     });
   }
   paintControls() {
-    const lines = ['X (izquierdo) / A (derecho): abrir o cerrar el menú.', 'Gatillo: seleccionar botones y teclas del panel.', 'Grip lateral: agarrar productos fuera del menú.', 'Suelta el grip para depositar una carga.', 'Teletransporte: apunta al suelo habilitado y confirma.', 'El menú bloquea los mandos de las máquinas al abrirse.', 'Puedes iniciar sesión sin salir de la realidad virtual.', 'El botón del sistema Meta pertenece al visor.'];
-    lines.forEach((line, index) => this.text(line, 46, 195 + index * 63, index === 0 ? 29 : 27, index === 0 ? C.accent : C.text));
+    const lines = ['X (izquierdo) / A (derecho): abrir o cerrar el menú.', 'Salir de RV: botón rojo en la parte superior del menú.', 'Stick izquierdo: caminar según la dirección de la mirada.', 'Stick derecho: girar 30°; céntralo para volver a girar.', 'Gatillo: seleccionar a distancia y usar el teclado.', 'Botones físicos: acerca la punta del mando al frente.', 'Retira el mando antes de volver a pulsar por contacto.', 'Grip lateral: agarrar y soltar productos.', 'Teletransporte: apunta al suelo con tu mano preferida.', 'El menú pausa las interacciones y el desplazamiento.', 'Puedes iniciar sesión sin salir de la realidad virtual.', 'El botón del sistema Meta pertenece al visor.'];
+    lines.forEach((line, index) => this.text(line, 46, 183 + index * 51, index === 0 ? 26 : 24, index === 0 ? C.accent : C.text));
     this.button('recenter', 'Recentrar este menú', 46, 795, 932, 65, () => this.placePanel());
   }
   paint() {
@@ -311,6 +322,7 @@ export default class ImmersiveStudioMenu {
     const d = this.drawing; d.fillStyle = C.bg; d.fillRect(0, 0, WIDTH, HEIGHT); d.fillStyle = '#1a3443'; d.fillRect(0, 0, WIDTH, 126);
     const names = {home: 'HELLO / STUDIO', account: 'Iniciar sesión', register: 'Crear cuenta', scenes: 'Escenarios', projects: 'Mis proyectos', projectScenes: 'Escenarios del proyecto', settings: 'Ajustes del visor', controls: 'Controles VR', users: 'Usuarios · resumen', classroom: 'Mis prácticas', progress: 'Mi progreso'};
     this.text(names[this.page] || 'HELLO / STUDIO', 46, 70, 35, C.text, 'bold'); this.text(this.busy ? 'Procesando…' : 'Apunta y pulsa el gatillo', 46, 110, 22, C.dim);
+    this.button('exit-vr', this.exiting ? 'Saliendo…' : 'Salir de RV', 500, 28, 184, 64, () => this.exitVR(), {size: 23, danger: true, disabled: this.exiting});
     this.button('close', '×', 886, 24, 92, 72, () => this.close(), {size: 42});
     if (this.page !== 'home') this.button('home', '← Menú', 704, 28, 158, 64, () => this.navigate('home'), {size: 25});
     if (this.page === 'home') this.paintHome(); else if (this.page === 'account' || this.page === 'register') this.paintAccount(); else if (this.page === 'settings') this.paintSettings(); else if (this.page === 'controls') this.paintControls(); else this.paintList();

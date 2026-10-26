@@ -6,6 +6,7 @@ import MobileNavigation from './lib/MobileNavigation.js';
 import NativeTextureAI from './lib/NativeTextureAI.js';
 import NativeMaterialAI from './lib/NativeMaterialAI.js';
 import XRMirror from './lib/XRMirror.js';
+import XRLocomotion from './lib/XRLocomotion.js';
 
 import {VRButton} from './lib/VRButton.js';
 import {loadAssets} from './lib/assetManager.js';
@@ -374,6 +375,7 @@ export function init() {
   context.preparedMaterials = new PreparedMaterialTextures(context);
   context.materialAI = new NativeMaterialAI(context);
   context.xrMirror = new XRMirror(context, {maxFPS: 15, maxPixels: 4000000});
+  context.xrLocomotion = new XRLocomotion(context);
 
   context.roomAssets = new RoomAssets(renderer, assets);
   roomNavigation = new RoomNavigation(context, {
@@ -436,9 +438,11 @@ export function init() {
     document.body.appendChild(renderer.domElement);
     const vrButton = VRButton.createButton(renderer, (status, sessionInfo) => {
       context.xrEntryPending = false;
+      context.xrExitPending = false;
       context.nativeTextureAI.resume('vr-entry');
       roomNavigation.cancel();
       context.vrMode = status === 'sessionStarted';
+      context.xrLocomotion.reset();
       if (context.vrMode) context.xrReferenceSpaceType = sessionInfo && sessionInfo.referenceSpaceType || 'local-floor';
       else setVRFloorOffset(false);
       if (context.editor) context.editor.onVRChange(context.vrMode);
@@ -804,6 +808,7 @@ function animate() {
     updateKeyboardMovement(delta);
     syncXRControllers();
     if (context.studio && context.studio.immersiveMenu) context.studio.immersiveMenu.tick(delta);
+    if (context.xrLocomotion) context.xrLocomotion.tick(delta);
     ecsyWorld.execute(delta, elapsedTime);
     scene.updateMatrixWorld(true);
 

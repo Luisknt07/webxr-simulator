@@ -10,10 +10,17 @@ Durante una sesión inmersiva, los paneles HTML del escritorio se ocultan. El me
 
 - **X del mando izquierdo o A del derecho:** abrir o cerrar el menú, cuando el dispositivo expone botones con el mapa `xr-standard`.
 - **Gatillo:** pulsar botones y teclas. Los botones muestran estados de señalamiento y pulsación.
+- **Stick izquierdo:** caminar en el plano del suelo según la dirección del visor, respetando los obstáculos. El modo «Sólo teletransporte» desactiva este desplazamiento.
+- **Stick derecho:** girar horizontalmente en pasos de 30°. Volver a centrar el stick permite el siguiente giro; mantenerlo inclinado no repite giros.
 - **Recentrar este menú:** colocar de nuevo el panel frente a la posición actual.
 - **Cerrar:** continuar usando los equipos y productos del escenario.
+- **Salir de RV:** finalizar la sesión del visor y recuperar la vista de escritorio. Está disponible en todas las páginas del menú, incluso mientras se está conectando una cuenta. Si el visor rechaza la salida, el menú permite reintentar.
 
 El botón de sistema del visor Meta permanece reservado al sistema operativo, conforme al [mapeo y los controles reservados de WebXR](https://www.w3.org/TR/webxr-gamepads-module-1/). Cuando el menú está abierto, sus interacciones excluyen los botones de maquinaria, la toma de productos y las acciones de teletransporte. Al cerrarlo se recuperan las interacciones normales.
+
+Los sticks quedan bloqueados mientras el menú está abierto, la sesión no es visible o se está cambiando de escenario. Al volver, hay que centrarlos antes de desplazarse o girar. Los giros se aplican alrededor de la posición real de la cabeza y conservan su inclinación y altura; no giran el visor como una cámara de escritorio.
+
+Los pulsadores físicos de los equipos admiten dos formas de accionamiento: apuntar y pulsar el gatillo, o acercar la punta del mando a la cara frontal del botón. El botón permanece hundido durante el contacto y se libera al retirar el mando. Hay que separarlo antes de volver a pulsar: dejarlo apoyado no repite órdenes. El contacto no actúa desde la parte trasera del panel, mientras se sostiene una carga ni con el menú abierto; utiliza los mismos permisos, enclavamientos y ámbito de control de la máquina que el gatillo.
 
 El formulario inmersivo permite iniciar sesión y crear una cuenta con un código de registro cuando corresponda. Las contraseñas se dibujan ocultas. Los campos se vacían al cerrar, cambiar de identidad, desconectar un controlador o finalizar la sesión. Las credenciales no forman parte del documento del escenario, las preferencias ni las exportaciones.
 
@@ -25,4 +32,4 @@ Después de iniciar sesión se pueden consultar las escenas y los proyectos auto
 
 ## Alcance de verificación
 
-Las pruebas automatizadas utilizan los rayos y eventos de `RayControl`, mallas Three.js y coordenadas UV reales. Comprueban ambos mandos, teclado, aislamiento de maquinaria, cambios de identidad, visibilidad y liberación de recursos. La prueba de Chrome usa un servidor y una base de datos temporales, con renderizador WebGL real y modo inmersivo simulado. Esto no sustituye una prueba física con Meta Quest 3.
+Las pruebas automatizadas utilizan los rayos y eventos de `RayControl`, mallas Three.js y coordenadas UV reales. Comprueban ambos mandos, teclado, aislamiento de maquinaria, cambios de identidad, visibilidad y liberación de recursos. La salida del menú se verifica contra el ciclo de sesión de `VRButton`, incluyendo fallo, reintento y una sola solicitud de salida simultánea. La prueba de Chrome usa un servidor y una base de datos temporales, con renderizador WebGL real y sesión inmersiva simulada. Esto no sustituye una prueba física con Meta Quest 3.
