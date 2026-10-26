@@ -139,7 +139,8 @@ export default class ImmersiveStudioMenu {
       if (page !== 'scenes' && !owner) throw new Error('Inicia sesión para consultar esta información.');
       let items = [];
       if (page === 'scenes') {
-        const results = await Promise.all([this.editor.projectClient.request('GET', '/public/scenes'), owner ? this.editor.projectClient.request('GET', '/library/scenes') : Promise.resolve({scenes: []})]);
+        const access = this.editor.accessView;
+        const results = await Promise.all([access && access.publicCatalog ? access.publicCatalog() : this.editor.projectClient.request('GET', '/public/scenes'), owner ? this.editor.projectClient.request('GET', '/library/scenes') : Promise.resolve({scenes: []})]);
         items = (results[0].scenes || []).map(scene => ({key: 'public:' + scene.id, label: scene.name, detail: 'Público', scene, kind: 'public'})).concat((results[1].scenes || []).map(scene => ({key: 'library:' + scene.id, label: scene.name, detail: scene.collection || 'Ejemplo incluido', scene, kind: 'library'})));
       } else if (page === 'projects') items = (await this.editor.projectClient.listProjects()).map(project => ({key: project.id, label: project.name, detail: project.access && project.access.canEdit ? 'Proyecto autorizado · edición en escritorio' : 'Proyecto autorizado · consulta', project, kind: 'project'}));
       else if (page === 'users') {
@@ -160,6 +161,7 @@ export default class ImmersiveStudioMenu {
     finally { this.busy = false; this.dirty = true; }
   }
   async authenticate(register = false) {
+    if (this.editor.staticPublic) { this.clearCredentials(); this.error = 'Las cuentas requieren el servidor de Studio. Puedes explorar los dos ejemplos públicos.'; this.dirty = true; return; }
     const username = this.fields.username.trim(), password = this.fields.password, code = this.fields.code.trim();
     if (!username || !password) { this.error = 'Escribe usuario y contraseña con el teclado del panel.'; this.dirty = true; return; }
     return this.run(async () => {
@@ -180,7 +182,7 @@ export default class ImmersiveStudioMenu {
       if (this.editor.dirty) throw new Error('Conserva tus cambios desde el editor antes de abrir otro escenario.');
       const generation = this.generation, owner = this.client.user && this.client.user.id;
       let project, roomId;
-      if (item.kind === 'public' || item.kind === 'library') { const result = await this.editor.projectClient.request('GET', '/' + item.kind + '/scenes/' + encodeURIComponent(item.scene.id)); project = result.project; roomId = item.scene.roomId; }
+      if (item.kind === 'public' || item.kind === 'library') { const access = this.editor.accessView; const result = item.kind === 'public' && access && access.publicProject ? await access.publicProject(item.scene.id) : await this.editor.projectClient.request('GET', '/' + item.kind + '/scenes/' + encodeURIComponent(item.scene.id)); project = result.project; roomId = item.scene.roomId; }
       else if (item.kind === 'project') {
         project = await this.editor.projectClient.getProject(item.project.id);
         const scenes = project.document.studio && project.document.studio.scenes || [];
@@ -255,6 +257,12 @@ export default class ImmersiveStudioMenu {
   paintAccount() {
     const register = this.page === 'register';
     if (this.client.user) { this.page = 'home'; this.paintHome(); return; }
+    if (this.editor.staticPublic) {
+      this.text('Publicación pública sin servidor de cuentas.', 46, 215, 31, C.dim);
+      this.text('Los proyectos privados requieren Studio con servidor.', 46, 275, 26, C.dim);
+      this.button('public-scenes', 'Explorar escenarios públicos', 46, 355, 932, 66, () => this.navigate('scenes'), {accent: true});
+      return;
+    }
     this.field('username', 'Usuario', 190); this.field('password', 'Contraseña', 300); if (register) this.field('code', 'Código de registro · si lo recibiste', 410);
     const keyboardY = register ? 508 : 425;
     if (this.keyboardField) { this.text('Teclado · ' + (this.keyboardField === 'password' ? 'contraseña oculta' : this.keyboardField === 'code' ? 'código' : 'usuario'), 46, keyboardY - 18, 24, C.dim); this.paintKeyboard(keyboardY); }

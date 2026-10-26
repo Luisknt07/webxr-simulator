@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 
 const MANIFEST = {
-  256: '/assets/materials/ai-industrial-concrete-v1-256.jpg',
-  512: '/assets/materials/ai-industrial-concrete-v1-512.jpg',
-  1024: '/assets/materials/ai-industrial-concrete-v1-1024.jpg'
+  256: 'assets/materials/ai-industrial-concrete-v1-256.jpg',
+  512: 'assets/materials/ai-industrial-concrete-v1-512.jpg',
+  1024: 'assets/materials/ai-industrial-concrete-v1-1024.jpg'
 };
 const EDGES = {economy: 256, balanced: 512, high: 1024, ultra: 1024};
 const linear = value => value <= .04045 ? value / 12.92 : Math.pow((value + .055) / 1.055, 2.4);

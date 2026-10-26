@@ -60,7 +60,8 @@ export default class NativeTextureAI {
     const id = ++this.sequence, started = clock(), job = {id, key, width, height, estimate, started}; job.promise = new Promise(resolve => { job.resolve = resolve; }); this.job = job;
     this.stats.jobs++; this.stats.status = 'loading'; this.stats.lastError = null; this.stats.estimatedWorkingBytes = estimate;
     try {
-      const url = this.options.workerURL || '/assets/ai/native-texture-ai-worker.js';
+      const workerURL = this.options.workerURL || 'assets/ai/native-texture-ai-worker.js';
+      const url = this.document && this.document.baseURI ? new URL(workerURL, this.document.baseURI).href : workerURL;
       job.worker = this.options.workerFactory ? this.options.workerFactory(url) : new Worker(url, {name: 'HELLO Texture AI'});
       this.stats.workerActive = true;
       job.worker.onmessage = event => {

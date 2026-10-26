@@ -19,6 +19,11 @@ function floor(name = 'Piso industrial · hormigón mate', patch = {}) {
   mesh.userData.editorBehaviors = [materials.normalizeMaterial(Object.assign({preset: 'concrete', name: 'Material personalizado', color: '#777c76', repeatX: 18, repeatY: 30}, patch))]; return mesh;
 }
 async function run() {
+  const paths = new Prepared().manifest;
+  for (const prefix of ['/', '/webxr-simulator/']) for (const edge of [256, 512, 1024]) {
+    const url = new URL(paths[edge], 'https://local.test' + prefix);
+    assert.equal(url.pathname, prefix + 'assets/materials/ai-industrial-concrete-v1-' + edge + '.jpg', 'Prepared image requests preserve the deployment directory.');
+  }
   const f = fixture(); await flush(); assert.equal(f.requests.length, 0, 'No image is fetched for empty or inactive rooms.');
   let secondValue; const changes = [], first = f.manager.acquireConcrete(value => changes.push(value)), second = f.manager.acquireConcrete(value => { secondValue = value; }); await flush();
   assert.equal(f.requests.length, 1, 'Active floors share the same in-flight request.'); assert.match(f.requests[0].url, /-512\.jpg$/);

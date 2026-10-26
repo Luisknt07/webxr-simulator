@@ -1,0 +1,1 @@
+{"scenes":[{"id":"l-transfer","name":"Transferencia rectangular a 90°","roomId":"hall","projectId":"public-l-transfer","revision":1,"public":true},{"id":"inspection-sorting","name":"Inspección y clasificación","roomId":"sound","projectId":"public-inspection-sorting","revision":1,"public":true}],"maxActive":2,"requiresLogin":true}

@@ -42,7 +42,8 @@ export default class StudioExperience {
     try {
       const identity = this.editor.initialIdentity ? await Promise.resolve(this.editor.initialIdentity) : await this.client.me();
       if (identity) { this.client.user = identity.user || null; this.client.capabilities = identity.capabilities; this.client.configured = identity.configured; }
-      this.online = true;
+      this.online = !(identity && identity.staticPublic);
+      if (identity && identity.staticPublic) this.connectionError = 'Esta publicación pública es estática. Las cuentas, proyectos privados y sesiones compartidas requieren el servidor de Studio.';
     }
     catch (error) { this.online = false; this.connectionError = error.message; }
     if (this.client.configured && (!this.client.user || !this.client.user.permissions.editor) && this.editor.active) { this.editor.leave(); this.open('account'); }
@@ -62,7 +63,7 @@ export default class StudioExperience {
     if (this.editor.accessView) this.editor.accessView.user = this.client.user || null;
     if (this.editor.projectTabs) this.editor.projectTabs.syncIdentity();
     this.accountButton.textContent = ''; if (this.client.user) { this.accountButton.appendChild(avatarBadge(this.client.user.avatar)); this.accountButton.appendChild(document.createTextNode(this.client.user.displayName)); }
-    else this.accountButton.textContent = 'Iniciar sesión';
+    else this.accountButton.textContent = this.editor.staticPublic ? 'Vista pública' : 'Iniciar sesión';
     if (this.editor.shell) this.editor.shell.refresh();
     if (this.immersiveMenu) this.immersiveMenu.identityChanged();
   }
@@ -194,6 +195,11 @@ export default class StudioExperience {
   }
   account(register = false) {
     if (this.client.user) { this.personal(); return; }
+    if (this.editor.staticPublic) {
+      el('p', this.connectionError, this.content, 'studio-muted');
+      button(this.content, 'Explorar escenarios públicos', () => this.open('scenes'), 'studio-primary');
+      return;
+    }
     const form = el('form', undefined, this.content, 'studio-form');
     el('p', register ? 'Crea una cuenta en este servidor. Los proyectos existentes se conservan.' : 'Tu ubicación en el escenario se conserva al iniciar sesión.', form, 'studio-muted');
     if (!this.online) el('p', this.connectionError || 'Cuentas no disponibles en esta copia estática.', form, 'studio-error');

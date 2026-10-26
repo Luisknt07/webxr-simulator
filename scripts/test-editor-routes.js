@@ -23,6 +23,9 @@ async function run() {
   const server = http.createServer(app);
   const application = configModule.exports.find(config => config.name === 'application');
   application.devServer.before(app, {listeningApp: server});
+  // Match a GitHub Pages project site, which serves the app below a repository
+  // prefix and has no Node API. Relative assets must remain below that prefix.
+  app.use('/webxr-simulator', express.static(root));
   app.use(express.static(root));
   await new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -52,8 +55,8 @@ async function run() {
       assert.equal(response.status, 404, route);
     }
 
-    assert.match(expected, /<base href="\/">/);
-    const base = new URL('/', origin + '/editor');
+    assert.match(expected, /<base href="\.\/">/);
+    const base = new URL('./', origin + '/editor');
     for (const resource of ['bundle.js', 'src/lib/StartupStatus.js', 'src/editor/editor.css', 'src/editor/projects.css', 'assets/loadingbg.jpg']) {
       const url = new URL(resource, base);
       assert.equal(url.pathname, '/' + resource);
@@ -62,13 +65,25 @@ async function run() {
       assert(Number(response.headers.get('content-length')) > 0, resource);
       assert.doesNotMatch(response.headers.get('content-type'), /^text\/html/, resource);
     }
+    for (const route of ['/webxr-simulator/', '/webxr-simulator/index.html?scene=lab-transfer-l']) {
+      const response = await fetch(origin + route);
+      assert.equal(await response.text(), expected);
+      const projectBase = new URL('./', origin + route);
+      for (const resource of ['bundle.js', 'src/lib/StartupStatus.js', 'src/editor/editor.css', 'assets/loadingbg.jpg']) {
+        const url = new URL(resource, projectBase);
+        assert.equal(url.pathname, '/webxr-simulator/' + resource);
+        const asset = await fetch(url, {method: 'HEAD'});
+        assert.equal(asset.status, 200, url.href);
+        assert.doesNotMatch(asset.headers.get('content-type'), /^text\/html/);
+      }
+    }
     const health = await fetch(origin + '/api/health');
     assert.deepEqual(await health.json(), {storage: 'test'});
   } finally {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
   assert.equal(closes, 1);
-  console.log('Editor HTTP routes: public root, exact /editor, canonical links and root assets passed.');
+  console.log('Editor HTTP routes: public root, exact /editor, canonical links and GitHub Pages subdirectory assets passed.');
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1; });

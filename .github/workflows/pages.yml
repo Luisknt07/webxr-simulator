@@ -1,0 +1,54 @@
+name: Publish public WebXR viewer
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout verified application
+        uses: actions/checkout@v6
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      # Production bundles are versioned after local build/browser validation.
+      # Packaging needs no npm dependencies, database, account or private token.
+      - name: Generate the two public scene projections
+        run: node scripts/generate-public-scenes.js
+      - name: Verify publication boundaries
+        run: node scripts/test-pages-package.js
+      - name: Prepare static viewer artifact
+        run: node scripts/prepare-pages-site.js
+      - name: Upload static viewer
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: data/pages-site
+
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: package
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy public viewer
+        id: deployment
+        uses: actions/deploy-pages@v4

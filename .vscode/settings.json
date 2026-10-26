@@ -1,0 +1,8 @@
+{
+  "remote.portsAttributes": {
+    "8080": {
+      "label": "HELLO Studio HTTPS / WebXR",
+      "protocol": "https"
+    }
+  }
+}

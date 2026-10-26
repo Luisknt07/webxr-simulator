@@ -326,7 +326,12 @@ export default class SceneEditor {
       this.renderAssets();
     } catch (error) { this.toast('Biblioteca: ' + error.message); }
     try { await this.checkStorageHealth(); }
-    catch (error) { /* Static copies retain local/JSON loading without a server. */ }
+    catch (error) {
+      // A static host has no SQLite/account API. Keep its viewer useful without
+      // opening local authoring drafts or treating API failure as edit access.
+      this.staticPublic = true;
+      this.storageAvailable = false;
+    }
     if (this.accessView.enabled) {
       try { await this.accessView.initialize(parameters); }
       catch (error) { this.toast('Escenarios: ' + error.message); this.accessLoadFailed = true; }

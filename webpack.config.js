@@ -20,6 +20,12 @@ const application = {
     ignored: [/node_modules/],
   },
   devServer: {
+    // Microsoft's public forwarding URL keeps its own Host/Origin. Retain
+    // webpack's host validation while permitting this bounded tunnel domain.
+    allowedHosts: ['.use.devtunnels.ms', '.devtunnels.ms'],
+    // A TLS tunnel exposes 443 rather than the local server's 8080. Derive the
+    // live-reload socket port from the page, including ordinary LAN access.
+    sockPort: 'location',
     // Worker bundles have no DOM or dev-server client. Keep live reload only in
     // the application while the same compiler serves all generated files.
     injectClient: config => config.target !== 'webworker',
