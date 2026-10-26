@@ -230,7 +230,8 @@
   box-shadow: 0 5px 20px #0003;
 }
 #editor-launcher { top: 17px; left: 17px; }
-#editor-return { top: 17px; left: 50%; transform: translateX(-50%); }
+#editor-return { top: 74px; left: 16px; transform: none; z-index: 149; min-height: 42px; max-width: calc(100vw - 32px); cursor: pointer; }
+@media (max-width: 640px) { #editor-return { top: 70px; left: 12px; max-width: calc(100vw - 24px); } }
 #editor-launcher:hover, #editor-return:hover { background: #234c3f; }
 .ed-toast { position: fixed; bottom: 42px; left: 50%; transform: translateX(-50%); z-index: 1100; max-width: min(580px, calc(100vw - 32px)); padding: 11px 18px; background: #1d3b32; color: #bdffe9; border: 1px solid #458f79; border-radius: 7px; box-shadow: 0 10px 35px #0005; font: 12px/1.5 "Segoe UI", Arial, sans-serif; text-align: center; }
 .ed-toast[hidden] { display: none; }
