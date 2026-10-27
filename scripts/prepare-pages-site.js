@@ -22,6 +22,10 @@ function safeOutput(root, output) {
 }
 function prepare(options = {}) {
   const root = fs.realpathSync(options.root || path.resolve(__dirname, '..'));
+  const catalog = JSON.parse(fs.readFileSync(path.join(root, 'assets/public-scenes/catalog.json'), 'utf8'));
+  const scenes = catalog.scenes;
+  if (!Array.isArray(scenes) || !scenes.length || scenes.length > 64 || new Set(scenes.map(scene => scene.id)).size !== scenes.length || scenes.some(scene => !/^[a-z0-9-]{1,80}$/.test(scene.id))) throw new Error('El catálogo de ejemplos incluidos no es válido.');
+  if (!catalog.previewAllExamples && JSON.stringify(scenes.map(scene => scene.id)) !== JSON.stringify(SCENES.map(scene => scene.id))) throw new Error('La publicación restringida sólo permite dos escenarios públicos.');
   const output = safeOutput(root, options.output), plan = [];
   function add(relative) {
     const absolute = path.join(root, relative), stat = fs.lstatSync(absolute);
@@ -50,12 +54,12 @@ function prepare(options = {}) {
     const relative = value.split(/[?#]/)[0].replace(/^\.\//, '');
     if (relative.startsWith('/') || !available.has(relative)) throw new Error('El HTML referencia un recurso fuera de la publicación: ' + value);
   }
-  for (const file of ['src/lib/StartupStatus.js', ...DECODERS.map(file => 'src/vendor/' + file), 'assets/materials/ai-industrial-concrete-v1-512.jpg', 'assets/ai/native-texture-ai-worker.js', 'assets/public-scenes/catalog.json', ...SCENES.map(scene => 'assets/public-scenes/' + scene.id + '.json')]) {
+  for (const file of ['src/lib/StartupStatus.js', ...DECODERS.map(file => 'src/vendor/' + file), 'assets/materials/ai-industrial-concrete-v1-512.jpg', 'assets/ai/native-texture-ai-worker.js', 'assets/public-scenes/catalog.json', ...scenes.map(scene => 'assets/public-scenes/' + scene.id + '.json')]) {
     if (!available.has(file)) throw new Error('Falta un recurso necesario para publicar: ' + file);
   }
   const published = fs.readdirSync(path.join(root, 'assets/public-scenes')).sort();
-  if (JSON.stringify(published) !== JSON.stringify(['catalog.json', ...SCENES.map(scene => scene.id + '.json')].sort())) throw new Error('La copia estática sólo incluye los dos escenarios públicos.');
-  for (const scene of SCENES) {
+  if (JSON.stringify(published) !== JSON.stringify(['catalog.json', ...scenes.map(scene => scene.id + '.json')].sort())) throw new Error('La copia estática sólo incluye los escenarios públicos declarados.');
+  for (const scene of scenes) {
     const project = JSON.parse(fs.readFileSync(path.join(root, 'assets/public-scenes', scene.id + '.json'), 'utf8')).project;
     if (!project || project.publicSceneId !== scene.id || project.access.canEdit !== false || JSON.stringify(Object.keys(project.document.rooms)) !== JSON.stringify([scene.roomId]) || (project.document.imports || []).length) throw new Error('La proyección pública no es válida: ' + scene.id);
   }
@@ -68,7 +72,9 @@ function prepare(options = {}) {
   }
   const rawRevision = options.revision || process.env.GITHUB_SHA || '';
   const publication = {format: 'hello-webxr-publication', version: 1, revision: /^[a-f0-9]{40}$/i.test(rawRevision) ? rawRevision : null,
-    bundleSha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(output, 'bundle.js'))).digest('hex'), scenes: SCENES.map(scene => scene.id)};
+    bundleSha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(output, 'bundle.js'))).digest('hex'), previewAllExamples: catalog.previewAllExamples === true, scenes: scenes.map(scene => scene.id),
+    catalogSha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(output, 'assets/public-scenes/catalog.json'))).digest('hex'),
+    projectionSha256: Object.fromEntries(scenes.map(scene => [scene.id, crypto.createHash('sha256').update(fs.readFileSync(path.join(output, 'assets/public-scenes', scene.id + '.json'))).digest('hex')]))};
   fs.writeFileSync(path.join(output, 'publication.json'), JSON.stringify(publication, null, 2) + '\n');
   return {output, files: plan.length + 1, bytes: plan.reduce((sum, item) => sum + item.size, 0), publication};
 }

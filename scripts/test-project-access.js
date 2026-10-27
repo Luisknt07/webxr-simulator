@@ -6,6 +6,9 @@ async function run() {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'hello-project-access-')); let now = Date.now();
   const store = new ProjectStore({dataDir: temporary}); const legacy = store.saveProject(null, {name: 'Legacy preserved', document: empty()});
   const errors = [], api = createApiHandler({store, now: () => now, maintenanceIntervalMs: 0, onError: error => errors.push(error)}), server = http.createServer(api);
+  // This suite retains coverage of normal restricted publication; the separate
+  // public-examples-policy suite covers the temporary default preview mode.
+  store.db.prepare("INSERT OR REPLACE INTO studio_settings(key,value) VALUES('public-examples-preview','0')").run();
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); const base = 'http://127.0.0.1:' + server.address().port;
   async function request(url, method = 'GET', data, cookie, headers = {}) {
     const binary = Buffer.isBuffer(data), response = await fetch(base + url, {method, headers: Object.assign({}, data === undefined ? {} : {'Content-Type': binary ? 'application/octet-stream' : 'application/json'}, cookie ? {Cookie: cookie} : {}, headers), body: data === undefined ? undefined : binary ? data : JSON.stringify(data)});

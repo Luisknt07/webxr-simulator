@@ -156,7 +156,8 @@ function createApiHandler(options = {}) {
         json(res, 200, parts.length === 2 ? access.libraryCatalog(actor) : {project: access.libraryProject(actor, parts[2])});
       } else if (parts[0] === 'publication' && parts[1] === 'scenes' && parts.length === 2 && ['GET', 'PUT'].includes(req.method)) {
         if (!access.admin(actor)) throw new ApiError(403, 'Solo el administrador publica escenas.', 'owner_required');
-        json(res, 200, req.method === 'GET' ? {scenes: access.db.prepare('SELECT id,project_id AS projectId,room_id AS roomId,name,enabled,asset_ids AS assetIds FROM studio_public_scenes ORDER BY rowid').all().map(row => Object.assign({}, row, {enabled: !!row.enabled, assetIds: JSON.parse(row.assetIds)}))} : access.configurePublic(actor, (await readBody(req, 65536)).scenes));
+        if (req.method === 'GET') json(res, 200, access.publicationSettings());
+        else {const value = await readBody(req, 65536); json(res, 200, access.configurePublic(actor, value.scenes, {previewAllExamples: value.previewAllExamples}));}
       } else if (assetUpload) {
         json(res, 201, {asset: await access.upload(actor, req)});
       } else if (parts[0] === 'assets' && parts.length === 2 && ['GET', 'HEAD'].includes(req.method)) {

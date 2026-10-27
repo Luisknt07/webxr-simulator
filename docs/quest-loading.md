@@ -1,0 +1,13 @@
+# Carga de escenarios y Quest
+
+El catálogo público es metadata: descargar su lista no instancia treinta escenarios. Cada selección abre una proyección de una sola sala. Los proyectos privados conservan sus permisos y no forman parte de la vista previa.
+
+La sustitución del documento y la navegación nativa comparten una transición opaca. Se presenta antes de preparar geometría o texturas; en WebXR se dibuja una escena independiente para ambos ojos, conservando el seguimiento de cabeza. La preparación se reparte en intervalos de unos 8 ms cuando la operación permite ceder un fotograma. El destino se presenta primero bajo la cobertura para preparar sus buffers y shaders. Las cargas canceladas no pueden instalar geometría antigua ni cerrar la transición más reciente. Un fallo restaura el documento anterior; si cambia la identidad, permanece cubierto sin restaurar contenido privado.
+
+Las texturas nativas usan cargas compartidas cancelables y una caché LRU del respaldo decodificado: 96 MiB en Quest, 64 MiB en móvil y 256 MiB en escritorio. Hay como máximo dos cargas simultáneas en móvil/RV y tres en escritorio. Las dependencias activas se protegen aunque superen ese presupuesto; el contador informa ese exceso. Al expulsar una textura inactiva se liberan también sus copias diferidas sin perder UV. El presupuesto es una estimación de esos recursos, no de toda la memoria del proceso.
+
+El perfil XR usa la frecuencia real de la sesión y ajusta la foveación cuando la capa del navegador la soporta. La adaptación conserva materiales y configuración del proyecto; no modifica el tamaño del framebuffer durante una sesión. El inventario de rendimiento reutiliza las salas inactivas y reduce su frecuencia de muestreo en RV estable, invalidándose cuando cambia el documento.
+
+Las fábricas y algunas cargas GPU todavía contienen operaciones indivisibles. Un escenario activo demasiado grande puede superar el presupuesto del dispositivo. Los niveles antiguos construidos sobre el espacio fotogramétrico todavía necesitan sus dependencias nativas. No se omiten objetos por estar momentáneamente ocultos: pueden ser necesarios para interacciones posteriores.
+
+Validación: `npm run test:loading`, `npm run test:graphics`, `npm run test:public-static`, `npm run test:webxr-ai` y `npm run test:xr-controls`. Tras compilar, las pruebas Chrome `qa-room-loading-browser.js` y `qa-public-publication-browser.js` reciben `--expected-bundle-sha256` para comprobar los mismos bytes que se publican. Cubren sustitución en la misma sala, portales, cambios de panoramas, cobertura y acceso de sólo lectura. Las pruebas de Quest usan adaptadores de XR y su UA; todavía es necesaria una medición física de FPS, memoria y confort con el visor.

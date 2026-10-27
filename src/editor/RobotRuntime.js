@@ -444,7 +444,7 @@ export default class RobotRuntime {
       if (!destination) { r.phase = 'wait-output'; r.blocked = true; return; }
       const point = this.local(record, this.worldContact(r.entry.product, destination.matrix)); r.destination = destination;
       if (!this.reachable(record, point.clone().applyMatrix4(record.object.matrixWorld))) return this.fault(record, 'Destino fuera del alcance configurado.');
-      r.placePoint = point; const above = point.clone(); above.y += r.config.approachHeight;
+      r.placePoint = point; const above = point.clone(); above.y = Math.max(above.y + r.config.approachHeight, r.approachPoint ? r.approachPoint.y : -Infinity);
       r.blocked = false; this.moveTo(record, this.reachable(record, above.clone().applyMatrix4(record.object.matrixWorld)) ? above : point, 'carry');
     } else if (r.phase === 'carry') {
       if (r.config.operation === 'process' && r.config.processTime > 0) { r.phase = 'process'; r.phaseElapsed = 0; r.duration = r.config.processTime; }

@@ -36,6 +36,7 @@ for(const definition of vehicles.VARIANTS){
       });
       rig.mastChains.forEach(chain=>{
         assert(touch(chain.carriagePlate,chain.carriageAnchor));assert(touch(chain.lowerBridge,chain.returnAnchor));
+        chain.returnAnchor.geometry.computeBoundingBox();const forkInverse=new THREE.Matrix4().getInverse(rig.forks.matrixWorld),returnBounds=chain.returnAnchor.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(forkInverse,chain.returnAnchor.matrixWorld));assert(returnBounds.max.z<.075,definition.id+' chain return bracket stays behind the actual pallet rear-clearance plane across lift/tilt/reach.');
         const matrix=new THREE.Matrix4();
         for(const run of [0,1]){
           chain.object.getMatrixAt(run*chain.count*2,matrix);const first=chain.object.geometry.boundingBox||((chain.object.geometry.computeBoundingBox()),chain.object.geometry.boundingBox),bounds=first.clone().applyMatrix4(matrix).applyMatrix4(chain.object.matrixWorld);
@@ -75,4 +76,19 @@ const owner=prefabs.createVehicle(),b=owner.userData.vehicleRig.resources,d=owne
 for(let i=0;i<5;i++){const mesh=b.box('TRS '+i,[.12,.08,.10],'steel',root,[i*.13,.2,.3]);mesh.rotation.set(i*.15,.1,.3);mesh.scale.set(1+i*.1,1,.8);if(i===4){mesh.matrixAutoUpdate=false;mesh.matrix.compose(new THREE.Vector3(.9,.4,.5),new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),.7),new THREE.Vector3(.8,1.1,.9));}}
 const vertices=parent=>{parent.updateWorldMatrix(true,true);const result=[];parent.traverse(node=>{if(!node.geometry)return;const p=node.geometry.attributes.position,index=node.geometry.index,count=index?index.count:p.count;for(let i=0;i<count;i++)result.push(new THREE.Vector3().fromBufferAttribute(p,index?index.getX(i):i).applyMatrix4(node.matrixWorld).toArray().map(value=>value.toFixed(6)).join(','));});return result.sort();};
 const before=vertices(root);d.batch(root);assert.deepEqual(vertices(root),before);assert.equal(root.children.length,1);
+// Pallet-truck load rollers form a connected rocker linkage at the fork toe.
+// They remain on the floor while the fixed-length links support the lifting
+// tines, rather than passing through the pallet's rear bottom board.
+for(const variant of ['pallet-truck-manual','pallet-truck-electric']){
+  const truck=prefabs.createVehicle(vehicles.defaults(variant)),rig=truck.userData.vehicleRig,c=rig.config;assert.equal(rig.loadRollers.length,2);
+  for(const lift of [0,c.maxLift*.25,c.maxLift*.5,c.maxLift*.75,c.maxLift]){
+    prefabs.updateVehiclePose(truck,{lift,wheelRoll:.6});const tool=rig.forks.getWorldPosition(new THREE.Vector3());assert(Math.abs(tool.y-c.forkBaseHeight-lift)<1e-8);assert(Math.abs(tool.z-c.length/2)<1e-8,'Roller correction preserves the fork TCP.');
+    rig.loadRollers.forEach(roller=>{
+      const wheelBounds=new THREE.Box3(),positions=roller.wheel.geometry.attributes.position;for(let i=0;i<positions.count;i++)wheelBounds.expandByPoint(new THREE.Vector3().fromBufferAttribute(positions,i).applyMatrix4(roller.wheel.matrixWorld));assert(wheelBounds.min.y>=-.001&&wheelBounds.min.y<.004,'A ground-contact load roller neither floats nor sinks while lifting.');
+      if(!lift)assert(wheelBounds.min.z>c.length/2+.48+.47+.005,'The roller clears the rear bottom board of the industrial1m and Euro.8m pallets at the actual pickup centre.');
+      assert(touch(roller.wheel,roller.axle));assert(touch(roller.pin,rig.forks));
+      roller.links.forEach(link=>{assert.strictEqual(link.object.parent,rig.forks);const a=new THREE.Vector3(0,-.5,0).applyMatrix4(link.object.matrixWorld),b=new THREE.Vector3(0,.5,0).applyMatrix4(link.object.matrixWorld);assert(Math.abs(a.distanceTo(b)-roller.linkLength)<1e-8,'The support rocker has a fixed physical length.');assert(a.distanceTo(new THREE.Vector3(link.x,-c.forkThickness+.012,roller.pivotZ).applyMatrix4(rig.forks.matrixWorld))<1e-8);assert(Math.abs(b.y-roller.radius)<1e-8);assert(Math.abs(b.z-roller.axle.position.z)<1e-8);assert(touch(link.object,roller.pin)&&touch(link.object,roller.axle),'Every support link joins its actual upper pin and lower axle.');});
+    });
+  }
+}
 console.log('Vehicle continuity: all13 variants, '+mastPoseCount+' lift/tilt/reach mast poses with supported sheaves and chain anchors, '+lampPoseCount+' cab-light poses, joined seat/column/consoles, hydraulic endpoints, '+stickerCount+' mounted labels and lossless full-TRS batching passed.');

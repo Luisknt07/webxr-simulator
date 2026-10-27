@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import VehicleCabInteraction from './VehicleCabInteraction.js';
+import VehicleDockingMonitor from './VehicleDockingMonitor.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const ZERO = () => ({throttle: 0, steer: 0, brake: 1, lift: 0, tilt: 0, reach: 0, sideShift: 0, turret: 0});
 const DRIVE_KEYS = new Set(['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyQ', 'KeyE', 'KeyR', 'KeyT', 'KeyZ', 'KeyX', 'KeyJ', 'KeyL', 'KeyU', 'KeyO', 'KeyF', 'KeyG', 'KeyK', 'KeyH', 'KeyP', 'KeyV', 'KeyB', 'KeyN', 'KeyC', 'Tab']);
 const MODES = ['Mástil', 'Alcance / lateral', 'Torreta'];
 const WORLD_TOP = 210, WORLD_BOTTOM = 610, WORLD_ROW_HEIGHT = 400 / 7;
+const VIEWS = ['Cabina', 'Seguimiento', 'Horquillas'];
 const dead = value => Number.isFinite(value) && Math.abs(value) > .18 ? Math.sign(value) * Math.min(1, (Math.abs(value) - .18) / .82) : 0;
 const progressive = (value, exponent) => Math.sign(value) * Math.pow(Math.abs(value), exponent);
 const shown = object => { for (let node = object; node; node = node.parent) if (!node.visible) return false; return true; };
@@ -17,7 +19,7 @@ export default class VehicleDriving {
     this.ctx = ctx; this.simulation = simulation; this.options = options; this.keys = new Set(); this.blockedKeys = new Set(); this.touches = new Map(); this.padState = new WeakMap();
     this.document = options.document || ctx.document || (typeof document === 'undefined' ? null : document);
     this.window = options.window || this.document && this.document.defaultView || (typeof window === 'undefined' ? null : window);
-    this.mode = 0; this.chase = false; this.listeners = []; this.position = new THREE.Vector3(); this.rotation = new THREE.Quaternion();
+    this.mode = 0; this.viewIndex = 0; this.chase = false; this.listeners = []; this.position = new THREE.Vector3(); this.rotation = new THREE.Quaternion();
     if (this.window) {
       this.listen(this.window, 'keydown', event => this.key(event, true), true); this.listen(this.window, 'keyup', event => this.key(event, false), true);
       this.listen(this.window, 'blur', () => this.resetInput());
@@ -27,6 +29,7 @@ export default class VehicleDriving {
       this.listen(this.document, 'pointerlockchange', () => { if (this.id && !this.ctx.vrMode) { this.resetInput(); this.updateHUD(); } });
     }
     this.cab = new VehicleCabInteraction(this);
+    this.docking = new VehicleDockingMonitor(this);
     ctx.vehicleDriving = this;
   }
   listen(target, type, callback, options) { if (!target || !target.addEventListener) return; target.addEventListener(type, callback, options); this.listeners.push(() => target.removeEventListener(type, callback, options)); }
@@ -59,7 +62,7 @@ export default class VehicleDriving {
     cameraRig.updateWorldMatrix(true, true); seat.updateWorldMatrix(true, false);
     this.saved = {rigPosition: cameraRig.position.clone(), rigQuaternion: cameraRig.quaternion.clone(), cameraPosition: camera.position.clone(), cameraQuaternion: camera.quaternion.clone(), flight: this.ctx.desktopFlight};
     this.id = id; this.seat = seat; this.visualRoot = visual; this.roomId = this.simulation.roomId; this.ctx.drivingVehicle = id; this.ctx.desktopFlight = false; this.mode = 0;
-    record.components.vehicle.driving = true;
+    record.components.vehicle.driving = true; this.viewIndex = 0; this.chase = false; this.docking.visible = true; this.docking.page = 'alignment';
     const vehicleRotation = record.object.getWorldQuaternion(new THREE.Quaternion());
     this.mountHead = new THREE.Vector3(); this.yawOffset = new THREE.Quaternion().setFromAxisAngle(UP, Math.PI);
     if (this.ctx.vrMode) {
@@ -69,7 +72,7 @@ export default class VehicleDriving {
       const deltaYaw = Math.atan2(target.x, target.z) - Math.atan2(forward.x, forward.z), initial = cameraRig.getWorldQuaternion(new THREE.Quaternion()).premultiply(new THREE.Quaternion().setFromAxisAngle(UP, deltaYaw));
       this.yawOffset.copy(vehicleRotation).inverse().multiply(initial);
     } else { camera.position.set(0, 0, 0); camera.quaternion.set(0, 0, 0, 1); }
-    this.resetInput(); this.releaseCursor(); this.cab.mount(visual); this.buildHUD(); this.buildWorldPanel(record); this.follow(); this.updateHUD();
+    this.resetInput(); this.releaseCursor(); this.cab.mount(visual); this.buildHUD(); this.buildWorldPanel(record); this.docking.mount(); this.follow(); this.updateHUD();
     this.notify(this.ctx.vrMode ? 'RV: acerca un mando al volante o palanca y mantén el agarre. Sticks como alternativa · B para bajar.' : 'Cabina: Encender → Marcha → desactivar Freno P. Tab alterna cursor y mirada; Esc libera el cursor.'); return true;
   }
   resetInput(preservePads = false) { this.keys.forEach(key => this.blockedKeys.add(key)); this.keys.clear(); this.touches.clear(); if (!preservePads) this.padState = new WeakMap(); if (this.cab) this.cab.reset(); const record = this.record(); if (record && this.simulation.vehicleRuntime) this.simulation.vehicleRuntime.setInput(record, ZERO()); }
@@ -102,6 +105,8 @@ export default class VehicleDriving {
     const record = this.record(); if (!record) return false;
     if (this.blocked()) { this.notify('Cierra el menú o reanuda la simulación para usar la cabina.'); return false; }
     try { if (action === 'mode') { this.mode = (this.mode + 1) % MODES.length; this.updateHUD(); return true; } if (action === 'exit') return this.unmount();
+      if (action === 'view') return this.cycleView();
+      if (action === 'dockingHelp') { this.docking.toggle(); this.updateHUD(); return true; }
       if (['stop', 'powerOff', 'emergency', 'parkingBrake'].includes(action)) this.resetInput();
       const result = this.simulation.command(record.id, action); this.updateHUD();
       if (['powerOn', 'start', 'stop', 'powerOff', 'emergency', 'resetEmergency', 'parkingBrake'].includes(action)) this.notify(this.guidance(this.state(record)));
@@ -121,7 +126,7 @@ export default class VehicleDriving {
     this.keys.add(event.code); if (event.repeat) return;
     if (event.code === 'Tab') { this.toggleCursor(); return; }
     const commands = {KeyF: 'exit', KeyG: 'pickup', KeyK: 'release', KeyH: 'horn', KeyP: 'parkingBrake', KeyV: 'start', KeyB: 'powerOn', KeyN: 'lights'};
-    if (event.code === 'KeyC' && !this.ctx.vrMode) { this.chase = !this.chase; return; }
+    if (event.code === 'KeyC' && !this.ctx.vrMode) { this.command('view'); return; }
     if (commands[event.code]) this.command(commands[event.code]);
   }
   xrInput(input) {
@@ -176,10 +181,54 @@ export default class VehicleDriving {
     const record = this.record(); if (!record || !this.seat) return;
     const rig = this.ctx.cameraRig; record.object.updateWorldMatrix(true, true); this.seat.getWorldPosition(this.position);
     const worldRotation = record.object.getWorldQuaternion(new THREE.Quaternion()).multiply(this.yawOffset);
-    if (this.chase && !this.ctx.vrMode) this.position.add(new THREE.Vector3(0, 1.5, -4).applyQuaternion(record.object.getWorldQuaternion(new THREE.Quaternion())));
+    const fork = this.visualRoot && this.visualRoot.userData.vehicleRig && this.visualRoot.userData.vehicleRig.forks;
+    if (!this.ctx.vrMode && this.viewIndex === 2 && fork) {
+      // One main render, anchored to the actual articulated tine frame. This
+      // inspection camera is never applied to a tracked headset camera.
+      fork.updateWorldMatrix(true, false);
+      const frame = this.forkInspectionFrame(record, fork); this.position.copy(frame.eye);
+      const target = frame.target;
+      worldRotation.setFromRotationMatrix(new THREE.Matrix4().lookAt(this.position, target, UP));
+    } else if (this.chase && !this.ctx.vrMode) this.position.add(new THREE.Vector3(0, 1.5, -4).applyQuaternion(record.object.getWorldQuaternion(new THREE.Quaternion())));
     this.position.sub(this.mountHead.clone().applyQuaternion(worldRotation));
     rig.position.copy(rig.parent ? rig.parent.worldToLocal(this.position.clone()) : this.position);
     rig.quaternion.copy(rig.parent ? rig.parent.getWorldQuaternion(new THREE.Quaternion()).inverse().multiply(worldRotation) : worldRotation); rig.updateWorldMatrix(true, true);
+  }
+  forkInspectionFrame(record, fork) {
+    const vehicle = record.components.vehicle, config = vehicle.config, inverse = new THREE.Matrix4().getInverse(fork.matrixWorld), snapshot = this.docking.snapshot;
+    // Cache only the actor lookup at the telemetry rate. Its real articulated
+    // world transform is read every frame, including while carried/turning.
+    if (snapshot !== this.forkViewSnapshot) {
+      this.forkViewSnapshot = snapshot; this.forkViewProduct = null;
+      const outline = snapshot && snapshot.geometry && snapshot.geometry.target;
+      if (outline && outline.length === 4) {
+        const center = outline.reduce((value, p) => value.add(new THREE.Vector3().fromArray(p)), new THREE.Vector3()).multiplyScalar(.25); let distance = .04;
+        this.simulation.products.forEach(product => {
+          if (!product.object.visible) return; product.object.updateWorldMatrix(true, false);
+          const bottom = product.bounds.getCenter(new THREE.Vector3()); bottom.y = product.bounds.min.y; bottom.applyMatrix4(product.object.matrixWorld);
+          const next = bottom.distanceTo(center); if (next < distance) {distance = next; this.forkViewProduct = product;}
+        });
+      }
+    }
+    const product = vehicle.entry && vehicle.entry.product || this.forkViewProduct;
+    const load = product ? product.bounds.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse, product.object.matrixWorld)) : null;
+    const body = new THREE.Box3(new THREE.Vector3(-config.width / 2, 0, -config.length / 2), new THREE.Vector3(config.width / 2, config.height, config.length / 2)).applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse, record.object.matrixWorld));
+    // An oblique low exterior view looks into the actual entry slots. The old
+    // heel-centred camera could sit inside the first row of loaded cartons.
+    const eye = new THREE.Vector3(Math.min(body.min.x, load ? load.min.x : 0, -config.forkSpread / 2 - config.forkWidth / 2) - .48,
+      -config.forkThickness * .25, Math.min(.10, load ? load.min.z - .035 : .10)).applyMatrix4(fork.matrixWorld);
+    eye.y = Math.max(eye.y, vehicle.originWorld.y + .065);
+    const target = new THREE.Vector3(0, -config.forkThickness * .25, Math.min(.70, config.forkLength * .62)).applyMatrix4(fork.matrixWorld);
+    return {eye, target, product};
+  }
+  cycleView() {
+    if (this.ctx.vrMode) { this.docking.toggle(); this.updateHUD(); return true; }
+    const rig = this.visualRoot && this.visualRoot.userData.vehicleRig;
+    const count = rig && rig.forks && rig.config.family !== 'cart' ? VIEWS.length : 2;
+    this.viewIndex = (this.viewIndex + 1) % count; this.chase = this.viewIndex === 1;
+    if (this.ctx.desktopLook && this.ctx.desktopLook.reset) this.ctx.desktopLook.reset();
+    this.ctx.camera.position.set(0, 0, 0); this.ctx.camera.quaternion.set(0, 0, 0, 1);
+    this.follow(); this.updateHUD(); return true;
   }
   unmount(force = false) {
     if (!this.id) return true; const record = this.record(), ctx = this.ctx, rig = ctx.cameraRig, camera = ctx.camera;
@@ -212,13 +261,16 @@ export default class VehicleDriving {
         rig.position.copy(rig.parent ? rig.parent.worldToLocal(nextRig) : nextRig);
       }
     }
-    this.cab.clear(); this.removeWorldPanel(); this.id = null; this.seat = null; this.saved = null; ctx.drivingVehicle = null; if (ctx.resetCollisionPose) ctx.resetCollisionPose(); this.updateHUD(); return true;
+    this.cab.clear(); this.docking.unmount(); this.removeWorldPanel(); this.forkViewSnapshot = this.forkViewProduct = null; this.id = null; this.seat = null; this.saved = null; ctx.drivingVehicle = null; if (ctx.resetCollisionPose) ctx.resetCollisionPose(); this.updateHUD(); return true;
   }
   buildHUD() {
     const dom = this.document; if (this.hud || !dom || !dom.body || !dom.createElement) return;
     const hud = dom.createElement('section'); hud.className = 'vehicle-driving-hud'; hud.setAttribute('aria-label', 'Conducción y manipulación de cargas'); this.hud = hud;
     this.status = dom.createElement('strong'); hud.appendChild(this.status);
     this.hint = dom.createElement('p'); hud.appendChild(this.hint);
+    const views = dom.createElement('div'); views.className = 'vehicle-driving-views'; hud.appendChild(views);
+    this.viewButton = dom.createElement('button'); this.viewButton.type = 'button'; this.viewButton.dataset.vehicleView = ''; this.listen(this.viewButton, 'click', () => this.command('view')); views.appendChild(this.viewButton);
+    this.dockingButton = dom.createElement('button'); this.dockingButton.type = 'button'; this.dockingButton.textContent = 'Ayuda de alineación'; this.dockingButton.dataset.vehicleDockingHelp = ''; this.listen(this.dockingButton, 'click', () => this.command('dockingHelp')); views.appendChild(this.dockingButton);
     const actions = dom.createElement('div'); actions.className = 'vehicle-driving-actions'; hud.appendChild(actions);
     this.actionButtons = new Map();
     [['powerOn', 'Encender'], ['start', 'Marcha'], ['powerOff', 'Apagar'], ['parkingBrake', 'Freno P'], ['pickup', 'Tomar carga'], ['release', 'Depositar'], ['couple', 'Enganchar'], ['uncouple', 'Desenganchar'], ['horn', 'Bocina'], ['lights', 'Luces'], ['emergency', 'Emergencia'], ['resetEmergency', 'Rearmar'], ['mode', 'Modo hidráulico'], ['exit', 'Bajar · F']].forEach(([action, label]) => { const button = dom.createElement('button'); button.type = 'button'; button.textContent = label; button.dataset.vehicleCommand = action; this.listen(button, 'click', () => this.command(action)); this.actionButtons.set(action, button); actions.appendChild(button); });
@@ -229,6 +281,7 @@ export default class VehicleDriving {
     dom.body.appendChild(hud);
   }
   updateHUD() {
+    this.docking.update();
     if (this.worldPanel) this.worldPanel.plane.visible = !!this.ctx.vrMode && !!this.id;
     if (!this.hud) { if (this.id) this.buildHUD(); else return; }
     const record = this.record(); this.hud.hidden = !record || this.ctx.vrMode || this.ctx.editor && this.ctx.editor.active;
@@ -236,6 +289,8 @@ export default class VehicleDriving {
     const phase = v.emergency ? 'EMERGENCIA' : !v.powered ? 'APAGADO' : v.paused ? 'PAUSADO' : v.running ? 'EN MARCHA' : 'LISTO / PARADO';
     this.status.textContent = record.object.name + ' · Energía: ' + (v.powered ? 'ENCENDIDA' : 'APAGADA') + ' · ' + phase + ' · Freno P: ' + (v.parkingBrake ? 'ACTIVO' : 'LIBRE') + ' · ' + Number(v.actualSpeed || 0).toFixed(2) + ' m/s · Elevación ' + Number(v.lift || v.liftHeight || state.lift || 0).toFixed(2) + ' m · Carga ' + Number(v.loadKg || 0).toFixed(0) + ' kg';
     this.hint.textContent = this.guidance(v) + ' · Tab: cursor / mirar · Esc: liberar cursor · WASD conducir · Q/E elevar · R/T inclinar · Z/X alcance · J/L lateral · U/O torreta · Espacio frenar · G/K carga · F bajar';
+    this.viewButton.textContent = 'Vista: ' + VIEWS[this.viewIndex] + ' · C'; this.viewButton.setAttribute('aria-label', 'Cambiar vista. Actual: ' + VIEWS[this.viewIndex]);
+    this.dockingButton.setAttribute('aria-pressed', String(this.docking.visible));
     const toggles = {powerOn: v.powered, powerOff: !v.powered, start: v.running && !v.paused && !v.emergency, parkingBrake: v.parkingBrake, lights: v.lights, emergency: v.emergency};
     this.actionButtons.forEach((button, action) => { if (action in toggles) button.setAttribute('aria-pressed', String(!!toggles[action])); });
     if (this.worldPanel) this.paintWorldPanel();
@@ -247,19 +302,20 @@ export default class VehicleDriving {
     plane.visible = !!this.ctx.vrMode; this.seat.add(plane); const actions = [['powerOn','ENCENDER'],['start','MARCHA'],['powerOff','APAGAR'],['parkingBrake','FRENO P'],['pickup','TOMAR'],['release','DEPOSITAR'],['couple','ENGANCHAR'],['uncouple','DESENGANCHAR'],['lights','LUCES'],['horn','BOCINA'],['emergency','EMERGENCIA'],['resetEmergency','REARMAR'],['mode','HIDRÁULICA'],['exit','BAJAR']];
     this.worldPanel = {plane, context, texture, actions, signature: ''};
     const name = this.simulation.statePrefix + 'vehicle-driving-panel', state = {colliderMesh: plane, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
-      isSelectable: () => !!this.id && !!this.ctx.vrMode && plane.visible && !this.blocked(), onSelectStart: hit => { if (!this.ctx.vrMode || !plane.visible || !hit || !hit.uv || this.blocked()) return; const x = hit.uv.x * 1024, y = (1-hit.uv.y) * 640; if (y < WORLD_TOP || y >= WORLD_BOTTOM || x < 0 || x > 1024) return; const index = Math.floor((y-WORLD_TOP)/WORLD_ROW_HEIGHT) * 2 + (x >= 512 ? 1 : 0); if (actions[index]) this.command(actions[index][0]); }};
+      isSelectable: () => !!this.id && !!this.ctx.vrMode && plane.visible && !this.blocked(), onSelectStart: hit => { if (!this.ctx.vrMode || !plane.visible || !hit || !hit.uv || this.blocked()) return; const x = hit.uv.x * 1024, y = (1-hit.uv.y) * 640; if (x >= 814 && x <= 1008 && y >= 14 && y <= 68) { this.command('dockingHelp'); return; } if (y < WORLD_TOP || y >= WORLD_BOTTOM || x < 0 || x > 1024) return; const index = Math.floor((y-WORLD_TOP)/WORLD_ROW_HEIGHT) * 2 + (x >= 512 ? 1 : 0); if (actions[index]) this.command(actions[index][0]); }};
     const input = this.ctx.raycontrol; if (input) { input.addState(name, state); input.activateState(name); this.worldState = {name, state}; }
     this.paintWorldPanel();
   }
   paintWorldPanel() {
     const panel = this.worldPanel, record = this.record(); if (!panel || !record) return;
-    const v = this.state(record), signature = [v.actualSpeed, v.lift, v.loadKg, v.parkingBrake, v.powered, v.running, v.paused, v.emergency, v.warning, v.batteryPercent, this.mode].map(value => typeof value === 'number' ? value.toFixed(1) : value).join('|');
+    const v = this.state(record), signature = [v.actualSpeed, v.lift, v.loadKg, v.parkingBrake, v.powered, v.running, v.paused, v.emergency, v.warning, v.batteryPercent, this.mode, this.docking.visible].map(value => typeof value === 'number' ? value.toFixed(1) : value).join('|');
     if (panel.signature === signature) return; panel.signature = signature; const c = panel.context;
     c.fillStyle='#0b1d28'; c.fillRect(0,0,1024,640); c.fillStyle='#8ce4d3'; c.font='bold 34px sans-serif'; c.fillText('PUESTO DE CONDUCCIÓN',32,54);
     c.fillStyle='#eff6fb'; c.font='28px sans-serif'; c.fillText(Number(v.actualSpeed||0).toFixed(2)+' m/s · Carga '+Number(v.loadKg||0).toFixed(0)+' kg',32,104); c.font='24px sans-serif'; c.fillText('Energía '+(v.powered?'ENCENDIDA':'APAGADA')+' · '+(v.emergency?'EMERGENCIA':v.paused?'PAUSADO':v.running?'MARCHA':'PARADO')+' · Freno P '+(v.parkingBrake?'ACTIVO':'LIBRE'),32,148); c.font='21px sans-serif'; c.fillText(this.guidance(v),32,187);
+    c.fillStyle=this.docking.visible?'#226856':'#254450';c.fillRect(814,14,194,54);c.fillStyle='#edf7fa';c.font='bold 22px sans-serif';c.fillText('ALINEACIÓN',835,48);
     const active={powerOn:v.powered,powerOff:!v.powered,start:v.running&&!v.paused&&!v.emergency,parkingBrake:v.parkingBrake,lights:v.lights,emergency:v.emergency};
     panel.actions.forEach(([action,label],index)=>{const x=index%2*512,y=WORLD_TOP+Math.floor(index/2)*WORLD_ROW_HEIGHT; c.fillStyle=action==='emergency'?'#763b41':active[action]?'#226856':'#254450';c.fillRect(x+14,y+4,484,WORLD_ROW_HEIGHT-8);c.fillStyle='#edf7fa';c.font='bold 24px sans-serif';c.fillText(action==='mode'?label+' · '+MODES[this.mode]:label,x+30,y+WORLD_ROW_HEIGHT*.65);}); panel.texture.needsUpdate=true;
   }
   removeWorldPanel() { const panel = this.worldPanel, input = this.ctx.raycontrol; if (this.worldState && input) { const {name,state}=this.worldState; if (input.deactivateState) input.deactivateState(name); if (input.removeState) input.removeState(name); else if (input.states&&input.states[name]===state) delete input.states[name]; } this.worldState=null; if (panel) { if (panel.plane.parent) panel.plane.parent.remove(panel.plane); panel.plane.geometry.dispose(); panel.plane.material.dispose(); panel.texture.dispose(); } this.worldPanel=null; }
-  dispose() { this.unmount(true); this.cab.dispose(); this.listeners.forEach(off=>off()); this.listeners=[]; if (this.hud && this.hud.remove) this.hud.remove(); this.hud=null; if (this.ctx.vehicleDriving===this) delete this.ctx.vehicleDriving; }
+  dispose() { this.unmount(true); this.cab.dispose(); this.docking.dispose(); this.listeners.forEach(off=>off()); this.listeners=[]; if (this.hud && this.hud.remove) this.hud.remove(); this.hud=null; if (this.ctx.vehicleDriving===this) delete this.ctx.vehicleDriving; }
 }

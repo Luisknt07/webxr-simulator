@@ -13,6 +13,21 @@ const STATE_FIELDS = TRANSFORM_FIELDS.concat(['visible', 'color', 'behaviors']);
 const PRIMITIVES = ['box', 'sphere', 'plane', 'cylinder'];
 const PREFABS = ['conveyor', 'sensor', 'plc', 'control', 'product', 'source', 'processor', 'palletQueue', 'robot', 'vehicle'];
 
+function preparationBudget(options = {}) {
+  const now = options.now || (() => typeof performance === 'undefined' ? Date.now() : performance.now());
+  const milliseconds = Math.max(1, Math.min(12, Number(options.budgetMs) || 8));
+  let slice = now();
+  return async isCurrent => {
+    if (options.signal && options.signal.aborted) throw Object.assign(new Error('Carga de escenario cancelada.'), {name: 'AbortError', code: 'load_aborted'});
+    if (!isCurrent()) return false;
+    if (options.yieldControl && now() - slice >= milliseconds) {
+      await options.yieldControl(); slice = now();
+      if (options.signal && options.signal.aborted) throw Object.assign(new Error('Carga de escenario cancelada.'), {name: 'AbortError', code: 'load_aborted'});
+    }
+    return isCurrent();
+  };
+}
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -1374,19 +1389,24 @@ export default class SceneDocument {
 
   hasPendingRoom(roomId) { return this.pendingRooms.has(String(roomId)); }
 
-  async _prepareRoom(roomId, records, isCurrent = () => true) {
+  async _prepareRoom(roomId, records, isCurrent = () => true, options = {}) {
     const additions = [], nativeVisuals = [];
+    const checkpoint = preparationBudget(options);
     for (const record of records.additions) {
-      if (!isCurrent()) return null;
+      if (!await checkpoint(isCurrent)) return null;
       const content = await this._instantiate(record.descriptor);
-      if (!isCurrent()) return null;
+      if (!await checkpoint(isCurrent)) return null;
       if (!content || !content.isObject3D) throw new Error('No se pudo abrir un modelo del escenario.');
       this._checkNodes(content, record);
-      additions.push({roomId, record, content, visuals: await this._prepareVisuals(record)});
+      const visuals = await this._prepareVisuals(record);
+      if (!await checkpoint(isCurrent)) return null;
+      additions.push({roomId, record, content, visuals});
     }
     for (const record of records.nativeVisuals) {
-      if (!isCurrent()) return null;
-      nativeVisuals.push({id: record.id, descriptor: record.descriptor, content: await this._instantiate(record.descriptor)});
+      if (!await checkpoint(isCurrent)) return null;
+      const content = await this._instantiate(record.descriptor);
+      if (!await checkpoint(isCurrent)) return null;
+      nativeVisuals.push({id: record.id, descriptor: record.descriptor, content});
     }
     return {additions, nativeVisuals};
   }
@@ -1422,21 +1442,30 @@ export default class SceneDocument {
     });
   }
 
-  activateRoom(roomId) {
+  activateRoom(roomId, options = {}) {
     roomId = String(roomId);
     if (!this.rooms.has(roomId)) return Promise.reject(new Error('Sala desconocida.'));
     if (this.loading) return Promise.reject(new Error('Espera a que termine de cargar el proyecto.'));
-    if (this.roomActivations.has(roomId)) return this.roomActivations.get(roomId);
+    const existing = this.roomActivations.get(roomId);
+    if (existing) {
+      if (!existing.activationSignal || !existing.activationSignal.aborted) return existing;
+      // A→B→A can request this room again while its cancelled factory is still
+      // resolving. Reuse only live preparations: the old detached job cannot
+      // install after its abort check and cannot delete this new promise.
+      this.roomActivations.delete(roomId);
+    }
     const records = this.pendingRooms.get(roomId);
     if (!records) return Promise.resolve(false);
     const generation = this.loadGeneration;
     const promise = (async () => {
       const isCurrent = () => generation === this.loadGeneration && this.pendingRooms.get(roomId) === records;
       let prepared;
-      try { prepared = await this._prepareRoom(roomId, records, isCurrent); }
+      try { prepared = await this._prepareRoom(roomId, records, isCurrent, options); }
       catch (error) { if (!isCurrent()) return false; throw error; }
       // A new load, reset or undo invalidates an in-flight room preparation.
       if (!isCurrent()) return false;
+      if (options.signal && options.signal.aborted) throw Object.assign(new Error('Carga de escenario cancelada.'), {name: 'AbortError', code: 'load_aborted'});
+      if (options.assertCurrent) options.assertCurrent();
       const previous = this.capture();
       try {
         this._installRoom(prepared);
@@ -1448,6 +1477,7 @@ export default class SceneDocument {
       }
       return true;
     })();
+    Object.defineProperty(promise, 'activationSignal', {value: options.signal});
     this.roomActivations.set(roomId, promise);
     promise.then(() => {
       if (this.roomActivations.get(roomId) === promise) this.roomActivations.delete(roomId);
@@ -1470,6 +1500,8 @@ export default class SceneDocument {
     this.roomActivations.clear();
     this.loading = true;
     try {
+      const current = () => { if (options.assertCurrent) options.assertCurrent(); return true; };
+      const checkpoint = preparationBudget(options); await checkpoint(current);
       if (this.assetLibrary && this.assetLibrary.restoreImports) this.assetLibrary.restoreImports(validated.imports);
       else if (validated.imports.length) throw new Error('No se pueden restaurar los recursos importados.');
       // Legacy callers load eagerly; the application supplies its active room.
@@ -1482,9 +1514,10 @@ export default class SceneDocument {
           const materials = Array.isArray(material) ? material : [material];
           if (materials.some(item => !item || !item.color || item.isShaderMaterial)) throw new Error('El escenario intenta cambiar un material nativo protegido.');
         }
-        if (activeRoomId === null || activeRoomId === roomId) prepared.push(await this._prepareRoom(roomId, records));
+        if (activeRoomId === null || activeRoomId === roomId) prepared.push(await this._prepareRoom(roomId, records, current, options));
         else if (records.additions.length || records.nativeVisuals.length) pending.set(roomId, records);
       }
+      await checkpoint(current);
       Array.from(this.visuals.keys()).forEach(id => { const object = this.objects.get(id); if (object) this._setVisual(object, null); });
       this.native.forEach(entry => this._applyState(entry.object, entry.state));
       this.additions.forEach(entry => { if (entry.object.parent) entry.object.parent.remove(entry.object); this._unregisterAddition(entry); });

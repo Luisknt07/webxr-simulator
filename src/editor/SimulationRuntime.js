@@ -188,13 +188,6 @@ export default class SimulationRuntime {
     });
     this.configureSupply(flowConfigurations);
     if (this.robotRuntime) this.robotRuntime.prepare();
-    this.robotSourceLinks = new Map();
-    this.records.forEach(record => {
-      const robot = record.components.robot;
-      if (!robot || robot.config.operation === 'process' && robot.config.tool === 'process' || !robot.config.sourceId || !this.records.has(robot.config.sourceId)) return;
-      const links = this.robotSourceLinks.get(robot.config.sourceId) || [];
-      links.push({id: record.id, port: 'input', route: 'main'}); this.robotSourceLinks.set(robot.config.sourceId, links);
-    });
     this.buildScopes();
     this.records.forEach(record => {
       if (record.components.conveyor) this.measureBelt(record);
@@ -386,6 +379,17 @@ export default class SimulationRuntime {
   }
 
   buildScopes() {
+    // Pickup links belong to supervision/control scopes, not automatic
+    // dispatch. A manual forklift and its receiver are part of the line whose
+    // real pallet it collects, just as a pick/place robot is. Rebuild after
+    // restored configuration as well as initial preparation.
+    if (!this.robotSourceLinks) this.robotSourceLinks = new Map(); else this.robotSourceLinks.clear();
+    this.records.forEach(record => {
+      const robot = record.components.robot, carrier = robot || record.components.vehicle;
+      if (!carrier || robot && robot.config.operation === 'process' && robot.config.tool === 'process' || !carrier.config.sourceId || !this.records.has(carrier.config.sourceId)) return;
+      const links = this.robotSourceLinks.get(carrier.config.sourceId) || [];
+      links.push({id: record.id, port: 'input', route: 'main'}); this.robotSourceLinks.set(carrier.config.sourceId, links);
+    });
     const machines = Array.from(this.records.values()).filter(record => record.components.conveyor);
     const outgoing = new Map(), adjacent = new Map();
     machines.forEach(record => { outgoing.set(record.id, []); adjacent.set(record.id, new Set()); });
@@ -1308,12 +1312,13 @@ export default class SimulationRuntime {
     if (input && input.cancelSelect) input.controllers.forEach(data => input.cancelSelect(data));
   }
 
-  captureProduct(product, candidate) {
+  captureProduct(product, candidate, receivingIgnore = []) {
     const {record, belt, offset, lateral} = candidate;
     if (!this.productCompatible(record, belt, product) || !this.admissionReady(record, belt, false)) return false;
     if (belt.packages.length >= belt.config.maxPackages || this.packageCount >= MAX_PACKAGES) return false;
-    const item = product.item || {mesh: product.object, authored: !!product.record, product,
-      box: new THREE.Box3(), previous: new THREE.Box3(), swept: new THREE.Box3()};
+    const existingItem = product.item;
+    let item = Object.assign({}, existingItem || {mesh: product.object, authored: !!product.record, product,
+      box: new THREE.Box3(), previous: new THREE.Box3(), swept: new THREE.Box3()});
     let decision = product.routingDecisions.get(record.id) || this.routeDecision(belt, product);
     let route = candidate.route || decision.route, resolvedOffset = offset;
     if (belt.config.layout === 'tee' && belt.config.junctionMode !== 'merge') {
@@ -1329,8 +1334,11 @@ export default class SimulationRuntime {
     item.mechanismYaw = belt.config.junctionMode === 'merge' && route === 'branch' ? (belt.config.branchSide === 'left' ? 1 : -1) * (belt.config.mergeAngle || 45) * Math.PI / 180 : 0;
     const matrix = this.packageMatrix(record, belt, item.offset, item);
     const world = this.ctx.collisionWorld;
-    const options = this.packageCollisionOptions(record, item); options.ignore.push(product.object);
+    // A carrier may supply its fork mesh only after validating both tines in
+    // the final pallet pockets. Keep all chassis, mast and receiver collisions.
+    const options = this.packageCollisionOptions(record, item); options.ignore.push(product.object, ...receivingIgnore);
     if (world && world.testBox(item.bounds.clone().applyMatrix4(matrix), options)) return false;
+    if (existingItem) { Object.assign(existingItem, item); item = existingItem; }
     belt.helper.add(item.mesh); item.beltId = record.id;
     product.item = item;
     this.positionPackage(record, belt, item, matrix);

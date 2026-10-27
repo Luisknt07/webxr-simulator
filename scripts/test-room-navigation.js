@@ -154,6 +154,7 @@ function frameHarness(options = {}) {
     editor: {active: Boolean(options.editor), render: invoke('editorRender'), execute: invoke('editorExecute')},
     raycontrol: {execute: invoke('ray')}
   };
+  if (options.transition) context.roomTransitionView = {active: true, render: invoke('cover'), presented: invoke('presented')};
   const scene = {updateMatrixWorld: invoke('matrices')};
   const camera = {};
   const dependencies = {
@@ -178,6 +179,9 @@ function testFrameBoundaries() {
   const names = harness => harness.calls.map(call => call[0]);
   const hidden = frameHarness({hidden: true}); hidden.animate();
   assert.deepEqual(names(hidden), ['clock'], 'A hidden desktop tab does not execute systems, query DOM, render or begin collision work.');
+  const covered = frameHarness({transition: true, xr: true}), frame = {tracked: true}; covered.animate(2, frame);
+  assert.deepEqual(names(covered), ['clock','syncControllers','cover'], 'A covered XR frame retains tracking and renders only the cover; old ECS, machines, rays and room callbacks cannot run.');
+  assert.equal(covered.calls[1][1], frame);
 
   const xr = frameHarness({hidden: true, xr: true, editor: true}), xrFrame = {nativeFrame: true}; xr.animate(1234, xrFrame);
   assert(names(xr).includes('ecs'), 'A hidden companion tab keeps the headset simulation running.');

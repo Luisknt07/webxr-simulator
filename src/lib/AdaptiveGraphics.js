@@ -11,7 +11,7 @@ export default class AdaptiveGraphics {
     this.renderer = renderer; this.options = options; this.window = options.window || (typeof window !== 'undefined' ? window : null);
     const navigator = options.navigator || this.window && this.window.navigator || {};
     let coarse = false; try { coarse = !!(this.window && this.window.matchMedia && this.window.matchMedia('(pointer: coarse)').matches); } catch (_) { /* Optional hint. */ }
-    this.hints = quality.hints(Object.assign({coarse, deviceMemory: navigator.deviceMemory, hardwareConcurrency: navigator.hardwareConcurrency}, options.hints));
+    this.hints = quality.hints(Object.assign({coarse, deviceMemory: navigator.deviceMemory, hardwareConcurrency: navigator.hardwareConcurrency, userAgent: navigator.userAgent, mobile: navigator.userAgentData && navigator.userAgentData.mobile}, options.hints));
     this.storage = options.storage === undefined ? (() => { try { return this.window && this.window.localStorage; } catch (_) { return null; } })() : options.storage;
     let mode = options.mode || 'auto'; try { if (!options.mode && this.storage) mode = this.storage.getItem(STORAGE_KEY) || mode; } catch (_) { /* Storage may be unavailable. */ }
     this.mode = quality.MODES.includes(mode) ? mode : 'auto'; this.tier = Math.min(quality.initialTier(this.hints, this.mode), quality.ceilingFor(this.mode, this.hints));
@@ -23,6 +23,7 @@ export default class AdaptiveGraphics {
     this.lost = false; this.disposed = false; this.listeners = new Set(); this.elapsed = 0; this.lastNotify = 0; this.lastChange = -100;
     this.warmup = 3; this.slow = 0; this.healthy = 0; this.spikes = 0; this.frameMs = null; this.targetFPS = 60;
     this.status = 'warming-up'; this.reason = 'initial-device-hints';
+    this.foveationBias = 0; this.lastFoveationChange = -100; this.budgetOverruns = 0;
     this.onLost = event => { if (event && event.preventDefault) event.preventDefault(); this.contextLost(); };
     this.onRestored = () => this.contextRestored();
     if (renderer && renderer.domElement && renderer.domElement.addEventListener && options.listen !== false) {
@@ -38,6 +39,7 @@ export default class AdaptiveGraphics {
     return {mode: this.mode, tier: limits.tier, effectiveProfile: limits.tier, ceiling: quality.TIERS[quality.ceilingFor(this.mode, this.hints)],
       pixelRatio: ratio, renderScale: ratio / this.dpr, targetFPS: this.targetFPS, frameMs: this.frameMs, fps: this.frameMs ? 1000 / this.frameMs : null,
       status: this.status, reason: this.reason, xr: this.xr, contextLost: this.lost, foveationSupported: this.foveationSupported, foveation: this.foveation,
+      frameBudgetMs: 1000 / this.targetFPS, frameBudgetRatio: this.frameMs ? this.frameMs / (1000 / this.targetFPS) : null, budgetOverruns: this.budgetOverruns, adaptiveFoveationBias: this.foveationBias,
       pixelBudget: limits.maxPixels, estimatedMemoryMB: null, hints: Object.assign({}, this.hints), limits};
   }
   subscribe(listener) { this.listeners.add(listener); try { listener(this.getStats()); } catch (_) { /* Optional UI isolation. */ } return () => this.listeners.delete(listener); }
@@ -81,7 +83,7 @@ export default class AdaptiveGraphics {
     }
     if (!this.layer) { this.foveationSupported = false; return; }
     if (!this.foveationSupported) return;
-    const wanted = this.getLimits().fixedFoveation;
+    const wanted = Math.min(.75, this.getLimits().fixedFoveation + this.foveationBias);
     try {
       if (Math.abs(this.layer.fixedFoveation - wanted) > .01) this.layer.fixedFoveation = wanted;
       const actual = this.layer.fixedFoveation;
@@ -92,7 +94,7 @@ export default class AdaptiveGraphics {
   tick(delta = 0, frame = {}) {
     if (this.disposed) return this.getStats();
     const xr = frame.xr === undefined ? !!(this.renderer && this.renderer.xr && this.renderer.xr.isPresenting) : !!frame.xr;
-    if (xr !== this.xr) { this.xr = xr; this.restoreFoveation(); this.resetPacing(2); this.notify(); }
+    if (xr !== this.xr) { this.xr = xr; this.foveationBias = 0; this.restoreFoveation(); this.resetPacing(2); this.notify(); }
     if (frame.width !== undefined || frame.height !== undefined || frame.dpr !== undefined) this.setViewport(frame.width || this.width, frame.height || this.height, frame.dpr);
     const session = frame.session || this.renderer && this.renderer.xr && this.renderer.xr.getSession && this.renderer.xr.getSession();
     const fps = quality.targetFrameRate(xr, session);
@@ -116,6 +118,12 @@ export default class AdaptiveGraphics {
     const slow = this.frameMs > budget * 1.24;
     const healthy = this.frameMs <= budget * 1.08 && (!Number.isFinite(frame.workMs) || frame.workMs < budget * .78);
     this.slow = slow ? this.slow + dt : Math.max(0, this.slow - dt * 2); this.healthy = healthy ? this.healthy + dt : 0;
+    if (sample > budget * 1.2) this.budgetOverruns++;
+    // On a real supported XR layer, try a bounded peripheral-rate adjustment
+    // before a full tier change rebuilds materials/shadows. Centre detail stays
+    // intact; cadence and recovery have separate hysteresis.
+    if (xr && this.foveationSupported && this.elapsed - this.lastFoveationChange >= 1.5 && this.slow >= .6 && this.foveationBias < .3) { this.foveationBias = Math.min(.3, this.foveationBias + .1); this.lastFoveationChange = this.elapsed; this.applyFoveation(session); }
+    else if (xr && this.healthy >= 8 && this.elapsed - this.lastFoveationChange >= 5 && this.foveationBias > 0) { this.foveationBias = Math.max(0, this.foveationBias - .05); this.lastFoveationChange = this.elapsed; this.applyFoveation(session); }
     this.status = slow ? 'pressure' : 'steady';
     if (this.slow >= 1.6 && this.elapsed - this.lastChange >= 5) this.changeTier(this.tier - 1, 'sustained-frame-pressure');
     else if (this.healthy >= 20 && this.elapsed - this.lastChange >= 30) this.changeTier(this.tier + 1, 'sustained-healthy-trial');

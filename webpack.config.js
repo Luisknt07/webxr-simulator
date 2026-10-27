@@ -43,6 +43,7 @@ const application = {
           const directory = pathname.split('/').filter(Boolean)[0];
           if (directory && ['data', 'server', '.git'].includes(directory.toLowerCase())) return response.status(404).end();
           if (directory && directory.toLowerCase() === 'examples' && !api.studio.access.canDownloadExamples(request)) return response.status(401).end();
+          if (/^\/assets\/public-scenes\/[^/]+\.json$/.test(pathname) && !api.studio.access.canDownloadPublicExample(request, require('path').posix.basename(pathname))) return response.status(401).end();
           next();
         } catch (error) { response.status(400).end(); }
       });

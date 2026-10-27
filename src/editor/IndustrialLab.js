@@ -7,11 +7,13 @@ import {applyIndustrialFloorPresentation} from './IndustrialFloorPresentation.js
 import {applyIndustrialMonitorLayout} from './IndustrialMonitorLayout.js';
 import {applyIndustrialMessages} from './IndustrialMessages.js';
 import {applyIndustrialAging} from './IndustrialAgingPresentation.js';
+import {retrofitCediRobotics} from './IndustrialCediRobotics.js';
 
 /** A persisted, editable teaching floor. Signs/markings use ordinary document
  * records, so saving/reopening does not depend on a temporary preview scene. */
 export function buildIndustrialLab(document, roomId, options = {}) {
   const objects = [], signs = [], markings = [], monitors = [];
+  const authoringRoot = document.getRoot(roomId), roomVisible = authoringRoot.visible;
   const own = !document.transaction;
   if (own) document.begin();
   function primitive(name, type, color, position, scale, rotation = [0, 0, 0], behaviors = []) {
@@ -47,6 +49,7 @@ export function buildIndustrialLab(document, roomId, options = {}) {
     }
   }
   try {
+    authoringRoot.visible = true;
     document.getObjects(roomId).filter(object => object.name === 'Suelo del nivel' && !document.isNative(object)).forEach(object => document.remove(object));
     const floor = primitive('Piso industrial · hormigón mate', 'box', '#777c76', [0, -.06, -15], [72, .12, 120], [0, 0, 0],
       [schema.defaultBehavior('collision'), schema.defaultBehavior('teleport'), Object.assign(schema.defaultBehavior('surfaceMaterial'), {preset: 'concrete', color: '#777c76', metalness: 0, roughness: .97, colorMapMode: 'preserve', repeatX: 18, repeatY: 30})]);
@@ -69,6 +72,8 @@ export function buildIndustrialLab(document, roomId, options = {}) {
       arrow(0, z - 4);
     }
     const lines = buildIndustrialLabLines(document, roomId, options);
+    const robotics = options.robotized === true ? retrofitCediRobotics(document, roomId, {scene: options.scene, lines: lines.cells, continuous: options.continuous === true}) : null;
+    if (robotics) lines.objects.push(...robotics.objects);
     const finishes = applyIndustrialFinishes(document, roomId, lines.objects, {wear: .12, preserveCustom: true, decals: true});
     lines.cells.forEach((cell, index) => {
       const center = cell.center || [index % 2 ? 18 : -18, 20 - Math.floor(index / 2) * 20];
@@ -119,7 +124,13 @@ export function buildIndustrialLab(document, roomId, options = {}) {
       arrow(x - 8, z + 3.7, Math.PI / 2, '#78cbf0');
       arrow(x + 3, z + 3.7, Math.PI / 2, '#78cbf0');
     });
-    sign('CEDI · LABORATORIO', lines.cells.length + ' líneas automáticas.\n01: L rectangular y transferencia a 90°.\nSource → proceso → cuatro estibas.\nUn PLC y monitor por línea.\nVR: gatillo / agarre lateral.', 0, 37, 2.4, 4, false);
+    if (robotics && robotics.logistics) {
+      const l = robotics.logistics, box = new THREE.Box3(); l.objects.forEach(object => box.expandByObject(object)); const center = box.getCenter(new THREE.Vector3());
+      const cell = {id: 'robotics-expedition', title: 'Expedición · cadenas y montacargas', description: 'Pallets completos reales del Source esperan al operario en el extremo de las cadenas; el montacargas los lleva al destino sin cambiar sus unidades.', mode: 'manual', center: [center.x, center.z], objects: l.objects, source: l.source, sources: [l.source], receiver: l.destination, receivers: [l.destination], controller: l.pickup, links: [{source: l.source.userData.editorId, sourcePort: 'output', target: l.pickup.userData.editorId, targetPort: 'input'}], expectedUnits: l.expectedLoads * l.unitsPerLoad};
+      const monitor = primitive('Monitor 2D · expedición con montacargas', 'box', '#202f39', [l.pickup.position.x + 2.2, 2, l.pickup.position.z + 2.1], [3.2, 1.8, .12], [0, 0, 0], [Object.assign(schema.defaultBehavior('lineMonitor'), {targetId: l.pickup.userData.editorId, title: cell.title, scope: 'line'})]);
+      cell.monitor = monitor; cell.objects.push(monitor); monitors.push(monitor); lines.cells.push(cell);
+    }
+    sign('CEDI · LABORATORIO', lines.cells.length + ' áreas de producción.\n01: L rectangular y transferencia a 90°.\nSource → proceso → cuatro estibas.\nUn PLC y monitor por línea.\nVR: gatillo / agarre lateral.', 0, 37, 2.4, 4, false);
     for (const side of [-1, 1]) primitive('Pórtico de entrada · soporte', 'box', '#343e47', [side * 3.2, 1.5, 37], [.08, 3, .08]);
     primitive('Pórtico de entrada · travesaño', 'box', '#343e47', [0, 3, 37], [6.4, .08, .08]);
     const studio = document.studio || {};
@@ -146,6 +157,7 @@ export function buildIndustrialLab(document, roomId, options = {}) {
     const retained = object => document.getObject(object.userData.editorId) === object;
     const floorMarkings = markings.filter(retained).concat(floorPresentation && floorPresentation.presentation || []);
     if (own) document.commit();
-    return Object.assign(lines, {floor, building, objects: Array.from(new Set(objects.concat(lines.objects, floorMarkings))).filter(retained), signs, markings: floorMarkings, monitors, finishes, floorPresentation, monitorLayout, messages, aging});
+    return Object.assign(lines, {floor, building, objects: Array.from(new Set(objects.concat(lines.objects, floorMarkings))).filter(retained), signs, markings: floorMarkings, monitors, finishes, floorPresentation, monitorLayout, messages, aging, robotics});
   } catch (error) { if (own) document.cancel(); throw error; }
+  finally { authoringRoot.visible = roomVisible; }
 }

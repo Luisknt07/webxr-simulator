@@ -28,6 +28,8 @@ try {
   for (const file of ['data', 'server', '.git', '.env', 'node_modules', 'examples', 'bundle.js.map', 'src/studio/StudioClient.js']) assert(!fs.existsSync(path.join(result.output, file)), file + ' must never be published');
   assert.equal(result.publication.revision, revision); assert.equal(result.publication.bundleSha256, crypto.createHash('sha256').update('fixture').digest('hex'));
   assert.deepEqual(result.publication.scenes, ['l-transfer', 'inspection-sorting']);
+  for (const scene of publicScenes.SCENES) assert.equal(result.publication.projectionSha256[scene.id], crypto.createHash('sha256').update(fs.readFileSync(path.join(temporaryRoot, 'assets/public-scenes', scene.id + '.json'))).digest('hex'), 'The release identifies the exact reviewed projection bytes.');
+  assert.equal(result.publication.catalogSha256, crypto.createHash('sha256').update(fs.readFileSync(path.join(temporaryRoot, 'assets/public-scenes/catalog.json'))).digest('hex'));
   write('data/pages-site/stale.js'); prepare({root: temporaryRoot}); assert(!fs.existsSync(path.join(result.output, 'stale.js')));
   assert.equal(fs.readFileSync(path.join(temporaryRoot, 'data/projects.sqlite'), 'utf8'), 'private fixture must remain outside artifact');
   for (const target of [temporaryRoot, path.dirname(temporaryRoot), path.join(temporaryRoot, 'data'), path.join(temporaryRoot, 'data/elsewhere')]) assert.throws(() => safeOutput(temporaryRoot, target), /sólo puede/);
@@ -35,7 +37,7 @@ try {
   fs.renameSync(path.join(temporaryRoot, 'src/vendor/basis_transcoder.wasm'), path.join(temporaryRoot, 'src/vendor/basis_transcoder.wasm.missing'));
   assert.throws(() => prepare({root: temporaryRoot}), /Falta un recurso necesario.*basis_transcoder.wasm/);
   fs.renameSync(path.join(temporaryRoot, 'src/vendor/basis_transcoder.wasm.missing'), path.join(temporaryRoot, 'src/vendor/basis_transcoder.wasm'));
-  write('assets/public-scenes/private.json'); assert.throws(() => prepare({root: temporaryRoot}), /dos escenarios públicos/); fs.unlinkSync(path.join(temporaryRoot, 'assets/public-scenes/private.json'));
+  write('assets/public-scenes/private.json'); assert.throws(() => prepare({root: temporaryRoot}), /escenarios públicos declarados/); fs.unlinkSync(path.join(temporaryRoot, 'assets/public-scenes/private.json'));
   write('index.html', '<script src="/bundle.js"></script>'); assert.throws(() => prepare({root: temporaryRoot}), /fuera de la publicación/); write('index.html', 'fixture');
   // Directory junctions work without elevated symlink permission on Windows.
   const linked = path.join(temporaryRoot, 'assets/external'); fs.symlinkSync(path.join(temporaryRoot, 'server'), linked, 'junction');
@@ -47,6 +49,9 @@ try {
   assert.match(workflow, /branches: \[main\]/); assert.match(workflow, /workflow_dispatch:/);
   for (const action of ['configure-pages@v5', 'upload-pages-artifact@v4', 'deploy-pages@v4']) assert(workflow.includes(action));
   assert(workflow.includes('path: data/pages-site')); assert(!workflow.includes('path: .\n'));
+  assert(workflow.includes('run: node scripts/validate-public-scenes.js')); assert(!workflow.includes('run: node scripts/generate-public-scenes.js'), 'Packaging cannot run a generator whose dependencies are deliberately absent.');
+  const isolated = require('node:child_process').spawnSync(process.execPath, ['-e', "const M=require('node:module'),p=require('node:path'),load=M._load;M._load=function(id,parent,main){if(!id.startsWith('.')&&!p.isAbsolute(id)&&!M.isBuiltin(id))throw new Error('Unexpected npm dependency: '+id);return load.call(this,id,parent,main)};require('./scripts/validate-public-scenes').validate();"], {cwd: sourceRoot, encoding: 'utf8'});
+  assert.equal(isolated.status, 0, 'A clean CI checkout must validate without node_modules: ' + isolated.stderr);
   console.log('Pages package: allowlisted runtime with real Basis/Draco decoder JS/WASM, both public projections, workers/materials/styles, source revision/hash, no private files, bounded replacement and symlink rejection passed.');
 } finally {
   // The generated fixture is an inspected mkdtemp child of the OS temp root.

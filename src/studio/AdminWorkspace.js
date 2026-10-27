@@ -234,6 +234,9 @@ export default class AdminWorkspace {
   async publicationView(body) {
     el('h2', 'Escenas disponibles al público', body); el('p', 'Sólo dos escenas pueden estar activas sin iniciar sesión. La publicación entrega una copia de la sala elegida, con sus recursos autorizados.', body, 'studio-muted');
     const result = await this.studio.editor.projectClient.request('GET', '/publication/scenes');
+    const preview = field(body, 'Vista previa temporal de todos los ejemplos incluidos', '', 'checkbox'); preview.checked = result.previewAllExamples === true;
+    el('p', 'Este modo sólo muestra ejemplos del sistema, no publica proyectos privados y conserva la selección inferior. Al desactivarlo vuelven las dos escenas seleccionadas. GitHub Pages se revierte regenerando con --restricted y desplegando esa publicación.', body, 'studio-muted');
+    action(body, 'Aplicar modo de ejemplos', () => this.studio.guard(async () => {await this.studio.editor.projectClient.request('PUT', '/publication/scenes', {previewAllExamples: preview.checked}); this.studio.message('Modo público actualizado; la selección guardada se conserva.');}));
     const projects = await this.studio.editor.projectClient.listProjects();
     const rows = el('div', undefined, body), values = [];
     (result.scenes || []).forEach(scene => {

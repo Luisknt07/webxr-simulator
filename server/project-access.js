@@ -5,6 +5,7 @@ const path = require('node:path');
 const {createHash} = require('node:crypto');
 const {ApiError, plain} = require('./validation');
 const {ROOM_IDS} = require('../shared/studio-document');
+const publicExamples = require('../shared/public-scenes');
 const DEFAULT_BYTES = 20 * 1024 * 1024, DAY = 86400000;
 const fail = (status, message, code) => { throw new ApiError(status, message, code); };
 const hashPattern = /^[a-f0-9]{64}$/;
@@ -140,7 +141,7 @@ class ProjectAccess {
     if (user) for (const project of this.list(user)) if (this.db.prepare("SELECT 1 FROM revisions r,json_each(r.document,'$.imports') j WHERE r.project_id=? AND json_extract(j.value,'$.sha256')=? LIMIT 1").get(project.id, hash)) return asset;
     if (user && this.db.prepare(`SELECT 1 FROM studio_users u JOIN studio_members other ON other.user_id=u.id JOIN studio_members me ON me.room_id=other.room_id JOIN studio_rooms room ON room.id=me.room_id
       WHERE u.image=? AND me.user_id=? AND me.active=1 AND other.active=1 AND room.closed=0 LIMIT 1`).get('/api/assets/' + hash, user.id)) return asset;
-    for (const entry of this.publicCatalog().scenes) if ((this.publicProject(entry.id).document.imports || []).some(item => item.sha256 === hash)) return asset;
+    for (const entry of this.publicCatalog().scenes.filter(scene => !scene.included)) if ((this.publicProject(entry.id).document.imports || []).some(item => item.sha256 === hash)) return asset;
     fail(user ? 403 : 401, 'No tienes permiso para acceder a este archivo.', user ? 'asset_forbidden' : 'authentication_required');
   }
   grantAsset(userId, hash) {
@@ -227,10 +228,20 @@ class ProjectAccess {
     return this.defaultCache;
   }
   publicCatalog() {
+    if (this.previewAllExamples()) return Object.assign({}, this.exampleCatalog(), {previewAllExamples: true, requiresLogin: false});
     const scenes = this.db.prepare('SELECT * FROM studio_public_scenes WHERE enabled=1 ORDER BY rowid LIMIT 2').all().map(row => ({id: row.id, name: row.name, projectId: 'public-' + row.id, roomId: row.room_id, revision: row.project_id ? this.store._requireProject(row.project_id).revision : 1, public: true}));
-    return {scenes, maxActive: 2, requiresLogin: true};
+    return {scenes, maxActive: 2, requiresLogin: true, previewAllExamples: false};
+  }
+  previewAllExamples() {const row = this.db.prepare("SELECT value FROM studio_settings WHERE key='public-examples-preview'").get(); return row ? row.value === '1' : publicExamples.POLICY.previewAllExamples;}
+  exampleCatalog() {if (!this.exampleMetadata) this.exampleMetadata = JSON.parse(fs.readFileSync(path.join(__dirname, '../assets/public-scenes/catalog.json'), 'utf8')); return this.exampleMetadata;}
+  exampleProject(sceneId) {
+    const scene = this.exampleCatalog().scenes.find(value => value.id === sceneId); if (!scene) fail(404, 'El ejemplo incluido no existe.', 'not_found');
+    if (!this.exampleProjects) this.exampleProjects = new Map();
+    if (!this.exampleProjects.has(sceneId)) {const result = JSON.parse(fs.readFileSync(path.join(__dirname, '../assets/public-scenes', scene.id + '.json'), 'utf8')).project; const safe = publicExamples.project(result.document, scene); this.exampleProjects.set(sceneId, safe); if (this.exampleProjects.size > 2) this.exampleProjects.delete(this.exampleProjects.keys().next().value);}
+    return copy(this.exampleProjects.get(sceneId));
   }
   publicProject(sceneId) {
+    if (this.previewAllExamples()) return this.exampleProject(sceneId);
     const row = this.db.prepare('SELECT * FROM studio_public_scenes WHERE id=? AND enabled=1').get(sceneId); if (!row) fail(404, 'Esta escena no está publicada.', 'not_found');
     const project = row.project_id ? this.store.getProject(row.project_id) : {revision: 1, document: this.defaultDocument()};
     return {id: 'public-' + row.id, name: row.name, revision: project.revision, document: this.projectProjection(project.document, row.room_id, JSON.parse(row.asset_ids)),
@@ -250,17 +261,21 @@ class ProjectAccess {
     return this.libraryCache;
   }
   libraryCatalog(user) {
-    if (!user) fail(401, 'Inicia sesión para explorar todos los ejemplos.', 'authentication_required');
+    if (!user && !this.previewAllExamples()) fail(401, 'Inicia sesión para explorar todos los ejemplos.', 'authentication_required');
+    if (this.previewAllExamples()) return {scenes: [], includedInPublicCatalog: true};
     return {scenes: this.libraryEntries().map(({id, name, roomId, collection}) => ({id, name, roomId, collection, projectId: 'library-' + id, revision: 1, library: true}))};
   }
   libraryProject(user, sceneId) {
-    if (!user) fail(401, 'Inicia sesión para explorar todos los ejemplos.', 'authentication_required');
+    if (!user && !this.previewAllExamples()) fail(401, 'Inicia sesión para explorar todos los ejemplos.', 'authentication_required');
     const entry = this.libraryEntries().find(value => value.id === sceneId); if (!entry) fail(404, 'El ejemplo no existe.', 'not_found');
     return {id: 'library-' + entry.id, name: entry.name, revision: 1, document: this.projectProjection(entry.document, entry.roomId),
       access: {role: 'library', canEdit: false, canShare: false}, allowedRoomIds: [entry.roomId], librarySceneId: entry.id};
   }
-  configurePublic(user, scenes) {
+  publicationSettings() {return {previewAllExamples: this.previewAllExamples(), scenes: this.db.prepare('SELECT id,project_id AS projectId,room_id AS roomId,name,enabled,asset_ids AS assetIds FROM studio_public_scenes ORDER BY rowid').all().map(row => Object.assign({}, row, {enabled: !!row.enabled, assetIds: JSON.parse(row.assetIds)}))};}
+  configurePublic(user, scenes, options = {}) {
     if (!this.admin(user)) fail(403, 'Solo el administrador publica escenas.', 'owner_required');
+    if (options.previewAllExamples !== undefined && typeof options.previewAllExamples !== 'boolean') fail(400, 'El modo de ejemplos públicos debe ser verdadero o falso.');
+    if (scenes === undefined) {if (options.previewAllExamples === undefined) fail(400, 'Falta la selección o política pública.'); this.db.prepare("INSERT OR REPLACE INTO studio_settings(key,value) VALUES('public-examples-preview',?)").run(options.previewAllExamples ? '1' : '0'); return this.publicCatalog();}
     if (!Array.isArray(scenes) || scenes.length > 100 || scenes.filter(value => value.enabled !== false).length > 2) fail(400, 'Publica como máximo dos escenas activas.', 'public_scene_limit');
     const ids = new Set();
     const rows = scenes.map(value => {
@@ -272,10 +287,16 @@ class ProjectAccess {
       if ([...requested].some(id => !assetIds.includes(id))) fail(400, 'Selecciona los archivos que necesita la escena pública.', 'public_assets_required');
       return [value.id, projectId, value.roomId, value.name.trim(), value.enabled === false ? 0 : 1, JSON.stringify(assetIds)];
     });
-    this.db.exec('BEGIN IMMEDIATE'); try { this.db.prepare('DELETE FROM studio_public_scenes').run(); for (const row of rows) this.db.prepare('INSERT INTO studio_public_scenes VALUES(?,?,?,?,?,?)').run(...row); this.db.exec('COMMIT'); } catch (error) { this.db.exec('ROLLBACK'); throw error; }
+    this.db.exec('BEGIN IMMEDIATE'); try { this.db.prepare('DELETE FROM studio_public_scenes').run(); for (const row of rows) this.db.prepare('INSERT INTO studio_public_scenes VALUES(?,?,?,?,?,?)').run(...row); if (options.previewAllExamples !== undefined) this.db.prepare("INSERT OR REPLACE INTO studio_settings(key,value) VALUES('public-examples-preview',?)").run(options.previewAllExamples ? '1' : '0'); this.db.exec('COMMIT'); } catch (error) { this.db.exec('ROLLBACK'); throw error; }
     return this.publicCatalog();
   }
   canDownloadExamples(req) { return !!this.service.user(req, false); }
+  canDownloadPublicExample(req, filename) {
+    if (!/^[a-z0-9-]+\.json$/.test(filename)) return false;
+    if (filename === 'catalog.json' || this.previewAllExamples() || this.service.user(req, false)) return true;
+    const sceneId = filename.slice(0, -5);
+    return this.publicCatalog().scenes.some(scene => scene.id === sceneId);
+  }
   _deleteRoomRows(roomId) {
     for (const table of ['studio_locks','studio_room_events','studio_members']) this.db.prepare('DELETE FROM ' + table + ' WHERE room_id=?').run(roomId);
     this.db.prepare('DELETE FROM studio_rooms WHERE id=?').run(roomId);

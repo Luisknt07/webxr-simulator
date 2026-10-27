@@ -14,6 +14,7 @@ module.exports = function loadIndustrialLab(THREE, schema, buildIndustrialLabLin
   const {applyIndustrialMonitorLayout} = require('./load-industrial-monitor-layout')(THREE, schema);
   const applyIndustrialMessages = new Function('schema', read('IndustrialMessages.js') + '\nreturn applyIndustrialMessages;')(schema);
   const {applyIndustrialAging} = require('./load-industrial-aging')(THREE);
-  return new Function('THREE', 'schema', 'buildIndustrialLabLines', 'applyIndustrialFinishes', 'buildCediEnvironment', 'applyIndustrialFloorPresentation', 'applyIndustrialMonitorLayout', 'applyIndustrialMessages', 'applyIndustrialAging', read('IndustrialLab.js') + '\nreturn buildIndustrialLab;')
-    (THREE, schema, buildIndustrialLabLines, applyIndustrialFinishes, buildCediEnvironment, applyIndustrialFloorPresentation, applyIndustrialMonitorLayout, applyIndustrialMessages, applyIndustrialAging);
+  const retrofitCediRobotics = new Function('THREE', 'schema', read('IndustrialCediRobotics.js') + '\nreturn retrofitCediRobotics;')(THREE, schema);
+  return new Function('THREE', 'schema', 'buildIndustrialLabLines', 'applyIndustrialFinishes', 'buildCediEnvironment', 'applyIndustrialFloorPresentation', 'applyIndustrialMonitorLayout', 'applyIndustrialMessages', 'applyIndustrialAging', 'retrofitCediRobotics', read('IndustrialLab.js') + '\nreturn buildIndustrialLab;')
+    (THREE, schema, buildIndustrialLabLines, applyIndustrialFinishes, buildCediEnvironment, applyIndustrialFloorPresentation, applyIndustrialMonitorLayout, applyIndustrialMessages, applyIndustrialAging, retrofitCediRobotics);
 };

@@ -1097,12 +1097,19 @@ export default class SceneEditor {
     if (!this.transform || !this.transform.dragging) this.refreshAssembly();
   }
 
-  async prepareRoom(roomId = this.roomId) {
-    if (this.document.activateRoom) await this.document.activateRoom(roomId);
+  async prepareRoom(roomId = this.roomId, options = {}) {
+    const current = () => {
+      if (options.signal && options.signal.aborted) throw Object.assign(new Error('Carga de escenario cancelada.'), {name: 'AbortError', code: 'load_aborted'});
+      if (options.assertCurrent) options.assertCurrent();
+    };
+    current();
+    if (this.document.activateRoom) await this.document.activateRoom(roomId, options);
+    current();
     if (this.document.hasPendingRoom && this.document.hasPendingRoom(roomId)) {
       throw new Error('La sala cambió mientras se cargaba. Vuelve a seleccionarla.');
     }
-    if (this.ctx.roomAssets) await this.ctx.roomAssets.prepareRoom(roomId, this.document.getRoot(roomId));
+    if (this.ctx.roomAssets) await this.ctx.roomAssets.prepareRoom(roomId, this.document.getRoot(roomId), options);
+    current();
     this.performance.invalidate();
   }
 
@@ -2742,7 +2749,67 @@ export default class SceneEditor {
   }
 
   async applyServerProjectNow(project, options = {}) {
+    if (!options.transitionApplication) {
+      let previous = null, restored = false;
+      // The transition's final preparation/GPU warmup runs after execute()
+      // returns. Keep its rollback alive through that outer phase as well.
+      const recover = async error => {
+        if (!previous || restored) return;
+        this.stopRuntime();
+        const scopeValid = !this.accessView || !this.accessView.enabled || previous.identity === this.accessView.identityGeneration;
+        if (!scopeValid) {this.document.rooms.forEach(entry => {entry.root.visible = false;}); error.keepRoomCover = true; throw error;}
+        try {
+          this.loadingProject = true;
+          this.document._restore(previous.snapshot);
+          this.document.undoStack.splice(0, this.document.undoStack.length, ...previous.undo);
+          this.document.redoStack.splice(0, this.document.redoStack.length, ...previous.redo);
+          Object.assign(this, previous.metadata);
+          this.loadingAllowedRoomIds = this.currentProject && this.currentProject.allowedRoomIds || null;
+          // Recovery must not inherit an aborted destination's signal.
+          await this.prepareRoom(previous.roomId);
+          if (this.roomId !== previous.roomId) await this.hooks.gotoRoom(ROOM_IDS.indexOf(previous.roomId));
+          previous.visible.forEach(([root, visible]) => {root.visible = visible;});
+          if (previous.rig && this.ctx.cameraRig) {this.ctx.cameraRig.position.copy(previous.rig.position); this.ctx.cameraRig.quaternion.copy(previous.rig.quaternion);}
+          if (previous.camera && this.ctx.camera && !this.ctx.vrMode) {this.ctx.camera.position.copy(previous.camera.position); this.ctx.camera.quaternion.copy(previous.camera.quaternion);}
+          this.syncNative();
+          if (this.ctx.roomAssets && this.ctx.roomAssets.setActiveRoom) this.ctx.roomAssets.setActiveRoom(previous.roomId, this.document.getRoot(previous.roomId));
+          this.entries = await this.library.getCatalog(); this.renderAssets();
+          this.select(null); this.updateStatus();
+          if (!this.active && !this.ctx.roomTransition) this.startRuntime();
+          restored = true;
+        } catch (recoveryError) {
+          this.document.rooms.forEach(entry => {entry.root.visible = false;});
+          error.keepRoomCover = true; error.recoveryError = recoveryError; throw error;
+        } finally {this.loadingProject = false; this.loadingAllowedRoomIds = null;}
+      };
+      const execute = async request => {
+        if (request) request.assertCurrent();
+        // Capture authored poses after detaching live products/vehicle input.
+        // No partially loaded document or failed runtime is ever uncovered.
+        this.stopRuntime();
+        restored = false;
+        previous = {snapshot: this.document.capture(), roomId: this.roomId,
+          identity: this.accessView && this.accessView.identityGeneration,
+          undo: this.document.undoStack.slice(), redo: this.document.redoStack.slice(),
+          visible: Array.from(this.document.rooms.values()).map(entry => [entry.root, entry.root.visible]),
+          metadata: {currentProject: this.currentProject, publicView: this.publicView, projectName: this.projectName,
+            historicalRevision: this.historicalRevision, dirty: this.dirty, storageAvailable: this.storageAvailable, remoteProject: this.remoteProject},
+          camera: this.ctx.camera && {position: this.ctx.camera.position.clone(), quaternion: this.ctx.camera.quaternion.clone()},
+          rig: this.ctx.cameraRig && {position: this.ctx.cameraRig.position.clone(), quaternion: this.ctx.cameraRig.quaternion.clone()}};
+        try {
+          return await this.applyServerProjectNow(project, Object.assign({}, options, {transitionApplication: true, transitionRequest: request}));
+        } catch (error) {
+          await recover(error);
+          throw error;
+        }
+      };
+      return this.ctx.withRoomTransition ? this.ctx.withRoomTransition(execute, {label: 'Cargando ' + (project && project.name || 'escenario') + '…', recover}) : execute(null);
+    }
     if (!project || !project.document) throw new Error('El proyecto recibido no contiene un escenario.');
+    const request = options.transitionRequest;
+    const assertCurrent = () => { if (request) request.assertCurrent(); };
+    const preparation = request ? {signal: request.signal, assertCurrent, yieldControl: request.yieldControl} : {};
+    assertCurrent();
     const declared = project.allowedRoomIds || (this.accessView && this.accessView.enabled ? (project.document.studio && project.document.studio.scenes || []).map(scene => scene.id || scene.roomId) : []);
     const initial = project.document.studio && project.document.studio.startRoomId;
     const requested = ROOM_IDS.includes(options.roomId) ? options.roomId : initial || this.roomId;
@@ -2759,37 +2826,44 @@ export default class SceneEditor {
     this.loadingAllowedRoomIds = declared.length ? declared : null;
     const transformEnabled = this.transform.enabled;
     this.transform.enabled = false;
+    let projectReady = false;
     try {
       if (options.workspaceSnapshot) this.document._restore(options.workspaceSnapshot);
-      else await this.document.load(project.document, {activeRoomId: targetRoomId});
+      else await this.document.load(project.document, Object.assign({activeRoomId: targetRoomId}, preparation));
+      assertCurrent();
       if (this.accessView && this.accessView.enabled && options.accessGeneration !== this.accessView.identityGeneration) throw new Error('La cuenta cambió durante la carga.');
-      await this.prepareRoom(targetRoomId);
+      await this.prepareRoom(targetRoomId, preparation);
+      assertCurrent();
       if (this.accessView && this.accessView.enabled && options.accessGeneration !== this.accessView.identityGeneration) throw new Error('La cuenta cambió durante la preparación.');
       this.currentProject = {id: project.id, name: project.name, revision: project.revision, access: project.access, allowedRoomIds: project.allowedRoomIds, publicSceneId: project.publicSceneId, librarySceneId: project.librarySceneId};
       this.publicView = Boolean(project.access && project.access.canEdit === false);
       this.clearObjectClipboard();
       this.projectName = project.name;
       if (targetRoomId !== this.roomId) await this.hooks.gotoRoom(ROOM_IDS.indexOf(targetRoomId));
+      assertCurrent();
       this.historicalRevision = project.historicalRevision || null;
       // A project owns its edit history; previous projects stay in the database.
       this.document.undoStack.length = 0;
       this.document.redoStack.length = 0;
       this.entries = await this.library.getCatalog();
+      assertCurrent();
       this.select(null);
       this.renderAssets();
       this.syncNative();
+      if (this.ctx.roomAssets && this.ctx.roomAssets.setActiveRoom) this.ctx.roomAssets.setActiveRoom(targetRoomId, this.document.getRoot(targetRoomId));
       this.dirty = Boolean(project.historicalRevision);
       this.storageAvailable = true;
       this.rememberProject(project);
       this.markRemoteProject(null);
       this.updateStatus();
+      projectReady = true;
     } finally {
       this.loadingProject = false;
       this.loadingAllowedRoomIds = null;
       this.transform.enabled = transformEnabled && this.active;
       const scopeValid = !this.accessView || !this.accessView.enabled || options.accessGeneration === this.accessView.identityGeneration;
       if (!scopeValid) this.document.rooms.forEach(entry => { entry.root.visible = false; });
-      if (!this.active && scopeValid) this.startRuntime();
+      if (!this.active && scopeValid && projectReady && !this.ctx.roomTransition) this.startRuntime();
       this.simulationPanel.modeChanged();
       this.updateStatus();
     }

@@ -55,28 +55,138 @@ async function waitForApplication(browser, message) {
   await browser.evaluate('context.studio.ready');
 }
 
+// The publication policy can temporarily expose the entire included catalog.
+// Its metadata, rather than a fixed DOM count or particular scene IDs, is the
+// contract for both that preview and the normal two-scene publication.
+function validateCatalog(catalog) {
+  assert(catalog && Array.isArray(catalog.scenes), 'Public catalog is missing its scenes.');
+  assert(catalog.scenes.length >= 2 && catalog.scenes.length <= 64, 'Public QA requires at least two bounded examples.');
+  assert.equal(new Set(catalog.scenes.map(scene => scene.id)).size, catalog.scenes.length, 'Duplicate public scene IDs.');
+  for (const scene of catalog.scenes) {
+    assert(/^[a-z0-9-]{1,80}$/.test(scene.id), 'Invalid public scene ID.');
+    assert(typeof scene.roomId === 'string' && scene.roomId.length, 'Public scene has no room ID.');
+    assert(typeof scene.name === 'string' && scene.name.length, 'Public scene has no display name.');
+    assert.notEqual(scene.public, false, 'The anonymous catalog contains a non-public entry.');
+  }
+  if (catalog.previewAllExamples === true) {
+    assert.equal(catalog.requiresLogin, false, 'The included preview must be accessible without login.');
+    assert.equal(catalog.includedCount, catalog.scenes.length, 'Preview is missing included examples.');
+  } else {
+    assert.equal(catalog.requiresLogin, true, 'Restricted publication must explain access to further examples.');
+    assert.equal(catalog.maxActive, 2);
+    assert.equal(catalog.scenes.length, 2, 'Restricted publication must expose its two configured scenes.');
+  }
+  return catalog;
+}
+
+function validatePublicProjection(value, scene, preview) {
+  assert.equal(value.status, 200, 'Anonymous example is unavailable: ' + scene.id);
+  assert.equal(value.scene, scene.id);
+  assert.equal(value.projectId, scene.projectId || 'public-' + scene.id);
+  assert.deepEqual(value.rooms, [scene.roomId], 'Public example leaks or omits room data: ' + scene.id);
+  assert.deepEqual(value.allowed, [scene.roomId]);
+  assert.deepEqual(value.access, {role: 'public', canEdit: false, canShare: false});
+  assert.equal(value.privateResources, false, 'Public example exposes a private resource browser: ' + scene.id);
+  if (preview) assert.equal(value.imports, 0, 'Included example must not depend on private uploads: ' + scene.id);
+}
+
+async function readCatalog(browser, staticPublic) {
+  const result = await browser.call(async isStatic => {
+    const url = new URL(isStatic ? 'assets/public-scenes/catalog.json' : '/api/public/scenes', isStatic ? document.baseURI : location.origin);
+    const response = await fetch(url.href, {credentials: 'omit', cache: 'no-store'});
+    return {status: response.status, catalog: await response.json()};
+  }, staticPublic);
+  assert.equal(result.status, 200, 'Anonymous public catalog is unavailable.');
+  const catalog = validateCatalog(result.catalog);
+  browser.report.catalog = {previewAllExamples: !!catalog.previewAllExamples, requiresLogin: catalog.requiresLogin, count: catalog.scenes.length, ids: catalog.scenes.map(scene => scene.id)};
+  return catalog;
+}
+
+async function verifyAnonymousExamples(browser, catalog, staticPublic) {
+  // Read each projection sequentially. This tests all 30 preview endpoints
+  // without instantiating 30 worlds or retaining their large JSON documents.
+  const projections = await browser.call(async (scenes, isStatic) => {
+    const summaries = [];
+    for (const scene of scenes) {
+      const url = new URL(isStatic ? 'assets/public-scenes/' + encodeURIComponent(scene.id) + '.json' : '/api/public/scenes/' + encodeURIComponent(scene.id), isStatic ? document.baseURI : location.origin);
+      const response = await fetch(url.href, {credentials: 'omit', cache: 'no-store'}), result = await response.json(), project = result && result.project;
+      const documentValue = project && project.document, studio = documentValue && documentValue.studio;
+      summaries.push({status: response.status, scene: project && project.publicSceneId, projectId: project && project.id,
+        rooms: Object.keys(documentValue && documentValue.rooms || {}), allowed: project && project.allowedRoomIds, access: project && project.access,
+        imports: (documentValue && documentValue.imports || []).length, privateResources: !!(studio && (studio.resources || studio.folders))});
+    }
+    return summaries;
+  }, catalog.scenes, staticPublic);
+  assert.equal(projections.length, catalog.scenes.length);
+  projections.forEach((value, index) => validatePublicProjection(value, catalog.scenes[index], catalog.previewAllExamples));
+  browser.report.anonymousExamples = projections;
+}
+
+async function openGallery(browser, catalog) {
+  await browser.evaluate('context.studio.open("scenes")');
+  await browser.until(() => browser.call(count => context.studio.content.querySelectorAll('.studio-card').length === count && !context.studio.busy, catalog.scenes.length), 'Public gallery does not match its catalog (' + catalog.scenes.length + ' examples).');
+  const names = await browser.evaluate('[...context.studio.content.querySelectorAll(".studio-card strong")].map(e=>e.textContent)');
+  assert.deepEqual(names, catalog.scenes.map(scene => scene.name), 'Public gallery order/content differs from its metadata.');
+  return names;
+}
+
+async function openGalleryScene(browser, catalog, index) {
+  const scene = catalog.scenes[index];
+  assert(await browser.call((cardIndex, name) => {
+    const card = context.studio.content.querySelectorAll('.studio-card')[cardIndex];
+    if (!card || card.querySelector('strong')?.textContent !== name || !card.querySelector('button')) return false;
+    card.querySelector('button').click(); return true;
+  }, index, scene.name), 'Public gallery has no matching action: ' + scene.id);
+  await browser.until(() => browser.call(id => context.editor.currentProject?.publicSceneId === id && !context.editor.loadingProject && !context.studio.busy, scene.id), 'Public example did not open: ' + scene.id);
+  await browser.evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+  return scene;
+}
+
+function validateLoadedScene(state, scene) {
+  assert.equal(state.scene, scene.id); assert.equal(state.room, scene.roomId);
+  assert.deepEqual(state.allowed, [scene.roomId]); assert.deepEqual(state.entries, [scene.roomId]);
+  assert.equal(state.canEdit, false); assert.equal(state.active, false); assert.equal(state.failed, false);
+  assert.equal(state.loading, 'none'); assert(state.triangles > 0); assert.equal(state.gl, 0);
+}
+
+function browserState(browser) {
+  return browser.evaluate('(()=>{const e=context.editor;return {static:e.staticPublic,canEdit:e.canEditDocument(),room:e.roomId,allowed:e.currentProject?.allowedRoomIds,scene:e.currentProject?.publicSceneId,active:e.active,failed:e.accessLoadFailed,online:context.studio.online,loading:getComputedStyle(document.getElementById("loading")).display,triangles:context.renderer.info.render.triangles,gl:context.renderer.getContext().getError(),base:document.baseURI,entries:e.getSceneEntries().map(s=>s.id||s.roomId)}})()');
+}
+
+async function verifyMobile(browser, url, catalog) {
+  await browser.send('Emulation.setDeviceMetricsOverride', {width: 390, height: 844, deviceScaleFactor: 1, mobile: true});
+  await browser.send('Emulation.setTouchEmulationEnabled', {enabled: true, maxTouchPoints: 5});
+  // Reload with mobile metrics to avoid retaining Chrome's desktop viewport.
+  const destination = new URL(url); destination.searchParams.set('scene', catalog.scenes[1].id); destination.searchParams.set('qa-mobile', '1');
+  destination.searchParams.delete('project'); destination.searchParams.delete('room'); destination.searchParams.delete('libraryScene');
+  await browser.send('Page.navigate', {url: destination.href});
+  await waitForApplication(browser, 'Mobile public example did not initialize.');
+  validateLoadedScene(await browserState(browser), catalog.scenes[1]);
+  await openGallery(browser, catalog);
+  const mobile = await browser.evaluate('(()=>{const r=context.studio.drawer.getBoundingClientRect();return {width:innerWidth,scrollWidth:document.documentElement.scrollWidth,left:r.left,right:r.right,controls:!!context.mobileNavigation,scene:context.editor.currentProject?.publicSceneId}})()');
+  assert.equal(mobile.width, 390); assert(mobile.scrollWidth <= 391); assert(mobile.left >= -1 && mobile.right <= 391); assert(mobile.controls); assert.equal(mobile.scene, catalog.scenes[1].id);
+  browser.report.mobile = mobile; await browser.screenshot('public-mobile');
+  await openGalleryScene(browser, catalog, 0);
+  validateLoadedScene(await browserState(browser), catalog.scenes[0]);
+  browser.report.mobileNavigation = {from: catalog.scenes[1].id, to: catalog.scenes[0].id};
+  await browser.screenshot('public-mobile-first');
+}
+
 async function verify(origin, base, expected, local) {
   return withBrowser(origin, async b => {
     const ready=()=>waitForApplication(b,'Public application did not initialize.');
-    const state=()=>b.evaluate('(()=>{const e=context.editor;return {static:e.staticPublic,canEdit:e.canEditDocument(),room:e.roomId,allowed:e.currentProject?.allowedRoomIds,scene:e.currentProject?.publicSceneId,active:e.active,failed:e.accessLoadFailed,online:context.studio.online,loading:getComputedStyle(document.getElementById("loading")).display,triangles:context.renderer.info.render.triangles,gl:context.renderer.getContext().getError(),base:document.baseURI,entries:e.getSceneEntries().map(s=>s.id||s.roomId)}})()');
     console.log('Public Chrome:', origin + base);
     await b.send('Page.navigate',{url:origin+base}); await ready(); await b.evaluate('context.studio.ready');
-    let first=await state(); assert.equal(first.static,true);assert.equal(first.canEdit,false);assert.equal(first.active,false);assert.equal(first.failed,false);assert.equal(first.online,false);assert.equal(first.loading,'none');assert.equal(first.gl,0);assert(first.triangles>0);assert.equal(first.scene,'l-transfer');assert.deepEqual(first.allowed,['hall']);assert.equal(first.entries.length,1);b.report.initial=first;
+    const catalog=await readCatalog(b,true),first=await browserState(b);validateLoadedScene(first,catalog.scenes[0]);assert.equal(first.static,true);assert.equal(first.online,false);b.report.initial=first;
     await b.screenshot('public-initial');
-    await b.evaluate('context.studio.open("scenes")');await b.until(()=>b.evaluate('context.studio.content.querySelectorAll(".studio-card").length===2'), 'Static gallery did not show exactly two public examples.');
-    b.report.gallery=await b.evaluate('[...context.studio.content.querySelectorAll(".studio-card strong")].map(e=>e.textContent)');await b.screenshot('public-gallery');
-    await b.evaluate('context.studio.content.querySelectorAll(".studio-card button")[1].click()');
-    await b.until(()=>b.evaluate('context.editor.currentProject?.publicSceneId==="inspection-sorting"&&!context.editor.loadingProject&&!context.studio.busy'), 'Second public example did not open.');
-    const second=await state();assert.equal(second.scene,'inspection-sorting');assert.equal(second.room,'sound');assert.deepEqual(second.allowed,['sound']);assert.equal(second.entries.length,1);assert(second.triangles>0);assert.equal(second.gl,0);b.report.second=second;await b.screenshot('public-second');
+    b.report.gallery=await openGallery(b,catalog);await b.screenshot('public-gallery');
+    await openGalleryScene(b,catalog,1);
+    const second=await browserState(b);validateLoadedScene(second,catalog.scenes[1]);b.report.second=second;await b.screenshot('public-second');
+    await verifyAnonymousExamples(b,catalog,true);
     await b.evaluate('context.studio.open("account")');
     assert.equal(await b.evaluate('context.studio.content.querySelectorAll("input[type=password]").length'),0);
     assert(await b.evaluate('context.studio.content.textContent.includes("servidor")'));b.report.staticAccountNotice=true;
-    await b.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await b.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
-    // Load with mobile metrics already in place. Switching an existing desktop
-    // canvas into mobile emulation can retain Chrome's previous layout viewport.
-    await b.send('Page.navigate',{url:origin+base+'?scene=inspection-sorting&qa-mobile=1'});await ready();await b.evaluate('context.studio.ready');
-    await b.evaluate('context.studio.open("scenes")');await b.until(()=>b.evaluate('context.studio.content.querySelectorAll(".studio-card").length===2'), 'Mobile gallery did not open.');
-    const mobile=await b.evaluate('(()=>{const r=context.studio.drawer.getBoundingClientRect();return {width:innerWidth,scrollWidth:document.documentElement.scrollWidth,left:r.left,right:r.right,controls:!!context.mobileNavigation,scene:context.editor.currentProject?.publicSceneId}})()');assert.equal(mobile.width,390);assert(mobile.scrollWidth<=391);assert(mobile.left>=-1&&mobile.right<=391);assert(mobile.controls);assert.equal(mobile.scene,'inspection-sorting');b.report.mobile=mobile;await b.screenshot('public-mobile');
+    await verifyMobile(b,origin+base,catalog);
     const resources=await b.evaluate('performance.getEntriesByType("resource").map(e=>e.name).filter(u=>new URL(u).origin===location.origin)');
     if(base!=='/')for(const url of resources.filter(u=>/\/(?:assets|res|src)\//.test(u)))assert(new URL(url).pathname.startsWith(base),url);
     assert.deepEqual(b.report.exceptions,[]);assert.deepEqual(b.report.consoleErrors,[]);assert.deepEqual(b.report.writes,[]);
@@ -85,7 +195,7 @@ async function verify(origin, base, expected, local) {
     if(local){assert.equal(local.publication.bundleSha256,expected);b.report.artifact=local.publication;}
     b.report.buildHash=expected;b.report.basePath=base;b.report.readOnly=true;
     fs.writeFileSync(path.join(OUTPUT,base==='/'?'public-root-browser.json':'public-subdirectory-browser.json'),JSON.stringify(b.report,null,2));
-    console.log('Public Chrome passed:',JSON.stringify({base,scene:second.scene,triangles:second.triangles,screenshots:b.report.shots.length,exceptions:b.report.exceptions.length}));
+    console.log('Public Chrome passed:',JSON.stringify({base,scene:second.scene,examples:catalog.scenes.length,preview:!!catalog.previewAllExamples,triangles:second.triangles,screenshots:b.report.shots.length,exceptions:b.report.exceptions.length}));
   });
 }
 
@@ -101,14 +211,18 @@ async function run(){
       b.report.tunnelNotice=await b.evaluate('(()=>{if(window.context?.editor)return false;const button=[...document.querySelectorAll("a,button,input[type=submit]")].find(e=>/^(Continuar|Continue)$/i.test((e.textContent||e.value||"").trim()));if(!button)return false;button.click();return true;})()');
     }
     await waitForApplication(b,'Public tunnel application did not initialize.');
-    const state=await b.evaluate('({static:!!context.editor.staticPublic,online:context.studio.online,canEdit:context.editor.canEditDocument(),user:context.studio.client.user,scene:context.editor.currentProject?.publicSceneId,room:context.editor.roomId,triangles:context.renderer.info.render.triangles,loading:getComputedStyle(document.getElementById("loading")).display,gl:context.renderer.getContext().getError()})');
-    assert.equal(state.static,false);assert.equal(state.online,true);assert.equal(state.canEdit,false);assert.equal(state.user,null);assert(state.scene);assert(state.triangles>0);assert.equal(state.loading,'none');assert.equal(state.gl,0);b.report.publicTunnel=state;await b.screenshot('public-tunnel');
-    await b.evaluate('context.studio.open("scenes")');await b.until(()=>b.evaluate('context.studio.content.querySelectorAll(".studio-card").length===2'), 'Public tunnel gallery must show exactly two examples.');
-    b.report.gallery=await b.evaluate('[...context.studio.content.querySelectorAll(".studio-card strong")].map(e=>e.textContent)');await b.screenshot('public-tunnel-gallery');
+    const catalog=await readCatalog(b,false),state=await browserState(b),initialScene=catalog.scenes.find(scene=>scene.id===state.scene);
+    assert(initialScene,'Server opened a scene outside its anonymous catalog.');validateLoadedScene(state,initialScene);
+    assert.equal(state.static,false);assert.equal(state.online,true);assert.equal(await b.evaluate('context.studio.client.user'),null);b.report.publicTunnel=state;await b.screenshot('public-tunnel');
+    b.report.gallery=await openGallery(b,catalog);await b.screenshot('public-tunnel-gallery');
+    await openGalleryScene(b,catalog,1);const second=await browserState(b);validateLoadedScene(second,catalog.scenes[1]);b.report.second=second;await b.screenshot('public-tunnel-second');
+    await verifyAnonymousExamples(b,catalog,false);
+    await verifyMobile(b,url.href,catalog);
     assert.deepEqual(b.report.exceptions,[]);assert.deepEqual(b.report.consoleErrors,[]);assert.deepEqual(b.report.writes,[]);assert.deepEqual(b.report.apiFailures,[]);
-    fs.writeFileSync(path.join(OUTPUT,'public-tunnel-browser.json'),JSON.stringify(b.report,null,2));console.log('Public tunnel Chrome passed:',JSON.stringify({origin:url.origin,scene:state.scene,triangles:state.triangles,exceptions:0,writes:0}));
+    b.report.buildHash=expected;b.report.readOnly=true;
+    fs.writeFileSync(path.join(OUTPUT,'public-tunnel-browser.json'),JSON.stringify(b.report,null,2));console.log('Public tunnel Chrome passed:',JSON.stringify({origin:url.origin,scene:second.scene,examples:catalog.scenes.length,preview:!!catalog.previewAllExamples,triangles:second.triangles,exceptions:0,writes:0}));
   });return;}
   if(external){const url=new URL(external);assert.equal(url.protocol,'https:');await verify(url.origin,url.pathname.endsWith('/')?url.pathname:url.pathname+'/',expected);return;}
   const fixture=await startStaticServer();try{if(!arg('--base')||arg('--base')==='/')await verify(fixture.origin,'/',expected,fixture);fixture.requests.length=0;if(!arg('--base')||arg('--base')==='/webxr-simulator/')await verify(fixture.origin,'/webxr-simulator/',expected,fixture);}finally{await fixture.close();}
 }
-module.exports={startStaticServer,verify};if(require.main===module)run().catch(error=>{console.error(error);process.exitCode=1;});
+module.exports={startStaticServer,verify,withBrowser,validateCatalog,validatePublicProjection,validateLoadedScene,readCatalog,verifyAnonymousExamples,openGallery,openGalleryScene,verifyMobile};if(require.main===module)run().catch(error=>{console.error(error);process.exitCode=1;});

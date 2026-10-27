@@ -84,8 +84,8 @@ async function run() {
     // Exercise the real SceneEditor application queue and post-await scope guard
     // without instantiating a renderer or substituting its implementation.
     const application = new ProjectApplication(), loading = deferred(), loaded = [], shown = [];
-    Object.assign(application, {accessView: {enabled: true, identityGeneration: 0}, roomId: 'hall', projectGeneration: 0, active: false,
-      transform: {enabled: false}, document: {rooms: new Map([['hall', {root: {visible: true}}]]), undoStack: [], redoStack: [], async load(value) { loaded.push(value); if (value === privateProject.document) await loading.promise; }},
+    Object.assign(application, {ctx: {}, accessView: {enabled: true, identityGeneration: 0}, roomId: 'hall', projectGeneration: 0, active: false,
+      transform: {enabled: false}, document: {rooms: new Map([['hall', {root: {visible: true}}]]), undoStack: [], redoStack: [], capture() { return {}; }, async load(value) { loaded.push(value); if (value === privateProject.document) await loading.promise; }},
       library: {async getCatalog() { return []; }}, hooks: {async gotoRoom(index) { application.roomId = ['hall', 'sound'][index]; }},
       assetThumbnails: {dispose() {}}, decals: {dispose() {}}, infoPreview: {dispose() {}}, simulationPanel: {modeChanged() {}},
       async prepareRoom() {}, startRuntime() { shown.push(this.currentProject.id); }});

@@ -97,7 +97,7 @@ export default class PalletQueueRuntime {
     return null;
   }
 
-  placement(record, product, reservations = [], preferredCenter, markFull = false) {
+  placement(record, product, reservations = [], preferredCenter, markFull = false, receivingIgnore) {
     const component = record.components.palletQueue;
     if (!component || component.queue.length + reservations.length >= component.config.capacity) return null;
     const item = this.itemFor(product), perPallet = component.config.acceptsPallets ? 1 : component.config.columns * component.config.rows * component.config.layers;
@@ -123,7 +123,12 @@ export default class PalletQueueRuntime {
       } else target = this.runtime.palletMatrix(pallet, item, slot);
       if (!target) continue;
       const box = product.bounds.clone().applyMatrix4(target.matrix), world = this.runtime.ctx.collisionWorld;
-      if (world && world.testBox(box, this.collisionOptions(record, item, reservations))) continue;
+      const options = this.collisionOptions(record, item, reservations);
+      // Only the carrier runtime supplies this callback, after proving both
+      // tines fit the pallet pockets at this exact final placement. Normal
+      // stock queries keep every vehicle/chassis/mast collision unchanged.
+      if (typeof receivingIgnore === 'function') options.ignore.push(...receivingIgnore(target.matrix));
+      if (world && world.testBox(box, options)) continue;
       const candidate = {slot, globalSlot, palletIndex, matrix: target.matrix, bounds: box, box, height: target.height};
       if (!preferredCenter) return candidate;
       const distance = preferredCenter.distanceTo(box.getCenter(new THREE.Vector3()));
@@ -222,14 +227,14 @@ export default class PalletQueueRuntime {
     return {record, belt, item, target, receiver, sourceBuffer: true, palletQueue: true, placement, box: placement.bounds, blocked: false};
   }
 
-  findPlacement(product, tolerance = .6) {
+  findPlacement(product, tolerance = .6, receivingIgnore) {
     product.object.updateWorldMatrix(true, true);
     const current = product.bounds.clone().applyMatrix4(product.object.matrixWorld), center = current.getCenter(new THREE.Vector3());
     let best = null;
     this.runtime.records.forEach(record => {
       const component = record.components.palletQueue;
       if (!component || !component.enabled || !visible(record.object)) return;
-      const candidate = this.placement(record, product, [], center);
+      const candidate = this.placement(record, product, [], center, false, receivingIgnore);
       if (!candidate) {
         const config = component.config, layout = behaviorSchema.conveyorLayout.palletQueueLayout(config);
         record.object.updateWorldMatrix(true, false);

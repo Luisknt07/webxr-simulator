@@ -30,8 +30,10 @@ jobs:
         uses: actions/configure-pages@v5
       # Production bundles are versioned after local build/browser validation.
       # Packaging needs no npm dependencies, database, account or private token.
-      - name: Generate the two public scene projections
-        run: node scripts/generate-public-scenes.js
+      # Publish the exact projections reviewed alongside these bundles. Their
+      # local generator uses Three.js and is deliberately not run in packaging.
+      - name: Validate versioned public scene projections
+        run: node scripts/validate-public-scenes.js
       - name: Verify publication boundaries
         run: node scripts/test-pages-package.js
       - name: Prepare static viewer artifact

@@ -13,6 +13,7 @@ import {retrofitCediRobotics} from './IndustrialCediRobotics.js';
  * authored interior camera/spawn, reusable group and world-space supervision. */
 export function buildIndustrialCediLevel(document, roomId, options = {}) {
   const objects = [], own = !document.transaction;
+  const authoringRoot = document.getRoot(roomId), roomVisible = authoringRoot.visible;
   if (own) document.begin();
   const primitive = (name, kind, color, position, scale, behaviors = [], rotation = [0, 0, 0]) => {
     const object = document.addPrimitive(roomId, kind, color);
@@ -23,11 +24,21 @@ export function buildIndustrialCediLevel(document, roomId, options = {}) {
     [Object.assign(schema.defaultBehavior('surfaceMaterial'), {color, metalness: 0, roughness: 1, clearcoat: 0, colorMapMode: 'none'})], [-Math.PI / 2, 0, 0]);
   const structural = [schema.defaultBehavior('collision'), Object.assign(schema.defaultBehavior('surfaceMaterial'), {color: '#58676f', metalness: .45, roughness: .7, colorMapMode: 'none'})];
   try {
+    // Magnetic-port authoring inspects visible ancestors. Temporarily expose
+    // only this room while synchronously building an inactive level.
+    authoringRoot.visible = true;
     document.getObjects(roomId).filter(object => object.name === 'Suelo del nivel' && !document.isNative(object)).forEach(object => document.remove(object));
     const network = buildIndustrialCediScenario(document, roomId, options);
-    const robotics = options.robotized ? retrofitCediRobotics(document, roomId, {scene: options.scene, lines: network.lines, allowExpansion: true}) : null;
+    const robotics = options.robotized ? retrofitCediRobotics(document, roomId, {scene: options.scene, lines: network.lines, allowExpansion: true, continuous: options.continuous === true}) : null;
     if (robotics) {
       network.objects.push(...robotics.objects);
+      network.links = network.lines.flatMap(line => line.links || []);
+      if (robotics.logistics) {
+        const l = robotics.logistics, box = new THREE.Box3(); l.objects.forEach(object => box.expandByObject(object));
+        const line = {id: 'robotics-expedition', title: 'Expedición · cadenas y montacargas', description: 'Pallets completos del Source recorren las cadenas. El operario recoge la misma carga desde el extremo y la transporta a las bahías a nivel del piso.', mode: 'manual', objects: l.objects, controller: l.pickup, sources: [l.source], receivers: [l.destination], source: l.source, receiver: l.destination, platformReceivers: [], expectedUnits: l.expectedLoads * l.unitsPerLoad, expectedLoads: l.expectedLoads, expectedReceiverUnits: [0], memberIds: l.objects.map(object => object.userData.editorId), links: [{source: l.source.userData.editorId, sourcePort: 'output', target: l.pickup.userData.editorId, targetPort: 'input'}], bounds: {min: box.min.toArray(), max: box.max.toArray(), width: box.max.x - box.min.x, depth: box.max.z - box.min.z}};
+        Object.assign(line, {center: box.getCenter(new THREE.Vector3()).toArray().filter((value, index) => index !== 1), manualTransport: true, expectedReceiverUnits: [l.expectedLoads * l.unitsPerLoad], expectedReceiverLoads: [l.expectedLoads], sourceExpectations: [{id: l.source.userData.editorId, loads: l.expectedLoads, units: l.expectedLoads * l.unitsPerLoad}], routingCoverage: []});
+        network.lines.push(line); network.links.push(...line.links); network.sources.push(l.source); network.receivers.push(l.destination); network.controllers.push(l.pickup);
+      }
       const bounds = new THREE.Box3(); network.objects.forEach(object => bounds.expandByObject(object));
       network.bounds = {min: bounds.min.toArray(), max: bounds.max.toArray(), width: 2 * Math.max(Math.abs(bounds.min.x), Math.abs(bounds.max.x)), depth: 2 * Math.max(Math.abs(bounds.min.z), Math.abs(bounds.max.z))};
     }
@@ -86,7 +97,7 @@ export function buildIndustrialCediLevel(document, roomId, options = {}) {
       }
       const guide = primitive('Guía de red · ' + line.title, 'box', '#182b38', [bounds.min[0] - 2.8, 2.4, bounds.max[2] + .4], [2.6, 1.8, .07],
         [Object.assign(schema.defaultBehavior('info'), {title: (line.mode === 'manual' ? 'MANUAL · ' : 'AUTOMÁTICA · ') + line.title,
-          text: (network.continuous && line.mode !== 'manual' ? 'Red automática continua. Source repone productos de diferentes formatos. El almacén llena cuatro estibas y despacha cargas completas para liberar capacidad; hasta cinco niveles según dimensiones. ' : line.description + '\n') + (line.mode === 'manual' ? 'Empieza vacía. Generar / agarre / acción de operario en el panel y monitor.' : network.continuous ? 'Un PLC controla únicamente esta red.' : 'Total finito: ' + line.expectedUnits + ' unidades. Un PLC controla únicamente esta red.'), fontSize: .045, color: '#eff5fa'})]);
+          text: (network.continuous && line.mode !== 'manual' ? 'Red automática continua. Source repone productos de diferentes formatos. El almacén llena cuatro estibas y despacha cargas completas para liberar capacidad; hasta cinco niveles según dimensiones. ' : line.description + '\n') + (line.manualTransport ? 'El Source alimenta automáticamente; la recogida y entrega esperan al conductor. Cada pallet conserva 12 unidades.' : line.mode === 'manual' ? 'Empieza vacía. Generar / agarre / acción de operario en el panel y monitor.' : network.continuous ? 'Un PLC controla únicamente esta red.' : 'Total finito: ' + line.expectedUnits + ' unidades. Un PLC controla únicamente esta red.'), fontSize: .045, color: '#eff5fa'})]);
       const post = primitive('Soporte de guía de red', 'box', '#3d505b', [guide.position.x, .75, guide.position.z], [.07, 1.5, .07]);
       line.objects.push(guide, post); processSigns.push(guide);
       line.receivers.forEach((receiver, index) => {
@@ -126,4 +137,5 @@ export function buildIndustrialCediLevel(document, roomId, options = {}) {
     return Object.assign(network, {roomId, environment, finishes, monitors, platforms, processSigns, terminalSigns, width, depth, floor: environment.floor, floorPresentation, monitorLayout, messages, aging, robotics,
       objects: Array.from(new Set(network.objects.concat(environment.objects, objects, floorPresentation && floorPresentation.presentation || []))).filter(retained)});
   } catch (error) { if (own) document.cancel(); throw error; }
+  finally { authoringRoot.visible = roomVisible; }
 }

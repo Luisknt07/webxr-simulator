@@ -23,14 +23,14 @@ async function run() {
         if (!robots.length) throw Error('No inline robot in the real CEDI template.'); window.__qaCediRobots = robots.map(object => object.userData.editorId);
         e.select(robots[0]); const p = robots[0].position; e.camera.position.set(p.x + 6, 4, p.z + 6); e.orbit.target.set(p.x, 1.1, p.z); e.orbit.update();
         return {robots: robots.length, vehicles: objects.filter(object => object.parent === e.root && object.userData.editorPrefabKey === 'vehicle').length};
-      }); assert(layout.robots >= 1 && layout.robots <= 2, 'Only robots with a free physical base are inserted.'); assert.equal(layout.vehicles, 1); await b.screenshot('cedi-inline-robots-editor');
+      }); assert(layout.robots >= 1 && layout.robots <= 3, 'Loading, transfer and unloading cells require a free physical base.'); assert.equal(layout.vehicles, 1); await b.screenshot('cedi-inline-robots-editor');
       await b.call(async () => {
         const e = context.editor; await e.leave();
-        for (let batch = 0; batch < 8; batch++) { for (let frame = 0; frame < 20; frame++) { e.ctx.collisionWorld.beginFrame(); try { e.simulation.execute(.25); } finally { e.ctx.collisionWorld.endFrame(); } } await new Promise(resolve => setTimeout(resolve, 0)); }
+        for (let batch = 0; batch < 12; batch++) { for (let frame = 0; frame < 20; frame++) { e.ctx.collisionWorld.beginFrame(); try { e.simulation.execute(.25); } finally { e.ctx.collisionWorld.endFrame(); } } await new Promise(resolve => setTimeout(resolve, 0)); }
         e.industrialVisuals.sync(e.roomId, 0, false); e.lineMonitors.sync(e.roomId, 0, false);
       });
       const flow = await b.call(() => __qaCediRobots.map(id => { const r = context.editor.simulation.records.get(id); return {id, variables: r.variables}; }));
-      flow.forEach(row => { assert.equal(row.variables.fault, '', JSON.stringify(row)); assert(row.variables.completed > 0, JSON.stringify(row)); assert.equal(row.variables.inFlight, 0); }); b.report.cediFlow = flow; await b.screenshot('cedi-inline-robots-running');
+      flow.forEach(row => { assert.equal(row.variables.fault, '', JSON.stringify(row)); assert(row.variables.completed > 0, JSON.stringify(row)); assert(row.variables.inFlight >= 0 && row.variables.inFlight <= 1, 'A pick/place robot retains at most its actual current load.'); }); b.report.cediFlow = flow; await b.screenshot('cedi-inline-robots-running');
       await b.call(() => { const e = context.editor; e.enter(); e.document.getObjects(e.roomId).filter(object => object.parent === e.root && (object.userData.editorPrefabKey || e.document.getBehaviors(object).some(config => ['lineMonitor', 'info'].includes(config.type)))).forEach(object => { object.visible = false; }); });
       b.report.vehicleRenders = [];
       for (const variant of ['forklift-electric-3w', 'forklift-electric-4w', 'reach-truck', 'vna-turret']) {
@@ -83,6 +83,9 @@ async function run() {
         const distance = r.components.vehicle.distance; __qaVehicleCommand('parkingBrake');
         window.dispatchEvent(new KeyboardEvent('keydown', {code: 'KeyS', bubbles: true})); let frames = 0; while (r.object.position.z > 1.1 && frames++ < 300) __qaDriveStep();
         window.dispatchEvent(new KeyboardEvent('keyup', {code: 'KeyS', bubbles: true})); window.dispatchEvent(new KeyboardEvent('keydown', {code: 'Space', bubbles: true})); for (let n = 0; n < 60; n++) __qaDriveStep(); window.dispatchEvent(new KeyboardEvent('keyup', {code: 'Space', bubbles: true})); __qaVehicleCommand('parkingBrake');
+        window.dispatchEvent(new KeyboardEvent('keydown', {code: 'KeyE', bubbles: true}));
+        for (let n = 0; n < 90 && !e.simulation.vehicleRuntime.getDockingState(r).ready; n++) __qaDriveStep();
+        window.dispatchEvent(new KeyboardEvent('keyup', {code: 'KeyE', bubbles: true}));
         __qaVehicleCommand('release'); const v = r.components.vehicle, result = {loaded: !!v.entry, warning: v.warning, delivered: v.delivered, units: v.deliveredUnits, loadedDistance: v.distance - distance}; __qaVehicleCommand('exit'); result.unmounted = !d.id; return result;
       }); assert.equal(unload.loaded, false, JSON.stringify(unload)); assert.equal(unload.units, 24); assert(unload.loadedDistance > .5, JSON.stringify(unload)); assert(unload.unmounted); b.report.unload = unload; await b.screenshot('vehicle-unloaded-floor');
       const cycles = await b.call(() => {

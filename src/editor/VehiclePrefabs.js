@@ -176,7 +176,7 @@ function mast(b,rig,c,parent) {
     const pulley=preserve(b.cylinder('Polea de cadena',pulleyRadius,.042,'accent',chainFrame,[side*.16,pulleyY,pulleyZ],d.segments));pulley.rotation.z=Math.PI/2;
     const center=new THREE.Vector3(side*.16,pulleyY,pulleyZ);rig.mastPulleyMounts.push({frame:chainFrame,bridge:chainStage.bridge,rails:chainStage.rails,bracket,bearing,axle,pulley,center});
     const backZ=pulleyZ-pulleyRadius,frontZ=pulleyZ+pulleyRadius,plateZ=.025,carriageAnchor=preserve(b.box('Anclaje de cadena al portahorquillas',[.065,.075,Math.abs(plateZ-backZ)+.04],'steel',carriage,[side*.16,.30,(plateZ+backZ)/2-.10]));
-    const returnAnchor=preserve(b.box('Anclaje de retorno de cadena',[.065,.075,.11],'steel',chainFrame,[side*.16,anchorY,(frontZ+chainStage.stageZ)/2]));
+    const returnAnchor=preserve(b.box('Anclaje de retorno de cadena',[.065,.075,Math.abs(frontZ-chainStage.stageZ)+.024],'steel',chainFrame,[side*.16,anchorY,(frontZ+chainStage.stageZ)/2]));
     const count=12+d.level*10,pitch=Math.max(.001,(pulleyY-anchorY)/count),geometry=b.geometry('chain-plate',()=>new THREE.BoxBufferGeometry(.025,pitch*.90,.009));
     const chain=new THREE.InstancedMesh(geometry,b.materials.steel,count*4),matrix=new THREE.Matrix4();
     for(let run=0;run<2;run++)for(let index=0;index<count*2;index++){matrix.makeTranslation(side*.16+(index%2?-.009:.009),anchorY+(Math.floor(index/2)+.5)*pitch,run?frontZ:backZ);chain.setMatrixAt(run*count*2+index,matrix);}chain.name='Placas de cadena de elevación';chain.castShadow=chain.receiveShadow=true;chainFrame.add(chain);
@@ -224,7 +224,17 @@ function build(root,c) {
     rig.tillerGripPosition=[0,.70,-.33];
     b.rod('Barra del timón',[0,0,0],[0,.70,-.33],.025,'accent',tiller);b.box('Empuñadura y mandos',[.36,.06,.11],'accent',tiller,[0,.7,-.33]);
     const carriage=group(visual,'Bomba de elevación',[0,c.forkBaseHeight,c.length/2]);rig.palletLift=carriage;forkAssembly(b,rig,c,carriage);
-    for(const side of [-1,1]) {const wheel=b.cylinder('Rodillo de carga',.045,c.forkWidth*.7,'rubber',visual,[side*c.forkSpread/2,.045,c.length/2+c.forkLength*.78],10);wheel.rotation.z=Math.PI/2;}
+    rig.loadRollers=[];
+    for(const side of [-1,1]) {
+      // Ground-contact load rollers sit at the toe, beyond the Euro pallet's
+      // rear bottom board. The former .78*length placed them through that board.
+      const radius=.045,restDy=c.forkBaseHeight-c.forkThickness+.012-radius,linkLength=Math.max(.28,Math.abs(restDy+c.maxLift)+.035),restDz=Math.sqrt(linkLength*linkLength-restDy*restDy),pivotZ=c.forkLength-radius-restDz;
+      const wheel=b.cylinder('Rodillo de carga',radius,c.forkWidth*.7,'rubber',visual,[side*c.forkSpread/2,radius,c.length/2+c.forkLength-radius],12);wheel.rotation.z=Math.PI/2;wheel.userData.vehiclePreserve=true;
+      const axle=b.cylinder('Eje de rodillo de carga',.009,c.forkWidth*.98,'steel',visual,wheel.position.toArray(),10);axle.rotation.z=Math.PI/2;axle.userData.vehiclePreserve=true;
+      const pin=b.cylinder('Pasador de biela de carga',.009,c.forkWidth*.98,'steel',rig.forks,[side*c.forkSpread/2,-c.forkThickness+.012,pivotZ],10);pin.rotation.z=Math.PI/2;pin.userData.vehiclePreserve=true;
+      const links=[-1,1].map(edge=>{const rod=b.cylinder('Biela articulada de rodillo',.006,1,'steel',rig.forks,[side*c.forkSpread/2+edge*c.forkWidth*.42,0,0],8);rod.userData.vehiclePreserve=true;return {object:rod,x:side*c.forkSpread/2+edge*c.forkWidth*.42};});
+      rig.loadRollers.push({wheel,axle,pin,links,side,radius,linkLength,pivotZ});
+    }
     rig.driverSeat=group(visual,'Vista del operador',[0,1.65,-c.length/2-.55]);
     if(c.variant==='pallet-truck-electric')b.box('Plataforma abatible de operador',[c.width*.7,.06,.4],'accent',visual,[0,.14,-c.length/2-.24]);
   } else if(c.family==='stacker') {
@@ -294,6 +304,10 @@ export function updateVehiclePose(root,pose={}) {const rig=RIGS.get(root)||root.
   if(rig.boom){const angle=clamp(pose.boomAngle||0,-.08,c.boomAngleLimit);rig.boom.rotation.x=-angle;rig.boomExtension.position.z=c.boomLength+reach;rig.level.rotation.x=angle+tilt;}
   if(rig.boomHydraulic){const h=rig.boomHydraulic;rig.boom.updateMatrix();const upper=h.upper.position.clone().applyMatrix4(rig.boom.matrix),direction=upper.clone().sub(h.lower),length=direction.length(),axis=direction.clone().normalize(),bodyLength=Math.min(.42,length*.75),start=h.lower.clone().addScaledVector(axis,bodyLength*.85);h.barrel.position.copy(h.lower).addScaledVector(axis,bodyLength*.5);h.barrel.scale.y=bodyLength;h.barrel.quaternion.setFromUnitVectors(UP,axis);h.rod.position.copy(start).add(upper).multiplyScalar(.5);h.rod.scale.y=upper.distanceTo(start);h.rod.quaternion.copy(h.barrel.quaternion);}
   if(rig.palletLift)rig.palletLift.position.y=c.forkBaseHeight+lift;
+  if(rig.loadRollers)rig.loadRollers.forEach(roller=>{const topY=c.forkBaseHeight+lift-c.forkThickness+.012,dy=topY-roller.radius,dz=Math.sqrt(Math.max(0,roller.linkLength*roller.linkLength-dy*dy)),axleZ=c.length/2+roller.pivotZ+dz;
+    roller.wheel.position.z=roller.axle.position.z=axleZ;roller.wheel.rotation.x=pose.wheelRoll||0;
+    roller.links.forEach(link=>{const start=new THREE.Vector3(link.x,-c.forkThickness+.012,roller.pivotZ),end=new THREE.Vector3(link.x,roller.radius-c.forkBaseHeight-lift,axleZ-c.length/2),direction=end.clone().sub(start);link.object.position.copy(start).add(end).multiplyScalar(.5);link.object.scale.y=direction.length();link.object.quaternion.setFromUnitVectors(UP,direction.normalize());});
+  });
   if(vehicles.supports(c).risingCab&&rig.cabin)rig.cabin.position.y=lift;
   // Rear-steered trucks turn the rear wheels opposite to their front heading:
   // logical right gives chassis yaw<0 and rear-wheel yaw>0 in the +Z-forward rig.

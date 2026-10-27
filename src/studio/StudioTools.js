@@ -449,11 +449,11 @@ export default class StudioTools {
   }
   populateIndustrialExamples(roomId = this.editor.roomId, options = {}) {
     if (!this.editor.active || roomId !== this.editor.roomId) throw new Error('Abre el nivel en el editor antes de configurar los ejemplos.');
-    return buildIndustrialLab(this.editor.document, roomId, {scene: this.editor.hooks.renderScene, continuous: options.continuous !== false});
+    return buildIndustrialLab(this.editor.document, roomId, {scene: this.editor.hooks.renderScene, continuous: options.continuous !== false, robotized: options.robotized !== false});
   }
   populateCediScenario(roomId = this.editor.roomId, kind = 'sorting', options = {}) {
     if (!this.editor.active || roomId !== this.editor.roomId) throw new Error('Abre el nivel en el editor antes de configurar el CEDI.');
-    return buildIndustrialCediLevel(this.editor.document, roomId, {kind, scene: this.editor.hooks.renderScene, continuous: options.continuous !== false});
+    return buildIndustrialCediLevel(this.editor.document, roomId, {kind, scene: this.editor.hooks.renderScene, continuous: options.continuous !== false, robotized: options.robotized !== false});
   }
   async createCediExamples() {
     const editor = this.editor, document = editor.document;

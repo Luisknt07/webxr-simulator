@@ -5,7 +5,14 @@ const object=new THREE.Group();object.name='FIFO de la misma línea';object.user
 const config=Object.assign(schema.defaultBehavior('source'),{initialCount:0,autoGenerate:false,running:true,delivery:'manual'}),record={id:object.userData.editorId,object,configurations:[config],components:{source:{config}},writable:[],variables:{},warned:new Set(),position:object.position.clone(),quaternion:object.quaternion.clone(),scale:object.scale.clone(),parent:object.parent,siblingIndex:object.parent.children.indexOf(object),matrix:object.matrix.clone(),matrixAutoUpdate:object.matrixAutoUpdate};
 f.runtime.records.set(record.id,record);f.runtime.sourceRuntime.attach(record,record.components.source);Object.assign(record.components.source,{powered:true,emergency:false});record.writable.push({key:'powered',type:'boolean'},{key:'emergency',type:'boolean'});
 f.v.config.outputId=record.id;f.v.config.mode='automatic';f.v.route=[{position:new THREE.Vector3(0,0,4),speed:.8}];f.runtime.buildScopes();f.runtime.refreshVariables();
-assert(f.runtime.getPanelSnapshot(f.record.id,'line').memberIds.includes(record.id));step(f,.5);assert(f.v.actualSpeed>0);
+assert(f.runtime.getPanelSnapshot(f.record.id,'line').memberIds.includes(record.id));
+// A physical pickup link also joins the manual carrier to its feeding line;
+// rebuilding scopes must remove obsolete links without changing cargo custody.
+f.v.config.outputId='';f.v.config.sourceId=record.id;f.runtime.buildScopes();f.runtime.refreshVariables();
+assert(f.runtime.getPanelSnapshot(record.id,'line').memberIds.includes(f.record.id));
+assert(f.runtime.machineLinks(record).some(link=>link.id===f.record.id));assert.equal(f.v.entry,load);assert.equal(record.components.source.queue.length,0);
+f.v.config.sourceId='';f.runtime.buildScopes();assert(!f.runtime.getPanelSnapshot(record.id,'line').memberIds.includes(f.record.id));
+f.v.config.outputId=record.id;f.runtime.buildScopes();f.runtime.refreshVariables();step(f,.5);assert(f.v.actualSpeed>0);
 f.runtime.command(f.record.id,'pause',undefined,'line');assert(f.v.paused&&record.components.source.paused);const position=f.object.position.clone(),pose=Object.assign({},f.v.pose),cargo=load.product.object.matrixWorld.clone(),distance=f.v.distance,units=f.v.receivedUnits;
 step(f,1,{throttle:1,lift:1});assert(f.object.position.equals(position));assert.deepEqual(f.v.pose,pose);assert(load.product.object.matrixWorld.equals(cargo));assert.equal(f.v.distance,distance);assert.equal(f.v.receivedUnits,units);assert.equal(f.v.entry,load);assert.equal(f.v.actualSpeed,0);
 f.runtime.command(f.record.id,'start',undefined,'line');assert(!f.v.paused&&!record.components.source.paused);step(f,.5);assert(f.object.position.z>position.z);

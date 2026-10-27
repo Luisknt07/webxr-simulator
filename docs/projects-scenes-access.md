@@ -43,9 +43,11 @@ Las pestañas de proyectos conservan espacios de trabajo del navegador para la m
 
 ## Escenas públicas y biblioteca
 
-Sin iniciar sesión se muestran hasta **dos escenas públicas activas**, configurables por el superadministrador. Inicialmente son Transferencia rectangular a 90° e Inspección y clasificación. La API pública entrega una proyección que contiene la sala elegida y los archivos expresamente autorizados, sin incluir las demás salas privadas del proyecto.
+En modo normal se muestran hasta **dos escenas públicas activas**, configurables por el superadministrador. Inicialmente son Transferencia rectangular a 90° e Inspección y clasificación. Temporalmente está activada la vista previa de los **30 ejemplos incluidos** del sistema: 19 plantillas, laboratorio completo y diez experiencias originales. Cada ejemplo es una proyección independiente de sólo lectura; no se consulta ni se publica el contenido privado de ninguna cuenta. El catálogo no carga todas las salas en el navegador.
 
-El catálogo de ejemplos completo requiere una cuenta. Sus entradas son documentos de consulta independientes; para modificarlas se crea una variante propia. Crear desde plantilla copia una configuración inicial al proyecto del usuario y queda sujeto a su cuota. Crear vacío produce un entorno inicial configurable sin copiar una línea de ejemplo.
+Administración → Escenas públicas permite desactivar la vista previa y recuperar la selección normal de dos salas sin borrarla. La API y las descargas directas de proyecciones adicionales exigen entonces una cuenta. Los proyectos de usuarios mantienen siempre sus permisos anteriores. La reversión de GitHub Pages requiere regenerar y desplegar la publicación estática; véase `docs/public-publication.md`.
+
+Fuera de la vista previa, el catálogo completo requiere una cuenta. Sus entradas son documentos de consulta independientes; para modificarlas se crea una variante propia. Crear desde plantilla copia una configuración inicial al proyecto del usuario y queda sujeto a su cuota. Crear vacío produce un entorno inicial configurable sin copiar una línea de ejemplo.
 
 Publicar una sala con modelos importados requiere seleccionar los recursos que necesita. Un proyecto con publicación activa debe despublicarse antes de eliminarse. El bloqueo de archivos JSON de ejemplos sin sesión complementa las rutas públicas; no constituye un mecanismo de DRM para el código o los modelos incluidos en el paquete web.
 

@@ -432,4 +432,14 @@ body.editor-mode { overflow: hidden; }
 .vehicle-driving-hud [data-vehicle-command="emergency"] { background: #7c3941; }
 .vehicle-driving-hud [data-vehicle-command="exit"] { background: #226856; }
 .vehicle-driving-pads { display: none; margin-top: 10px; }
+.vehicle-driving-views { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
+.vehicle-driving-views [aria-pressed="true"] { border-color: #78dfc1; background: #215b50; }
+.vehicle-docking-monitor { position: fixed; z-index: 31; top: 82px; right: 12px; width: min(430px, 43vw); padding: 5px; box-sizing: border-box; border: 1px solid #526c77; border-radius: 10px; color: #d9edf4; background: rgba(11, 29, 40, .97); font: 12px/1.4 system-ui, sans-serif; }
+.vehicle-docking-monitor[hidden] { display: none; }
+.vehicle-docking-monitor canvas { display: block; width: 100%; height: auto; cursor: pointer; }
+.vehicle-docking-monitor .vehicle-docking-summary { margin: 2px 8px 5px; }
+.vehicle-docking-monitor[data-state="ready"] { border-color: #71e6b3; }
+.vehicle-docking-monitor[data-state="near"] { border-color: #f1c66c; }
+.vehicle-docking-monitor[data-state="blocked"] { border-color: #ff8f93; }
+@media (max-width: 720px) { .vehicle-docking-monitor { top: 76px; right: 8px; width: min(340px, 68vw); font-size: 11px; } }
 @media (pointer: coarse) { .vehicle-driving-pads { display: flex; } .vehicle-driving-hud { max-height: 46vh; font-size: 12px; } .vehicle-driving-hud button { min-height: 42px; } }

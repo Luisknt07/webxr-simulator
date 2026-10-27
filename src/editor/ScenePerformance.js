@@ -34,7 +34,14 @@ function collectTarget(value, target) {
   target.renderTargets.add(value);
   [value.texture, value.depthTexture].filter(Boolean).forEach(texture => { target.textures.add(texture); target.renderTargetTextures.add(texture); });
 }
-function mergeResources(target, source) { Object.keys(target).forEach(key => source[key].forEach(value => target[key].add(value))); }
+// Object identities only guard recursive collection. Memory/eviction operate on
+// resources; merging tens of thousands of scene nodes into three temporary Sets
+// every sample adds allocation and GC without changing either result.
+function mergeResources(target, source) { Object.keys(target).filter(key => key !== 'objects').forEach(key => source[key].forEach(value => target[key].add(value))); }
+const scanClock = () => typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+const MAP_KEYS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'lightMap', 'alphaMap', 'bumpMap', 'displacementMap', 'envMap', 'gradientMap', 'uniforms', 'preparedConcreteUniforms'];
+function materialMaps(material) { return MAP_KEYS.map(key => material[key]).concat(material.preparedConcreteUniforms && material.preparedConcreteUniforms.preparedConcreteMap && material.preparedConcreteUniforms.preparedConcreteMap.value); }
+function sameMaterialMaps(material, values) { for (let index = 0; index < MAP_KEYS.length; index++) if (material[MAP_KEYS[index]] !== values[index]) return false; return (material.preparedConcreteUniforms && material.preparedConcreteUniforms.preparedConcreteMap && material.preparedConcreteUniforms.preparedConcreteMap.value) === values[MAP_KEYS.length]; }
 
 function collect(root, target, stopRoots) {
   if (!root || !root.isObject3D || (stopRoots && stopRoots.has(root)) || target.objects.has(root)) return;
@@ -104,6 +111,7 @@ export default class ScenePerformance {
     this.contextTextureHandlesReleased = false;
     this.evicted = new WeakSet();
     this.bounds = new WeakMap();
+    this.inactiveInventory = new WeakMap(); this.assetInventory = new WeakMap(); this.snapshotInventory = new WeakMap();
     this.frame = 0;
     this.frustums = [];
     this.matrix = new THREE.Matrix4();
@@ -111,7 +119,7 @@ export default class ScenePerformance {
     this.testBox = new THREE.Box3();
     this.memory = new RuntimeResourceMemory(); this.lod = new CosmeticVisualLod(); this.cameras = [];
     this.memoryStats = {gpuGeometryBytes: 0, gpuTextureBytes: 0, retainedCpuBytesEstimated: 0, memoryEstimated: true, estimateKind: 'reachable-resource-backing-stores', estimateConfidence: 'low'};
-    this.stats = {inactiveGPUEvictions: 0, releasedGeometries: 0, releasedMaterials: 0, releasedTextures: 0, inactiveRooms: 0, contextTextureReleaseCycles: 0, contextReleasedTextures: 0, contextReleasedRenderTargets: 0, contextReleasedGeometries: 0, contextReleasedMaterials: 0};
+    this.stats = {inactiveGPUEvictions: 0, releasedGeometries: 0, releasedMaterials: 0, releasedTextures: 0, inactiveRooms: 0, contextTextureReleaseCycles: 0, contextReleasedTextures: 0, contextReleasedRenderTargets: 0, contextReleasedGeometries: 0, contextReleasedMaterials: 0, inventoryCacheHits: 0, inventoryScans: 0, inventoryScanMs: 0};
   }
 
   setRoom(roomId) {
@@ -119,13 +127,24 @@ export default class ScenePerformance {
     if (this.disposed || roomId === this.roomId) return;
     this.lod.clear();
     this.roomId = roomId;
-    this.dirty = true;
+    this.invalidate();
+    if (this.ctx.roomAssets && this.ctx.roomAssets.setActiveRoom) this.ctx.roomAssets.setActiveRoom(roomId, this.document.getRoot(roomId));
     this.reconcile();
   }
 
-  invalidate() { this.dirty = true; }
+  invalidate() { this.dirty = true; this.inactiveInventory = new WeakMap(); this.assetInventory = new WeakMap(); this.snapshotInventory = new WeakMap(); }
+
+  cachedInventory(root, cache, collectValue) {
+    let entry = cache.get(root); const children = root.children ? root.children.length : 0;
+    let changed = entry && entry.maps.some(state => !sameMaterialMaps(state.material, state.values));
+    if (entry && !changed) for (const [object, material] of entry.bindings) if (object.material !== material) { changed = true; break; }
+    if (!entry || entry.children !== children || changed) { const value = resources(); collectValue(value); const bindings = new Map(); value.objects.forEach(object => { if (object.material) bindings.set(object, object.material); }); entry = {children, value, bindings, maps: Array.from(value.materials).map(material => ({material, values: materialMaps(material)}))}; cache.set(root, entry); }
+    else this.stats.inventoryCacheHits++;
+    return entry.value;
+  }
 
   resourceInventory() {
+    const started = scanClock(); this.stats.inventoryScans++;
     const resident = resources();
     const inactive = resources();
     const roomRoots = new Set();
@@ -135,7 +154,7 @@ export default class ScenePerformance {
       if (!root) return;
       roomRoots.add(root);
       if (String(roomId) === this.roomId) collect(root, resident);
-      else { collect(root, inactive); this.stats.inactiveRooms++; }
+      else { mergeResources(inactive, this.cachedInventory(root, this.inactiveInventory, target => collect(root, target))); this.stats.inactiveRooms++; }
     });
 
     // Global lights/controllers/camera helpers can share materials with a room.
@@ -158,7 +177,11 @@ export default class ScenePerformance {
     (this.ctx.performanceRenderTargets || []).forEach(target => collectTarget(target, resident));
 
     const retained = resources(); mergeResources(retained, resident); mergeResources(retained, inactive);
-    Object.keys(this.ctx.assets || {}).forEach(key => collectAsset(this.ctx.assets[key], retained));
+    Object.keys(this.ctx.assets || {}).forEach(key => {
+      const asset = this.ctx.assets[key], root = asset && (asset.scene || asset);
+      if (root && root.isObject3D) mergeResources(retained, this.cachedInventory(root, this.assetInventory, target => collectAsset(asset, target)));
+      else collectAsset(asset, retained);
+    });
     const runtimeSeen = new Set();
     const roomAssets = this.ctx.roomAssets;
     retainRuntimeResources(roomAssets && roomAssets.records, retained, runtimeSeen);
@@ -174,7 +197,7 @@ export default class ScenePerformance {
     if (this.document.native && this.document.native.forEach) this.document.native.forEach(entry => { collectMaterial(entry.material, retained); (entry.children || []).forEach(child => collect(child, retained)); });
     if (this.document.visualMasks && this.document.visualMasks.forEach) this.document.visualMasks.forEach(value => collectMaterial(value.material, retained));
     const snapshots = (this.document.undoStack || []).concat(this.document.redoStack || [], this.document.transaction ? [this.document.transaction] : []);
-    snapshots.forEach(snapshot => retainSnapshot(snapshot, retained));
+    snapshots.forEach(snapshot => mergeResources(retained, this.cachedInventory(snapshot, this.snapshotInventory, target => retainSnapshot(snapshot, target))));
     const workspace = editor && editor.projectTabs;
     (workspace && workspace.retainedSnapshots ? workspace.retainedSnapshots() : []).forEach(snapshot => retainSnapshot(snapshot, retained));
     const clipboard = editor && editor.objectClipboard;
@@ -186,6 +209,7 @@ export default class ScenePerformance {
     // original assets or paste remains retained and is included in RAM estimates.
     mergeResources(inactive, retained);
 
+    this.stats.inventoryScanMs = scanClock() - started;
     return {resident, inactive, retained, snapshots};
   }
 
@@ -262,7 +286,11 @@ export default class ScenePerformance {
     this.elapsed += Math.max(0, Number.isFinite(delta) ? delta : 0);
     // A continuous transform/paint drag can invalidate every frame. Expensive
     // ownership/texture scans stay at most once a second, except room switches.
-    if (this.elapsed >= 1) this.reconcile();
+    // A stable immersive scene has no authoring/history changes. Keep its
+    // accounting work away from most XR frames; actual edits still reconcile
+    // within one second, and switching a room reconciles immediately above.
+    const scanInterval = this.ctx.vrMode && !this.dirty ? 4 : 1;
+    if (this.elapsed >= scanInterval) this.reconcile();
     this.frame++;
     this.frustums.length = 0;
     this.cameras.length = 0;
@@ -334,5 +362,6 @@ export default class ScenePerformance {
     this.lod.dispose();
     this.frustums.length = 0;
     this.bounds = new WeakMap();
+    this.inactiveInventory = new WeakMap(); this.assetInventory = new WeakMap(); this.snapshotInventory = new WeakMap();
   }
 }

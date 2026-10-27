@@ -1,5 +1,9 @@
 # Puesto de conducción interactivo
 
+**C** o el botón **Vista** alterna Cabina, Seguimiento y Horquillas en los vehículos con horquillas. La última vista sigue su altura e inclinación reales y usa el render principal; no abre una segunda cámara de renderizado. El monitor **Ayuda de alineación** muestra el contorno de la máquina, ambas horquillas, el pallet y sus entradas, con errores laterales y de altura en centímetros, rumbo en grados, inserción y capacidad disponible. Verde significa que el mismo criterio del comando Tomar o Depositar permite operar; amarillo indica un ajuste pendiente y rojo un impedimento. Consultar el monitor no toma, reserva ni duplica productos.
+
+En RV el monitor se sitúa junto a la consola, con el botón **GUÍA / PLANO** accesible mediante cualquiera de los dos mandos. **ALINEACIÓN**, en la cabecera de la consola, permite ocultarlo o volver a abrirlo sin ocupar los catorce controles existentes. La vista del visor conserva sus poses nativas; los cambios de cámara de escritorio no se aplican a la cabeza. El plano se actualiza hasta diez veces por segundo con un único canvas y no requiere renderizar de nuevo la escena.
+
 En escritorio, al subir con **F** o desde el inspector se libera el cursor para usar el panel. Si el vehículo está apagado, pulsa **Encender**, después **Marcha** y desactiva **Freno P**. La cabina muestra el estado real de alimentación, marcha, emergencia y freno, e indica qué falta para conducir. Los botones activos quedan resaltados; Encender conserva los enclavamientos y no anula una emergencia ni libera el freno por sí solo.
 
 **Tab** alterna entre cursor libre y mirada con el mouse; **Esc** también libera el cursor. Puedes volver a capturarlo haciendo clic en la vista 3D. Los atajos de la cabina son **B** para encender, **V** para marcha y **P** para alternar el freno de estacionamiento. **WASD** conduce y **Espacio** aplica el freno de servicio.

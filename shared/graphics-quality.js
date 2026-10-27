@@ -10,7 +10,9 @@ const PROFILES = [
 ];
 function hints(input = {}) {
   const positive = value => Number.isFinite(value) && value > 0 ? value : null;
-  return {coarse: !!input.coarse, deviceMemory: positive(input.deviceMemory), hardwareConcurrency: positive(input.hardwareConcurrency)};
+  const agent = typeof input.userAgent === 'string' ? input.userAgent : '';
+  return {coarse: !!input.coarse, deviceMemory: positive(input.deviceMemory), hardwareConcurrency: positive(input.hardwareConcurrency),
+    mobile: !!input.mobile || /Android|Mobile|iPhone|iPad/i.test(agent), standaloneXR: !!input.standaloneXR || /OculusBrowser|Quest(?:\s|\))|Wolvic/i.test(agent)};
 }
 function initialTier(input, mode = 'auto') {
   if (!MODES.includes(mode)) throw new Error('Modo gráfico no compatible.');
@@ -40,6 +42,11 @@ function limitsFor(tier = 1, input = {}) {
     result.shadowMapSize = result.xrShadowMapSize = 512; result.pointLights = Math.min(result.pointLights, 2);
     result.maxAnisotropy = Math.min(result.maxAnisotropy, 2); result.visualDistanceScale = Math.min(result.visualDistanceScale, .75);
   }
+  // These are application-owned cache/work limits, not a claim about physical
+  // headset RAM or a replacement for measuring the actual session frame rate.
+  result.nativeTextureCacheBytes = (h.standaloneXR ? 96 : h.mobile || h.coarse ? 64 : 256) * 1024 * 1024;
+  result.assetLoadConcurrency = h.standaloneXR || h.mobile || h.coarse ? 2 : 3;
+  if (h.standaloneXR) { result.pointLights = Math.min(result.pointLights, 4); result.xrShadowMapSize = Math.min(result.xrShadowMapSize, 512); result.maxAnisotropy = Math.min(result.maxAnisotropy, 4); result.visualDistanceScale = Math.min(result.visualDistanceScale, 1.35); }
   return result;
 }
 function pixelRatioFor(width, height, dpr, limits) {

@@ -13,6 +13,7 @@ import {VRButton} from './lib/VRButton.js';
 import {loadAssets} from './lib/assetManager.js';
 import RoomAssets from './lib/RoomAssets.js';
 import RoomNavigation from './lib/RoomNavigation.js';
+import RoomTransition from './lib/RoomTransition.js';
 
 // ECSY
 import { World } from 'ecsy';
@@ -62,6 +63,7 @@ var desktopController, desktopControllerData;
 let desktopVehicleAtMouseDown = null;
 var keyboardState = {};
 let roomNavigation;
+let suspendedRoom;
 const keyboardMoveSpeed = 3;
 let lastVRCollisionPosition = null;
 let lastRenderWorkMs;
@@ -205,20 +207,26 @@ const desktopPortalSpawns = {
 };
 
 function gotoRoom(room) {
-  if (context.editor && context.editor.accessView && !context.editor.accessView.canVisit(roomNames[room])) {
-    if (context.studio) { context.studio.message('Este escenario requiere acceso a su proyecto. Consulta Escenarios en el menú.'); }
-    return Promise.resolve(false);
-  }
   if (context.studio && context.studio.room && room !== context.room) {
     context.studio.message('Sal de la sala compartida antes de explorar otro escenario.');
+    return Promise.resolve(false);
+  }
+  if (context.editor && context.editor.accessView && !context.editor.accessView.canVisit(roomNames[room])) {
+    // Native demo portals open another read-only public projection during the
+    // temporary preview. Private documents retain their single access scope.
+    if (context.editor.accessView.visitPublicRoom) return context.editor.accessView.visitPublicRoom(roomNames[room]).then(visited => {
+      if (!visited && context.studio) context.studio.message('Este escenario requiere acceso a su proyecto. Consulta Escenarios en el menú.');
+      return visited;
+    });
+    if (context.studio) { context.studio.message('Este escenario requiere acceso a su proyecto. Consulta Escenarios en el menú.'); }
     return Promise.resolve(false);
   }
   return roomNavigation.go(room);
 }
 
 function commitRoomChange(room) {
-  if (context.editor) context.editor.beforeRoomChange();
-  rooms[context.room].exit(context);
+  if (!suspendedRoom) suspendRoomChange();
+  else if (suspendedRoom.entered) rooms[suspendedRoom.enteredRoom].exit(context);
   raycontrol.deactivateAll();
 
   const prevRoom = roomNames[context.room];
@@ -245,9 +253,54 @@ function commitRoomChange(room) {
 
   playMusic(room);
 
+  suspendedRoom.entered = true; suspendedRoom.enteredRoom = room;
   rooms[context.room].enter(context);
   if (context.editor) context.editor.afterRoomChange();
+  if (context.roomAssets && context.roomAssets.setActiveRoom) context.roomAssets.setActiveRoom(nextRoom, context.editorRoots[nextRoom]);
   resetCollisionPose();
+}
+
+function suspendRoomChange() {
+  if (suspendedRoom) {
+    // A newer request can arrive after the older destination entered, while
+    // its warmup is still covered. Retire that never-revealed room as well.
+    if (suspendedRoom.entered) {if (context.editor) context.editor.beforeRoomChange(); rooms[suspendedRoom.enteredRoom].exit(context); suspendedRoom.entered = false; if (raycontrol) raycontrol.deactivateAll(); if (ambientMusic && ambientMusic.source && ambientMusic.isPlaying) ambientMusic.stop();}
+    return;
+  }
+  if (context.editor) context.editor.beforeRoomChange();
+  suspendedRoom = {room: context.room, entered: false, floorOffset: context.xrLocalFloorOffset || 0, rigPosition: context.cameraRig.position.clone(), rigQuaternion: context.cameraRig.quaternion.clone(), cameraPosition: context.camera.position.clone(), cameraQuaternion: context.camera.quaternion.clone()};
+  rooms[context.room].exit(context); if (raycontrol) raycontrol.deactivateAll();
+  if (ambientMusic && ambientMusic.source && ambientMusic.isPlaying) ambientMusic.stop();
+  if (context.teleport && context.teleport.onHoverLeave) context.teleport.onHoverLeave();
+  context.goto = null; clearKeyboardState();
+}
+
+async function recoverRoomChange(request) {
+  if (!suspendedRoom) return;
+  const recovery = suspendedRoom;
+  const reenter = !(suspendedRoom.entered && suspendedRoom.enteredRoom === suspendedRoom.room && context.room === suspendedRoom.room);
+  if (reenter && suspendedRoom.entered) rooms[suspendedRoom.enteredRoom].exit(context);
+  context.room = suspendedRoom.room;
+  context.cameraRig.position.copy(suspendedRoom.rigPosition); context.cameraRig.quaternion.copy(suspendedRoom.rigQuaternion);
+  context.cameraRig.position.y += (context.xrLocalFloorOffset || 0) - suspendedRoom.floorOffset;
+  // Tracked head-local transforms are never saved back into the XR camera.
+  if (!context.vrMode) {context.camera.position.copy(suspendedRoom.cameraPosition); context.camera.quaternion.copy(suspendedRoom.cameraQuaternion);}
+  if (context.editor) await context.editor.prepareRoom(roomNames[context.room]);
+  if (suspendedRoom !== recovery || request && !request.isCurrent()) {if (suspendedRoom === recovery) suspendedRoom.entered = false; return;}
+  if (reenter) {suspendedRoom.entered = true; suspendedRoom.enteredRoom = context.room; rooms[context.room].enter(context); playMusic(context.room); if (context.editor) context.editor.afterRoomChange();}
+  resetCollisionPose();
+  if (context.roomAssets && context.roomAssets.setActiveRoom) context.roomAssets.setActiveRoom(roomNames[context.room], context.editorRoots[roomNames[context.room]]);
+  if (request && request.isCurrent() && context.roomTransitionView) {scene.updateMatrixWorld(true); await context.roomTransitionView.warm(scene, context.editor && context.editor.active && !context.vrMode ? context.editor.camera : context.camera, request);}
+}
+
+async function prepareCurrentRoom(request) {
+  if (context.editor) {await context.editor.prepareRoom(roomNames[context.room], {signal: request.signal, yieldControl: request.yieldControl, assertCurrent: request.assertCurrent}); request.assertCurrent();}
+  // A same-room document replacement still needs native ECS/audio re-entry.
+  if (suspendedRoom && !suspendedRoom.entered) commitRoomChange(context.room);
+  if (context.editor) context.editor.syncNative();
+  scene.updateMatrixWorld(true);
+  const renderCamera = context.editor && context.editor.active && !context.vrMode ? context.editor.camera : camera;
+  await context.roomTransitionView.warm(scene, renderCamera, request);
 }
 
 function playMusic(room) {
@@ -379,16 +432,36 @@ export function init() {
   context.xrMirror = new XRMirror(context, {maxFPS: 15, maxPixels: 4000000});
   context.xrLocomotion = new XRLocomotion(context);
 
-  context.roomAssets = new RoomAssets(renderer, assets);
+  context.roomAssets = new RoomAssets(renderer, assets, {getLimits: () => context.graphics && context.graphics.getLimits()});
+  context.roomTransitionView = new RoomTransition(context);
   roomNavigation = new RoomNavigation(context, {
     count: rooms.length,
     getVersion: () => context.editor ? context.editor.projectGeneration : 0,
-    prepare: async room => {
-      if (context.editor) await context.editor.prepareRoom(roomNames[room]);
-      else await context.roomAssets.prepareRoom(roomNames[room], context.editorRoots[roomNames[room]]);
+    cover: (request, label) => {
+      request.yieldControl = () => context.roomTransitionView.nextFrame(request, 1);
+      clearKeyboardState(); if (raycontrol) raycontrol.disable();
+      if (context.xrLocomotion) context.xrLocomotion.reset();
+      return context.roomTransitionView.cover(request, label);
+    },
+    suspend: suspendRoomChange,
+    prepare: async (room, request) => {
+      const options = {signal: request.signal, yieldControl: request.yieldControl, assertCurrent: request.assertCurrent};
+      if (context.editor) await context.editor.prepareRoom(roomNames[room], options);
+      else await context.roomAssets.prepareRoom(roomNames[room], context.editorRoots[roomNames[room]], options);
+      request.assertCurrent();
       if (rooms[room].prepare) await rooms[room].prepare(context);
     },
     commit: commitRoomChange,
+    prepareCurrent: prepareCurrentRoom,
+    recover: recoverRoomChange,
+    finish: async request => {
+      await context.roomTransitionView.finish(request); if (!request.isCurrent()) return;
+      suspendedRoom = null; clearKeyboardState(); resetCollisionPose();
+      if (context.editor && context.editor.clearNavigation) context.editor.clearNavigation();
+      if (context.xrLocomotion) context.xrLocomotion.reset();
+      if (raycontrol) {if (context.editor && context.editor.active) raycontrol.disable(); else raycontrol.enable();}
+    },
+    failed: (error, retry) => context.roomTransitionView.fail(error, retry),
     onLoading: () => { if (context.editor) context.editor.toast('Cargando sala…'); },
     onError: error => {
       console.error('No se pudo abrir la sala', error);
@@ -396,6 +469,8 @@ export function init() {
     },
     onSettled: () => { if (context.editor) context.editor.roomSelect.value = context.room; }
   });
+  context.roomNavigation = roomNavigation;
+  context.withRoomTransition = (work, options) => roomNavigation.runExternal(work, options);
 
   window.context = context;
 
@@ -810,6 +885,10 @@ function animate(time, frame) {
   });
   if (context.mobileNavigation) context.mobileNavigation.sync();
   const collisionWorld = context.collisionWorld;
+  if (context.roomTransitionView && context.roomTransitionView.active) {
+    syncXRControllers(frame); context.roomTransitionView.render(renderer, camera, delta); return;
+  }
+  if (context.roomTransitionView) context.roomTransitionView.presented();
   if (collisionWorld) collisionWorld.beginFrame();
   try {
     if (context.studio) context.studio.tick();
