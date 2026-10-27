@@ -126,6 +126,10 @@ export default class ObjectPlacement {
     const orientation = new Map();
     world.triangles(query, {ignore}, (triangle, mesh) => {
       if (root && !within(mesh, root) || !usable(mesh, root)) return false;
+      // An explicit top-only target defines the support discovery domain.
+      // Dense nearby fittings must not exhaust that target's query budget;
+      // testBox/sweepBox below still check every obstacle in the environment.
+      if (targets && options.allowSides === false && !matches(mesh, targets)) return false;
       if (++visited > MAX_TRIANGLES) { overflow = true; return true; }
       const normal = triangle.getNormal(new THREE.Vector3());
       if (!orientation.has(mesh)) orientation.set(mesh, mesh.matrixWorld.determinant() < 0 ? -1 : 1);

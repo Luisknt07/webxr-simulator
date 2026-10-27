@@ -13,8 +13,9 @@ const dom = {createElement(tag) {
   canvas.getContext = () => context; return canvas;
 }};
 const read = file => fs.readFileSync(path.join(__dirname, '../src/editor', file), 'utf8').replace(/^import .*;\r?\n/gm, '');
-const prefab = new Function('THREE', 'behaviorSchema', 'document', read('IndustrialPrefabs.js')
-  .replace(/^export const /gm, 'const ').replace(/^export function /gm, 'function ') + '\nreturn {createIndustrialPrefab,createSourceProductVisual};')(THREE, behaviorSchema, dom);
+const cargo = require('./load-product-prefabs.js')(THREE);
+const prefab = new Function('THREE', 'behaviorSchema', 'document', 'require', read('IndustrialPrefabs.js')
+  .replace(/^export const /gm, 'const ').replace(/^export function /gm, 'function ') + '\nreturn {createIndustrialPrefab,createSourceProductVisual};')(THREE, behaviorSchema, dom, id => { assert.equal(id, './ProductPrefabs.js'); return cargo; });
 const SceneDocument = new Function('THREE', 'behaviorSchema', 'createIndustrialPrefab', read('SceneDocument.js').replace('export default class SceneDocument', 'return class SceneDocument'))(THREE, behaviorSchema, prefab.createIndustrialPrefab);
 const IndustrialVisuals = new Function('THREE', read('IndustrialVisuals.js').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE);
 const close = (actual, expected, message) => assert(Math.abs(actual - expected) < 0.00001, message || `${actual} != ${expected}`);
@@ -36,6 +37,7 @@ async function run() {
   const palletBounds = bounds(pallet), palletSize = palletBounds.getSize(new THREE.Vector3());
   close(palletBounds.min.y, 0); close(palletSize.x, expected.width); close(palletSize.y, expected.height); close(palletSize.z, expected.depth);
   assert.equal(pallet.userData.sourceProduct.units, 64);
+  assert(pallet.userData.forkPockets && pallet.userData.sourceProduct.forkPockets, 'Source pallets expose the actual openings used by fork handling.');
   let meshes = 0, triangles = 0;
   pallet.traverse(node => { if (node.isMesh) { meshes++; triangles += (node.geometry.index ? node.geometry.index.count : node.geometry.attributes.position.count) / 3; } });
   assert(meshes < 12, 'A 64-box pallet must remain one inexpensive handling unit with a few material batches.');

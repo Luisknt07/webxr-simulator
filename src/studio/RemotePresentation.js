@@ -19,7 +19,7 @@ export default class RemotePresentation {
     this.runtime = runtime; this.previous.clear();
     runtime.products.forEach(product => {
       product.object.updateWorldMatrix(true, false);
-      this.previous.set(productIdentity(product), {matrix: product.object.matrixWorld.clone(), shown: shown(product.object)});
+      this.previous.set(productIdentity(product), {matrix: product.object.matrixWorld.clone(), shown: shown(product.object), robotOwnerId: product.robotOwnerId || '', vehicleOwnerId: product.vehicleOwnerId || ''});
     });
   }
 
@@ -27,9 +27,9 @@ export default class RemotePresentation {
     this.runtime = runtime; this.blends.clear();
     const now = performance.now();
     runtime.products.forEach(product => {
-      if (product.heldBy || !shown(product.object)) return;
+      if (product.heldBy || product.robotOwnerId || product.vehicleOwnerId || !shown(product.object)) return;
       const key = productIdentity(product), prior = this.previous.get(key);
-      if (!prior || !prior.shown) return;
+      if (!prior || !prior.shown || prior.robotOwnerId || prior.vehicleOwnerId) return;
       product.object.updateWorldMatrix(true, false);
       const target = product.object.matrixWorld.clone();
       const fromPosition = new THREE.Vector3(), fromQuaternion = new THREE.Quaternion(), fromScale = new THREE.Vector3();
@@ -48,7 +48,7 @@ export default class RemotePresentation {
     if (!runtime) return;
     const now = performance.now();
     this.blends.forEach((blend, key) => {
-      if (!runtime.products.has(blend.product.object) || blend.product.heldBy) { this.blends.delete(key); return; }
+      if (!runtime.products.has(blend.product.object) || blend.product.heldBy || blend.product.robotOwnerId || blend.product.vehicleOwnerId) { this.blends.delete(key); return; }
       const alpha = Math.min(1, Math.max(0, (now - blend.at) / this.duration));
       if (alpha === 1) { runtime.setProductMatrix(blend.product, blend.target); blend.product.object.matrixAutoUpdate = blend.automatic; this.blends.delete(key); return; }
       this.position.copy(blend.fromPosition).lerp(blend.toPosition, alpha);
@@ -63,7 +63,7 @@ export default class RemotePresentation {
   clear() {
     const runtime = this.runtime;
     if (runtime) this.blends.forEach(blend => {
-      if (runtime.products.has(blend.product.object) && !blend.product.heldBy) { runtime.setProductMatrix(blend.product, blend.target); blend.product.object.matrixAutoUpdate = blend.automatic; }
+      if (runtime.products.has(blend.product.object) && !blend.product.heldBy && !blend.product.robotOwnerId && !blend.product.vehicleOwnerId) { runtime.setProductMatrix(blend.product, blend.target); blend.product.object.matrixAutoUpdate = blend.automatic; }
     });
     this.previous.clear(); this.blends.clear(); this.runtime = null;
   }

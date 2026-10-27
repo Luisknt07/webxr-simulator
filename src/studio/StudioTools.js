@@ -3,6 +3,7 @@ import schema from '../../shared/behaviors.js';
 import {buildIndustrialLab} from '../editor/IndustrialLab.js';
 import {buildIndustrialCediLevel} from '../editor/IndustrialCediLevel.js';
 import {buildStudyScene, studySceneReport} from '../editor/IndustrialStudyScenes.js';
+import {retrofitCediRobotics} from '../editor/IndustrialCediRobotics.js';
 import {compileStudyProject, compileBlankProject} from '../editor/StudySceneProject.js';
 import {STUDY_SCENES, studyScene} from '../editor/StudySceneCatalog.js';
 import {applyIndustrialAging} from '../editor/IndustrialAgingPresentation.js';
@@ -127,10 +128,21 @@ export default class StudioTools {
           const crossRoom = String(template.objects[index].roomId) !== roomId;
           const internal = id => references.has(id) || copiedIds.has(id);
           const remap = id => references.has(id) ? references.get(id) : id;
+          const addition=document.additions.get(object.userData.editorId);
+          if(addition&&addition.descriptor.type==='cad'&&addition.descriptor.attachment){
+            const descriptor=clone(addition.descriptor),attachment=descriptor.attachment;
+            if(references.has(attachment.targetId))attachment.targetId=remap(attachment.targetId);
+            else if(crossRoom&&!copiedIds.has(attachment.targetId)){
+              delete descriptor.attachment;
+              const transform=template.objects[index].cadTransform;if(transform)document.setTransform(object,transform);
+            }
+            document.updateCAD(object,descriptor);
+          }
           object.traverse(child => {
             if (!child.userData.editorId) return;
             const behaviors = document.getBehaviors(child).map(behavior => {
               ['sourceId', 'targetId', 'outputId', 'branchId'].forEach(key => { if (references.has(behavior[key])) behavior[key] = remap(behavior[key]); else if (crossRoom && behavior[key] && !internal(behavior[key])) behavior[key] = ''; });
+              if (behavior.type === 'robot' && behavior.destinationRulesJson) { const rules = JSON.parse(behavior.destinationRulesJson).filter(rule => !crossRoom || internal(rule.outputId)); rules.forEach(rule => { rule.outputId = remap(rule.outputId); }); behavior.destinationRulesJson = JSON.stringify(rules); }
               if (behavior.type === 'automation') { const rules = JSON.parse(behavior.rules).filter(rule => !crossRoom || internal(rule.sourceId) && internal(rule.targetId)); rules.forEach(rule => ['sourceId', 'targetId'].forEach(key => { rule[key] = remap(rule[key]); })); behavior.rules = JSON.stringify(rules); }
               return behavior;
             });
@@ -142,7 +154,7 @@ export default class StudioTools {
         const delta = new THREE.Vector3();
         if (copies.length && !options.preservePosition) {
           delta.copy(editor.orbit.target).sub(copies[0].position); delta.y = 0;
-          copies.forEach(object => { object.position.add(delta); });
+          copies.forEach(object => {const entry=document.additions.get(object.userData.editorId),attachment=entry&&entry.descriptor.type==='cad'&&entry.descriptor.attachment;if(!attachment||!copiedIds.has(attachment.targetId))object.position.add(delta);});
         }
         if (template.linkedStudio) {
           const linked = schema.studio.normalize(template.linkedStudio), patch = {};
@@ -159,7 +171,7 @@ export default class StudioTools {
           })).filter(group => group.members.length > 1));
           document.setStudio(patch);
         }
-        document.commit();
+        if(document.syncCADAttachments)document.syncCADAttachments();document.commit();
         // One undo restores the whole template, including any failed partial paste.
         document.undoStack.splice(historyLength);
         document.undoStack.push(before);
@@ -369,6 +381,16 @@ export default class StudioTools {
     if (!this.editor.active || roomId !== this.editor.roomId) throw new Error('Abre el nivel en el editor antes de configurar la práctica.');
     const built = buildStudyScene(this.editor.document, roomId, id, Object.assign({scene: this.editor.hooks.renderScene}, options));
     return studySceneReport(this.editor.document, built, roomId);
+  }
+  async integrateRobotics() {
+    this.assertStudyReady(); const editor = this.editor;
+    return editor.perform(() => {
+      const result = retrofitCediRobotics(editor.document, editor.roomId, {scene: editor.hooks.renderScene});
+      if (editor.entities) editor.entities.sync(); editor.renderTree(); editor.renderInspector();
+      const message = result.changed ? result.robots.length + ' robots y ' + result.vehicles.length + ' vehículos integrados. Pulsa Probar para operar.' : result.warnings.length ? 'No se agregaron equipos.' : 'La escena ya está equipada.';
+      editor.toast(message + (result.warnings.length ? ' ' + result.warnings.join(' ') : ''));
+      return result;
+    });
   }
   async createStudyVariant(id, options = {}) {
     this.assertStudyReady(); const definition = studyScene(id);

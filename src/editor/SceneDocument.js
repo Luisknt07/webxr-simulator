@@ -11,7 +11,7 @@ const MAX_VALUE = 1000000;
 const TRANSFORM_FIELDS = ['position', 'quaternion', 'scale'];
 const STATE_FIELDS = TRANSFORM_FIELDS.concat(['visible', 'color', 'behaviors']);
 const PRIMITIVES = ['box', 'sphere', 'plane', 'cylinder'];
-const PREFABS = ['conveyor', 'sensor', 'plc', 'control', 'product', 'source', 'processor', 'palletQueue'];
+const PREFABS = ['conveyor', 'sensor', 'plc', 'control', 'product', 'source', 'processor', 'palletQueue', 'robot', 'vehicle'];
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -42,6 +42,11 @@ function remapBehaviorReferences(behaviors, references, clearExternal = false) {
       if (references.has(behavior[key])) behavior[key] = references.get(behavior[key]);
       else if (clearExternal && behavior[key]) behavior[key] = '';
     });
+    if (behavior.type === 'robot' && behavior.destinationRulesJson) {
+      const rules = JSON.parse(behavior.destinationRulesJson).filter(rule => !clearExternal || references.has(rule.outputId));
+      rules.forEach(rule => { if (references.has(rule.outputId)) rule.outputId = references.get(rule.outputId); });
+      behavior.destinationRulesJson = JSON.stringify(rules);
+    }
     if (behavior.type === 'automation') {
       // A copied machine retains its own controls. Rules involving a machine
       // outside the copied subtree need a new local binding in another level.
@@ -127,11 +132,12 @@ function interactionValue(value) {
 
 function descriptorValue(value) {
   if (!isPlain(value)) throw new Error('Descripción de recurso inválida.');
+  if (value.type === 'cad') return require('../../shared/cad').normalizeDescriptor(value);
   if (value.prefab !== undefined) {
     if (!PREFABS.includes(value.prefab)) throw new Error('Plantilla industrial no compatible.');
     const descriptor = {prefab: value.prefab};
     if (value.variant !== undefined) {
-      const variants = value.prefab === 'conveyor' ? behaviorSchema.conveyorLayout.presetVariants : value.prefab === 'source' ? ['queue'] : value.prefab === 'processor' ? ['combiner', 'separator'] : value.prefab === 'control' ? ['start', 'stop', 'emergency', 'pause', 'powerOn', 'powerOff', 'speedUp', 'speedDown', 'insertBox', 'resetEmergency', 'generate', 'dispatch', 'clearQueue', 'operator'] : [];
+const variants = value.prefab === 'vehicle' ? behaviorSchema.vehicles.variants : value.prefab === 'product' ? behaviorSchema.productEquipment.variants : value.prefab === 'robot' ? behaviorSchema.robots.variants : value.prefab === 'conveyor' ? behaviorSchema.conveyorLayout.presetVariants : value.prefab === 'source' ? ['queue'] : value.prefab === 'processor' ? ['combiner', 'separator'] : value.prefab === 'control' ? ['start', 'stop', 'emergency', 'pause', 'powerOn', 'powerOff', 'speedUp', 'speedDown', 'insertBox', 'resetEmergency', 'generate', 'dispatch', 'clearQueue', 'operator'] : [];
       if (!variants.includes(value.variant)) throw new Error('Variante de equipo no compatible.');
       descriptor.variant = value.variant;
     }
@@ -319,12 +325,17 @@ export default class SceneDocument {
   }
 
   _syncConveyor(object) {
-    if (!['conveyor', 'source', 'processor', 'palletQueue'].includes(object.userData.editorPrefabKey) || !createIndustrialPrefab.refresh) return;
+    if (!['conveyor', 'source', 'processor', 'palletQueue', 'robot', 'vehicle', 'product'].includes(object.userData.editorPrefabKey) || !createIndustrialPrefab.refresh) return;
     const content = object.children[0];
     if (!content || content.userData.editorPrefabKey !== object.userData.editorPrefabKey) return;
     const config = this.getBehaviors(object).find(component => component.type === object.userData.editorPrefabKey);
-    if (!config) return;
+    if (!config || config.type === 'product' && !config.variant) return;
     const entry = this.additions.get(object.userData.editorId);
+    if (entry && ['robot', 'vehicle', 'product'].includes(config.type)) {
+      entry.descriptor.variant = config.variant;
+      object.userData.editorDescriptor = clone(entry.descriptor);
+      object.userData.editorPrefabVariant = content.userData.editorPrefabVariant = config.variant;
+    }
     if (entry && config.type === 'conveyor' && config.equipmentId) {
       const definition = behaviorSchema.conveyorLayout.equipment.getDefinition(config.equipmentId);
       if (definition && definition.id === config.equipmentId) {
@@ -337,7 +348,7 @@ export default class SceneDocument {
       }
     }
     if (!this.conveyorSignatures) this.conveyorSignatures = new WeakMap();
-    const keys = config.type === 'palletQueue' ? ['width', 'depth', 'columns', 'rows', 'layers', 'capacity', 'palletCapacity', 'acceptsPallets', 'palletType', 'palletMaterial', 'layoutMode', 'withPanel'] :
+    const keys = ['robot', 'vehicle', 'product'].includes(config.type) ? behaviorSchema.definitionFor(config.type).fields.map(field => field.key) : config.type === 'palletQueue' ? ['width', 'depth', 'columns', 'rows', 'layers', 'capacity', 'palletCapacity', 'acceptsPallets', 'palletType', 'palletMaterial', 'layoutMode', 'withPanel'] :
       config.type === 'processor' ? ['mode', 'length', 'width', 'withPanel'] :
       config.type === 'source' ? ['generationMode', 'productType', 'width', 'height', 'depth', 'color', 'catalog', 'loadMode', 'palletColumns', 'palletRows', 'palletLayers', 'palletType', 'palletMaterial', 'palletPacking', 'palletWidth', 'palletDepth', 'withPanel'] :
       ['layout', 'surface', 'length', 'width', 'radius', 'curveAngle', 'axis', 'junctionMode', 'branchSide', 'role', 'withSensors', 'withPanel', 'withPallet', 'outputId', 'branchId', 'equipmentId', 'equipmentVersion', 'drive', 'mechanism', 'rise', 'rollerPitch', 'zoneLength', 'cleats', 'mergeAngle'];
@@ -429,6 +440,7 @@ export default class SceneDocument {
   }
 
   async _instantiate(descriptor) {
+    if (descriptor.type === 'cad') return this._cadVisual(descriptor);
     if (descriptor.prefab) return createIndustrialPrefab(descriptor.prefab, descriptor.variant);
     if (descriptor.nativeId) return this._cloneNative(descriptor.nativeId);
     if (descriptor.type === 'decal' || descriptor.type === 'audioZone') return new THREE.Group();
@@ -726,6 +738,9 @@ export default class SceneDocument {
     this.additions.forEach(entry => this._unregisterAddition(entry));
     this.additions.clear();
     snapshot.additions.forEach(({entry, record}) => {
+      if (record.descriptor.type === 'cad' && !same(entry.descriptor, record.descriptor)) {
+        this._replaceCADVisual(entry.object, record.descriptor);
+      }
       entry.descriptor = clone(record.descriptor);
       entry.object.userData.editorDescriptor = clone(record.descriptor);
       if (record.descriptor.variant) entry.object.userData.editorPrefabVariant = record.descriptor.variant;
@@ -757,6 +772,7 @@ export default class SceneDocument {
     snapshot.additions.forEach(({visuals}) => { if (visuals) visuals.forEach((visual, id) => { if (visual && this.objects.has(id)) this._setVisual(this.objects.get(id), visual); }); });
     this.overrides = new Map(snapshot.overrides.map(([id, value]) => [id, clone(value)]));
     this.pendingRooms = new Map((snapshot.pendingRooms || []).map(([roomId, records]) => [roomId, clone(records)]));
+    this.syncCADAttachments();
   }
 
   _unregisterAddition(entry) {
@@ -853,6 +869,78 @@ export default class SceneDocument {
     if (!PRIMITIVES.includes(type)) throw new Error('Tipo de figura no compatible.');
     const descriptor = descriptorValue({type, color});
     return this._action(() => this._attach(roomId, descriptor, this._primitive(descriptor)));
+  }
+
+  _cadVisual(descriptor) {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(descriptor.mesh.positions, 3));
+    const positions=descriptor.mesh.positions,normals=require('../../shared/cad').vertexNormals(positions,descriptor.smoothingAngle===undefined?45:descriptor.smoothingAngle),uv=new Float32Array(positions.length/3*2);
+    geometry.setAttribute('normal',new THREE.BufferAttribute(normals,3));
+    for(let i=0;i<positions.length;i+=9){const nx=Math.abs(normals[i]),ny=Math.abs(normals[i+1]),nz=Math.abs(normals[i+2]);for(let k=0;k<3;k++){const p=i+k*3,j=p/3*2;uv[j]=(ny>=nx&&ny>=nz?positions[p]:nz>=nx?positions[p]:positions[p+2])*2;uv[j+1]=(ny>=nx&&ny>=nz?positions[p+2]:positions[p+1])*2;}}
+    geometry.setAttribute('uv',new THREE.BufferAttribute(uv,2));geometry.computeBoundingBox(); geometry.computeBoundingSphere();
+    const material = new THREE.MeshStandardMaterial({color: descriptor.color, roughness: 0.48, metalness: 0.35});
+    if (material.color.convertSRGBToLinear) material.color.convertSRGBToLinear();
+    const mesh = new THREE.Mesh(geometry, material); mesh.castShadow = true; mesh.receiveShadow = true;
+    mesh.name = 'Pieza paramétrica'; mesh.userData.cadVisual = true; return mesh;
+  }
+
+  _replaceCADVisual(object, descriptor) {
+    const geometries = new Set(), materials = new Set();
+    object.children.slice().forEach(child => {
+      if (!child.userData.cadVisual) return;
+      child.traverse(node => {if (node.geometry) geometries.add(node.geometry);(Array.isArray(node.material)?node.material:[node.material]).filter(Boolean).forEach(material=>materials.add(material));});
+      object.remove(child);
+    });
+    geometries.forEach(geometry=>geometry.dispose()); materials.forEach(material=>material.dispose());
+    object.add(this._cadVisual(descriptor));
+  }
+
+  addCAD(roomId, value) {
+    const descriptor = descriptorValue(value);
+    if (descriptor.type !== 'cad') throw new Error('Selecciona una pieza CAD.');
+    this._validateCADAttachment(roomId, descriptor);
+    return this._action(() => {
+      const object = this._attach(roomId, descriptor, this._cadVisual(descriptor));
+      object.name = 'Pieza CAD';
+      if (descriptor.attachment) object.position.fromArray(descriptor.attachment.position);
+      this.syncCADAttachments(); return object;
+    });
+  }
+
+  updateCAD(object, value) {
+    this._requireObject(object);
+    const entry = this.additions.get(object.userData.editorId), descriptor = descriptorValue(value);
+    if (!entry || entry.descriptor.type !== 'cad' || descriptor.type !== 'cad') throw new Error('Selecciona una pieza CAD editable.');
+    this._validateCADAttachment(entry.roomId, descriptor);
+    return this._action(() => {
+      this._replaceCADVisual(object, descriptor); entry.descriptor = clone(descriptor); object.userData.editorDescriptor = clone(descriptor);
+      this.syncCADAttachments(); return object;
+    });
+  }
+
+  _validateCADAttachment(roomId, descriptor) {
+    if (!descriptor.attachment) return;
+    const target = this.getObject(descriptor.attachment.targetId);
+    if (!target || target.userData.editorRoom !== roomId || target.userData.editorPrefabKey !== 'vehicle') throw new Error('Vincula la pieza a un vehículo de este nivel.');
+  }
+
+  syncCADAttachments() {
+    this.additions.forEach(entry => {
+      if (entry.descriptor.type !== 'cad') return;
+      const object = entry.object, attachment = entry.descriptor.attachment;
+      const target = attachment && this.getObject(attachment.targetId);
+      if (!target || target.userData.editorRoom !== entry.roomId || target.userData.editorPrefabKey !== 'vehicle') {
+        if (attachment && !object.matrixAutoUpdate) object.matrix.decompose(object.position,object.quaternion,object.scale);
+        object.matrixAutoUpdate = true; object.updateMatrix(); return;
+      }
+      let rig; target.traverse(child => { if (child.userData.vehicleRig) rig = child.userData.vehicleRig; });
+      const anchor = rig && (attachment.part === 'forks' ? rig.forks : attachment.part === 'cabin' ? rig.cabin || rig.driverSeat : null) || target;
+      anchor.updateWorldMatrix(true, false); object.parent.updateWorldMatrix(true, false);
+      object.matrixAutoUpdate = false;
+      object.matrix.compose(object.position, object.quaternion, object.scale);
+      object.matrix.premultiply(anchor.matrixWorld).premultiply(new THREE.Matrix4().getInverse(object.parent.matrixWorld));
+      object.matrixWorldNeedsUpdate = true; object.updateMatrixWorld(true);
+    });
   }
 
   addPrefab(roomId, kind, variant) {
@@ -974,6 +1062,12 @@ export default class SceneDocument {
     if (!entry && this.visuals.has(originalId)) record.visual = clone(this.visuals.get(originalId).descriptor);
     else if (!entry && this.overrides.get(originalId) && this.overrides.get(originalId).visual) record.visual = clone(this.overrides.get(originalId).visual);
     const snapshot = {format: 'hello-webxr-object', version: 1, roomId, record, sources};
+    if (entry && entry.descriptor.type === 'cad' && entry.descriptor.attachment) {
+      this.syncCADAttachments(); object.updateWorldMatrix(true, false);
+      const room = this.rooms.get(roomId), matrix = new THREE.Matrix4().multiplyMatrices(new THREE.Matrix4().getInverse(room.root.matrixWorld),object.matrixWorld);
+      const position=new THREE.Vector3(),quaternion=new THREE.Quaternion(),scale=new THREE.Vector3();matrix.decompose(position,quaternion,scale);
+      snapshot.cadTransform={position:position.toArray(),quaternion:quaternion.toArray(),scale:scale.toArray()};
+    }
     const entity = this.studio && (this.studio.entities || []).find(item => item.objectId === originalId);
     if (entity) snapshot.studioEntity = entity;
     return clone(snapshot);
@@ -999,6 +1093,14 @@ export default class SceneDocument {
     }
     prepared.record.id = this._newId();
     prepared.record.name = (prepared.record.name || 'Objeto').slice(0, 154) + ' copia';
+    const cadAttachment=prepared.record.descriptor&&prepared.record.descriptor.type==='cad'&&prepared.record.descriptor.attachment;
+    if(cadAttachment&&!options.deferExternalReferences){
+      const target=this.getObject(cadAttachment.targetId);
+      if(sourceRoomId!==roomId||!target||target.userData.editorRoom!==roomId){
+        delete prepared.record.descriptor.attachment;
+        if(prepared.cadTransform)Object.assign(prepared.record,validateState(prepared.cadTransform,true));
+      }
+    }
     if (!Array.isArray(prepared.record.position)) throw new Error('Falta la posici\u00f3n del objeto copiado.');
     prepared.record.position[0] += offset;
     // Use the document validator before any asynchronous resource preparation or
@@ -1033,6 +1135,7 @@ export default class SceneDocument {
         id: 'entity:' + copy.userData.editorId, objectId: copy.userData.editorId, roomId
       }))});
       if (prepare) prepare(copy);
+      if(record.descriptor.type==='cad')this.syncCADAttachments();
       return copy;
     });
   }
@@ -1297,6 +1400,7 @@ export default class SceneDocument {
       const object = this.objects.get(visual.id);
       this._setVisual(object, {descriptor: visual.descriptor, content: this._fitVisual(object, visual.content), hidden: new Map()});
     });
+    this.syncCADAttachments();
   }
 
   _hydrateHistory(roomId, records) {

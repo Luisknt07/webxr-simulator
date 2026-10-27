@@ -21,7 +21,7 @@ export default class MobileNavigation {
   allowed() {
     const ctx = this.ctx, editor = ctx.editor, studio = ctx.studio;
     return this.coarse() && !this.disposed && this.document && !this.document.hidden && !ctx.vrMode && !(ctx.renderer && ctx.renderer.xr && ctx.renderer.xr.isPresenting) &&
-      !(editor && (editor.active || editor.initializing || editor.loadingProject)) && !(studio && studio.drawer && !studio.drawer.hidden) && !ctx.mobileNavigationBlocked;
+      !(editor && (editor.active || editor.initializing || editor.loadingProject)) && !(studio && studio.drawer && !studio.drawer.hidden) && !ctx.mobileNavigationBlocked && !ctx.drivingVehicle;
   }
   stopEvent(event) { if (event.preventDefault) event.preventDefault(); if (event.stopPropagation) event.stopPropagation(); }
   call(name, ...args) { const callback = this.options[name]; if (typeof callback === 'function') callback(...args); }

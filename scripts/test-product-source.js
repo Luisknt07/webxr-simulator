@@ -9,7 +9,8 @@ const ObjectPlacement = require('./load-object-placement')(THREE);
 const {getGeometryTree} = require('./load-geometry-acceleration.js')(THREE);
 const schema = behaviorSchema.productSources;
 function source(file) { return fs.readFileSync(path.join(__dirname, '..', file), 'utf8').replace(/^\uFEFF/, '').replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, ''); }
-const prefabs = new Function('THREE', 'behaviorSchema', source('src/editor/IndustrialPrefabs.js') + '\nreturn {createIndustrialPrefab,createProductVisual,createSourceProductVisual};')(THREE, behaviorSchema);
+const cargo = require('./load-product-prefabs.js')(THREE);
+const prefabs = new Function('THREE', 'behaviorSchema', 'require', source('src/editor/IndustrialPrefabs.js') + '\nreturn {createIndustrialPrefab,createProductVisual,createSourceProductVisual};')(THREE, behaviorSchema, id => { assert.equal(id, './ProductPrefabs.js'); return cargo; });
 const SceneDocument = new Function('THREE', 'behaviorSchema', 'createIndustrialPrefab', source('src/editor/SceneDocument.js').replace('default class SceneDocument', 'return class SceneDocument'))(THREE, behaviorSchema, prefabs.createIndustrialPrefab);
 const ProductFeedback = new Function('THREE', source('src/editor/ProductFeedback.js').replace('default class ProductFeedback', 'return class ProductFeedback'))(THREE);
 const PalletQueueRuntime = require('./load-pallet-queue-runtime.js')(THREE, behaviorSchema);

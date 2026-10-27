@@ -40,8 +40,11 @@ export const industrialPrefabs = [
   {id: 'separator', prefab: 'processor', variant: 'separator', label: 'Separator / separar lotes', description: 'Divide una carga o lote en varias cargas de salida.'},
   {id: 'palletQueue', label: 'Pallet Queue / almacén con estibas', description: 'Almacén independiente con estiba, apilado visible y salidas manuales o automáticas.'}
 ]);
+behaviorSchema.robots.VARIANTS.forEach(definition => industrialPrefabs.push({id: 'robot.' + definition.id, prefab: 'robot', variant: definition.id, label: definition.name, description: 'Robot paramétrico con ejes móviles, herramienta y flujo de productos configurable.'}));
+behaviorSchema.vehicles.VARIANTS.forEach(definition => industrialPrefabs.push({id: 'vehicle.' + definition.id, prefab: 'vehicle', variant: definition.id, label: definition.name, description: 'Vehículo configurable con conducción, mecanismo de carga y capacidad propia.'}));
+behaviorSchema.productEquipment.VARIANTS.forEach(definition => industrialPrefabs.push({id: 'product.' + definition.id, prefab: 'product', variant: definition.id, label: definition.name, description: definition.description}));
 
-const kinds = ['conveyor', 'sensor', 'plc', 'control', 'product', 'source', 'processor', 'palletQueue'];
+const kinds = ['conveyor', 'sensor', 'plc', 'control', 'product', 'source', 'processor', 'palletQueue', 'robot'];
 // Rendering-only LOD eligibility follows the original part semantics. A batch
 // containing even one structural/body part must keep its full silhouette.
 const COSMETIC_HARDWARE = /^(?:Tornillo|Tuerca|Arandela|Perno|Pasador|Fijación del resguardo|Aleta longitudinal de refrigeración|Nervio de la rejilla|Tapón de aceite)(?:\b|$)/u;
@@ -54,11 +57,52 @@ function material(color, extra = {}) {
 
 // Share resources inside each visual component; replacing/removing a sensor
 // must never dispose assets belonging to another independently editable actor.
+// Fabricated tube and folded-sheet silhouettes retain the authored outer
+// envelope. Profiles have real open ends; small edge breaks catch highlights
+// without tessellating every bolt or changing transport/collision planes.
+function compactFabricated(geometry) {
+  // ExtrudeBufferGeometry emits triangle soup in r112. Weld only completely
+  // identical position/normal/UV tuples, retaining all sharp seams and edges.
+  const names = Object.keys(geometry.attributes), values = {}, unique = new Map(), indices = [];
+  names.forEach(name => { values[name] = []; });
+  for (let vertex = 0; vertex < geometry.attributes.position.count; vertex++) {
+    const tuple = names.flatMap(name => Array.from(geometry.attributes[name].array.subarray(vertex * geometry.attributes[name].itemSize, (vertex + 1) * geometry.attributes[name].itemSize)));
+    const key = tuple.join(':'); let index = unique.get(key);
+    if (index === undefined) {
+      index = unique.size; unique.set(key, index);
+      names.forEach(name => { const attribute = geometry.attributes[name]; for (let component = 0; component < attribute.itemSize; component++) values[name].push(attribute.array[vertex * attribute.itemSize + component]); });
+    }
+    indices.push(index);
+  }
+  names.forEach(name => geometry.setAttribute(name, new THREE.Float32BufferAttribute(values[name], geometry.attributes[name].itemSize)));
+  geometry.setIndex(geometry.index ? Array.from(geometry.index.array, index => indices[index]) : indices); return geometry;
+}
+
+function fabricatedBox(w, h, d, hollow = false) {
+  if (hollow) {
+    const axis = w >= h && w >= d ? 'x' : h >= d ? 'y' : 'z';
+    const a = axis === 'x' ? d : w, b = axis === 'y' ? d : h, length = axis === 'x' ? w : axis === 'y' ? h : d;
+    const wall = Math.min(.004, Math.min(a, b) * .14), shape = new THREE.Shape(), hole = new THREE.Path();
+    shape.moveTo(-a / 2, -b / 2); shape.lineTo(a / 2, -b / 2); shape.lineTo(a / 2, b / 2); shape.lineTo(-a / 2, b / 2); shape.closePath();
+    hole.moveTo(-a / 2 + wall, -b / 2 + wall); hole.lineTo(-a / 2 + wall, b / 2 - wall); hole.lineTo(a / 2 - wall, b / 2 - wall); hole.lineTo(a / 2 - wall, -b / 2 + wall); hole.closePath(); shape.holes.push(hole);
+    const geometry = new THREE.ExtrudeBufferGeometry(shape, {depth: length, steps: 1, bevelEnabled: false, curveSegments: 1});
+    geometry.translate(0, 0, -length / 2);
+    if (axis === 'x') geometry.rotateY(Math.PI / 2); else if (axis === 'y') geometry.rotateX(Math.PI / 2);
+    return compactFabricated(geometry);
+  }
+  const bevel = Math.min(.004, Math.min(w, h, d) * .12), x = w / 2 - bevel, y = h / 2 - bevel, shape = new THREE.Shape();
+  shape.moveTo(-x, -y); shape.lineTo(x, -y); shape.lineTo(x, y); shape.lineTo(-x, y); shape.closePath();
+  const geometry = new THREE.ExtrudeBufferGeometry(shape, {depth: d - 2 * bevel, steps: 1, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 1, curveSegments: 1});
+  geometry.translate(0, 0, -d / 2 + bevel); return compactFabricated(geometry);
+}
+
 function builder() {
   const geometries = new Map(), materials = new Map();
   const mesh = (name, kind, args, color, position, extra = {}) => {
-    const key = kind + JSON.stringify(args), materialKey = color + JSON.stringify(extra);
-    if (!geometries.has(key)) geometries.set(key, kind === 'box' ? new THREE.BoxBufferGeometry(...args) : new THREE.CylinderBufferGeometry(...args));
+    const section = kind === 'box' && /^(Tubo exterior de pata|Tubo telescópico|Pata de |Perfil vertical|Perfil superior|Pedestal |Larguero de aluminio|Travesaño de soporte|Travesaño inferior)/.test(name);
+    const sheet = kind === 'box' && /^(Armario|Puerta |Tapa de mantenimiento|Bancada|Cabezal fijo|Caja de conexiones|Carcasa|Reductor)/.test(name);
+    const key = kind + (section ? 'tube' : sheet ? 'sheet' : '') + JSON.stringify(args), materialKey = color + JSON.stringify(extra);
+    if (!geometries.has(key)) geometries.set(key, kind === 'box' ? section || sheet ? fabricatedBox(...args, section) : new THREE.BoxBufferGeometry(...args) : compactFabricated(new THREE.CylinderBufferGeometry(...args)));
     if (!materials.has(materialKey)) {
       const surface = material(color, extra);
       // Surface names survive geometry refreshes and describe the editable
@@ -252,6 +296,10 @@ function sensor(name = 'Sensor de presencia', width = 1) {
 
 function plc() {
   const group = component(new THREE.Group(), 'plc', [defaultBehavior('automation'), defaultBehavior('analytics')]); group.name = 'PLC simulado / panel de mando';
+  group.userData.industrialStickerAnchors = [
+    {id: 'electrical', position: [.51, .35, 0], normal: [1, 0, 0], size: [.12, .12]},
+    {id: 'equipment-id', position: [0, .21, -.14], normal: [0, 0, -1], size: [.28, .105]}
+  ];
   const make = builder();
   const cabinet = make.box('Armario', 1.02, 1.00, 0.28, '#abb5be', [0, 0.21, 0], {roughness: 0.34, metalness: 0.72});
   const screen = make.box('Pantalla', 0.74, 0.28, 0.024, '#10232d', [0, 0.47, 0.172], {metalness: 0.05, roughness: 0.28, emissive: '#0d2735', emissiveIntensity: 0.35});
@@ -312,7 +360,7 @@ function shippingTexture() {
 /** Private resources, no actor IDs; also used for automatically spawned boxes. */
 export function createProductVisual(size = 0.25) {
   const make = builder();
-  const body = new THREE.Mesh(new THREE.BoxBufferGeometry(size, size, size), material('#ffffff', {name: 'Cartón de embalaje', map: cardboardTexture(), roughness: 0.94, metalness: 0}));
+  const body = new THREE.Mesh(fabricatedBox(size, size, size), material('#ffffff', {name: 'Cartón de embalaje', map: cardboardTexture(), roughness: 0.94, metalness: 0}));
   body.name = 'Caja de cartón'; body.castShadow = true; body.receiveShadow = true; body.geometry.computeBoundingBox();
   const details = new THREE.Group(); details.name = 'Cinta y uniones de cartón';
   details.add(make.box('Cinta superior', size * 0.20, size * 0.008, size * 1.006, '#bc9a63', [0, size * 0.503, 0], {roughness: 0.37, metalness: 0}));
@@ -384,6 +432,7 @@ function singleSourceProduct(spec) {
 
 /** A runtime load owns its resources; a pallet is held as one complete unit. */
 export function createSourceProductVisual(spec = {}, config = {}) {
+  if (config.loadMode === 'pallet' || spec.variant || !['box', 'crate', 'drum', 'bottle'].includes(spec.type || 'box')) return require('./ProductPrefabs.js').createCargoVisual(spec, config);
   const root = new THREE.Group(), dimensions = {
     width: productDimension(spec.width, 0.25), height: productDimension(spec.height, 0.25), depth: productDimension(spec.depth, 0.25)
   };
@@ -394,7 +443,7 @@ export function createSourceProductVisual(spec = {}, config = {}) {
   const rows = loaded ? integer(config.palletRows) : 1;
   const layers = loaded ? Math.min(integer(config.palletLayers === undefined ? 1 : config.palletLayers), config.palletPacking === 'fit' ? 5 : Math.floor(64 / (columns * rows))) : 1;
   const plan = loaded ? behaviorSchema.productSources.palletPlan(productSpec, Object.assign({}, config, {palletColumns: columns, palletRows: rows, palletLayers: layers})) : null;
-  const units = loaded ? plan.units : 1, width = loaded ? plan.width : dimensions.width, depth = loaded ? plan.depth : dimensions.depth;
+  const units = behaviorSchema.productSources.unitsFor(config, spec), width = loaded ? plan.width : dimensions.width, depth = loaded ? plan.depth : dimensions.depth;
   const height = loaded ? plan.height : dimensions.height;
   root.name = (loaded ? 'Pallet / ' : '') + (spec.name || 'Producto');
   if (loaded) {
@@ -572,7 +621,7 @@ function sourceStructure(layout) {
   frame.add(make.box('Mesa de próxima carga', length, 0.06, width, '#aab8c2', [0, -0.034, 0], {metalness: 0.65, roughness: 0.70}));
   frame.add(make.box('Superficie antideslizante', length - 0.10, 0.004, width - 0.10, '#34434e', [0, -0.002, 0], {metalness: 0, roughness: 0.96}));
   [-1, 1].forEach(side => {
-    frame.add(make.box('Perfil de soporte', length, 0.12, 0.055, '#738693', [0, -0.13, side * (width / 2 - 0.05)]));
+    frame.add(make.box('Perfil de soporte', length, 0.14, 0.055, '#738693', [0, -0.13, side * (width / 2 - 0.05)]));
     frame.add(make.box('Marca amarilla de zona de carga', length * 0.56, 0.001, 0.025, '#edbc3d', [0, 0.001, side * (width / 2 - 0.08)], {metalness: 0, roughness: 0.8}));
   });
   [-1, 1].forEach(x => [-1, 1].forEach(z => {
@@ -582,7 +631,9 @@ function sourceStructure(layout) {
     legs.add(make.cylinder('Husillo regulable', 0.018, 0.08, '#afbdc5', [px, -0.96, pz], 12));
   }));
   [-1, 1].forEach(side => legs.add(make.box('Refuerzo inferior', length - 0.25, 0.05, 0.04, '#677c8a', [0, -0.77, side * (width / 2 - 0.16)])));
-  batchDetails(frame); batchDetails(legs); return {frame, legs};
+  batchDetails(frame); batchDetails(legs);
+  frame.userData.industrialStickerAnchors = [{id: 'equipment-id', position: [0, -.13, width / 2 - .0225], normal: [0, 0, 1], size: [Math.min(.28, length * .22), .065]}];
+  return {frame, legs};
 }
 
 function sourcePanel() {
@@ -701,6 +752,7 @@ export function refreshPalletQueueGeometry(root, value) {
   holder.userData.industrialPallet = {width: config.width, depth: config.depth, columns: config.columns, rows: config.rows,
     layers: config.layers, capacity: config.capacity, palletCapacity: bays.length, acceptsPallets: !!config.acceptsPallets, top: config.palletHeight};
   const panel = root.children[1], panelPosition = [-layout.length / 2 + 0.30, 0.05, layout.width / 2 + 0.24];
+  panel.userData.industrialStickerAnchors = [{id: 'capacity', position: [0, .725, .070], normal: [0, 0, 1], size: [.18, .025]}];
   if (!previous || panel.position.distanceTo(new THREE.Vector3().fromArray(previous.panelPosition)) < 0.00001) panel.position.fromArray(panelPosition);
   root.userData.industrialPalletQueueDimensions = key;
   root.userData.industrialPalletQueue = Object.assign({}, layout, {layout, palletPosition: [0, -1, 0], top: layout.palletTop, floor: -1,
@@ -784,7 +836,7 @@ function processorMechanics(layout, config) {
     const x = side * (length / 2 - 0.18);
     [-1, 1].forEach(zSide => {
       const z = zSide * (width / 2 - 0.15);
-      legs.add(make.box('Pata de máquina', 0.08, 0.55, 0.08, '#738b9b', [x, -0.705, z]));
+      legs.add(make.box('Pata de máquina', 0.08, 0.57, 0.08, '#738b9b', [x, -0.695, z]));
       legs.add(make.cylinder('Pie antivibración', 0.105, 0.035, '#293b46', [x, -0.9825, z], 20, {metalness: 0.08, roughness: 0.88}));
       legs.add(make.cylinder('Husillo de nivelación', 0.023, 0.11, '#c2cdd3', [x, -0.93, z], 12));
     });
@@ -793,8 +845,17 @@ function processorMechanics(layout, config) {
   frame.add(make.box('Resguardo posterior transparente', chamber - 0.08, 0.72, 0.012, '#91c8d9', [0, 0.43, -width / 2 + 0.07], {metalness: 0, roughness: 0.12, transparent: true, opacity: 0.24, depthWrite: false}));
   [-1, 1].forEach(side => frame.add(make.box('Travesaño superior del pórtico', 0.065, 0.065, width - 0.09, '#aebfc9', [side * chamber * 0.20, 0.88, 0], {metalness: 0.86, roughness: 0.28})));
   frame.add(make.box('Cabezal fijo de la máquina', chamber * 0.65, 0.15, width * 0.48, accent, [0, 0.89, 0]));
+  [-.12, .12].forEach(x => {
+    frame.add(make.cylinder('Camisa fija del actuador de proceso', .042, .30, '#859ba8', [x, .785, 0], 16));
+    frame.add(make.cylinder('Prensaestopas y guía del vástago', .048, .018, '#344b59', [x, .635, 0], 16));
+  });
   frame.add(make.box('Banda de precaución', chamber * 0.65, 0.035, 0.008, '#edc348', [0, 0.825, width * 0.24 + 0.006], {metalness: 0, roughness: 0.7}));
-  batchDetails(frame); batchDetails(legs); return {frame, legs};
+  batchDetails(frame); batchDetails(legs);
+  frame.userData.industrialStickerAnchors = [
+    {id: 'equipment-id', position: [-length / 3, -.25, width / 2 - .044], normal: [0, 0, 1], size: [Math.min(.24, length / 6), .095]},
+    {id: 'electrical', position: [length / 3, -.25, width / 2 - .044], normal: [0, 0, 1], size: [.085, .085]},
+    {id: 'warning-pinch', position: [0, .89, width * .24], normal: [0, 0, 1], size: [Math.min(.20, chamber * .4), .08]}
+  ]; return {frame, legs};
 }
 
 function processorWorkingHead() {
@@ -964,7 +1025,7 @@ function disposeDetached(objects, root) {
   resources(root, resource => live.add(resource));
   const removed = new Set();
   objects.forEach(object => resources(object, resource => {
-    if (live.has(resource) || removed.has(resource)) return;
+    if (live.has(resource) || removed.has(resource) || resource.isTexture && resource.userData && resource.userData.sharedIndustrialTexture) return;
     removed.add(resource); resource.dispose();
   }));
 }
@@ -1055,6 +1116,25 @@ function ribbonGeometry(points, width, height, trimMain) {
   geometry.computeBoundingBox(); geometry.computeBoundingSphere(); return geometry;
 }
 
+function junctionBearingSupport(make, frame, bearing, mainPoints, width) {
+  // A trimmed shaft cannot hang from a plate in mid-air. Hang its bearing from
+  // a crossmember spanning both main rails, below every rotating shaft.
+  let distance = Infinity, closest;
+  for (let i = 1; i < mainPoints.length; i++) {
+    const a = mainPoints[i - 1], b = mainPoints[i], dx = b.x - a.x, dz = b.z - a.z, lengthSq = dx * dx + dz * dz;
+    const t = Math.max(0, Math.min(1, ((bearing.position.x - a.x) * dx + (bearing.position.z - a.z) * dz) / (lengthSq || 1)));
+    const x = a.x + dx * t, z = a.z + dz * t, next = Math.pow(x - bearing.position.x, 2) + Math.pow(z - bearing.position.z, 2);
+    if (next < distance) { distance = next; closest = {x, z, tx: dx / Math.sqrt(lengthSq || 1), tz: dz / Math.sqrt(lengthSq || 1)}; }
+  }
+  const y = bearing.position.y;
+  frame.add(make.box('Rodamientos de unión / placa de empalme', .08, .025, .08, '#748995', [bearing.position.x, y - .04, bearing.position.z]));
+  frame.add(make.box('Ménsula portante del cojinete de unión', .042, .11, .042, '#748995', [bearing.position.x, y - .105, bearing.position.z]));
+  if (closest) {
+    const support = make.box('Travesaño portante de la unión', .065, .045, width + .24, '#748995', [closest.x, y - .16, closest.z]);
+    support.rotation.y = -Math.atan2(closest.tz, closest.tx); frame.add(support);
+  }
+}
+
 function createPathMechanics(config) {
   const make = builder(), frame = new THREE.Group(), legs = new THREE.Group(), rollers = new THREE.Group();
   frame.name = 'Bastidor'; legs.name = 'Soportes telescópicos'; rollers.name = 'Rodillos';
@@ -1133,7 +1213,7 @@ function createPathMechanics(config) {
         const bearing = make.cylinder('Cojinete sellado', Math.min(0.035, radius * 0.60), 0.023, '#27343e', [p.x - p.tz * lateral, -radius * Math.cos(tilt) - lateral * Math.sin(tilt), p.z + p.tx * lateral], 10);
         bearing.quaternion.copy(roller.quaternion); frame.add(bearing);
         if (route === 'branch' && Math.abs((section.offset || 0) + side * width / 2) < (config.width + 0.04) / 2 - 0.001) {
-          frame.add(make.box('Rodamientos de unión / placa de empalme', 0.08, 0.025, 0.08, '#748995', [bearing.position.x, bearing.position.y - 0.04, bearing.position.z]));
+          junctionBearingSupport(make, frame, bearing, paths[0].points, config.width);
         }
       });
     });
@@ -1361,7 +1441,7 @@ function createAdvancedPathMechanics(config) {
         bearing.position.copy(roller.position).add(new THREE.Vector3(0, lateral, 0).applyQuaternion(roller.quaternion));
         bearing.quaternion.copy(roller.quaternion); mechanicalFrame.add(bearing); bearings.push(bearing);
         if (route === 'branch' && Math.abs((section.offset || 0) + side * span / 2) < width / 2 - 0.001) {
-          mechanicalFrame.add(make.box('Rodamientos de unión / placa de empalme', 0.08, 0.025, 0.08, '#748995', [bearing.position.x, bearing.position.y - 0.04, bearing.position.z]));
+          junctionBearingSupport(make, mechanicalFrame, bearing, paths[0].points, config.width);
         }
       });
     });
@@ -1670,6 +1750,11 @@ export function refreshConveyorGeometry(root, value) {
   }
   setAutoVisible(panel, config.withPanel, previous.withPanel);
   root.userData.industrialConveyorConfig = Object.assign({}, config);
+  const point = conveyorLayout.pathPoint(config, conveyorLayout.pathLength(config, 'main') * .30, 'main'), normal = [-point.tz, 0, point.tx];
+  root.children[0].userData.industrialStickerAnchors = [
+    {id: 'equipment-id', position: [point.x + normal[0] * (config.width / 2 + .118), (point.y || 0) - .16, point.z + normal[2] * (config.width / 2 + .118)], normal, size: [.26, .075]},
+    {id: 'warning-pinch', position: [point.x - normal[0] * (config.width / 2 + .118), (point.y || 0) - .16, point.z - normal[2] * (config.width / 2 + .118)], normal: normal.map(value => -value), size: [.09, .09]}
+  ];
   enforceConveyorOptions(root, config);
   return true;
 }
@@ -1685,7 +1770,41 @@ function enforceConveyorOptions(root, value) {
   root.children[7].visible = false; root.children[8].visible = false; root.children[9].visible = false;
 }
 
+function robotEquipment(variant = 'articulated-general', value) {
+  if (!behaviorSchema.robots.variants.includes(variant)) throw new Error('Variante de robot no compatible.');
+  const config = behaviorSchema.robots.normalize(Object.assign({}, behaviorSchema.robots.defaults(variant), value || {}));
+  // Kept in the robot branch so the existing headless conveyor factories do
+  // not need a robot rig or its kinematics until a robot is actually created.
+  const root = require('./RobotPrefabs.js').createRobot(config);
+  component(root, 'robot', [config, defaultBehavior('analytics')]);
+  root.userData.editorPrefabVariant = variant;
+  const panel = plc(); panel.name = 'HMI / Control del robot';
+  panel.position.set(-config.length / 2 - .38, 1.28, config.width / 2 + .30);
+  root.userData.industrialRobotPanelPosition = panel.position.toArray();
+  panel.visible = config.withPanel !== false;
+  panel.children[1].userData.industrialRobotDisplay = true;
+  const old = panel.children.find(node => node.userData.industrialAction === 'insertBox');
+  if (old) {
+    const replacement = control('dispatch'); replacement.position.copy(old.position);
+    const index = panel.children.indexOf(old); panel.remove(old); panel.add(replacement);
+    panel.children.splice(panel.children.indexOf(replacement), 1); panel.children.splice(index, 0, replacement);
+    disposeDetached([old], root);
+  }
+  const identification = panel.children.find(node => node.name === 'Identificación del tablero');
+  if (identification) { const previous = identification.material.map; identification.material.map = labelTexture('CONTROL / ROBOT'); if (previous) previous.dispose(); }
+  root.add(panel); root.updateMatrixWorld(true); return root;
+}
+
 export function createIndustrialPrefab(kind, variant, value) {
+  if (kind === 'robot') return robotEquipment(variant, value);
+  if (kind === 'vehicle') {
+    const config = behaviorSchema.vehicles.normalize(Object.assign({}, behaviorSchema.vehicles.defaults(variant), value || {}));
+    const root = require('./VehiclePrefabs.js').createVehicle(config);
+    component(root, 'vehicle', [config, defaultBehavior('analytics'), defaultBehavior('machineAudio')]);
+    root.userData.editorPrefabVariant = config.variant;
+    return root;
+  }
+  if (kind === 'product' && variant) return require('./ProductPrefabs.js').createProduct(variant, value);
   if (kind === 'palletQueue') {
     if (variant !== undefined) throw new Error('Variante de almacén con estibas no compatible.');
     return palletQueueEquipment(value);
@@ -1719,6 +1838,26 @@ export function createIndustrialPrefab(kind, variant, value) {
 // SceneDocument already receives this factory in headless tests and production.
 // Keeping refresh on the factory avoids another module/import injection layer.
 createIndustrialPrefab.refresh = (object, config) => {
+  if (object && object.userData.editorPrefabKey === 'vehicle') return require('./VehiclePrefabs.js').refreshVehicleGeometry(object, config);
+  if (object && object.userData.editorPrefabKey === 'product' && config.variant) {
+    const next = require('./ProductPrefabs.js').createProduct(config.variant, config);
+    const old = object.children.slice(); old.forEach(child => object.remove(child));
+    next.children.slice().forEach(child => object.add(child));
+    Object.assign(object.userData, next.userData); disposeDetached(old, object); return true;
+  }
+  if (object && object.userData.editorPrefabKey === 'robot') {
+    const changed = require('./RobotPrefabs.js').refreshRobotGeometry(object, config);
+    const panel = object.children[1];
+    if (panel) {
+      const previous = object.userData.industrialRobotPanelPosition;
+      if (!previous || panel.position.distanceTo(new THREE.Vector3().fromArray(previous)) < .00001) {
+        panel.position.set(-config.length / 2 - .38, 1.28, config.width / 2 + .30);
+        object.userData.industrialRobotPanelPosition = panel.position.toArray();
+      }
+      panel.visible = config.withPanel !== false;
+    }
+    return changed;
+  }
   if (object && object.userData.editorPrefabKey === 'source') return refreshSourceGeometry(object, config);
   if (object && object.userData.editorPrefabKey === 'processor') return refreshProcessorGeometry(object, config);
   if (object && object.userData.editorPrefabKey === 'palletQueue') return refreshPalletQueueGeometry(object, config);

@@ -3,14 +3,15 @@
 
 const MAX_RULES = 16;
 const MAX_RULES_JSON = 16000;
-const productTypes = ['box', 'crate', 'drum', 'bottle'];
+const productEquipment = require('./product-equipment.js');
+const productTypes = productEquipment.PRODUCT_TYPES.map(item => item.value);
 const qualities = ['good', 'defective'];
 const defects = ['none', 'damaged', 'surface', 'dimension', 'incomplete'];
 const option = (value, label) => ({value, label});
 const fields = [
   {value: 'color', label: 'Color de clasificación', type: 'string'},
   {value: 'sku', label: 'Código / SKU', type: 'string'},
-  {value: 'productType', label: 'Tipo de producto', type: 'string', options: [option('box', 'Caja de cartón'), option('crate', 'Caja plástica'), option('drum', 'Bidón'), option('bottle', 'Botella')]},
+  {value: 'productType', label: 'Tipo de producto', type: 'string', options: productEquipment.PRODUCT_TYPES},
   {value: 'quality', label: 'Calidad', type: 'string', options: [option('good', 'Conforme'), option('defective', 'Defectuoso')]},
   {value: 'defect', label: 'Defecto', type: 'string', options: [option('none', 'Ninguno'), option('damaged', 'Dañado'), option('surface', 'Acabado / superficie'), option('dimension', 'Dimensiones'), option('incomplete', 'Incompleto')]},
   {value: 'width', label: 'Ancho (m)', type: 'number'},

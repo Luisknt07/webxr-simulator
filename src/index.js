@@ -7,6 +7,7 @@ import NativeTextureAI from './lib/NativeTextureAI.js';
 import NativeMaterialAI from './lib/NativeMaterialAI.js';
 import XRMirror from './lib/XRMirror.js';
 import XRLocomotion from './lib/XRLocomotion.js';
+import {createXRGrip, updateXRGrip} from './lib/XRGripTracking.js';
 
 import {VRButton} from './lib/VRButton.js';
 import {loadAssets} from './lib/assetManager.js';
@@ -58,6 +59,7 @@ var clock = new THREE.Clock();
 var scene, parent, renderer, camera, controls, context = {};
 var raycontrol, teleport, controllers = [];
 var desktopController, desktopControllerData;
+let desktopVehicleAtMouseDown = null;
 var keyboardState = {};
 let roomNavigation;
 const keyboardMoveSpeed = 3;
@@ -319,9 +321,7 @@ export function init() {
   parent = new THREE.Object3D();
   scene.add(parent);
 
-  renderer.domElement.addEventListener('click', event => {
-    if (event.button === 0 && !context.vrMode && !(context.editor && context.editor.active) && !controls.isLocked) controls.lock();
-  });
+  renderer.domElement.addEventListener('click', onDesktopCanvasClick);
   renderer.domElement.addEventListener('mousedown', onDesktopSelectStart);
   document.addEventListener('mouseup', onDesktopSelectEnd);
   renderer.domElement.addEventListener('contextmenu', event => event.preventDefault());
@@ -333,6 +333,7 @@ export function init() {
 
   for (let i = 0; i < 2; i++) {
     controllers[i] = renderer.xr.getController(i);
+    createXRGrip(renderer, controllers[i], i);
     controllers[i].raycaster = new THREE.Raycaster();
     controllers[i].raycaster.near = 0.1;
     controllers[i].addEventListener('selectstart', onSelectStart);
@@ -353,6 +354,7 @@ export function init() {
   cameraRig.add(controls.getObject());
   cameraRig.add(controllers[0]);
   cameraRig.add(controllers[1]);
+  controllers.forEach(controller => cameraRig.add(controller.userData.gripObject));
   cameraRig.position.set(0, 0, 2);
   scene.add(cameraRig);
 
@@ -502,7 +504,7 @@ export function init() {
 }
 
 function onKeyDown(event) {
-  if (context.editor && context.editor.active) return;
+  if (context.editor && context.editor.active || context.drivingVehicle) return;
   const target = event.target;
   if (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || '')) {
     return;
@@ -560,7 +562,16 @@ function setupDesktopPointer() {
   context.desktopControllerData = desktopControllerData;
 }
 
+function onDesktopCanvasClick(event) {
+  // Selecting the operator zone can mount a truck during mousedown. Keep the
+  // cursor that mount just released so this same click cannot hide its HUD.
+  // A later canvas press made from inside the cockpit can capture look again.
+  if (context.drivingVehicle && context.drivingVehicle !== desktopVehicleAtMouseDown) return;
+  if (event.button === 0 && !context.vrMode && !(context.editor && context.editor.active) && !controls.isLocked) controls.lock();
+}
+
 function onDesktopSelectStart(event) {
+  desktopVehicleAtMouseDown = context.drivingVehicle || null;
   if (context.vrMode || (context.editor && context.editor.active) || !desktopControllerData) return;
   if (event.button === 2) {
     event.preventDefault();
@@ -615,6 +626,7 @@ function updateKeyboardMovement(delta) {
   const mobile = context.mobileNavigation ? context.mobileNavigation.consume() : {forward: 0, right: 0, vertical: 0};
   if (controls.addLookDelta && (mobile.lookX || mobile.lookY)) controls.addLookDelta(mobile.lookX || 0, mobile.lookY || 0);
   if (controls.update) controls.update(delta);
+  if (context.drivingVehicle) return;
   if (context.studioLocomotion === 'teleport' && !context.desktopFlight) return;
 
   context.cameraRig.updateMatrixWorld(true);
@@ -650,6 +662,7 @@ function updateKeyboardMovement(delta) {
 }
 
 function constrainVRCamera() {
+  if (context.drivingVehicle) { resetCollisionPose(); return; }
   if (!context.vrMode || !context.collisionWorld) {
     resetCollisionPose();
     return;
@@ -686,18 +699,19 @@ function setupControllers() {
       if (this.userData.controllerModel) this.remove(this.userData.controllerModel);
       this.userData.controllerModel = model.clone();
       this.add(this.userData.controllerModel);
-      raycontrol.addController(this, event.data);
+      const data = raycontrol.addController(this, event.data); data.grip = this.userData.gripObject;
     } );
     controller.addEventListener( 'disconnected', function () {
       if (this.userData.controllerModel) this.remove(this.userData.controllerModel);
       delete this.userData.controllerModel;
+      if (this.userData.gripObject) this.userData.gripObject.visible = false;
       if (context.editorXylophone && context.editorXylophone.releaseHeld) context.editorXylophone.releaseHeld(this);
       raycontrol.removeController(this);
     });
   }
 }
 
-function syncXRControllers() {
+function syncXRControllers(frame) {
   if (!context.vrMode || !renderer.xr.getSession) return;
   const session = renderer.xr.getSession();
   if (!session || !session.inputSources) return;
@@ -706,6 +720,7 @@ function syncXRControllers() {
   // receiving a connected event. Reconcile the app registry with that same map.
   controllers.forEach((controller, index) => {
     const source = session.inputSources[index];
+    updateXRGrip(renderer, controller, source, frame);
     const previous = raycontrol.controllers.find(entry => entry.controller === controller);
     if (previous && previous.inputSource === source) return;
     if (previous) controller.dispatchEvent({type: 'disconnected', data: previous.inputSource});
@@ -768,7 +783,7 @@ function onWindowResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-function animate() {
+function animate(time, frame) {
   var delta = clock.getDelta();
   var elapsedTime = clock.elapsedTime;
 
@@ -806,7 +821,7 @@ function animate() {
     }
 
     updateKeyboardMovement(delta);
-    syncXRControllers();
+    syncXRControllers(frame);
     if (context.studio && context.studio.immersiveMenu) context.studio.immersiveMenu.tick(delta);
     if (context.xrLocomotion) context.xrLocomotion.tick(delta);
     ecsyWorld.execute(delta, elapsedTime);

@@ -15,12 +15,13 @@ module.exports = function loadIndustrialCedi(THREE, schema) {
   const {applyIndustrialMonitorLayout} = require('./load-industrial-monitor-layout')(THREE, schema);
   const applyIndustrialMessages = new Function('schema', read('editor/IndustrialMessages.js') + '\nreturn applyIndustrialMessages;')(schema);
   const {applyIndustrialAging} = require('./load-industrial-aging')(THREE);
-  const buildIndustrialCediLevel = new Function('THREE', 'schema', 'buildIndustrialCediScenario', 'buildCediEnvironment', 'applyIndustrialFinishes', 'applyIndustrialFloorPresentation', 'applyIndustrialMonitorLayout', 'applyIndustrialMessages', 'applyIndustrialAging',
-    read('editor/IndustrialCediLevel.js') + '\nreturn buildIndustrialCediLevel;')(THREE, schema, buildIndustrialCediScenario, buildCediEnvironment, applyIndustrialFinishes, applyIndustrialFloorPresentation, applyIndustrialMonitorLayout, applyIndustrialMessages, applyIndustrialAging);
+  const retrofitCediRobotics = new Function('THREE', 'schema', read('editor/IndustrialCediRobotics.js') + '\nreturn retrofitCediRobotics;')(THREE, schema);
+  const buildIndustrialCediLevel = new Function('THREE', 'schema', 'buildIndustrialCediScenario', 'buildCediEnvironment', 'applyIndustrialFinishes', 'applyIndustrialFloorPresentation', 'applyIndustrialMonitorLayout', 'applyIndustrialMessages', 'applyIndustrialAging', 'retrofitCediRobotics',
+    read('editor/IndustrialCediLevel.js') + '\nreturn buildIndustrialCediLevel;')(THREE, schema, buildIndustrialCediScenario, buildCediEnvironment, applyIndustrialFinishes, applyIndustrialFloorPresentation, applyIndustrialMonitorLayout, applyIndustrialMessages, applyIndustrialAging, retrofitCediRobotics);
   const buildConveyorExample = new Function('THREE', 'ConveyorAssembly', read('editor/ConveyorExamples.js') + '\nreturn buildConveyorExample;')(THREE, ConveyorAssembly);
   const buildIndustrialLabLines = new Function('THREE', 'ConveyorAssembly', 'buildConveyorExample', continuous + read('editor/IndustrialLabLines.js') + '\nreturn buildIndustrialLabLines;')(THREE, ConveyorAssembly, buildConveyorExample);
   const buildIndustrialLab = require('./load-industrial-lab')(THREE, schema, buildIndustrialLabLines);
   const loadStudioTools = (window, document) => new Function('THREE', 'schema', 'buildIndustrialLab', 'buildIndustrialCediLevel', 'applyIndustrialAging', 'window', 'document',
     read('studio/StudioTools.js').replace('default class StudioTools', 'return class StudioTools'))(THREE, schema, buildIndustrialLab, buildIndustrialCediLevel, applyIndustrialAging, window, document);
-  return {ConveyorAssembly, buildIndustrialCediScenario, buildCediEnvironment, applyIndustrialFinishes, buildIndustrialCediLevel, buildIndustrialLab, loadStudioTools};
+  return {ConveyorAssembly, buildIndustrialCediScenario, buildCediEnvironment, applyIndustrialFinishes, buildIndustrialCediLevel, buildIndustrialLab, loadStudioTools, retrofitCediRobotics};
 };

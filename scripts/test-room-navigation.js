@@ -135,7 +135,7 @@ async function testNavigation() {
 }
 
 const indexSource = fs.readFileSync(path.join(__dirname, '../src/index.js'), 'utf8');
-const animateMatch = indexSource.match(/function animate\(\) \{[^]*?\n\}/);
+const animateMatch = indexSource.match(/function animate\(time, frame\) \{[^]*?\n\}/);
 assert(animateMatch, 'Production animate function is available for frame-boundary checks.');
 
 function frameHarness(options = {}) {
@@ -179,10 +179,11 @@ function testFrameBoundaries() {
   const hidden = frameHarness({hidden: true}); hidden.animate();
   assert.deepEqual(names(hidden), ['clock'], 'A hidden desktop tab does not execute systems, query DOM, render or begin collision work.');
 
-  const xr = frameHarness({hidden: true, xr: true, editor: true}); xr.animate();
+  const xr = frameHarness({hidden: true, xr: true, editor: true}), xrFrame = {nativeFrame: true}; xr.animate(1234, xrFrame);
   assert(names(xr).includes('ecs'), 'A hidden companion tab keeps the headset simulation running.');
   assert(names(xr).includes('render'));
   assert(!names(xr).includes('editorRender'), 'XR always uses the immersive runtime even if authoring was active.');
+  assert.equal(xr.calls.find(call => call[0] === 'syncControllers')[1], xrFrame, 'The native XRFrame reaches grip tracking inside the same protected frame boundary.');
   assert.equal(xr.calls.find(call => call[0] === 'walk')[1], 0.75, 'Movement applies its own input delta limit.');
   assert.equal(xr.calls.find(call => call[0] === 'editorExecute')[1], 0.75,
     'The simulation receives the original delta so its substep limit and dropped-time analytics remain accurate.');

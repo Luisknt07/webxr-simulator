@@ -186,6 +186,7 @@ export default class EditorShell {
       ]],
       ['Añadir', [
         ['Equipo de biblioteca', () => this.openResources('library')],
+        ['Diseño paramétrico CAD…', () => e.cadWorkbench && e.cadWorkbench.open()],
         ['Monitor de producción', () => e.monitorWidgets && e.monitorWidgets.add()],
         ['Vincular monitor seleccionado…', () => e.monitorWidgets && e.monitorWidgets.openBinding(e.selected), '', selected],
         ...[['box', 'Cubo'], ['sphere', 'Esfera'], ['plane', 'Plano'], ['cylinder', 'Cilindro']].map(([kind, label]) => [label, mutate(() => e.createPlacedObject(() => e.document.addPrimitive(e.roomId, kind)))]),
@@ -203,6 +204,7 @@ export default class EditorShell {
         ['Nuevo escenario', () => this.studio('newScene'), '', canStudio], ['Duplicar escenario…', () => this.studio('duplicateScene'), '', canStudio],
         ['Crear nivel de ejemplos industriales', () => this.studio('createIndustrialExamples'), '', canStudio],
           ['Crear escenarios CEDI avanzados', () => this.studio('createCediExamples'), '', canStudio],
+        ['Integrar robótica y vehículos en este nivel', () => this.studio('integrateRobotics'), '', canStudio],
         ['Renombrar escenario…', () => this.studio('renameScene'), '', canStudio], ['Usar como escenario inicial', () => this.studio('setStartScene'), '', canStudio],
         ['Configurar entorno', () => this.studio('configureEnvironment'), '', canStudio], null,
         ['Conectar equipos…', () => this.studio('connect'), '', canStudio], ['Ajuste de ensamblaje', () => e.assemblyButton.click(), '', () => true, () => e.assembly.enabled],

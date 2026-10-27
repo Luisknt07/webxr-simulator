@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import schema from '../../shared/behaviors.js';
 
 const TAG = 'Presentación industrial del piso · v1';
-const TYPES = ['conveyor', 'source', 'processor', 'palletQueue'];
+const TYPES = ['conveyor', 'source', 'processor', 'palletQueue', 'robot'];
 const GENERATED_WEAR = 'industrial-floor-v1-';
 const round = value => Math.round(value * 1000000) / 1000000;
 const grow = (box, margin) => [box[0] - margin, box[1] - margin, box[2] + margin, box[3] + margin];
@@ -41,7 +41,10 @@ function functionalBounds(cfg, matrix) {
     const length = schema.conveyorLayout.pathLength(cfg, route), count = cfg.layout === 'straight' ? 1 : 64, half = cfg.width / 2 + .14;
     for (let index = 0; index <= count; index++) { const point = schema.conveyorLayout.pathPoint(cfg, length * index / count, route); for (const side of [-1, 1]) include(point.x - point.tz * half * side, point.y || 0, point.z + point.tx * half * side); }
   });
-  else {
+  else if (cfg.type === 'robot') {
+    const fixed = !['amr', 'agv', 'shuttle', 'cartesian'].includes(cfg.family), halfX = fixed ? cfg.reach : cfg.length / 2, halfZ = fixed ? cfg.reach : cfg.width / 2;
+    for (const x of [-1, 1]) for (const z of [-1, 1]) include(x * (halfX + .14), 0, z * (halfZ + .14));
+  } else {
     const layout = cfg.type === 'source' ? schema.conveyorLayout.sourceLayout(cfg) : cfg.type === 'processor' ? schema.conveyorLayout.processorLayout(cfg) : schema.conveyorLayout.palletQueueLayout(cfg);
     for (const x of [-1, 1]) for (const z of [-1, 1]) include(x * (layout.length / 2 + .14), 0, z * (layout.width / 2 + .14));
   }
@@ -74,7 +77,7 @@ function groupedZones(machines, lines, floor) {
   });
   const parent = new Map(machines.map(row => [row.id, row.id]));
   const find = id => { let root = id; while (parent.get(root) !== root) root = parent.get(root); return root; };
-  machines.forEach(row => ['outputId', 'branchId'].forEach(key => { const target = row.config[key]; if (parent.has(target)) parent.set(find(target), find(row.id)); }));
+  machines.forEach(row => ['outputId', 'branchId', 'sourceId'].forEach(key => { const target = row.config[key]; if (parent.has(target)) parent.set(find(target), find(row.id)); }));
   const remaining = new Map(); machines.filter(row => !used.has(row.id)).forEach(row => { const key = find(row.id); if (!remaining.has(key)) remaining.set(key, []); remaining.get(key).push(row); }); groups.push(...remaining.values());
   return groups.slice(0, 64).map(rows => {
     const box = [Infinity, Infinity, -Infinity, -Infinity]; rows.forEach(row => { box[0] = Math.min(box[0], row.box[0]); box[1] = Math.min(box[1], row.box[1]); box[2] = Math.max(box[2], row.box[2]); box[3] = Math.max(box[3], row.box[3]); });

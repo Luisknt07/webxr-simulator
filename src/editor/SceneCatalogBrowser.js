@@ -59,7 +59,7 @@ export default class SceneCatalogBrowser {
     if (editor.document.hasPendingRoom(roomId)) await editor.document.activateRoom(roomId);
     const root = editor.document.getRoot(roomId), group = new THREE.Group();
     const visible = root.children.filter(object => object.visible && !object.userData.editorHelper && !object.userData.editorRuntimeHelper);
-    const equipment = visible.filter(object => ['conveyor', 'source', 'processor', 'palletQueue'].includes(object.userData.editorPrefabKey));
+    const equipment = visible.filter(object => ['conveyor', 'source', 'processor', 'palletQueue', 'robot'].includes(object.userData.editorPrefabKey));
     (equipment.length ? equipment : visible).forEach(object => group.add(cloneGeometry(object)));
     return group;
   }

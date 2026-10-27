@@ -11,6 +11,7 @@ definitions.forEach(definition => {
   const legacyDefaults = Object.assign({}, defaults);
   if (definition.type === 'info') ['presentation', 'revealDistance', 'fadeDistance', 'fadeTime', 'gazeAngle', 'width'].forEach(key => delete legacyDefaults[key]);
   if (definition.type === 'billboard') delete legacyDefaults.axis;
+  if (definition.type === 'source') ['units', 'productVariant'].forEach(key => delete legacyDefaults[key]);
   assert.deepEqual(normalizeBehaviors([{type: definition.type}]), [legacyDefaults]);
   assert.deepEqual(normalizeBehaviors([defaults]), [defaults]);
 });

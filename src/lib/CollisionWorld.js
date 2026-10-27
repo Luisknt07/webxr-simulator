@@ -6,6 +6,8 @@ const EPSILON = 1e-9;
 const AXES = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
 const geometryTrees = new WeakMap();
 const geometryBounds = new WeakMap();
+const BROADPHASE_CELL = 4;
+const BROADPHASE_MAX_CELLS = 256;
 
 function geometryState(geometry) {
   const position = geometry.attributes && geometry.attributes.position, index = geometry.index;
@@ -265,6 +267,10 @@ export default class CollisionWorld {
     this.roomId = null;
     this.root = null;
     this.entries = [];
+    this.entryByObject = new WeakMap();
+    this.spatialCells = new Map();
+    this.spatialGlobal = new Set();
+    this.entryOrder = 0;
     this.frameActive = false;
     this.dirty = true;
     this.snapshot = [];
@@ -272,7 +278,7 @@ export default class CollisionWorld {
     this.snapshotStale = false;
     this.snapshotVersion = 0;
     this.restingQuery = null;
-    this.stats = {refreshes: 0, subtreeRefreshes: 0, matrixInversions: 0, queries: 0, restingCacheHits: 0};
+    this.stats = {refreshes: 0, subtreeRefreshes: 0, matrixInversions: 0, queries: 0, restingCacheHits: 0, broadphaseQueries: 0, broadphaseCandidates: 0, broadphasePossible: 0};
   }
 
   // Input, teleports and all conveyor packages share one room snapshot per
@@ -286,7 +292,12 @@ export default class CollisionWorld {
     // Simulation knows which actor changed. Update only that actor, including
     // newly spawned packages and detached helpers, instead of traversing a
     // potentially very large room for every package's collision query.
-    this.entries = this.entries.filter(entry => !within(entry.object, object));
+    // One actor update must not rescan every machine in a warehouse. Each
+    // physical mesh has exactly one indexed entry, removed through its subtree.
+    object.traverse(node => {
+      const entry = this.entryByObject.get(node);
+      if (entry) this._removeEntry(entry);
+    });
     if (within(object, this.root)) {
       object.updateWorldMatrix(true, true);
       object.traverse(node => this._addEntry(node));
@@ -304,7 +315,42 @@ export default class CollisionWorld {
 
   _addEntry(object) {
     if (!this.physicalMesh(object) || Math.abs(object.matrixWorld.determinant()) < 1e-12) return;
-    this.entries.push({object, box: object.geometry.boundingBox.clone().applyMatrix4(object.matrixWorld), inverse: null});
+    const entry = {object, box: object.geometry.boundingBox.clone().applyMatrix4(object.matrixWorld), inverse: null,
+      index: this.entries.length, order: this.entryOrder++, cells: []};
+    this.entries.push(entry); this.entryByObject.set(object, entry);
+    const range = this._cellRange(entry.box);
+    if (!range) this.spatialGlobal.add(entry);
+    else for (let x = range.x0; x <= range.x1; x++) for (let z = range.z0; z <= range.z1; z++) {
+      const key = x + ':' + z;
+      let cell = this.spatialCells.get(key); if (!cell) this.spatialCells.set(key, cell = new Set());
+      cell.add(entry); entry.cells.push(key);
+    }
+  }
+
+  _removeEntry(entry) {
+    this.entryByObject.delete(entry.object); this.spatialGlobal.delete(entry);
+    entry.cells.forEach(key => { const cell = this.spatialCells.get(key); if (cell) {cell.delete(entry); if (!cell.size) this.spatialCells.delete(key);} });
+    const last = this.entries.pop();
+    if (last && last !== entry) {this.entries[entry.index] = last; last.index = entry.index;}
+  }
+
+  _cellRange(box) {
+    const x0 = Math.floor(box.min.x / BROADPHASE_CELL), x1 = Math.floor(box.max.x / BROADPHASE_CELL);
+    const z0 = Math.floor(box.min.z / BROADPHASE_CELL), z1 = Math.floor(box.max.z / BROADPHASE_CELL);
+    return [x0, x1, z0, z1].every(Number.isSafeInteger) && (x1 - x0 + 1) * (z1 - z0 + 1) <= BROADPHASE_MAX_CELLS ? {x0,x1,z0,z1} : null;
+  }
+
+  _candidates(box) {
+    this.stats.broadphaseQueries++; this.stats.broadphasePossible += this.entries.length;
+    const range = this._cellRange(box), candidates = new Set(this.spatialGlobal);
+    if (!range) this.entries.forEach(entry => candidates.add(entry));
+    else for (let x = range.x0; x <= range.x1; x++) for (let z = range.z0; z <= range.z1; z++) {
+      const cell = this.spatialCells.get(x + ':' + z); if (cell) cell.forEach(entry => candidates.add(entry));
+    }
+    // Preserve the existing collision traversal/contact priority even though
+    // indexed removals use a constant-time swap in the backing entry array.
+    const result = Array.from(candidates).filter(entry => entry.box.intersectsBox(box)).sort((a,b) => a.order-b.order);
+    this.stats.broadphaseCandidates += result.length; return result;
   }
 
   _inverse(entry) {
@@ -367,6 +413,7 @@ export default class CollisionWorld {
     this.stats.refreshes++;
     this.dirty = false;
     this.entries = [];
+    this.entryByObject = new WeakMap(); this.spatialCells.clear(); this.spatialGlobal.clear(); this.entryOrder = 0;
     this.root = this.document.getRoot(this.roomId);
     if (this.root) {
       this.root.updateWorldMatrix(true, true);
@@ -392,7 +439,7 @@ export default class CollisionWorld {
   triangles(box, options, callback) {
     const ignored = options.ignore || [];
     const triangle = new THREE.Triangle();
-    for (const entry of this.entries) {
+    for (const entry of this._candidates(box)) {
       if (!entry.box.intersectsBox(box) || ignored.some(object => within(entry.object, object))) continue;
       if (options.extraBoxes && entry.object.userData.editorCollisionBody) continue;
       const inverse = this._inverse(entry);
@@ -504,7 +551,8 @@ export default class CollisionWorld {
 
   insideEntry(point, options = {}) {
     const ignored = options.ignore || [];
-    for (const entry of this.entries) {
+    const pointBox = new THREE.Box3(point, point);
+    for (const entry of this._candidates(pointBox)) {
       if (!entry.box.containsPoint(point) || ignored.some(object => within(entry.object, object)) ||
         options.extraBoxes && entry.object.userData.editorCollisionBody) continue;
       const tree = treeFor(entry.object.geometry);

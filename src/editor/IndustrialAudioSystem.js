@@ -4,8 +4,8 @@ import behaviorSchema from '../../shared/behaviors.js';
 const schema = behaviorSchema.machineAudio;
 const MAX_VOICES = 12, MAX_LOOPS = 8, MAX_BUFFERS = 24, MAX_ASSET_BYTES = 24 * 1024 * 1024, MAX_DECODED_BYTES = 64 * 1024 * 1024;
 const SETTINGS_KEY = 'hello-industrial-audio-v1';
-const CYCLES = new Set(['mechanism-positioned', 'processor-job-start', 'source-generated', 'pallet-dispatched']);
-const LOADS = new Set(['package-entry', 'package-transfer', 'package-stacked', 'processor-entry', 'processor-complete', 'source-generated', 'source-received', 'pallet-queue-entry', 'pallet-dispatched']);
+const CYCLES = new Set(['mechanism-positioned', 'processor-job-start', 'source-generated', 'pallet-dispatched', 'robot-cycle-start']);
+const LOADS = new Set(['package-entry', 'package-transfer', 'package-stacked', 'processor-entry', 'processor-complete', 'source-generated', 'source-received', 'pallet-queue-entry', 'pallet-dispatched', 'robot-picked', 'robot-delivered', 'vehicle-picked', 'vehicle-delivered']);
 const ACTIVE_PHASES = new Set(['actuating', 'rotating', 'lifting', 'returning', 'operating']);
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
 function visible(object) { for (let node = object; node; node = node.parent) if (!node.visible) return false; return true; }
@@ -102,7 +102,7 @@ export default class IndustrialAudioSystem {
     this.document.getObjects(this.roomId).forEach(object => {
       if (!object || object.userData.editorRuntimeHelper || object.userData.editorVisualOwnerId) return;
       const configs = this.document.getBehaviors(object), custom = configs.find(value => value.type === 'machineAudio'), zone = configs.find(value => value.type === 'audioZone');
-      const record = this.simulation.records.get(object.userData.editorId), functional = record && ['conveyor', 'processor', 'source', 'palletQueue', 'control', 'motion'].some(type => record.components[type]);
+      const record = this.simulation.records.get(object.userData.editorId), functional = record && ['conveyor', 'processor', 'source', 'palletQueue', 'robot', 'vehicle', 'control', 'motion'].some(type => record.components[type]);
       if (zone && zone.enabled) this.emitters.set('zone:' + object.userData.editorId, {id: 'zone:' + object.userData.editorId, object, config: zone, zone: true, active: false});
       if (custom ? custom.enabled : auto && functional) this.emitters.set(object.userData.editorId, {id: object.userData.editorId, object, config: custom || schema.normalize('machineAudio'), record, automatic: !custom, active: false});
       if (record && record.components.control) this.controls.set(record.id, this.simulation.getControlFeedback ? this.simulation.getControlFeedback(record.id).sequence : 0);
@@ -147,7 +147,7 @@ export default class IndustrialAudioSystem {
     if (config.preset === 'off') return {level: 0, rate, preset};
     if (emitter.zone) return {level: 1, rate, preset: preset === 'auto' ? 'warehouse' : preset};
     if (paused || !this.simulation.running) return {level: 0, rate, preset};
-    const machine = components.conveyor || components.processor || components.source || components.palletQueue || components.motion;
+    const machine = components.conveyor || components.processor || components.source || components.palletQueue || components.robot || components.vehicle || components.motion;
     const operational = machine && machine.enabled !== false && machine.powered !== false && machine.running !== false && !machine.paused && !machine.emergency;
     if (config.trigger === 'always') level = 1;
     else if (config.trigger === 'button' || config.trigger === 'cycle' || components.control) level = 0;
@@ -159,6 +159,15 @@ export default class IndustrialAudioSystem {
         if (preset === 'auto') preset = cycling ? belt.config.mechanism === 'elevator' ? 'elevator' : ['liftTransfer', 'pusher', 'steer', 'distributor'].includes(belt.config.mechanism) ? 'pneumatic' : 'motor' : belt.config.surface === 'belt' || belt.config.surface === 'modular' ? 'belt' : 'rollers';
         if (belt.config.drive === 'gravity') level *= .5;
       } else if (components.processor) { level = (components.processor.jobs || []).some(job => !job.results && ['setup', 'process'].includes(job.phase)) ? .8 : 0; if (preset === 'auto') preset = 'processor'; }
+      else if (components.robot) { const robot = components.robot; level = !robot.blocked && !robot.fault && !['idle', 'setup', 'process'].includes(robot.phase) ? .55 : 0; rate *= clamp(.65 + robot.speed * .4, .5, 1.8); if (preset === 'auto') preset = 'servo'; }
+      else if (components.vehicle) {
+        const vehicle = components.vehicle, speed = Math.abs(vehicle.actualSpeed || 0), manual = ['pallet-truck-manual', 'transport-cart'].includes(vehicle.config.variant);
+        const hydraulic = !vehicle.blocked && vehicle.hydraulicMoving === true;
+        const combustion = vehicle.config.variant === 'forklift-ic' || vehicle.config.family === 'rough-terrain' || vehicle.config.family === 'telehandler';
+        level = hydraulic ? .65 : speed > .01 ? .3 + clamp(speed / 4) * .6 : combustion ? .18 : 0;
+        rate *= hydraulic ? 1 : clamp(.65 + speed * .23, .6, 1.8);
+        if (preset === 'auto') preset = hydraulic ? manual ? 'load' : 'hydraulic' : manual ? 'rollers' : combustion ? 'combustion' : 'electric-drive';
+      }
       else if (components.motion) { level = Math.abs(components.motion.speed || 0) > .0001 ? .6 : 0; if (preset === 'auto') preset = 'motor'; }
       else if (config.trigger === 'running') level = .7;
       // Source/buffer handling emits real load impacts instead of a perpetual motor.
@@ -229,7 +238,9 @@ export default class IndustrialAudioSystem {
     if (from < 0) from = 0;
     events.slice(from).filter(event => this.simulation.time - event.time <= .3).forEach(event => {
       const emitter = this.emitters.get(event.objectId); if (!emitter) return;
-      if (CYCLES.has(event.type) && (emitter.config.trigger === 'cycle' || emitter.config.trigger === 'auto' && !LOADS.has(event.type))) {
+      if (event.type === 'vehicle-horn') this._shot(emitter, 'horn', true);
+      else if (event.type === 'vehicle-reverse-alarm') this._shot(emitter, 'reverse-alarm', true);
+      else if (CYCLES.has(event.type) && (emitter.config.trigger === 'cycle' || emitter.config.trigger === 'auto' && !LOADS.has(event.type))) {
         const belt = emitter.record && emitter.record.components.conveyor;
         const preset = event.type === 'mechanism-positioned' ? belt && belt.config.mechanism === 'elevator' ? 'elevator' : belt && ['turntable', 'merge'].includes(belt.config.mechanism) ? 'motor' : 'pneumatic' : 'processor';
         this._shot(emitter, emitter.config.preset === 'auto' ? preset : emitter.config.preset);
@@ -333,6 +344,12 @@ export default class IndustrialAudioSystem {
       else if (preset === 'belt') sample = sine(48) * .13 + sine(96) * .035 + low * .65 * (1 + .15 * sine(3)) + noise * .025;
       else if (preset === 'elevator') sample = hum + sine(320) * .06 + low * .4 + sine(850) * .025 * Math.pow(Math.max(0, sine(8)), 12);
       else if (preset === 'processor') sample = hum + low * .7 + sine(165) * .045 * (.5 + .5 * sine(4));
+      else if (preset === 'servo') sample = hum * .25 + sine(240) * .07 + sine(480) * .024 * (.7 + .3 * sine(3)) + low * .15;
+      else if (preset === 'electric-drive') sample = sine(140) * .085 + sine(560) * .022 + low * .20 + sine(35) * .035;
+      else if (preset === 'combustion') sample = sine(38) * .16 + sine(76) * .07 + low * .65 * (.65 + .35 * Math.max(0, sine(19)));
+      else if (preset === 'hydraulic') sample = sine(180) * .095 + sine(360) * .035 + low * .28;
+      else if (preset === 'horn') sample = (sine(390) * .26 + sine(490) * .20) * (loop ? 1 : Math.min(1, t * 25) * Math.exp(-t * 3));
+      else if (preset === 'reverse-alarm') sample = sine(940) * .30 * (t % .65 < .28 ? 1 : 0);
       else if (preset === 'ventilation') sample = low * .65 + slow * .8 + sine(50) * .04 + sine(150) * .008;
       else if (preset === 'warehouse') sample = slow * 1.7 + low * .28 + sine(50) * .023 + sine(100) * .008;
       else if (preset === 'factory') sample = slow * 1.2 + low * .5 + sine(60) * .04 + sine(185) * .018 * (.5 + .5 * sine(2));

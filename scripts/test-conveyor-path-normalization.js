@@ -1,0 +1,13 @@
+'use strict';
+const assert = require('node:assert/strict'), paths = require('../shared/conveyors.js');
+const config = {layout: 'straight', axis: 'x', length: 4, width: 1, mechanism: 'transport'};
+Object.defineProperty(config, 'catalog', {enumerable: true, get() {throw Error('Path evaluation must not copy unrelated catalogue/PLC data.');}});
+assert.equal(paths.pathLength(config), 4); assert.deepEqual(paths.pathPoint(config, 2), {x: 0, y: 0, z: 0, tx: 1, ty: 0, tz: 0});
+assert.equal(paths.closestPath(config, .25, 0).x, .25);
+config.length = 8; config.axis = 'z'; assert.equal(paths.pathLength(config), 8); assert.equal(paths.pathPoint(config, 8).z, 4);
+config.layout = 'curveRight'; config.radius = 2; config.curveAngle = 90;
+assert.equal(paths.pathLength(config), Math.PI); config.radius = 3; assert.equal(paths.pathLength(config), Math.PI * 1.5, 'Mutable authoring dimensions are read immediately; no stale normalized cache.');
+const material = {private: 'caller'}, full = paths.settings({length: 3, material, mechanism: 'elevator', mergeAngle: 45});
+assert.equal(full.material, material); assert.equal(full.mechanism, 'elevator'); assert.equal(full.mergeAngle, 45);
+assert(!Object.hasOwn(paths.settings({}), 'mechanism'), 'Public normalization preserves legacy optional fields.');
+console.log('Conveyor paths: no PLC/catalogue copying in hot paths, fresh mutable dimensions, exact paths and compatible public settings passed.');

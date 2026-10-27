@@ -212,6 +212,7 @@ export function restoreSimulation(runtime, saved, options = {}) {
   if (!saved.graph || !Array.isArray(saved.graph.nodes) || saved.graph.nodes.length > MAX_NODES) error('el estado está dañado.');
   const reuse = options.reuse === true && runtime.roomId === saved.roomId && runtime.records.size && configuration(runtime) === saved.configuration;
   if (reuse && runtime.held.size) error('suelta las cargas antes de actualizar el estado compartido.');
+  if (runtime.ctx && runtime.ctx.vehicleDriving && runtime.ctx.drivingVehicle) runtime.ctx.vehicleDriving.unmount(true);
   if (!reuse) runtime.start(saved.roomId);
   try {
     if (configuration(runtime) !== saved.configuration) error('cambió la configuración del escenario.');
@@ -293,7 +294,73 @@ export function restoreSimulation(runtime, saved, options = {}) {
       Object.keys(productState.data).forEach(key => { if (!TRANSIENT.has(key)) product[key] = productState.data[key]; });
       product.heldBy = null;
     });
+    // Articulated meshes are derived state. Restore the product's saved bounds
+    // and scale first (gripper span depends on both), then rebuild the rig pose
+    // before applying any product transform relative to its restored tool.
+    runtime.records.forEach(record => {
+      const robot = record.components.robot;
+      if (robot) {
+        if (robot.entry && (!robot.entry.product || robot.entry.product.robotOwnerId !== record.id || !Array.isArray(robot.queue) || !robot.queue.includes(robot.entry))) error('el robot perdió la propiedad de su carga.');
+        if (robot.candidate && (!robot.candidate.product || robot.candidate.product.robotReservedBy !== record.id)) error('la reserva de recogida del robot está dañada.');
+        if (!runtime.robotRuntime || !robot.pose || !Array.isArray(robot.pose.joints) || robot.pose.joints.length > 6 || robot.pose.joints.some(value => !Number.isFinite(value))) error('la postura del robot está dañada.');
+        if (typeof runtime.robotRuntime.restorePose !== 'function') error('la versión del robot no admite la validación de postura.');
+        runtime.robotRuntime.restorePose(record, robot.pose);
+      }
+      const vehicle = record.components.vehicle;
+      if (vehicle) {
+        if (vehicle.entry && (!vehicle.entry.product || vehicle.entry.product.vehicleOwnerId !== record.id || !Array.isArray(vehicle.queue) || !vehicle.queue.includes(vehicle.entry))) error('el vehículo perdió la propiedad de su carga.');
+        if (vehicle.missionCandidate && vehicle.missionCandidate.vehicleReservedBy !== record.id) error('la reserva de recogida del vehículo está dañada.');
+        const pose = vehicle.pose, numeric = ['lift', 'tilt', 'reach', 'sideShift', 'turret', 'steer', 'wheelRoll', 'boomAngle'];
+        if (!runtime.vehicleRuntime || !pose || typeof pose !== 'object' || Array.isArray(pose) ||
+          numeric.some(key => !Number.isFinite(pose[key])) || typeof pose.lights !== 'boolean' ||
+          Object.keys(pose).some(key => !numeric.includes(key) && key !== 'lights')) error('la postura del vehículo está dañada.');
+        const c = vehicle.config, margin = 1e-6;
+        if (pose.lift < -margin || pose.lift > c.maxLift + margin || Math.abs(pose.tilt) > c.tiltLimit + margin ||
+          pose.reach < -margin || pose.reach > c.maxReach + margin || Math.abs(pose.sideShift) > c.maxSideShift + margin ||
+          Math.abs(pose.turret) > c.turretLimit + margin || Math.abs(pose.steer) > c.steerLimit + margin ||
+          pose.boomAngle < -.08 - margin || pose.boomAngle > c.boomAngleLimit + margin) error('un mecanismo del vehículo está fuera de su recorrido.');
+        if (vehicle.entry && (!vehicle.loadMatrix || !vehicle.loadMatrix.isMatrix4 || vehicle.loadMatrix.elements.some(value => !Number.isFinite(value)))) error('el acoplamiento de la carga del vehículo está dañado.');
+        if (!Number.isFinite(vehicle.actualSpeed) || !Number.isFinite(vehicle.steering)) error('el movimiento del vehículo está dañado.');
+        if (vehicle.longitudinalAcceleration === undefined) vehicle.longitudinalAcceleration = 0;
+        if (!Number.isFinite(vehicle.longitudinalAcceleration)) error('la aceleración del vehículo está dañada.');
+        // A shared participant keeps host speed telemetry but has no driving
+        // authority. A manually resumed owner starts stationary and requires
+        // fresh input, avoiding movement from a key held before saving.
+        vehicle.input = {throttle: 0, steer: 0, brake: 1, lift: 0, tilt: 0, reach: 0, sideShift: 0, turret: 0};
+        vehicle.inputAge = Infinity; vehicle.driving = false;
+        if (!reuse && c.mode !== 'automatic') { vehicle.actualSpeed = 0; vehicle.longitudinalAcceleration = 0; }
+        if (runtime.vehicleRuntime.applyPose(record, pose, false) === false) error('no se pudo restablecer el mecanismo del vehículo.');
+      }
+    });
     saved.descriptors.forEach(descriptor => transform(reconstructed.get(descriptor.index).object, descriptor, registry));
+    reconstructed.forEach(product => {
+      if (product.robotReservedBy) {
+        const owner = runtime.records.get(product.robotReservedBy), robot = owner && owner.components.robot;
+        if (!robot || !robot.candidate || robot.candidate.product !== product || product.robotOwnerId || product.vehicleOwnerId || product.vehicleReservedBy) error('una carga tiene una reserva de robot inconsistente.');
+      }
+      if (product.vehicleReservedBy) {
+        const owner = runtime.records.get(product.vehicleReservedBy),vehicle=owner&&owner.components.vehicle;
+        if(!vehicle||vehicle.missionCandidate!==product||product.robotReservedBy||product.robotOwnerId||product.vehicleOwnerId)error('una carga tiene una reserva de vehículo inconsistente.');
+      }
+      if (product.robotOwnerId && product.vehicleOwnerId) error('una carga no puede pertenecer a un robot y un vehículo a la vez.');
+      if (product.robotOwnerId) {
+        const owner = runtime.records.get(product.robotOwnerId);
+        if (!owner || !owner.components.robot || !owner.components.robot.entry || owner.components.robot.entry.product !== product) error('la carga retenida no corresponde al robot.');
+        delete product.object.userData.vehicleOwnerId;
+        product.object.userData.robotOwnerId = product.robotOwnerId;
+        Object.defineProperty(product.object, 'industrialHeld', {value: true, configurable: true, writable: true, enumerable: false});
+      } else if (product.vehicleOwnerId) {
+        const owner = runtime.records.get(product.vehicleOwnerId), vehicle = owner && owner.components.vehicle;
+        if (!vehicle || !vehicle.entry || vehicle.entry.product !== product || !Array.isArray(vehicle.queue) || !vehicle.queue.includes(vehicle.entry)) error('la carga retenida no corresponde al vehículo.');
+        delete product.object.userData.robotOwnerId;
+        product.object.userData.vehicleOwnerId = product.vehicleOwnerId;
+        Object.defineProperty(product.object, 'industrialHeld', {value: true, configurable: true, writable: true, enumerable: false});
+      } else {
+        delete product.object.userData.robotOwnerId;
+        delete product.object.userData.vehicleOwnerId;
+        runtime.restoreProductCollision(product);
+      }
+    });
     runtime.sourceRuntime.entries = state.source.entries;
     runtime.sourceRuntime.sequence = state.source.sequence;
     runtime.processorRuntime.archive = state.processor.archive;

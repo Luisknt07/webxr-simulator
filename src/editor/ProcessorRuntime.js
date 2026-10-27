@@ -255,6 +255,10 @@ export default class ProcessorRuntime {
           const owner = this.runtime.records.get(id); return owner && owner.components.processor;
         }), record.id).filter((id, index, values) => !index || id !== values[index - 1]).slice(-64);
         const member = Object.assign({}, leaf, {units: take, product: null, lineage: route});
+        if (leaf.load && leaf.load.loadMode === 'pallet') {
+          const tare = Number.isFinite(leaf.load.palletTare) ? leaf.load.palletTare : behaviorSchema.productSources.pallets.dimensions(leaf.load, true).tare;
+          member.load = Object.assign({}, leaf.load, {palletTare: tare * take / leaf.units});
+        }
         if (take !== leaf.units) delete member.archivedProduct;
         groups[groupIndex].push(member); units -= take; remainingGroup -= take;
         if (!remainingGroup && groupIndex < count - 1) { groupIndex++; remainingGroup = Math.ceil((input.units - groups.slice(0, groupIndex).reduce((sum, rows) => sum + total(rows), 0)) / (count - groupIndex)); }

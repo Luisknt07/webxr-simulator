@@ -36,7 +36,8 @@ class Element {
 const dom = new Element('document'); dom.body = new Element('body'); dom.activeElement = dom.body; dom.createElement = tag => new Element(tag); dom.createTextNode = text => { const value = new Element('text'); value.textContent = text; return value; }; dom.hidden = false;
 const win = new Element('window'); win.devicePixelRatio = 1;
 function code(file) { return fs.readFileSync(path.join(__dirname, '..', file), 'utf8').replace(/^\uFEFF/, '').replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, ''); }
-const prefabs = new Function('THREE', 'behaviorSchema', 'document', code('src/editor/IndustrialPrefabs.js') + '\nreturn {createIndustrialPrefab,createProductVisual,createSourceProductVisual};')(THREE, schema, dom);
+const cargo = require('./load-product-prefabs.js')(THREE);
+const prefabs = new Function('THREE', 'behaviorSchema', 'document', 'require', code('src/editor/IndustrialPrefabs.js') + '\nreturn {createIndustrialPrefab,createProductVisual,createSourceProductVisual};')(THREE, schema, dom, id => { assert.equal(id, './ProductPrefabs.js'); return cargo; });
 const SceneDocument = new Function('THREE', 'behaviorSchema', 'createIndustrialPrefab', code('src/editor/SceneDocument.js').replace('default class SceneDocument', 'return class SceneDocument'))(THREE, schema, prefabs.createIndustrialPrefab);
 const ConveyorAssembly = new Function('THREE', 'conveyorLayout', code('src/editor/ConveyorAssembly.js').replace('default class ConveyorAssembly', 'return class ConveyorAssembly'))(THREE, schema.conveyorLayout);
 const {conveyorExamples, buildConveyorExample} = new Function('THREE', 'ConveyorAssembly', code('src/editor/ConveyorExamples.js') + '\nreturn {conveyorExamples,buildConveyorExample};')(THREE, ConveyorAssembly);

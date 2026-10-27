@@ -314,7 +314,9 @@ class DecalSystem {
 
 const prefabSource = sourceFor('IndustrialPrefabs.js').replace(/export const /g, 'const ').replace(/export function /g, 'function ') +
   '\nreturn {industrialPrefabs, createIndustrialPrefab, createProductVisual};';
-const {industrialPrefabs, createIndustrialPrefab, createProductVisual} = new Function('THREE', 'behaviorSchema', prefabSource)(THREE, behaviorSchema);
+const robotPrefabs = require('./load-robot-prefabs.js')(THREE);
+const prefabRequire = robotPrefabs.resolve;
+const {industrialPrefabs, createIndustrialPrefab, createProductVisual} = new Function('THREE', 'behaviorSchema', 'require', prefabSource)(THREE, behaviorSchema, prefabRequire);
 const browserGlobals = {THREE, behaviorSchema, automationSchema, materialSchema, wearSchema, createIndustrialPrefab, createProductVisual, document: dom, window: browserWindow, localStorage, URL: BrowserURL, Blob,
   setTimeout: () => 1, clearTimeout: () => {}};
 const SceneDocument = loadClass('SceneDocument.js', browserGlobals);
@@ -329,6 +331,7 @@ browserGlobals.ObjectPlacement = require('./load-object-placement')(THREE);
 browserGlobals.PalletQueueRuntime = require('./load-pallet-queue-runtime.js')(THREE, behaviorSchema);
 browserGlobals.ProcessorRuntime = require('./load-processor-runtime.js')(THREE, behaviorSchema);
 browserGlobals.ProductSourceRuntime = require('./load-product-source-runtime')(THREE, behaviorSchema);
+browserGlobals.RobotRuntime = require('./load-robot-runtime.js')(THREE, robotPrefabs);
 const SimulationRuntime = loadClass('SimulationRuntime.js', browserGlobals);
 const IndustrialVisuals = loadClass('IndustrialVisuals.js', browserGlobals);
 const LineMonitorSystem = loadClass('LineMonitorSystem.js', browserGlobals);
@@ -408,6 +411,7 @@ function harness(withPanel = false) {
   const calls = {renders: [], sizes: [], teleport: [], unlocks: 0, keyboardClears: 0};
   const raycontrol = {
     states: {'native-door': {colliderMesh: roots.hall.children[0]}}, active: new Set(['native-door']), enabled: true,
+    get currentStates() { return Array.from(this.active, name => this.states[name]).filter(Boolean); },
     addState(name, state) { this.states[name] = state; },
     activateState(name) { this.active.add(name); }, deactivateState(name) { this.active.delete(name); },
     enable() { this.enabled = true; }, disable() { this.enabled = false; }

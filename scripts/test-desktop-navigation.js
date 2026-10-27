@@ -52,6 +52,25 @@ async function editorZoom() {
   assert(Math.abs(e.camera.position.distanceTo(e.orbit.target)-before*Math.exp(.144))<.001);
   e.pendingZoom=.2;e.transform.dragging=true;const position=e.camera.position.clone();e.updateSmoothZoom(.1);assert(e.camera.position.equals(position));e.transform.dragging=false;e.clearNavigation();assert.equal(e.pendingZoom,0);f.close();
 }
+function vehicleEntryClick() {
+  const doc = new Events(), target = {ownerDocument: doc}, look = new Controls(new THREE.PerspectiveCamera(), target), context = {};
+  target.requestPointerLock = () => { doc.pointerLockElement = target; doc.fire('pointerlockchange'); };
+  doc.exitPointerLock = () => { doc.pointerLockElement = null; doc.fire('pointerlockchange'); };
+  let enter = true, selects = 0, releases = 0;
+  const controller = {dispatchEvent() {}}, raycontrol = {onSelectStart() { selects++; if (enter) { context.drivingVehicle = 'truck'; look.unlock(); } }, onSelectEnd() { releases++; }};
+  const handlers = new Function('context', 'controls', 'raycontrol', 'desktopController',
+    'let desktopControllerData={}; let desktopVehicleAtMouseDown=null;\n' + ['onDesktopCanvasClick', 'onDesktopSelectStart', 'onDesktopSelectEnd'].map(extract).join('\n') + '\nreturn {down:onDesktopSelectStart,up:onDesktopSelectEnd,click:onDesktopCanvasClick};')(context, look, raycontrol, controller);
+  const event = {button: 0};
+  look.lock(); handlers.down(event); handlers.up(event); handlers.click(event);
+  assert.equal(context.drivingVehicle, 'truck'); assert.equal(look.isLocked, false, 'Clicking an operator zone cannot recapture the cursor released by mount during the same press.');
+  enter = false; handlers.down(event); handlers.up(event); handlers.click(event);
+  assert(look.isLocked, 'A separate canvas click from the cockpit still captures look.'); assert.equal(selects, 2); assert.equal(releases, 2);
+  look.unlock(); context.editor = {active: true}; handlers.down(event); handlers.click(event); assert.equal(look.isLocked, false);
+  context.editor.active = false; context.vrMode = true; handlers.down(event); handlers.click(event); assert.equal(look.isLocked, false, 'Desktop mouse capture cannot alter immersive input.');
+  look.dispose();
+}
+vehicleEntryClick();
+
 async function deniedCapture() {
   const doc = new Events(), target = {ownerDocument: doc, isConnected: true}, camera = new THREE.PerspectiveCamera(), control = new Controls(camera, target), unhandled = [];
   const record = error => unhandled.push(error); process.on('unhandledRejection', record);

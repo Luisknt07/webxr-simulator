@@ -7,6 +7,16 @@ const GREEN = '#42e4a4';
 const AMBER = '#ffc356';
 const RED = '#ff6575';
 const CYAN = '#50d9ff';
+const MACHINE_TYPES = ['conveyor', 'source', 'processor', 'palletQueue', 'robot', 'vehicle'];
+function machineConfiguration(record) { return record && MACHINE_TYPES.map(type => record.configurations[type]).find(Boolean); }
+function machineTargets(config) {
+  const ids = [config.outputId, config.branchId];
+  if (['robot', 'vehicle'].includes(config.type)) ids.push(config.sourceId);
+  if (config.type === 'robot' && config.destinationRulesJson) {
+    try { const rules = JSON.parse(config.destinationRulesJson); if (Array.isArray(rules)) rules.slice(0, 16).forEach(rule => { if (rule && typeof rule.outputId === 'string') ids.push(rule.outputId); }); } catch (_) { /* Validated configurations normally arrive here. */ }
+  }
+  return ids.filter(Boolean);
+}
 
 function number(value, fallback = 0) { return typeof value === 'number' && Number.isFinite(value) ? value : fallback; }
 function visible(object) { for (let node = object; node; node = node.parent) if (!node.visible) return false; return true; }
@@ -21,6 +31,7 @@ function cloneSurfaceMaterial(original) {
 }
 function cloneSurfaceTexture(original) {
   const texture = original.clone();
+  texture.userData = Object.assign({}, original.userData || {});
   ['isDataTexture', 'isCompressedTexture', 'isCubeTexture', 'isCanvasTexture', 'isVideoTexture'].forEach(key => { if (original[key]) texture[key] = true; });
   texture.image = original.image;
   texture.mipmaps = original.mipmaps ? original.mipmaps.slice() : [];
@@ -111,7 +122,7 @@ export default class IndustrialVisuals {
   resolveConveyor(record) {
     if (!record) return null;
     record.panelScope = 'module';
-    if (record.configurations.conveyor || record.configurations.source || record.configurations.processor || record.configurations.palletQueue) return record;
+    if (machineConfiguration(record)) return record;
     const source = record.configurations.sensor || record.configurations.control || record.configurations.product;
     if (source) {
       if (record.configurations.control) record.panelScope = scopeOf(source.scope);
@@ -119,7 +130,7 @@ export default class IndustrialVisuals {
       const target = reference && this.byId.get(reference);
       // Match the configured source/target. Blank, self, dangling references or
       // a PLC targeting itself must never borrow another machine's telemetry.
-      return target && (target.configurations.conveyor || target.configurations.source || target.configurations.processor || target.configurations.palletQueue) ? target : null;
+      return machineConfiguration(target) ? target : null;
     }
     // A panel reports one machine only when every enabled child control has a
     // valid, consistent target. Traversal order must not select the first one.
@@ -131,7 +142,7 @@ export default class IndustrialVisuals {
         const controlTarget = this.byId.get(child.configurations.control.targetId);
         controls++;
         scopes.add(scopeOf(child.configurations.control.scope));
-        if (controlTarget && (controlTarget.configurations.conveyor || controlTarget.configurations.source || controlTarget.configurations.processor || controlTarget.configurations.palletQueue)) targets.add(controlTarget);
+        if (machineConfiguration(controlTarget)) targets.add(controlTarget);
         else unbound++;
         break;
       }
@@ -155,7 +166,7 @@ export default class IndustrialVisuals {
       const configurations = {};
       const behaviors = this.document.getBehaviors ? this.document.getBehaviors(object) : object.userData.editorBehaviors || object.userData.editorDefaultBehaviors || [];
       behaviors.forEach(config => {
-        if (config && config.enabled !== false && ['conveyor', 'source', 'processor', 'palletQueue', 'sensor', 'automation', 'control', 'product'].includes(config.type)) configurations[config.type] = config;
+        if (config && config.enabled !== false && MACHINE_TYPES.concat(['sensor', 'automation', 'control', 'product']).includes(config.type)) configurations[config.type] = config;
       });
       // The physical panel remains an ownership boundary even when its PLC
       // logic and every button are disabled or its automation was removed.
@@ -166,7 +177,7 @@ export default class IndustrialVisuals {
     });
     const identities = new Map();
     this.records.forEach(record => {
-      if (!record.configurations.conveyor && !record.configurations.source && !record.configurations.processor && !record.configurations.palletQueue) return;
+      if (!machineConfiguration(record)) return;
       const id = String(record.id || record.object.uuid).replace(/^custom-/, '');
       const short = id.length > 18 ? '…' + id.slice(-15) : id;
       if (!identities.has(short)) identities.set(short, []);
@@ -358,7 +369,7 @@ export default class IndustrialVisuals {
 
   variables(record, editing) {
     if (!record) return null;
-    const config = record.configurations.conveyor || record.configurations.source || record.configurations.processor || record.configurations.palletQueue || record.configurations.sensor || {};
+    const config = machineConfiguration(record) || record.configurations.sensor || {};
     if (!editing && this.simulation && this.simulation.running) {
       const runtime = this.simulation.records && this.simulation.records.get(record.id);
       if (runtime) return runtime.variables;
@@ -375,10 +386,10 @@ export default class IndustrialVisuals {
     if (this.previewScopes.has(key)) return this.previewScopes.get(key);
     const links = new Map();
     this.byId.forEach(candidate => {
-      const config = candidate.configurations.conveyor || scope === 'line' && (candidate.configurations.source || candidate.configurations.processor || candidate.configurations.palletQueue);
+      const config = candidate.configurations.conveyor || scope === 'line' && machineConfiguration(candidate);
       if (!config) return;
-      links.set(candidate.id, ['outputId', 'branchId'].map(field => config[field]).filter(id => {
-        const target = this.byId.get(id); return target && (target.configurations.conveyor || scope === 'line' && (target.configurations.source || target.configurations.processor || target.configurations.palletQueue));
+      links.set(candidate.id, machineTargets(config).filter(id => {
+        const target = this.byId.get(id); return target && (target.configurations.conveyor || scope === 'line' && machineConfiguration(target));
       }));
     });
     if (scope === 'line') links.forEach((targets, id) => targets.slice().forEach(target => {
@@ -397,7 +408,7 @@ export default class IndustrialVisuals {
 
   panelSnapshot(record, scope, editing, values) {
     if (!record) return {variables: null, memberIds: [], scope};
-    if (scope === 'module' || scope !== 'line' && (record.configurations.source || record.configurations.processor || record.configurations.palletQueue)) return {variables: values(record), memberIds: [record.id], anchorId: record.id, scope: 'module'};
+    if (scope === 'module' || scope !== 'line' && (record.configurations.source || record.configurations.processor || record.configurations.palletQueue || record.configurations.robot || record.configurations.vehicle)) return {variables: values(record), memberIds: [record.id], anchorId: record.id, scope: 'module'};
     const key = record.id + ':' + scope + ':' + editing;
     if (this.panelSnapshots.has(key)) return this.panelSnapshots.get(key);
     let snapshot;
@@ -615,8 +626,9 @@ export default class IndustrialVisuals {
           binding.kind === 'volume' ? enabled && occupied ? 0.18 : 0.025 : undefined);
       } else if (binding.kind === 'tower') {
         const processor = !!binding.conveyor.configurations.processor;
-        const active = binding.tower === 'fault' ? !!state.emergency : binding.tower === 'paused' ? state.powered !== false && !state.emergency && (!!state.paused || !!state.palletFull || !!state.waitingOperator || !!state.settingUp || !!state.blocked || !state.running) :
-          binding.tower === 'powered' ? state.powered !== false : state.powered !== false && !!state.running && !state.paused && !state.emergency && (processor ? !!state.busy && !state.settingUp && !state.waitingOperator : number(state.actualSpeed) !== 0);
+        const robot = !!binding.conveyor.configurations.robot;
+        const active = binding.tower === 'fault' ? !!state.emergency || !!state.fault : binding.tower === 'paused' ? state.powered !== false && !state.emergency && (!!state.paused || !!state.palletFull || !!state.waitingOperator || !!state.settingUp || !!state.blocked || !state.running) :
+          binding.tower === 'powered' ? state.powered !== false : state.powered !== false && !!state.running && !state.paused && !state.emergency && (robot ? !!state.phase && state.phase !== 'idle' && !state.blocked && !state.fault : processor ? !!state.busy && !state.settingUp && !state.waitingOperator : number(state.actualSpeed) !== 0);
         const color = binding.tower === 'fault' ? RED : binding.tower === 'paused' ? AMBER : binding.tower === 'powered' ? CYAN : GREEN;
         setColor(binding.entry, active ? color : '#263d46', active ? 0.9 : 0.02);
       } else {
@@ -639,6 +651,12 @@ export default class IndustrialVisuals {
   }
 
   paintDisplay(entry, state, sensors, editing, snapshot) {
+    if (entry.scope !== 'line' && entry.conveyor && entry.conveyor.configurations.vehicle) {
+      this.paintVehicleDisplay(entry, state, editing); return;
+    }
+    if (entry.scope !== 'line' && (entry.conveyor && entry.conveyor.configurations.robot || entry.object.userData.industrialRobotDisplay)) {
+      this.paintRobotDisplay(entry, state, editing); return;
+    }
     if (entry.scope !== 'line' && (entry.conveyor && entry.conveyor.configurations.palletQueue || entry.object.userData.industrialPalletQueueDisplay)) {
       this.paintPalletQueueDisplay(entry, state, editing); return;
     }
@@ -720,6 +738,54 @@ export default class IndustrialVisuals {
     const hint = !state ? entry.bindingConflict ? 'Los mandos tienen destinos o alcances distintos · revísalos' : snapshot && snapshot.unavailable ? 'La telemetría de este alcance no está disponible' : 'Vincula este panel a una banda desde el inspector' : editing ? 'Pulsa Probar para operar · controles físicos en el panel' :
       variables.palletFull ? status.label === 'PALLET LLENO' ? 'PALLET LLENO · retira cajas superiores para continuar' : 'PALLET BLOQUEADO · libera espacio u obstáculos en la salida' : variables.transferBlocked ? classifying ? 'Salida elegida bloqueada · conserva el destino de la carga' : 'Salida ocupada, detenida o sin conexión · revisa el siguiente tramo' : classifying ? 'Atributos simulados · clasificación por carga, incluidos pallets' : variables.externalSupply ? 'ALIMENTACIÓN EXTERNA · generador de respaldo suspendido' : variables.autoSpawn === false ? 'Carga MANUAL · + Caja añade un producto independiente' : 'GENERADOR DE RESPALDO · activo sin alimentación externa';
     text(hint, 38, 498, 20, variables.palletFull ? AMBER : CYAN);
+    entry.texture.needsUpdate = true;
+  }
+
+  paintRobotDisplay(entry, state, editing) {
+    const v = state || {}, record = entry.conveyor, config = record && record.configurations.robot || {};
+    const phaseNames = {idle: 'ESPERANDO', setup: 'PREPARACIÓN', approach: 'APROXIMACIÓN', pick: 'RECOGIENDO', lift: 'ELEVANDO', carry: 'TRASLADANDO', place: 'DEPOSITANDO', release: 'ENTREGANDO', return: 'RETORNO', process: 'PROCESANDO', blocked: 'RECEPTOR OCUPADO', 'wait-output': 'ESPERANDO SALIDA', 'drive-input': 'A RECOGIDA', 'drive-output': 'A ENTREGA', 'process-contact': 'HERRAMIENTA A PIEZA', 'process-dwell': 'PROCESANDO', 'process-retract': 'RETIRANDO HERRAMIENTA'};
+    const label = editing ? 'VISTA PREVIA' : !state ? 'SIN VINCULAR' : v.emergency ? 'EMERGENCIA' : v.fault ? 'FALLO' : !v.powered ? 'APAGADO' : v.paused ? 'PAUSADO' : !v.running ? 'DETENIDO' : v.blocked ? 'ESPERANDO SALIDA' : phaseNames[v.phase] || v.phaseText || 'LISTO';
+    const statusColor = v.emergency || v.fault ? RED : !v.powered || v.paused || !v.running || v.blocked ? AMBER : GREEN;
+    const name = record ? record.object.name : 'Robot sin vínculo';
+    const signature = [name, label, config.variant, config.mode, config.tool, v.entryCount, v.exitCount, v.inFlight, v.loadKg, v.payloadKg,
+      number(v.utilization).toFixed(1), clock(number(v.busySeconds)), clock(number(v.idleSeconds)), clock(number(v.blockedSeconds)), number(v.tcpX).toFixed(2), number(v.tcpY).toFixed(2), number(v.tcpZ).toFixed(2), v.fault].join('|');
+    if (entry.signature === signature) return; entry.signature = signature;
+    const c = entry.context, text = (value, x, y, size = 24, color = WHITE, width = 970) => {
+      c.fillStyle = color; c.font = '600 ' + size + 'px Arial, sans-serif'; c.textAlign = 'left'; c.textBaseline = 'alphabetic'; c.fillText(String(value), x, y, width);
+    };
+    c.fillStyle = '#081721'; c.fillRect(0, 0, 1024, 512);
+    c.fillStyle = '#102937'; c.fillRect(0, 0, 1024, 76); c.fillStyle = CYAN; c.fillRect(0, 0, 7, 76);
+    text(name, 26, 30, 23, DIM, 600); text('ROBOT · ' + (config.family || '') + ' / ' + (config.mode === 'manual' ? 'MANUAL' : 'AUTO'), 26, 61, 20, CYAN, 550);
+    text(label, 590, 50, 27, statusColor, 405);
+    [['RECIBIDAS', count(v.entryCount)], ['ENTREGADAS', count(v.exitCount)], ['CARGA RETENIDA', count(v.inFlight)], ['UTILIZACIÓN', number(v.utilization).toFixed(1) + '%']].forEach(([caption, value], index) => {
+      const x = 20 + index * 249; c.fillStyle = '#10232f'; c.fillRect(x, 92, 237, 105); text(caption, x + 15, 122, 20, DIM, 210); text(value, x + 15, 178, 42, index === 3 ? CYAN : WHITE, 210);
+    });
+    text('HERRAMIENTA  ' + (config.tool || '—'), 38, 237, 22, CYAN, 460);
+    text('CARGA  ' + number(v.loadKg).toFixed(1) + ' / ' + number(config.payloadKg).toFixed(1) + ' kg', 535, 237, 23, WHITE, 450);
+    text('TCP LOCAL · m', 38, 278, 20, DIM); text('X ' + number(v.tcpX).toFixed(2) + '   Y ' + number(v.tcpY).toFixed(2) + '   Z ' + number(v.tcpZ).toFixed(2), 38, 319, 31, WHITE);
+    c.fillStyle = '#173442'; c.fillRect(20, 344, 984, 2);
+    [['TRABAJO', v.busySeconds], ['OCIO', v.idleSeconds], ['BLOQUEO', v.blockedSeconds]].forEach(([caption, seconds], index) => {
+      const x = 38 + index * 325; text(caption, x, 382, 20, DIM, 300); text(clock(number(seconds)), x, 423, 32, WHITE, 300);
+    });
+    text(v.faultLabel || v.fault || (editing ? 'Configura origen, receptor y ejes en el inspector' : config.mode === 'manual' ? 'Marcha habilita · Despachar solicita un ciclo' : 'Secuencia automática · el receptor lleno conserva la carga'), 38, 469, 22, v.fault ? RED : CYAN, 950);
+    text('Setup ' + number(config.setupTime).toFixed(1) + ' s · Ciclo mínimo ' + number(config.cycleTime).toFixed(1) + ' s · Alcance ' + number(config.reach).toFixed(2) + ' m', 38, 501, 20, DIM, 950);
+    entry.texture.needsUpdate = true;
+  }
+
+  paintVehicleDisplay(entry, state, editing) {
+    const v = state || {}, record = entry.conveyor, config = record && record.configurations.vehicle || {};
+    const label = editing ? 'VISTA PREVIA' : v.emergency ? 'EMERGENCIA' : !v.powered ? 'APAGADO' : v.warning ? 'ATENCIÓN' : v.parkingBrake ? 'FRENO P' : v.running ? 'HABILITADO' : 'DETENIDO';
+    const signature = [label, v.actualSpeed, v.forkHeight, v.loadKg, v.capacityKg, v.batteryPercent, v.distance, v.warning, v.receivedUnits, v.deliveredUnits].join('|');
+    if (entry.signature === signature) return; entry.signature = signature;
+    const c = entry.context, text = (value, x, y, size = 25, color = WHITE) => { c.fillStyle = color; c.font = '600 ' + size + 'px Arial, sans-serif'; c.textAlign = 'left'; c.fillText(String(value), x, y, 960 - x); };
+    c.fillStyle = '#081721'; c.fillRect(0, 0, 1024, 512); c.fillStyle = '#102937'; c.fillRect(0, 0, 1024, 86);
+    text(record ? record.object.name : 'Vehículo', 28, 37, 28, CYAN); text(label, 28, 72, 24, v.emergency ? RED : v.parkingBrake || v.warning ? AMBER : GREEN);
+    text('VELOCIDAD', 32, 134, 21, DIM); text(number(v.actualSpeed).toFixed(2) + ' m/s', 32, 181, 42);
+    text('HORQUILLAS', 528, 134, 21, DIM); text(number(v.forkHeight).toFixed(2) + ' m', 528, 181, 42);
+    text('CARGA / CAPACIDAD EFECTIVA', 32, 243, 22, DIM); text(number(v.loadKg).toFixed(0) + ' / ' + number(v.capacityKg, number(config.payloadKg)).toFixed(0) + ' kg', 32, 285, 36);
+    text('BATERÍA ' + number(v.batteryPercent, 100).toFixed(1) + '%', 32, 349, 26, CYAN); text('RECORRIDO ' + number(v.distance).toFixed(1) + ' m', 528, 349, 26);
+    text('RECIBIDAS ' + number(v.receivedUnits) + ' u · ENTREGADAS ' + number(v.deliveredUnits) + ' u', 32, 410, 26);
+    text(v.warning || 'Entrada física de horquillas · frena antes de tomar o depositar', 32, 475, 22, v.warning ? AMBER : DIM);
     entry.texture.needsUpdate = true;
   }
 
@@ -918,7 +984,7 @@ export default class IndustrialVisuals {
     const xr = ctx.renderer && ctx.renderer.xr, session = xr && xr.getSession && xr.getSession();
     const blocked = editing || !ctx.vrMode || ctx.studioMenuOpen || ctx.xrEntryPending || ctx.xrExitPending || ctx.roomTransition ||
       editor && (editor.active || editor.initializing || editor.loadingProject || editor.busy || editor.importingFiles) || dom && dom.hidden ||
-      !simulation || !simulation.running || !input || input.enabled === false || xr && xr.getSession && !session || session && session.visibilityState && session.visibilityState !== 'visible';
+      !simulation || !simulation.running || !input || !input.states || !Array.isArray(input.currentStates) || input.enabled === false || xr && xr.getSession && !session || session && session.visibilityState && session.visibilityState !== 'visible';
     if (blocked) { this.resetContactHands(); return; }
     this.contactStates.clear();
     (simulation.states || []).forEach(entry => { if (input.states[entry.name] === entry.state && input.currentStates.includes(entry.state)) this.contactStates.set(entry.state.colliderMesh, entry.state); });

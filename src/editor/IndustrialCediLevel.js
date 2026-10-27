@@ -7,6 +7,7 @@ import {applyIndustrialFloorPresentation} from './IndustrialFloorPresentation.js
 import {applyIndustrialMonitorLayout} from './IndustrialMonitorLayout.js';
 import {applyIndustrialMessages} from './IndustrialMessages.js';
 import {applyIndustrialAging} from './IndustrialAgingPresentation.js';
+import {retrofitCediRobotics} from './IndustrialCediRobotics.js';
 
 /** A complete persisted level: physical production graph, CEDI building,
  * authored interior camera/spawn, reusable group and world-space supervision. */
@@ -24,6 +25,12 @@ export function buildIndustrialCediLevel(document, roomId, options = {}) {
   try {
     document.getObjects(roomId).filter(object => object.name === 'Suelo del nivel' && !document.isNative(object)).forEach(object => document.remove(object));
     const network = buildIndustrialCediScenario(document, roomId, options);
+    const robotics = options.robotized ? retrofitCediRobotics(document, roomId, {scene: options.scene, lines: network.lines, allowExpansion: true}) : null;
+    if (robotics) {
+      network.objects.push(...robotics.objects);
+      const bounds = new THREE.Box3(); network.objects.forEach(object => bounds.expandByObject(object));
+      network.bounds = {min: bounds.min.toArray(), max: bounds.max.toArray(), width: 2 * Math.max(Math.abs(bounds.min.x), Math.abs(bounds.max.x)), depth: 2 * Math.max(Math.abs(bounds.min.z), Math.abs(bounds.max.z))};
+    }
     const roomRoot = document.getRoot(roomId);
     roomRoot.updateWorldMatrix(true, true);
     const inverseRoom = new THREE.Matrix4().getInverse(roomRoot.matrixWorld), inverseRoomRotation = roomRoot.getWorldQuaternion(new THREE.Quaternion()).inverse();
@@ -116,7 +123,7 @@ export function buildIndustrialCediLevel(document, roomId, options = {}) {
     const floorPresentation = options.floorPresentation === false ? null : applyIndustrialFloorPresentation(document, roomId, {floorObject: environment.floor, machines: network.objects, lines: network.lines, replaceLegacy: true});
     const retained = object => document.getObject(object.userData.editorId) === object;
     if (own) document.commit();
-    return Object.assign(network, {roomId, environment, finishes, monitors, platforms, processSigns, terminalSigns, width, depth, floor: environment.floor, floorPresentation, monitorLayout, messages, aging,
+    return Object.assign(network, {roomId, environment, finishes, monitors, platforms, processSigns, terminalSigns, width, depth, floor: environment.floor, floorPresentation, monitorLayout, messages, aging, robotics,
       objects: Array.from(new Set(network.objects.concat(environment.objects, objects, floorPresentation && floorPresentation.presentation || []))).filter(retained)});
   } catch (error) { if (own) document.cancel(); throw error; }
 }

@@ -29,7 +29,7 @@ function panelShape(panel) {
   const result = [];
   const visit = (node, index) => {
     result.push({index, name: node.name, position: node.position.toArray(), quaternion: node.quaternion.toArray(), scale: node.scale.toArray(),
-      geometry: node.geometry && {type: node.geometry.type, parameters: node.geometry.parameters},
+      geometry: node.geometry && {type: node.geometry.type, parameters: node.geometry.parameters && JSON.parse(JSON.stringify(node.geometry.parameters, (key, value) => key === 'uuid' ? undefined : value))},
       material: node.material && {type: node.material.type, color: node.material.color.getHexString(), roughness: node.material.roughness, metalness: node.material.metalness},
       control: node.userData.editorDefaultBehaviors, action: node.userData.industrialAction});
     node.children.forEach((child, i) => visit(child, index + '.' + i));

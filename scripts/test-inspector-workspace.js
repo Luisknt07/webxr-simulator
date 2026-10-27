@@ -81,5 +81,21 @@ async function inspector() {
   e.projectSync.stop(); e.clearAssembly(true);
 }
 
-async function run() { await resourceDocking(); await inspector(); console.log('Inspector workspace: open transforms then grouped equipment settings, Source/quality/routing/operator controls, one movable preview, hidden/stale GPU cleanup, independent thumbnails, keyboard tabs and unchanged authoring data passed.'); }
+async function cargoPresets() {
+  editorFixture.storage.clear(); editorFixture.remote.projects.clear();
+  const f = editorFixture.harness(); await f.editor.ready; const e = f.editor; e.enter();
+  const field = key => all(e.inspectorContent).find(node => node.getAttribute('data-behavior-field') === key);
+  const change = async (key, value) => { const input = field(key); assert(input, key); input.value = value; await input.fire('change'); await tick(); };
+  const pallet = e.document.addPrefab('hall', 'product', 'pallet-loaded'); e.select(pallet);
+  await change('width', 1.3); let p = e.document.getBehaviors(pallet).find(value => value.type === 'product'); assert.equal(p.palletType, 'custom');
+  await change('palletType', 'euro-1200x800'); p = e.document.getBehaviors(pallet).find(value => value.type === 'product'); assert.equal(p.width, 1.2); assert.equal(p.depth, .8); assert.equal(p.units, 24); assert.equal(p.mass, 145);
+  const source = e.document.addPrefab('hall', 'source'); e.select(source);
+  await change('productVariant', 'pallet-loaded'); let s = e.document.getBehaviors(source).find(value => value.type === 'source'); assert.equal(s.loadMode, 'individual'); assert.equal(s.units, 24); assert.equal(s.mass * s.units, 145);
+  await change('productType', 'crate'); s = e.document.getBehaviors(source).find(value => value.type === 'source'); assert.equal(s.productVariant, ''); assert.equal(s.productType, 'crate');
+  e.document.setBehaviors(source, e.document.getBehaviors(source).map(value => { if (value.type !== 'source') return value; const old = Object.assign({}, value); delete old.units; delete old.productVariant; return old; })); e.select(source);
+  assert.equal(Number(field('units').value), 1); assert.equal(field('productVariant').value, '');
+  assert.equal(Object.hasOwn(e.document.getBehaviors(source).find(value => value.type === 'source'), 'units'), false, 'Viewing legacy defaults must not mutate the source.');
+  e.projectSync.stop(); e.clearAssembly(true);
+}
+async function run() { await resourceDocking(); await inspector(); await cargoPresets(); console.log('Inspector workspace: transforms, grouped settings, cargo presets/type changes, legacy defaults, physical pallet sizes, previews, GPU cleanup and keyboard tabs passed.'); }
 run().catch(error => { console.error(error); process.exitCode = 1; });

@@ -12,6 +12,10 @@ const booleanVariables = ['active', 'occupied', 'running', 'powered', 'paused', 
 // measured limits or the actuator's internal sequence timer.
 const mechanismBooleanVariables = ['mechanismReady', 'mechanismBusy', 'atLowerLevel', 'atUpperLevel', 'actuatorExtended', 'actuatorRetracted'];
 sourceVariables.push('actuatorPosition', 'actuatorAngle', 'elevatorPosition', 'zonesOccupied', ...mechanismBooleanVariables);
+sourceVariables.push('loadKg', 'payloadKg', 'cycleProgress', 'busySeconds', 'tcpX', 'tcpY', 'tcpZ', 'distance', 'batteryPercent');
+sourceVariables.push('lift', 'forkHeight', 'tilt', 'reach', 'sideShift', 'turret', 'steer', 'boomAngle', 'capacityKg', 'hornCount', 'loaded', 'parkingBrake', 'lights');
+booleanVariables.push('loaded', 'parkingBrake', 'lights');
+targetVariables.push('parkingBrake', 'lights');
 booleanVariables.push(...mechanismBooleanVariables);
 for (let zone = 1; zone <= 32; zone++) {
   sourceVariables.push('zone' + zone + 'Occupied', 'zone' + zone + 'Speed');

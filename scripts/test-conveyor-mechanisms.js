@@ -13,10 +13,13 @@ const ProcessorRuntime = require('./load-processor-runtime')(THREE, behaviorSche
 const PalletQueueRuntime = require('./load-pallet-queue-runtime')(THREE, behaviorSchema);
 const {getGeometryTree} = require('./load-geometry-acceleration.js')(THREE);
 function code(file) { return fs.readFileSync(path.join(__dirname, '..', file), 'utf8').replace(/^\uFEFF/, '').replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, ''); }
-const prefabs = new Function('THREE', 'behaviorSchema', code('src/editor/IndustrialPrefabs.js') + '\nreturn {createIndustrialPrefab,createProductVisual,createSourceProductVisual};')(THREE, behaviorSchema);
+const robotPrefabs = require('./load-robot-prefabs.js')(THREE);
+const prefabRequire = robotPrefabs.resolve;
+const prefabs = new Function('THREE', 'behaviorSchema', 'require', code('src/editor/IndustrialPrefabs.js') + '\nreturn {createIndustrialPrefab,createProductVisual,createSourceProductVisual};')(THREE, behaviorSchema, prefabRequire);
 const SceneDocument = new Function('THREE', 'behaviorSchema', 'createIndustrialPrefab', code('src/editor/SceneDocument.js').replace('default class SceneDocument', 'return class SceneDocument'))(THREE, behaviorSchema, prefabs.createIndustrialPrefab);
 const ProductFeedback = new Function('THREE', code('src/editor/ProductFeedback.js').replace('default class ProductFeedback', 'return class ProductFeedback'))(THREE);
-const Runtime = new Function('THREE', 'behaviorSchema', 'automationSchema', 'createProductVisual', 'ProductFeedback', 'ObjectPlacement', 'ProductSourceRuntime', 'ProcessorRuntime', 'PalletQueueRuntime', code('src/editor/SimulationRuntime.js').replace('default class SimulationRuntime', 'return class SimulationRuntime'))(THREE, behaviorSchema, automationSchema, prefabs.createProductVisual, ProductFeedback, ObjectPlacement, ProductSourceRuntime, ProcessorRuntime, PalletQueueRuntime);
+const RobotRuntime = require('./load-robot-runtime.js')(THREE, robotPrefabs);
+const Runtime = new Function('THREE', 'behaviorSchema', 'automationSchema', 'createProductVisual', 'ProductFeedback', 'ObjectPlacement', 'ProductSourceRuntime', 'ProcessorRuntime', 'PalletQueueRuntime', 'RobotRuntime', code('src/editor/SimulationRuntime.js').replace('default class SimulationRuntime', 'return class SimulationRuntime'))(THREE, behaviorSchema, automationSchema, prefabs.createProductVisual, ProductFeedback, ObjectPlacement, ProductSourceRuntime, ProcessorRuntime, PalletQueueRuntime, RobotRuntime);
 const CollisionWorld = new Function('THREE', 'getGeometryTree', code('src/lib/CollisionWorld.js').replace('default class CollisionWorld', 'return class CollisionWorld'))(THREE, getGeometryTree);
 const checkpoint = new Function('THREE', 'createProductVisual', 'createSourceProductVisual', code('src/studio/SimulationCheckpoint.js') + '\nreturn {captureSimulation,restoreSimulation};')(THREE, prefabs.createProductVisual, prefabs.createSourceProductVisual);
 function setup() {

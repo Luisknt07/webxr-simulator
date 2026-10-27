@@ -87,6 +87,18 @@ export default class ProductSourceRuntime {
     if (!world) return true;
     const options = runtime.packageCollisionOptions(record, product && (product.item || {mesh: product.object}));
     if (product) options.ignore.push(product.object);
+    // An already displayed pallet remains on its support while real tines
+    // enter its declared openings. Only those tines are excluded: a chassis,
+    // mast or a newly generated overlapping load must still block placement.
+    if (product && product.object.visible && runtime.vehicleRuntime) {
+      product.object.updateWorldMatrix(true, true);
+      if (matrix.elements.every((value, index) => Math.abs(value - product.object.matrixWorld.elements[index]) < 1e-5)) runtime.records.forEach(vehicle => {
+        if (!vehicle.components.vehicle) return;
+        if (runtime.vehicleRuntime.pocketClearance(vehicle, product, -1) && runtime.vehicleRuntime.pocketClearance(vehicle, product, 1)) {
+          const rig = runtime.vehicleRuntime.rig(vehicle); if (rig && rig.forks) options.ignore.push(rig.forks);
+        }
+      });
+    }
     return !world.testBox(bounds.clone().applyMatrix4(matrix), options);
   }
 
@@ -290,14 +302,17 @@ export default class ProductSourceRuntime {
       // physical load becomes the inventory entry; nothing is regenerated.
       const size = product.bounds.getSize(new THREE.Vector3());
       const metadata = product.object.userData.sourceProduct, classification = this.runtime.productMetadata(product);
+      const authored = product.record && product.record.components.product && product.record.components.product.config || {};
+      const totalUnits = classification.units || 1, palletMode = classification.loadMode === 'pallet';
+      const load = Object.assign({loadMode: palletMode ? 'pallet' : 'individual', palletColumns: 1, palletRows: 1, palletLayers: 1}, metadata || {}, authored);
+      const tare = palletMode ? Math.min(classification.mass, behaviorSchema.productSources.pallets.dimensions(load, true).tare) : 0;
+      load.palletTare = tare;
       entry = {id: record.id + ':' + this.runtime.runSequence + ':' + (++this.sequence), originId: record.id, ownerId: '',
         spec: {id: classification.sku, name: metadata && metadata.label || product.object.name || 'Caja', type: classification.productType,
           width: metadata && metadata.productWidth || Math.abs(size.x), height: metadata && metadata.productHeight || Math.abs(size.y), depth: metadata && metadata.productDepth || Math.abs(size.z), color: classification.color,
-          mass: metadata && metadata.mass || classification.mass, base: metadata && metadata.base || classification.base,
+          mass: Math.max(0, classification.mass - tare) / totalUnits, base: classification.base,
           quality: classification.quality, defect: classification.defect},
-        load: metadata ? {loadMode: metadata.loadMode, palletColumns: metadata.palletColumns, palletRows: metadata.palletRows, palletLayers: metadata.palletLayers,
-          palletType: metadata.palletType, palletMaterial: metadata.palletMaterial, palletPacking: metadata.palletPacking, palletWidth: metadata.palletWidth, palletDepth: metadata.palletDepth} :
-          {loadMode: 'individual', palletColumns: 1, palletRows: 1, palletLayers: 1}, units: metadata && metadata.units || 1,
+        load, units: totalUnits,
         lineage: [record.id], scale: product.scale.toArray(), product};
       product.sourceEntry = entry; if (item) item.sourceEntry = entry; this.entries.add(entry);
       Object.assign(product.object.userData, {sourceProductId: entry.id, sourceOriginId: entry.originId, sourceSku: entry.spec.id, sourceUnits: entry.units});
@@ -323,6 +338,8 @@ export default class ProductSourceRuntime {
     if (!source || !entry || !source.enabled || !source.running || source.paused || !visible(record.object)) return false;
     const target = runtime.records.get(source.config.outputId);
     const blocked = () => { source.transferBlocked = true; source.blocked = true; return false; };
+    if (entry.product && (entry.product.robotReservedBy || entry.product.robotOwnerId || entry.product.vehicleReservedBy || entry.product.vehicleOwnerId)) return blocked();
+    if (runtime.robotRuntime && !runtime.robotRuntime.canDispatch(record, entry.product)) return blocked();
     if (!target || target === record || !this.aligned(record, target, source.config.outputPort)) return blocked();
     if (target.components.palletQueue) {
       if (!this.materialize(record, source) || !runtime.palletQueueRuntime.canReceive(target, entry)) return blocked();

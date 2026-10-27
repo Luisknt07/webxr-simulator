@@ -57,7 +57,10 @@ function click(state) {
 }
 
 for (const type of simulationTypes) {
-  assert.deepEqual(normalizeBehaviors([{type}]), [defaultBehavior(type)]);
+  const defaults = defaultBehavior(type), legacy = Object.assign({}, defaults);
+  if (type === 'source') ['units', 'productVariant'].forEach(key => delete legacy[key]);
+  assert.deepEqual(normalizeBehaviors([{type}]), [legacy]);
+  assert.deepEqual(normalizeBehaviors([defaults]), [defaults]);
 }
 assert.throws(() => normalizeBehaviors([{type: 'conveyor', maxPackages: 1.5}]), /entero/);
 assert.throws(() => normalizeBehaviors([{type: 'sensor', sourceId: '__proto__'}]), /Referencia/);

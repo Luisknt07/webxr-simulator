@@ -9,6 +9,9 @@ const productSources = require('./productSources.js');
 const processors = require('./processors.js');
 const palletQueues = require('./palletQueues.js');
 const conveyorRouting = require('./conveyorRouting.js');
+const robots = require('./robots.js');
+const vehicles = require('./vehicles.js');
+const productEquipment = require('./product-equipment.js');
 
 function number(key, label, value, min, max, step) {
   return {key, label, input: 'number', default: value, min, max, step};
@@ -141,7 +144,9 @@ const definitions = [
     checkbox('withPanel', 'Panel de control local', true),
     checkbox('running', 'En marcha', true), checkbox('paused', 'Pausa inicial', false), checkbox('autoGenerate', 'Generar automáticamente', true),
     {key: 'generationMode', label: 'Selección de productos', input: 'select', default: 'single', options: [{value: 'single', label: 'Un solo tipo'}, {value: 'sequence', label: 'Catálogo en secuencia'}, {value: 'random', label: 'Catálogo aleatorio'}]},
-    {key: 'productType', label: 'Tipo de producto', input: 'select', default: 'box', options: [['box', 'Caja de cartón'], ['crate', 'Caja plástica'], ['drum', 'Bidón'], ['bottle', 'Botella']].map(([value, label]) => ({value, label}))},
+    {key: 'productType', label: 'Tipo de producto', input: 'select', default: 'box', options: productEquipment.PRODUCT_TYPES},
+    {key: 'productVariant', label: 'Modelo del producto', input: 'select', default: '', options: [{value: '', label: 'Automático por tipo'}].concat(productEquipment.VARIANTS.map(item => ({value: item.id, label: item.name})))},
+    number('units', 'Unidades contenidas en cada producto', 1, 1, 64, 1),
     number('width', 'Ancho del producto (m)', 0.25, 0.05, 2, 0.05), number('height', 'Alto del producto (m)', 0.25, 0.05, 2, 0.05), number('depth', 'Fondo del producto (m)', 0.25, 0.05, 2, 0.05),
     number('mass', 'Masa por unidad (kg)', 1, .01, 3000, .1),
     {key: 'base', label: 'Base del producto', input: 'select', default: 'flat', options: [['flat', 'Plana'], ['rigid', 'Bandeja rígida'], ['runners', 'Patines de pallet'], ['unstable', 'Inestable']].map(([value, label]) => ({value, label}))},
@@ -227,11 +232,17 @@ const definitions = [
     {key: 'command', label: 'Mando', input: 'select', default: 'start', options: [
       ['start', 'Arrancar'], ['stop', 'Parar'], ['pause', 'Pausar / continuar'], ['powerOn', 'Encender'], ['powerOff', 'Apagar'],
       ['speedUp', 'Aumentar velocidad'], ['speedDown', 'Reducir velocidad'], ['insertBox', 'Insertar caja'], ['resetEmergency', 'Rearmar emergencia'],
-      ['generate', 'Generar una carga'], ['dispatch', 'Despachar primera carga'], ['dispatchPallet', 'Retirar estiba completa'], ['clearQueue', 'Vaciar cola'], ['operator', 'Alternar disponibilidad del operario']
+      ['generate', 'Generar una carga'], ['dispatch', 'Despachar primera carga'], ['dispatchPallet', 'Retirar estiba completa'], ['clearQueue', 'Vaciar cola'], ['operator', 'Alternar disponibilidad del operario'],
+      ['pickup', 'Vehículo · tomar carga'], ['release', 'Vehículo · depositar carga'], ['parkingBrake', 'Vehículo · freno de estacionamiento'], ['lights', 'Vehículo · luces'], ['horn', 'Vehículo · bocina'], ['couple', 'Vehículo · enganchar'], ['uncouple', 'Vehículo · desenganchar']
     ].map(([value, label]) => ({value, label}))},
     number('value', 'Valor (0 = falso; 1 = verdadero)', 1, -20, 20, 0.05)
   ]}
 ];
+definitions.push({type: 'robot', label: 'Robot · manipulación y logística', fields: robots.fields()});
+definitions.push({type: 'vehicle', label: 'Vehículo industrial · conducción y carga', fields: vehicles.fields()});
+const productDefinition = definitions.find(item => item.type === 'product');
+const productOptionalFields = productEquipment.fields().filter(field => !productDefinition.fields.some(item => item.key === field.key));
+productDefinition.fields.push(...productOptionalFields);
 
 function definitionFor(type) {
   return definitions.find(definition => definition.type === type) || null;
@@ -257,9 +268,12 @@ function defaultBehavior(type) {
   const definition = definitionFor(type);
   if (!definition) throw new Error('Función de objeto no compatible: ' + String(type));
   if (type === 'surfaceMaterial') return materialSchema.normalizeMaterial({type});
+  if (type === 'robot') return robots.normalize({type});
+  if (type === 'vehicle') return vehicles.normalize({type});
   if (type === 'machineAudio' || type === 'audioZone') return machineAudio.normalize(type, {type});
   const result = {type, enabled: true};
   definition.fields.forEach(field => { result[field.key] = field.default; });
+  if (type === 'product') productOptionalFields.forEach(field => delete result[field.key]);
   return result;
 }
 
@@ -274,6 +288,8 @@ function normalizeBehaviors(list) {
     if (types.has(value.type)) throw new Error('Una función no puede repetirse en el mismo objeto.');
     types.add(value.type);
     if (value.type === 'surfaceMaterial') return materialSchema.normalizeMaterial(value);
+    if (value.type === 'robot') return robots.normalize(value);
+    if (value.type === 'vehicle') return vehicles.normalize(value);
     if (value.type === 'machineAudio' || value.type === 'audioZone') return machineAudio.normalize(value.type, value);
     const result = defaultBehavior(value.type);
     // Presentation is opt-in. Validating an old saved project must not add
@@ -305,6 +321,10 @@ function normalizeBehaviors(list) {
       }
       result[field.key] = field.input === 'color' ? item.toLowerCase() : item;
     });
+    if (value.type === 'product') {
+      if (value.variant) Object.assign(result, productEquipment.normalize(Object.assign({}, result, value)));
+      else productOptionalFields.forEach(field => delete result[field.key]);
+    }
     if (value.type === 'sound' || value.type === 'note') assetReference(result.asset, value.type === 'sound');
     if (value.type === 'decal') {
       assetReference(result.asset, true); objectReference(result.targetId, true);
@@ -313,13 +333,18 @@ function normalizeBehaviors(list) {
     }
     if (value.type === 'surfaceWear') result.layers = wearSchema.normalizeLayerJSON(result.layers);
     if (value.type === 'source') {
+      // New cargo controls are opt-in for existing documents. Validating or
+      // upgrading a legacy level must preserve its original Source record.
+      if (value.units === undefined) delete result.units;
+      if (value.productVariant === undefined) delete result.productVariant;
       result.catalog = productSources.normalizeCatalogJSON(result.catalog); objectReference(result.outputId, true);
-      ['seed', 'palletColumns', 'palletRows', 'palletLayers', 'capacity', 'initialCount', 'totalLimit'].forEach(key => { if (!Number.isInteger(result[key])) throw new Error('El valor de ' + key + ' debe ser un entero.'); });
+      ['seed', 'units', 'palletColumns', 'palletRows', 'palletLayers', 'capacity', 'initialCount', 'totalLimit'].forEach(key => { if (key === 'units' && result[key] === undefined) return; if (!Number.isInteger(result[key])) throw new Error('El valor de ' + key + ' debe ser un entero.'); });
       if (result.initialCount > result.capacity || result.totalLimit && result.initialCount > result.totalLimit) throw new Error('Las cargas iniciales superan la capacidad o el límite total.');
-      if (productSources.unitsFor(result) > 64) throw new Error('Un pallet admite hasta 64 productos.');
+      const catalog = productSources.normalizeCatalog(result.catalog);
+      const products = result.generationMode === 'single' || !catalog.length ? [productSources.singleSpec(result)] : catalog;
+      products.forEach(spec => productSources.assertLoadCompatible(spec, result));
       if (result.loadMode === 'pallet') {
-        const catalog = productSources.normalizeCatalog(result.catalog);
-        const products = result.generationMode === 'single' || !catalog.length ? [productSources.singleSpec(result)] : catalog;
+        if (products.some(spec => productSources.palletPlan(spec, result).units > 64)) throw new Error('Un pallet admite hasta 64 productos.');
         if (products.some(spec => !productSources.unitsFor(result, spec))) throw new Error('Un producto no cabe dentro del formato de pallet elegido.');
       }
     }
@@ -382,5 +407,5 @@ function normalizeBehaviors(list) {
   });
 }
 
-const simulationTypes = ['motion', 'conveyor', 'source', 'processor', 'palletQueue', 'sensor', 'product', 'automation', 'analytics', 'control'];
-module.exports = {definitions, definitionFor, defaultBehavior, normalizeBehaviors, assetReference, simulationTypes, conveyorLayout, conveyorEquipment: conveyorLayout.equipment, productSources, processors, palletQueues, conveyorRouting, machineAudio, industrialFloor: require('./industrialFloor.js'), productionAnalytics: require('./productionAnalytics.js'), studio: require('./studio-document.js')};
+const simulationTypes = ['motion', 'conveyor', 'source', 'processor', 'palletQueue', 'robot', 'vehicle', 'sensor', 'product', 'automation', 'analytics', 'control'];
+module.exports = {definitions, definitionFor, defaultBehavior, normalizeBehaviors, assetReference, simulationTypes, conveyorLayout, conveyorEquipment: conveyorLayout.equipment, productSources, processors, palletQueues, conveyorRouting, robots, vehicles, productEquipment, vehicleEquipment: require('./vehicle-equipment.js'), robotEquipment: require('./robot-equipment.js'), robotKinematics: require('./robot-kinematics.js'), machineAudio, industrialFloor: require('./industrialFloor.js'), productionAnalytics: require('./productionAnalytics.js'), studio: require('./studio-document.js')};

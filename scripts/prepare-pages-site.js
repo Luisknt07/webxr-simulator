@@ -3,7 +3,7 @@
 // Never archive the repository root: it can contain live SQLite/user files.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const {SCENES} = require('../shared/public-scenes');
-const FILES = ['index.html', 'bundle.js', 'mesh-optimizer-worker.js', 'collision-worker.js', '.nojekyll', 'LICENSE'];
+const FILES = ['index.html', 'bundle.js', 'mesh-optimizer-worker.js', 'collision-worker.js', 'cad-worker.js', '.nojekyll', 'LICENSE'];
 // Three.js loads these decoder files at runtime; they are not webpack imports.
 const DIRECTORIES = ['assets', 'res', 'src/vendor'];
 const DECODERS = ['basis_transcoder.js', 'basis_transcoder.wasm', 'draco_decoder.js', 'draco_decoder.wasm', 'draco_wasm_wrapper.js'];

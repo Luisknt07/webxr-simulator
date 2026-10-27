@@ -22,7 +22,7 @@ async function startTemporaryServer() {
     if (pathname.startsWith('/api/')) { if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) writes.push({method: req.method, path: pathname}); api(req, res); return; }
     let relative; try { relative = decodeURIComponent(pathname).replace(/^\/+/, ''); } catch (_) { res.writeHead(400); res.end(); return; }
     if (!relative || relative === 'editor' || relative === 'editor/') relative = 'index.html';
-    const file = path.resolve(ROOT, relative), allowed = ['assets/', 'res/', 'src/', 'shared/', 'examples/', 'node_modules/three/'].some(prefix => relative.startsWith(prefix)) || /^(?:index\.html|bundle\.js(?:\.map)?|collision-worker\.js(?:\.map)?|mesh-optimizer-worker\.js(?:\.map)?)$/.test(relative);
+    const file = path.resolve(ROOT, relative), allowed = ['assets/', 'res/', 'src/', 'shared/', 'examples/', 'node_modules/three/'].some(prefix => relative.startsWith(prefix)) || /^(?:index\.html|bundle\.js(?:\.map)?|collision-worker\.js(?:\.map)?|mesh-optimizer-worker\.js(?:\.map)?|cad-worker\.js(?:\.map)?)$/.test(relative);
     if (!allowed || !file.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end(); return; }
     fs.stat(file, (error, stat) => { if (error || !stat.isFile()) { res.writeHead(404); res.end(); return; }
       res.writeHead(200, {'Content-Type': mime[path.extname(file).toLowerCase()] || 'application/octet-stream', 'Content-Length': stat.size, 'Cache-Control': 'no-store'});

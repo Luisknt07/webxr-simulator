@@ -45,7 +45,8 @@ function directoryOf(path) {
 }
 
 function assetURL(path) {
-  return 'assets/' + normalizedPath(path).split('/').map(encodeURIComponent).join('/');
+  const relative = normalizedPath(path);
+  return (relative.startsWith('assets/') ? '' : 'assets/') + relative.split('/').map(encodeURIComponent).join('/');
 }
 
 // Server assets are addressed by content hash and stay on this application's

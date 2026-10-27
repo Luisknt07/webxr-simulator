@@ -151,6 +151,23 @@ function floor(root) {
   }
 }
 
+{
+  const {root, world, placement} = fixture(); floor(root);
+  const support = box(root, [1, .08, 1], [0, .96, 0]);
+  const actor = box(root, [.38, .38, .38], [0, 1.38, 0]);
+  // Nearby detailed equipment is within the support discovery query but
+  // outside the load footprint. Its >16k triangles are irrelevant to which
+  // selected surface will support the load.
+  const decoration = new THREE.Mesh(new THREE.TorusBufferGeometry(.10, .025, 64, 128), new THREE.MeshBasicMaterial());
+  decoration.position.set(.61, .86, 0); root.add(decoration);
+  assert(decoration.geometry.index.count / 3 > 4096);
+  const options = {targets: [support], allowSides: false};
+  const candidate = placement.find(actor, options);
+  assert(candidate && candidate.snapped, 'Dense decoration outside explicit supports cannot exhaust support discovery.'); near(candidate.bounds.min.y, 1.003);
+  const obstacle = box(root, [.36, .07, .36], [0, 1.07, 0]); world.invalidate(obstacle);
+  assert.equal(placement.find(actor, options), null, 'An obstacle outside explicit targets still blocks the final deposit and its swept path.');
+}
+
 assert.equal(new ObjectPlacement(null).find(new THREE.Group()), null);
 assert.equal(new ObjectPlacement({entries: []}).find(new THREE.Group()), null, 'Partial/mocked worlds fail safely.');
 console.log('Object placement: floor, boxes, sides, independent supports, obstacles, gaps, room geometry, transform preservation and conveyor surfaces passed.');

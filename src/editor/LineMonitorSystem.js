@@ -3,7 +3,7 @@ import behaviorSchema from '../../shared/behaviors.js';
 
 const WIDTH = 1024, HEIGHT = 576, PAGE_SIZE = 10, PREVIEW_LIMIT = 4, PREVIEW_TRIANGLES = 10000;
 const MAP = {x: 20, y: 116, width: 660, height: 364, right: 680, bottom: 480};
-const MACHINE_TYPES = ['conveyor', 'source', 'processor', 'palletQueue'];
+const MACHINE_TYPES = ['conveyor', 'source', 'processor', 'palletQueue', 'robot', 'vehicle'];
 const COLORS = {background: '#101e29', card: '#192d3c', text: '#ecf5fb', dim: '#a1b5c4', cyan: '#55d7f2', green: '#43d69b', amber: '#f2be55', red: '#f16b75'};
 const COMMANDS = [['start', 'MARCHA'], ['stop', 'PARAR'], ['pause', 'PAUSA'], ['powerOn', 'ENCENDER'], ['powerOff', 'APAGAR'],
   ['emergency', 'EMERGENCIA'], ['resetEmergency', 'REARMAR'], ['speedDown', '− VELOCIDAD'], ['speedUp', '+ VELOCIDAD']];
@@ -14,11 +14,18 @@ function short(value, length = 46) { const text = String(value === undefined ? '
 function valueText(value) { return typeof value === 'boolean' ? value ? 'Sí' : 'No' : typeof value === 'number' ? Number.isInteger(value) ? String(value) : value.toFixed(2) : short(value && typeof value === 'object' ? JSON.stringify(value) : value, 66); }
 function rawBehaviors(document, object) { return object.userData.editorBehaviors || object.userData.editorDefaultBehaviors || document.getBehaviors(object); }
 function machineConfig(document, object) { return rawBehaviors(document, object).find(value => MACHINE_TYPES.includes(value.type)); }
+function destinations(config) {
+  const result = [config.outputId, config.branchId].filter(Boolean);
+  if (config.type === 'robot' && behaviorSchema.robots && behaviorSchema.robots.parseDestinationRules) behaviorSchema.robots.parseDestinationRules(config).forEach(rule => result.push(rule.outputId));
+  return Array.from(new Set(result));
+}
 function equipmentCommands(selected) {
   if (!selected) return [];
   const config = selected.config;
   if (config.type === 'source') return [['generate', 'GENERAR'], ['dispatch', 'DESPACHAR'], ['clearQueue', 'VACIAR COLA']];
   if (config.type === 'processor') return (config.requiresOperator ? [['operator', 'OPERARIO']] : []).concat(config.delivery === 'manual' ? [['dispatch', 'DESPACHAR']] : []);
+  if (config.type === 'robot') return (config.mode === 'manual' ? [['cycle', 'SOLICITAR CICLO']] : []).concat([['home', 'VOLVER A ORIGEN']]);
+  if (config.type === 'vehicle') return (['tow', 'cart'].includes(config.family) ? [['couple', 'ENGANCHAR'], ['uncouple', 'DESENGANCHAR']] : [['pickup', 'TOMAR CARGA'], ['release', 'DEPOSITAR']]).concat([['parkingBrake', 'FRENO P'], ['lights', 'LUCES'], ['horn', 'BOCINA']]);
   if (config.type === 'conveyor' && config.mechanism === 'loading' && config.drive !== 'manual') return (
     (config.requiresOperator ? [['operator', 'OPERARIO']] : []).concat(config.loadingMode === 'manual' ? [['dispatch', 'SOLICITAR CICLO']] : []));
   if (config.type === 'palletQueue') return (number(selected.variables.completePallets) > 0 ? [['dispatchPallet', 'RETIRAR ESTIBA COMPLETA']] : []).concat(config.outputId ? [['dispatch', 'DESPACHAR']] : []);
@@ -61,7 +68,8 @@ function stateName(value) {
     input: 'Entrada', output: 'Salida', transport: 'En transporte', waiting: 'En espera', receive: 'Recepción', actuating: 'Actuación', transfer: 'En transferencia'}[String(value).toLowerCase()] || value;
 }
 function machineName(config) {
-  const definition = config.type === 'conveyor' && behaviorSchema.conveyorEquipment.resolveVariant(config);
+  const definition = config.type === 'conveyor' ? behaviorSchema.conveyorEquipment.resolveVariant(config) :
+    config.type === 'robot' ? behaviorSchema.robotEquipment && behaviorSchema.robotEquipment.resolveVariant(config) : config.type === 'vehicle' && behaviorSchema.vehicleEquipment && behaviorSchema.vehicleEquipment.getDefinition(config.variant);
   return definition ? definition.name : config.type === 'source' ? 'Generador / cola FIFO' : config.type === 'processor' ?
     {combiner: 'Combinador', separator: 'Separador', processor: 'Procesador'}[config.mode] || 'Procesador' : config.type === 'palletQueue' ? 'Almacén temporal de estibas' : config.type;
 }
@@ -74,6 +82,14 @@ function inside(point, polygon) {
   return result;
 }
 function operation(config) {
+  if (config.type === 'vehicle') return 'Conducción manual o ruta configurada con aceleración, dirección, frenado y mecanismos de carga. La entrada de horquillas necesita alineación y una carga compatible. Capacidad nominal didáctica ' + config.payloadKg + ' kg; consulta la capacidad efectiva al elevar o extender. No sustituye una tabla de carga certificada.';
+  if (config.type === 'robot') {
+    const task = {'pick-place': 'Recoge una carga existente y la deposita en el receptor.', process: 'Aproxima la boquilla, opera sobre la carga en su estación y se retira sin transportarla.',
+      palletize: 'Recoge cajas y entrega al almacén, que gobierna el patrón y las capas.', transport: 'Transporta una carga entre estaciones por la ruta configurada.'}[config.operation];
+    return (task || 'Ejecuta su secuencia cinemática.') + ' Ciclo mínimo ' + config.cycleTime + ' s; preparación ' + config.setupTime + ' s. ' +
+      (config.mode === 'manual' ? 'El panel solicita cada ciclo.' : 'Inicia ciclos automáticamente mientras haya carga.') +
+      ' Comprueba alcance, masa declarada y disponibilidad del destino. Una parada conserva la carga. No simula fuerzas ni navegación SLAM.';
+  }
   if (config.type === 'source') return 'Genera cargas cada ' + config.interval + ' s y conserva una cola limitada a ' + config.capacity + '. Salida ' + (config.delivery === 'automatic' ? 'automática hacia un receptor disponible.' : 'manual: recoger o despachar la próxima carga.');
   if (config.type === 'processor') return (config.mode === 'combiner' ? 'Combina entradas en una carga.' : config.mode === 'separator' ? 'Separa una carga en varias salidas.' : 'Procesa cada carga aceptada.') + ' Ciclo ' + config.processTime + ' s; setup ' + config.setupTime + ' s. ' + (config.requiresOperator ? 'Requiere un operario disponible.' : 'No requiere operario.') + ' Una salida ocupada conserva la carga.';
   if (config.type === 'palletQueue') return 'Almacena hasta ' + config.capacity + ' cargas en ' + config.palletCapacity + ' estibas. Conserva la identidad de cada carga. El retiro manual respeta las cajas superiores; la salida automática espera al receptor.';
@@ -95,7 +111,12 @@ function partDescription(name) {
 }
 
 function equipmentParts(selected) {
-  const registry = behaviorSchema.conveyorEquipment, definition = selected.config.type === 'conveyor' && registry.resolveVariant(selected.config);
+  if (selected.config.type === 'vehicle' && behaviorSchema.vehicleEquipment) {
+    const definition = behaviorSchema.vehicleEquipment.getDefinition(selected.config.variant);
+    if (definition) return definition.components.map((name, index) => ({id: 'vehicle-part-' + index, name, match: [name], function: partDescription(name)}));
+  }
+  const registry = selected.config.type === 'robot' ? behaviorSchema.robotEquipment : behaviorSchema.conveyorEquipment;
+  const definition = ['conveyor', 'robot'].includes(selected.config.type) && registry && registry.resolveVariant(selected.config);
   if (definition) return definition.parts.filter(part => {
     let found = false; selected.object.traverse(node => { if (visible(node) && !node.userData.editorRuntimeHelper && (part.match || []).some(match => (node.name || '').toLowerCase().includes(match.toLowerCase()))) found = true; }); return found;
   });
@@ -286,8 +307,8 @@ export default class LineMonitorSystem {
       if (entry.config.scope !== 'module') while (queue.length) {
         const id = queue.shift();
         all.forEach(item => {
-          const current = all.get(id), outgoing = [current.config.outputId, current.config.branchId].includes(item.id);
-          const incoming = [item.config.outputId, item.config.branchId].includes(id);
+          const current = all.get(id), outgoing = destinations(current.config).includes(item.id) || ['robot', 'vehicle'].includes(item.config.type) && item.config.sourceId === id;
+          const incoming = destinations(item.config).includes(id) || ['robot', 'vehicle'].includes(current.config.type) && current.config.sourceId === item.id;
           if ((outgoing || incoming) && !selected.has(item.id)) { selected.add(item.id); queue.push(item.id); }
         });
       }
@@ -300,7 +321,8 @@ export default class LineMonitorSystem {
 
   layout(entry, roomId) {
     const data = this.records(entry, roomId), ids = new Set(data.records.map(record => record.id));
-    const points = [], paths = [], links = [], products = [], pallets = [], mechanisms = [], decks = [];
+    const points = [], paths = [], links = [], products = [], pallets = [], mechanisms = [], decks = [], robots = [], vehicles = [];
+    const linked = new Set();
     data.records.forEach(item => {
       item.object.updateWorldMatrix(true, false);
       item.position = item.object.getWorldPosition(new THREE.Vector3()); points.push(item.position);
@@ -324,7 +346,39 @@ export default class LineMonitorSystem {
           mechanism: item.config.mechanism, color: stateColor(item.variables, !data.live), chains: item.config.surface === 'chains' ?
             [-.28, .28].map(side => path.map((point, index) => at(length * index / steps, width * side))) : []});
       });
-      if (item.config.type !== 'conveyor' && item.config.type !== 'palletQueue') {
+      if (item.config.type === 'robot') {
+        const config = item.config, component = item.record && item.record.components.robot;
+        const pose = component && component.pose || behaviorSchema.robotKinematics && behaviorSchema.robotKinematics.homePose(config);
+        const mobile = ['amr', 'agv', 'mobileManipulator', 'mobileSorter', 'shuttle', 'cartesian'].includes(config.family);
+        const length = mobile ? config.length : Math.max(.35, Math.min(.8, config.reach * .3)), width = mobile ? config.width : length;
+        const contour = hull(corners(new THREE.Box3(new THREE.Vector3(-length / 2, 0, -width / 2), new THREE.Vector3(length / 2, .05, width / 2)), item.object.matrixWorld));
+        points.push(...contour); decks.push({id: item.id, contour, type: 'robot'});
+        const matrix = component && component.visualRoot ? component.visualRoot.matrixWorld : item.object.matrixWorld;
+        const world = value => (Array.isArray(value) ? new THREE.Vector3().fromArray(value) : new THREE.Vector3(value.x, value.y, value.z)).applyMatrix4(matrix);
+        const tcp = pose && pose.tcp ? world(pose.tcp) : item.position.clone(), segments = [];
+        if (pose && pose.deltaElbows) pose.deltaElbows.forEach(leg => segments.push([world(leg.base), world(leg.elbow), world(pose.deltaPlatform)]));
+        else if (pose && pose.frames && pose.frames.length) segments.push(pose.frames.map(frame => world(frame.position)).concat([tcp]));
+        let route = [];
+        if (['amr', 'agv', 'mobileManipulator', 'mobileSorter'].includes(config.family) && behaviorSchema.robots) {
+          const routeMatrix = component && component.homeMatrix || item.object.matrixWorld;
+          route = component && component.route ? component.route.map(segment => (segment.position || segment).clone()) : behaviorSchema.robots.parseWaypoints(config).map(point => new THREE.Vector3(point.x, point.y, point.z).applyMatrix4(routeMatrix));
+        }
+        segments.forEach(segment => points.push(...segment)); points.push(...route, tcp);
+        robots.push({id: item.id, contour, tcp, segments, route, color: stateColor(item.variables, !data.live)});
+      }
+      if (item.config.type === 'vehicle') {
+        const config = item.config, component = item.record && item.record.components.vehicle;
+        const contour = hull(corners(new THREE.Box3(new THREE.Vector3(-config.width / 2, 0, -config.length / 2), new THREE.Vector3(config.width / 2, .05, config.length / 2)), item.object.matrixWorld));
+        decks.push({id: item.id, contour, type: 'vehicle'}); points.push(...contour);
+        let rig; item.object.traverse(node => { if (node.userData.vehicleRig) rig = node.userData.vehicleRig; });
+        const forkMatrix = rig && rig.forks ? rig.forks.matrixWorld : new THREE.Matrix4().multiplyMatrices(item.object.matrixWorld, new THREE.Matrix4().makeTranslation(0, config.forkBaseHeight + config.initialLift, config.length / 2));
+        const tcp = new THREE.Vector3().setFromMatrixPosition(forkMatrix), segments = [];
+        if (!['tow', 'cart'].includes(config.family)) for (const side of [-1, 1]) segments.push([new THREE.Vector3(side * config.forkSpread / 2, 0, 0).applyMatrix4(forkMatrix), new THREE.Vector3(side * config.forkSpread / 2, 0, config.forkLength).applyMatrix4(forkMatrix)]);
+        const route = component && component.route ? component.route.map(segment => segment.position.clone()) : behaviorSchema.vehicles.parseWaypoints(config).map(point => new THREE.Vector3(point.x, 0, point.z).applyMatrix4(item.object.matrixWorld));
+        segments.forEach(segment => points.push(...segment)); points.push(tcp, ...route);
+        vehicles.push({id: item.id, contour, tcp, segments, route, color: stateColor(item.variables, !data.live)});
+      }
+      if (!['conveyor', 'palletQueue', 'robot', 'vehicle'].includes(item.config.type)) {
         const factory = item.config.type === 'source' ? behaviorSchema.conveyorLayout.sourceLayout : behaviorSchema.conveyorLayout.processorLayout;
         const dimensions = factory(item.config), bounds = new THREE.Box3(new THREE.Vector3(-dimensions.length / 2, 0, -dimensions.width / 2), new THREE.Vector3(dimensions.length / 2, .05, dimensions.width / 2));
         const contour = hull(corners(bounds, item.object.matrixWorld)); points.push(...contour); decks.push({id: item.id, contour, type: item.config.type});
@@ -346,16 +400,21 @@ export default class LineMonitorSystem {
             full: data.live && item.variables['pallet' + (index + 1) + 'Full']});
         });
       }
-      [item.config.outputId, item.config.branchId].filter(id => ids.has(id)).forEach(targetId => {
+      const connections = destinations(item.config).filter(id => ids.has(id)).map(targetId => [item.id, targetId]);
+      if (['robot', 'vehicle'].includes(item.config.type) && ids.has(item.config.sourceId)) connections.push([item.config.sourceId, item.id]);
+      connections.forEach(([sourceId, targetId]) => {
+        const key = sourceId + '>' + targetId; if (linked.has(key)) return; linked.add(key);
+        const source = data.records.find(record => record.id === sourceId);
         const target = data.records.find(record => record.id === targetId);
+        source.object.updateWorldMatrix(true, false);
         target.object.updateWorldMatrix(true, false);
-        links.push({source: item.position, target: target.object.getWorldPosition(new THREE.Vector3())});
+        links.push({source: source.object.getWorldPosition(new THREE.Vector3()), target: target.object.getWorldPosition(new THREE.Vector3())});
       });
     });
     if (data.live) this.simulation.products.forEach(product => {
       // Current custody wins over provenance. A load manually moved to another
       // line must not remain painted on its original Source's monitor as well.
-      const activeOwner = product.item && (product.item.beltId || product.item.palletOwnerId) || product.processorOwnerId || product.sourceEntry && product.sourceEntry.ownerId;
+      const activeOwner = product.vehicleOwnerId || product.object.userData.vehicleOwnerId || product.robotOwnerId || product.object.userData.robotOwnerId || product.item && (product.item.beltId || product.item.palletOwnerId) || product.processorOwnerId || product.sourceEntry && product.sourceEntry.ownerId;
       const ownerId = activeOwner || product.sourceEntry && product.sourceEntry.originId || product.sourceId;
       if (!ids.has(ownerId) || !visible(product.object)) return;
       product.object.updateWorldMatrix(true, false);
@@ -368,7 +427,7 @@ export default class LineMonitorSystem {
         size: {width: Math.abs(size.x), height: Math.abs(size.y), depth: Math.abs(size.z)},
         color: product.sourceEntry && product.sourceEntry.spec && product.sourceEntry.spec.color || product.classification && product.classification.color || '#c7a368',
         units: product.sourceEntry && product.sourceEntry.units || 1,
-        stage: product.heldBy ? 'held' : product.item && product.item.mechanismStage || (product.processorLocked ? 'PROCESSING' : 'AVAILABLE')});
+        stage: product.heldBy ? 'held' : product.robotOwnerId || product.vehicleOwnerId ? 'transport' : product.item && product.item.mechanismStage || (product.processorLocked ? 'PROCESSING' : 'AVAILABLE')});
     });
     const focus = entry.focused && entry.selectedId;
     const focusedPoints = focus && paths.concat(decks, pallets).filter(item => item.id === focus).flatMap(item => item.contour);
@@ -381,7 +440,7 @@ export default class LineMonitorSystem {
     const events = data.live ? this.simulation.events.filter(event => ids.has(event.objectId)).slice().reverse() : [];
     const analytics = data.live && ['diagram', 'analytics', 'equipment', 'control'].includes(entry.page) && this.simulation.getAnalyticsSnapshot ? this.simulation.getAnalyticsSnapshot(
       entry.moduleOnly ? entry.selectedId : this.targetId(entry), entry.moduleOnly ? 'module' : entry.config.scope || 'line') : null;
-    return Object.assign(data, {paths, links, products, pallets, decks, mechanisms, project, scale, events, analytics});
+    return Object.assign(data, {paths, links, products, pallets, decks, mechanisms, robots, vehicles, project, scale, events, analytics});
   }
 
   text(entry, text, x, y, size = 16, color = COLORS.text, maxWidth = WIDTH - x - 18) {
@@ -474,7 +533,7 @@ export default class LineMonitorSystem {
       entry.regions.push({key: 'shape:' + id, node: id, x, y, width, height,
         polygon: contour.map(point => { const value = model.project(point); return {x: value.x, z: value.y}; })});
     };
-    model.decks.forEach(deck => { this.poly(entry, deck.contour, model.project, deck.type === 'processor' ? '#34576b' : '#4b6875', '#9fb4bd'); region(deck.id, deck.contour); });
+    model.decks.forEach(deck => { this.poly(entry, deck.contour, model.project, deck.type === 'robot' ? '#625739' : deck.type === 'processor' ? '#34576b' : '#4b6875', '#9fb4bd'); region(deck.id, deck.contour); });
     model.paths.forEach(path => { this.poly(entry, path.contour, model.project, path.surface === 'rollers' ? '#536976' : '#355966', null); region(path.id, path.contour); });
     model.paths.forEach(path => {
       // Only exterior ribbon edges are outlined at T junctions: a branch must
@@ -495,6 +554,16 @@ export default class LineMonitorSystem {
     });
     model.mechanisms.forEach(mechanism => {
       context.globalAlpha = .40; this.poly(entry, mechanism.contour, model.project, '#d6ad41', '#ffe29b', 1.5); context.globalAlpha = 1;
+    });
+    (model.robots || []).concat(model.vehicles || []).forEach(robot => {
+      if (context.setLineDash) context.setLineDash([4, 4]); this.line(entry, robot.route, model.project, '#7e9cba', 1); if (context.setLineDash) context.setLineDash([]);
+      robot.segments.forEach(segment => {
+        this.line(entry, segment, model.project, '#263844', Math.max(3, Math.min(12, model.scale * .16)));
+        this.line(entry, segment, model.project, robot.color, Math.max(1.5, Math.min(7, model.scale * .1)));
+        segment.forEach(point => { const p = model.project(point); context.fillStyle = '#d6e4eb'; context.fillRect(p.x - 2, p.y - 2, 4, 4); });
+      });
+      const tcp = model.project(robot.tcp); context.strokeStyle = '#fbe09b'; context.lineWidth = 1.5;
+      context.beginPath(); context.moveTo(tcp.x - 4, tcp.y); context.lineTo(tcp.x + 4, tcp.y); context.moveTo(tcp.x, tcp.y - 4); context.lineTo(tcp.x, tcp.y + 4); context.stroke();
     });
     model.pallets.forEach(pallet => {
       this.poly(entry, pallet.contour, model.project, '#786649', pallet.full ? COLORS.amber : '#b39e72', 1);
@@ -521,7 +590,7 @@ export default class LineMonitorSystem {
       const contours = paths.flatMap(path => path.contour).concat(model.pallets.filter(pallet => pallet.id === item.id).flatMap(pallet => pallet.contour), deck ? deck.contour : []);
       const box = contours.length ? this.screenBounds(contours, model.project) : {x: position.x - 10, y: position.y - 10, width: 20, height: 20};
       const type = item.config.type === 'source' ? item.object.userData && item.object.userData.editorPrefabVariant === 'queue' || /\b(?:fifo|queue)\b/i.test(item.object.name) ? 'FIFO' : 'SOURCE' :
-        item.config.type === 'processor' ? 'PROCESO' : item.config.type === 'palletQueue' ? 'ESTIBAS' : item.config.layout === 'tee' ? 'DESVÍO' : 'BANDA';
+        item.config.type === 'robot' ? 'ROBOT' : item.config.type === 'vehicle' ? 'VEHÍCULO' : item.config.type === 'processor' ? 'PROCESO' : item.config.type === 'palletQueue' ? 'ESTIBAS' : item.config.layout === 'tee' ? 'DESVÍO' : 'BANDA';
       const caption = short(String(index + 1).padStart(2, '0') + ' · ' + type, 12);
       context.font = '12px sans-serif';
       const width = Math.ceil(context.measureText ? context.measureText(caption).width : caption.length * 7.2) + 2;
@@ -690,6 +759,15 @@ export default class LineMonitorSystem {
         ['Estibas completas', valueText(selected.variables.completePallets) + ' / ' + valueText(selected.config.palletCapacity)],
         ['Capacidad física', selected.config.layoutMode === 'fit' ? 'Depende de las dimensiones reales de cada carga' : 'Según retícula configurada'],
         ['Retiro automático', selected.config.autoRelease ? selected.config.releasePolicy === 'stockFull' ? 'Al completar todas las estibas' : 'Al completar una estiba' : 'Desactivado']);
+      if (selected.config.type === 'robot') rows.splice(3, 0,
+        ['Secuencia', selected.variables.phaseText || (model.live ? selected.variables.phase : 'Disponible al ejecutar')],
+        ['Herramienta / operación', selected.config.tool + ' / ' + selected.config.operation],
+        ['Carga / capacidad', valueText(selected.variables.loadKg) + ' / ' + valueText(selected.config.payloadKg) + ' kg'],
+        ['Alcance nominal', valueText(selected.config.reach) + ' m'],
+        ['Ciclo / preparación', valueText(selected.config.cycleTime) + ' s / ' + valueText(selected.config.setupTime) + ' s'],
+        ['Recogida / receptor', short(selected.config.sourceId || 'Sin vincular', 25) + ' → ' + short(selected.config.outputId || 'Sin vincular', 25)],
+        ['TCP local (m)', [selected.variables.tcpX, selected.variables.tcpY, selected.variables.tcpZ].map(value => number(value).toFixed(2)).join(' / ')],
+        ['Interbloqueo', selected.variables.faultLabel || selected.variables.fault || 'Sin alarma']);
     } else if (entry.equipmentPage === 1) {
       const contents = measured && measured.contents || [];
       rows = contents.map((load, index) => [String(index + 1).padStart(2, '0') + ' · ' + short(load.name || load.sku || load.id, 35),
@@ -736,7 +814,7 @@ export default class LineMonitorSystem {
     this.text(entry, entry.moduleOnly && selected ? selected.object.name : model.records.length + ' equipos · las otras redes son independientes', 36, 175, 15, COLORS.dim, 624);
     COMMANDS.forEach(([action, label], index) => {
       const field = ['powerOn', 'powerOff'].includes(action) ? 'powered' : ['speedUp', 'speedDown'].includes(action) ? 'speed' : action === 'resetEmergency' ? 'emergency' : action === 'pause' ? 'paused' : 'running';
-      const supported = targets.some(record => Object.prototype.hasOwnProperty.call(record.variables, field) &&
+      const supported = targets.some(record => !(record.config.type === 'vehicle' && ['pause', 'speedUp', 'speedDown'].includes(action)) && Object.prototype.hasOwnProperty.call(record.variables, field) &&
         (!['powered', 'speed'].includes(field) || record.config.type !== 'conveyor' || !record.config.drive || record.config.drive === 'motor'));
       this.button(entry, action, label, 36 + index % 3 * 212, 194 + Math.floor(index / 3) * 72, 200, 54, {action, disabled: !model.live || !supported});
     });

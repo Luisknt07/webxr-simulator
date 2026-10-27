@@ -36,7 +36,8 @@ const dom = {createElement(tag) {
     fillText(value) { canvas.text.push(String(value)); }, measureText(value) { return {width: String(value).length * 12}; }};
   canvas.getContext = () => drawing; return canvas;
 }};
-const prefabs = new Function('THREE', 'behaviorSchema', 'document', source('src/editor/IndustrialPrefabs.js') + '\nreturn {createIndustrialPrefab,createProductVisual};')(THREE, behaviorSchema, dom);
+const cargo = require('./load-product-prefabs.js')(THREE);
+const prefabs = new Function('THREE', 'behaviorSchema', 'document', 'require', source('src/editor/IndustrialPrefabs.js') + '\nreturn {createIndustrialPrefab,createProductVisual};')(THREE, behaviorSchema, dom, id => { assert.equal(id, './ProductPrefabs.js'); return cargo; });
 const SceneDocument = new Function('THREE', 'behaviorSchema', 'createIndustrialPrefab', source('src/editor/SceneDocument.js').replace('default class SceneDocument', 'return class SceneDocument'))(THREE, behaviorSchema, prefabs.createIndustrialPrefab);
 const EventDispatcher = new Function(source('src/lib/EventDispatcher.js').replace('default class EventDispatcher', 'return class EventDispatcher'))();
 const RayControl = new Function('THREE', 'EventDispatcher', source('src/lib/RayControl.js').replace('default class RayControl', 'class RayControl') + '\nreturn RayControl;')(THREE, EventDispatcher);
@@ -78,9 +79,9 @@ function setup(variant = 'roller-start') {
     renderer, vrMode: true, editor: {active: false, document}};
   ctx.raycontrol = new RayControl(ctx, 'right');
   const indexSource = source('src/index.js');
-  const bridge = new Function('THREE', 'assets', 'controllers', 'raycontrol', 'context', 'renderer', 'OculusBrowser', 'selectStartSkip', 'selectEndSkip',
-    [block(indexSource, 'function setupControllers()'), block(indexSource, 'function syncXRControllers()'), block(indexSource, 'function onSelectStart('), block(indexSource, 'function onSelectEnd(')].join('\n') + '\nreturn {setupControllers,syncXRControllers,onSelectStart,onSelectEnd};')
-    (THREE, assets, ctx.controllers, ctx.raycontrol, ctx, renderer, false, {}, {});
+  const bridge = new Function('THREE', 'assets', 'controllers', 'raycontrol', 'context', 'renderer', 'OculusBrowser', 'selectStartSkip', 'selectEndSkip', 'updateXRGrip',
+    [block(indexSource, 'function setupControllers()'), block(indexSource, 'function syncXRControllers(frame)'), block(indexSource, 'function onSelectStart('), block(indexSource, 'function onSelectEnd(')].join('\n') + '\nreturn {setupControllers,syncXRControllers,onSelectStart,onSelectEnd};')
+    (THREE, assets, ctx.controllers, ctx.raycontrol, ctx, renderer, false, {}, {}, require('./load-xr-grip.js')(THREE).updateXRGrip);
   bridge.setupControllers();
   ctx.controllers.forEach(controller => {
     controller.addEventListener('selectstart', bridge.onSelectStart); controller.addEventListener('selectend', bridge.onSelectEnd);

@@ -44,7 +44,17 @@ function imagePlane(value = 110) {
 function flush() { return new Promise(resolve => setImmediate(resolve)); }
 
 async function run() {
-  assert.equal(materialSchema.materialTypes.length, 10);
+  const photographic = require('../shared/industrial-pbr');
+  assert.equal(materialSchema.materialTypes.length, 10 + photographic.PROFILES.length);
+  assert.equal(photographic.PROFILES.length, 7);
+  photographic.PROFILES.forEach(profile => {
+    const config = materialSchema.normalizeMaterial({preset: 'photo-' + profile.id});
+    assert.equal(config.texture, photographic.path(profile.id, 'neutral'));
+    assert.equal(config.normalMap, photographic.path(profile.id, 'normal'));
+    assert.equal(config.roughnessMap, photographic.path(profile.id, 'roughness'));
+    assert(config.normalStrength > 0 && config.normalStrength <= 3);
+    [config.texture, config.normalMap, config.roughnessMap].forEach(file => assert(fs.existsSync(path.join(__dirname, '..', file))));
+  });
   assert.equal(materialSchema.normalizeMaterial({preset: 'wood'}).roughness, 0.78);
   assert.equal(materialSchema.normalizeMaterial({preset: 'glass'}).opacity, 0.24);
   assert.equal(materialSchema.normalizeMaterial({color: '#AABBCC'}).color, '#aabbcc');

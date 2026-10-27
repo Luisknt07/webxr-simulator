@@ -10,9 +10,57 @@ import {applyIndustrialMessages} from './IndustrialMessages.js';
 import {applyIndustrialAging} from './IndustrialAgingPresentation.js';
 import {studyScene, STUDY_ENVIRONMENT_DEFAULTS} from './StudySceneCatalog.js';
 
-const MACHINE_TYPES = ['source', 'conveyor', 'processor', 'palletQueue'];
+const MACHINE_TYPES = ['source', 'conveyor', 'processor', 'palletQueue', 'robot'];
 const machine = (document, object) => document.getBehaviors(object).find(value => MACHINE_TYPES.includes(value.type));
 const patch = (document, object, changes) => document.setBehaviors(object, document.getBehaviors(object).map(value => MACHINE_TYPES.includes(value.type) ? Object.assign({}, value, changes) : value));
+
+/** Real source -> robot -> conveyor -> stock recipes. The Source is generated
+ * automatically but withdrawn by the robot, so it never teleports a load to a
+ * second machine while the robot is approaching that same load. */
+function robotNetwork(document, roomId, definition, scene, options = {}) {
+  const assembly = new ConveyorAssembly({document, roomId, root: document.getRoot(roomId), ctx: {scene}, hooks: {renderScene: scene}, assemblyMessage() {}});
+  const objects = [], links = [], continuous = options.continuous !== false, sorting = definition.robot === 'scara';
+  const add = (type, name, variant, values, position) => {
+    const object = document.addPrefab(roomId, type, variant); patch(document, object, values || {});
+    document.setProperty(object, 'name', name); document.setTransform(object, {position: position || [0, 1, 0]}); objects.push(object); return object;
+  };
+  const connect = (from, to, sourcePort = 'output') => {
+    if (!assembly.align(from, sourcePort, to, 'input') || !assembly.connect(assembly.pair(to, 'input', from, sourcePort))) throw new Error('No se pudo conectar la línea robótica.');
+    links.push({source: from.userData.editorId, sourcePort, target: to.userData.editorId, targetPort: 'input'});
+  };
+  const catalogue = [
+    {id: 'small-case', name: 'Caja pequeña', type: 'box', width: .24, height: .22, depth: .3, mass: 1, base: 'flat', color: '#b98d53', quality: 'good', defect: 'none'},
+    {id: 'medium-case', name: 'Caja mediana', type: 'box', width: .32, height: .24, depth: .4, mass: 3, base: 'flat', color: '#bf6848', quality: 'good', defect: 'none'},
+    {id: 'inspection-crate', name: sorting ? 'Contenedor pendiente de calidad' : 'Contenedor de expedición', type: 'crate', width: .36, height: .24, depth: .42, mass: 4, base: 'rigid', color: '#4b8395', quality: sorting ? 'defective' : 'good', defect: sorting ? 'surface' : 'none'}
+  ];
+  try {
+    const source = add('source', 'Source · tres formatos / recogida robótica', undefined, {autoGenerate: true, running: true, delivery: 'manual', initialCount: 1, capacity: 16, totalLimit: continuous ? 0 : 6, interval: 4, generationMode: 'sequence', catalog: JSON.stringify(catalogue), withPanel: false}, [1.1, 1, 1.2]);
+    const robot = add('robot', sorting ? 'SCARA · alimentación del clasificador' : 'Articulado · recogida y entrega', sorting ? 'scara' : 'articulated-general', Object.assign({}, schema.robots.defaults(sorting ? 'scara' : 'articulated-general'), {
+      sourceId: source.userData.editorId, running: true, mode: 'automatic', withPanel: true, reach: sorting ? 2.2 : 2.5,
+      baseHeight: sorting ? 1.8 : .75, height: sorting ? .8 : 1.4, payloadKg: 8, speed: 1.2, cycleTime: 2.4, processTime: 0, setupTime: .5,
+      approachHeight: .12, requireKnownMass: true, wear: .2}), [0, 0, 0]);
+    patch(document, source, {outputId: robot.userData.editorId});
+    const conveyor = add('conveyor', sorting ? 'Clasificador · defecto a ramal' : 'Banda · expedición de producto', sorting ? 'distributor' : 'belt', {
+      powered: true, running: true, autoSpawn: false, withPanel: false, withSensors: sorting, length: 2.4, speed: .55,
+      routing: sorting ? 'rules' : 'primary', routingDefault: 'main', branchSide: 'left',
+      routingRules: sorting ? JSON.stringify([{field: 'quality', operator: 'eq', value: 'defective', route: 'branch'}]) : '[]'}, [2.2, 1, -.9]);
+    patch(document, robot, {outputId: conveyor.userData.editorId});
+    links.push({source: source.userData.editorId, sourcePort: 'output', target: robot.userData.editorId, targetPort: 'input'}, {source: robot.userData.editorId, sourcePort: 'output', target: conveyor.userData.editorId, targetPort: 'input'});
+    const stockValues = {running: true, delivery: 'manual', layoutMode: 'fit', palletType: 'euro-1200x800', palletCapacity: 2, capacity: 64, layers: 5, maxStackHeight: 1.8,
+      withPanel: false, autoRelease: continuous, releasePolicy: 'stockFull', releaseInterval: 3, autoReleasePressure: true};
+    const stock = add('palletQueue', sorting ? 'Conformes · consolidación' : 'Expedición · productos', undefined, stockValues);
+    connect(conveyor, stock);
+    const receivers = [stock];
+    if (sorting) {
+      const side = add('conveyor', 'Ramal · pendiente de calidad', 'roller-motor', {powered: true, running: true, autoSpawn: false, withPanel: false, withSensors: false, length: 2.4, speed: .55});
+      const rejected = add('palletQueue', 'No conformes · área segregada', undefined, Object.assign({}, stockValues, {palletMaterial: 'plastic'}));
+      connect(conveyor, side, 'branch'); connect(side, rejected); receivers.push(rejected);
+    }
+    const line = {id: definition.id, title: definition.title, mode: 'automatic', continuous, objects, links, sources: [source], receivers, source, receiver: stock, controller: robot,
+      expectedUnits: continuous ? 0 : 6, expectedReceiverUnits: continuous ? null : sorting ? [4, 2] : [6], memberIds: objects.map(object => object.userData.editorId)};
+    return {objects, cells: [line], lines: [line], sources: [source], receivers, controllers: [robot], links, expectedUnits: line.expectedUnits};
+  } finally { assembly.clear(); }
+}
 
 /** New deterministic teaching graphs use the production runtime and real ports.
  * A retrabajo cycle records processing; it does not silently repair quality. */
@@ -82,11 +130,11 @@ export function buildStudyScene(document, roomId, id, options = {}) {
   if (own) document.begin();
   try {
     if (definition.kind) {
-      const built = buildIndustrialCediLevel(document, roomId, {kind: definition.kind, scene, continuous: options.continuous !== false, floorPresentation: !options.preview && options.floorPresentation !== false, monitorLayout: !options.preview && options.monitorLayout !== false, industrialMessages: !options.preview && options.industrialMessages !== false, industrialAging: !options.preview && options.industrialAging !== false});
+      const built = buildIndustrialCediLevel(document, roomId, {kind: definition.kind, scene, robotized: definition.robotized === true, continuous: options.continuous !== false, floorPresentation: !options.preview && options.floorPresentation !== false, monitorLayout: !options.preview && options.monitorLayout !== false, industrialMessages: !options.preview && options.industrialMessages !== false, industrialAging: !options.preview && options.industrialAging !== false});
       if (!options.preview) { configureStudyEnvironment(document, roomId, built); addStudyMission(document, roomId, definition, built.lines); }
       if (own) document.commit(); return Object.assign(built, {presetId: id, definition});
     }
-    const built = definition.cellId ? buildIndustrialLabLines(document, roomId, {scene, cellIds: [definition.cellId], continuous: options.continuous === true}) : advancedNetwork(document, roomId, definition, scene);
+    const built = definition.robot ? robotNetwork(document, roomId, definition, scene, options) : definition.cellId ? buildIndustrialLabLines(document, roomId, {scene, cellIds: [definition.cellId], continuous: options.continuous === true}) : advancedNetwork(document, roomId, definition, scene);
     const lines = built.cells || built.lines, bounds = localBounds(root, built.objects), center = bounds.getCenter(new THREE.Vector3());
     built.objects.forEach(object => document.setTransform(object, {position: object.position.clone().sub(new THREE.Vector3(center.x, 0, center.z)).toArray()}));
     const compact = localBounds(root, built.objects), extent = compact.getSize(new THREE.Vector3());

@@ -68,7 +68,8 @@ module.exports = [application, {
   target: 'webworker',
   entry: {
     'mesh-optimizer-worker': './src/workers/MeshOptimizerWorker.js',
-    'collision-worker': './src/workers/CollisionWorker.js'
+    'collision-worker': './src/workers/CollisionWorker.js',
+    'cad-worker': './src/workers/CADWorker.js'
   },
   output: {filename: '[name].js', path: __dirname, globalObject: 'self'},
   devtool: 'source-map',

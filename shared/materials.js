@@ -5,7 +5,7 @@ const defaults = {
   preset: 'custom', name: 'Material personalizado', slot: 'all', color: '#b8c4cc',
   metalness: 0.2, roughness: 0.55, opacity: 1, clearcoat: 0, clearcoatRoughness: 0.3,
   emissiveMode: 'preserve', emissive: '#fff0d2', emissiveIntensity: 1,
-  texture: '', colorMapMode: 'preserve', normalMap: '', roughnessMap: '', metalnessMap: '', repeatX: 1, repeatY: 1,
+  texture: '', colorMapMode: 'preserve', normalMap: '', normalStrength: 1, roughnessMap: '', metalnessMap: '', repeatX: 1, repeatY: 1,
   wear: 0, wearType: 'scratches', wearScale: 1, seed: 1
 };
 const presets = [
@@ -20,6 +20,8 @@ const presets = [
   {id: 'rubber', label: 'Goma / caucho', description: 'Superficie oscura y mate.', values: {color: '#252b30', metalness: 0, roughness: 0.92}},
   {id: 'concrete', label: 'Hormigón', description: 'Hormigón rugoso con grano fino.', values: {color: '#929590', metalness: 0, roughness: 0.96}}
 ];
+const photographic = require('./industrial-pbr.js');
+photographic.PROFILES.forEach(profile => presets.push({id:'photo-'+profile.id,label:profile.name+' · PBR CC0',description:'Mapas fotográficos locales de '+profile.provider+'. Se aplica sólo a la parte elegida.',values:{color:profile.color,metalness:profile.metalness,roughness:Math.min(1,profile.roughness/Math.max(.28,profile.roughnessMean)),texture:photographic.path(profile.id,'neutral'),normalMap:photographic.path(profile.id,'normal'),normalStrength:profile.normalStrength,roughnessMap:photographic.path(profile.id,'roughness')}}));
 const materialTypes = presets.map(preset => preset.id);
 function number(key, label, min, max, step) { return {key, label, input: 'number', default: defaults[key], min, max, step}; }
 function text(key, label, maxLength, input = 'text') { return {key, label, input, default: defaults[key], maxLength}; }
@@ -31,7 +33,7 @@ const fields = [
   number('clearcoat', 'Barniz', 0, 1, 0.05), number('clearcoatRoughness', 'Rugosidad del barniz', 0, 1, 0.05),
   {key: 'emissiveMode', label: 'Emisión', input: 'select', default: defaults.emissiveMode, options: [{value: 'preserve', label: 'Conservar emisión del modelo'}, {value: 'custom', label: 'Luminiscencia personalizada'}]},
   text('emissive', 'Color de emisión', 7, 'color'), number('emissiveIntensity', 'Intensidad de emisión', 0, 5, 0.05),
-  text('texture', 'Imagen de color (vacío conserva la original)', 1000, 'image'), text('normalMap', 'Mapa de normales', 1000, 'image'),
+  text('texture', 'Imagen de color (vacío conserva la original)', 1000, 'image'), text('normalMap', 'Mapa de normales', 1000, 'image'), number('normalStrength', 'Intensidad del relieve fino', 0, 3, .05),
   text('roughnessMap', 'Mapa de rugosidad', 1000, 'image'), text('metalnessMap', 'Mapa de metalizado', 1000, 'image'),
   number('repeatX', 'Repeticiones U', 0.05, 100, 0.05), number('repeatY', 'Repeticiones V', 0.05, 100, 0.05),
   number('wear', 'Desgaste general', 0, 1, 0.05),
@@ -72,6 +74,9 @@ function normalizeAssignment(value = {}, strict = false) {
     } else if (typeof item !== 'string' || item.length > field.maxLength) throw new Error('Texto de material demasiado largo o inválido.');
     result[field.key] = field.input === 'color' ? item.toLowerCase() : item;
   });
+  // Old projects and guarded upgrades retain their literal descriptions.
+  // Absence means the source model's normal scale; new photo presets opt in.
+  if (value.normalStrength === undefined && !result.preset.startsWith('photo-')) delete result.normalStrength;
   if (!/^(?:all|index:(?:0|[1-9][0-9]{0,2})|mesh:(?:root|(?:0|[1-9][0-9]{0,4})(?:\.(?:0|[1-9][0-9]{0,4})){0,47}):(?:0|[1-9][0-9]{0,2})|(?:name|part):[^\x00-\x1f\x7f]+)$/.test(result.slot) || result.slot.startsWith('index:') && Number(result.slot.slice(6)) > 255 || result.slot.startsWith('mesh:') && Number(result.slot.slice(result.slot.lastIndexOf(':') + 1)) > 255) throw new Error('Selecciona una parte o un material de destino válido.');
   ['texture', 'normalMap', 'roughnessMap', 'metalnessMap'].forEach(key => assetReference(result[key]));
   return result;

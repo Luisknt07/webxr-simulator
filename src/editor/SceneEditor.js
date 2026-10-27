@@ -18,9 +18,13 @@ import MaterialInspector from './MaterialInspector.js';
 import ScenePerformance from './ScenePerformance.js';
 import GraphicsSettings from './GraphicsSettings.js';
 import IndustrialVisuals from './IndustrialVisuals.js';
+import IndustrialFinishSystem from './IndustrialFinishSystem.js';
 import IndustrialAudioSystem from './IndustrialAudioSystem.js';
 import LineMonitorSystem from './LineMonitorSystem.js';
 import SimulationRuntime from './SimulationRuntime.js';
+import VehicleDriving from './VehicleDriving.js';
+import CADWorkbench from './CADWorkbench.js';
+import VehicleRouteEditor from './VehicleRouteEditor.js';
 import SimulationPanel from './SimulationPanel.js';
 import CollisionWorld from '../lib/CollisionWorld.js';
 import ConveyorAssembly from './ConveyorAssembly.js';
@@ -68,6 +72,8 @@ const FUNCTION_SOURCE = {
   conveyor: ['src/editor/SimulationRuntime.js', 'Transporta paquetes simulados. La velocidad y la marcha se controlan desde el monitor o la lógica del PLC.'],
   source: ['src/editor/ProductSourceRuntime.js', 'Genera y recibe cargas en una cola FIFO limitada. Configura productos, pallets y entrega manual o por flujo.'],
   processor: ['src/editor/ProcessorRuntime.js', 'Recibe cargas, realiza preparación y proceso y conserva su salida hasta entregarla. Configura puestos simultáneos, operario y recetas de combinación o separación.'],
+  robot: ['src/editor/RobotRuntime.js', 'Ejes cinemáticos, herramienta y secuencia de recogida, traslado y entrega. Configura alcance, carga, equipos vinculados y tiempos por instancia.'],
+  vehicle: ['src/editor/VehicleRuntime.js', 'Conducción, mecanismos hidráulicos, carga real, colisiones, capacidad y telemetría por vehículo. Las funciones disponibles corresponden a la tipología seleccionada.'],
   palletQueue: ['src/editor/PalletQueueRuntime.js', 'Almacena productos sobre una estiba independiente. Controla capacidad, ocupación, recepción y retiro seguro por niveles.'],
   product: ['src/editor/SimulationRuntime.js', 'Caja manipulable: conserva su orientación al tomarla. Usa la rueda del mouse para acercarla o alejarla y pulsa de nuevo para soltarla sobre una banda. También funciona con el gatillo VR.'],
   sensor: ['src/editor/SimulationRuntime.js', 'Detecta paquetes de la banda vinculada al atravesar su volumen y cuenta los flancos de detección.'],
@@ -180,7 +186,11 @@ export default class SceneEditor {
     this.interactions = new InteractionRuntime(ctx, this.document, this.library, text => this.toast(text));
     this.behaviors = new BehaviorRuntime(ctx, this.document, this.library, text => this.toast(text));
     this.simulation = new SimulationRuntime(ctx, this.document, text => this.toast(text));
+    this.vehicleDriving = typeof VehicleDriving === 'function' ? new VehicleDriving(ctx, this.simulation, {notify: text => this.toast(text)}) : null;
+    this.cadWorkbench = typeof CADWorkbench === 'function' ? new CADWorkbench(this) : null;
+    this.vehicleRoutes = typeof VehicleRouteEditor === 'function' ? new VehicleRouteEditor(this) : null;
     this.industrialVisuals = new IndustrialVisuals(ctx, this.document, this.simulation);
+    this.finishes = typeof IndustrialFinishSystem === 'function' ? new IndustrialFinishSystem(ctx, this.document) : null;
     this.industrialAudio = new IndustrialAudioSystem(ctx, this.document, this.simulation, this.library, text => this.toast(text));
     this.audioControls = []; this.industrialAudio.onChange = () => this.refreshAudioControls();
     this.lineMonitors = new LineMonitorSystem(ctx, this.document, this.simulation);
@@ -784,7 +794,10 @@ export default class SceneEditor {
   }
 
   onVRChange(inVR) {
+    if (this.cadWorkbench) this.cadWorkbench.close();
+    if (this.vehicleRoutes) this.vehicleRoutes.close();
     this.clearNavigation();
+    if (this.vehicleDriving) this.vehicleDriving.unmount(true);
     this.simulation.onInputModeChange(inVR);
     if (this.ctx.resetCollisionPose) this.ctx.resetCollisionPose();
     if (this.ctx.editorXylophone && this.ctx.editorXylophone.releaseHeld) this.ctx.editorXylophone.releaseHeld();
@@ -819,6 +832,7 @@ export default class SceneEditor {
   }
 
   render(delta = 0) {
+    if (this.document.syncCADAttachments) this.document.syncCADAttachments();
     this.collisionWorld.refresh();
     this.updateSmoothZoom(delta);
     this.orbit.update();
@@ -831,6 +845,8 @@ export default class SceneEditor {
     this.decals.sync(this.roomId);
     this.wearPaint.sync(this.roomId);
     if (!this.pendingEdits && !this.loadingProject && !this.document.loading && !this.transform.dragging) this.industrialVisuals.sync(this.roomId, delta, true);
+    if (this.finishes && !this.pendingEdits && !this.loadingProject && !this.document.loading) this.finishes.sync(this.roomId, delta);
+    if (this.document.syncCADAttachments) this.document.syncCADAttachments();
     if (!this.pendingEdits && !this.loadingProject && !this.document.loading && !this.transform.dragging) this.lineMonitors.sync(this.roomId, delta, true);
     // Asset replacement and document hydration temporarily detach/rebuild the
     // selected actor. r112 BoxHelper turns those intermediate bounds into NaNs.
@@ -842,6 +858,7 @@ export default class SceneEditor {
 
   stopRuntime() {
     if (this.simulationPanel) this.simulationPanel.endSession();
+    if (this.finishes) this.finishes.dispose();
     this.industrialVisuals.dispose();
     this.industrialAudio.stop();
     this.lineMonitors.dispose();
@@ -882,12 +899,17 @@ export default class SceneEditor {
     if (this.simulationPanel) this.simulationPanel.modeChanged();
   }
   execute(delta, time) {
+    if (this.document.syncCADAttachments) this.document.syncCADAttachments();
     this.root.updateMatrixWorld(true);
     this.syncSurfaceMaterials();
     this.performance.update(this.ctx.camera, delta);
+    if (this.vehicleDriving) this.vehicleDriving.beforeStep();
     if (!this.simulationPaused) { this.behaviors.execute(delta, time); this.simulation.execute(delta, time); }
+    if (this.vehicleDriving) this.vehicleDriving.follow();
+    if (this.document.syncCADAttachments) this.document.syncCADAttachments();
     this.industrialAudio.sync(this.roomId, delta, this.simulationPaused);
     if (!this.pendingEdits && !this.loadingProject && !this.document.loading) this.industrialVisuals.sync(this.roomId, this.simulationPaused ? 0 : delta, false);
+    if (this.finishes && !this.pendingEdits && !this.loadingProject && !this.document.loading) this.finishes.sync(this.roomId, delta);
     if (!this.pendingEdits && !this.loadingProject && !this.document.loading) this.lineMonitors.sync(this.roomId, this.simulationPaused ? 0 : delta, false);
     this.decals.sync(this.roomId);
     this.wearPaint.sync(this.roomId);
@@ -1055,6 +1077,11 @@ export default class SceneEditor {
     this.syncNative(); this.refreshAssembly();
     if (this.selected) this.box.update();
     this.updateTransformInputs();
+    if (this.cadWorkbench && object.userData.editorDescriptor && object.userData.editorDescriptor.type === 'cad') {
+      const cadSection = this.section('DISEÑO PARAMÉTRICO');
+      cadSection.appendChild(button('Editar pieza e historial', 'Abrir el modelador paramétrico', () => this.cadWorkbench.open(object)));
+      if (object.userData.editorDescriptor.attachment) cadSection.appendChild(el('p', 'ed-hint', 'La transformación es relativa al anclaje del vehículo.'));
+    }
     return true;
   }
   syncNative() {
@@ -1390,7 +1417,7 @@ export default class SceneEditor {
   organizeInspector(object) {
     const content = this.inspectorContent, sections = Array.from(content.children).filter(child => child.tagName === 'SECTION');
     const title = section => { const heading = Array.from(section.children).find(child => child.tagName === 'H3'); return heading && heading.textContent || ''; };
-    const machine = this.machineConfig(object), functions = sections.find(section => title(section) === 'FUNCIONES / COMPONENTES');
+    const machine = this.machineConfig(object) || this.document.getBehaviors(object).find(config => ['robot', 'vehicle', 'product'].includes(config.type)), functions = sections.find(section => title(section) === 'FUNCIONES / COMPONENTES');
     if (machine && functions) {
       const card = Array.from(functions.children).find(child => child.getAttribute && child.getAttribute('data-component-type') === machine.type);
       if (card) {
@@ -1470,7 +1497,7 @@ export default class SceneEditor {
 
   renderSoundInspector(object) {
     const behaviors = this.document.getBehaviors(object), current = behaviors.find(value => value.type === 'machineAudio'), zone = behaviors.find(value => value.type === 'audioZone');
-    const functional = behaviors.some(value => ['conveyor', 'source', 'processor', 'palletQueue', 'control', 'motion'].includes(value.type));
+    const functional = behaviors.some(value => ['conveyor', 'source', 'processor', 'palletQueue', 'robot', 'vehicle', 'product', 'control', 'motion'].includes(value.type));
     const section = this.section('SONIDO'); section.setAttribute('data-sound-inspector', 'true');
     section.appendChild(el('p', 'ed-hint', 'Pulsa Activar sonido en la barra para escucharlo al probar el escenario. El volumen general se conserva en este dispositivo. Los perfiles automáticos se habilitan en Sonidos del equipo del nivel.'));
     const render = value => {
@@ -2034,6 +2061,24 @@ export default class SceneEditor {
       const update = (key, value) => this.perform(() => this.setEquipmentBehaviors(object, this.document.getBehaviors(object).map(component => {
         if (component.type !== config.type) return component;
         const next = Object.assign({}, component, {[key]: value});
+        if (next.type === 'vehicle' && ['family', 'variant'].includes(key)) return Object.assign({}, behaviorSchema.vehicles.defaults(value), {enabled: next.enabled, sourceId: next.sourceId, outputId: next.outputId});
+        if (next.type === 'product' && key === 'variant' && value) return Object.assign({}, next, behaviorSchema.productEquipment.defaults(value));
+        if (next.type === 'product' && next.variant && key === 'palletType' && value !== 'custom') {
+          const dimensions = behaviorSchema.productSources.pallets.dimensions(next);
+          next.width = dimensions.width; next.depth = dimensions.depth;
+        }
+        if (next.type === 'product' && next.loadMode === 'pallet' && ['width', 'depth'].includes(key)) next.palletType = 'custom';
+        if (next.type === 'source' && key === 'productVariant' && value) {
+          const preset = behaviorSchema.productEquipment.defaults(value);
+          return Object.assign(next, {productType: preset.productType, width: preset.width, height: preset.height, depth: preset.depth, mass: preset.mass / preset.units, units: preset.units, base: preset.base, color: preset.color, loadMode: 'individual'});
+        }
+        if (next.type === 'source' && key === 'productType' && next.productVariant && behaviorSchema.productEquipment.defaults(next.productVariant).productType !== value) next.productVariant = '';
+        if (next.type === 'robot' && (key === 'family' || key === 'variant')) {
+          const definition = behaviorSchema.robots.getDefinition(value);
+          return Object.assign({}, definition.preset, {type: 'robot', enabled: next.enabled, sourceId: next.sourceId, outputId: next.outputId, targetId: next.targetId, withPanel: next.withPanel});
+        }
+        if (next.type === 'robot' && key === 'tool') next.operation = value === 'process' ? 'process' : next.operation === 'process' ? 'pick-place' : next.operation;
+        if (next.type === 'robot' && key === 'operation') next.tool = value === 'process' ? 'process' : next.tool === 'process' ? 'gripper' : next.tool;
         if (next.type === 'palletQueue' && ['columns', 'rows', 'layers', 'palletCapacity', 'acceptsPallets'].includes(key)) next.capacity = Math.min(next.capacity, next.acceptsPallets ? next.palletCapacity : next.columns * next.rows * next.layers * next.palletCapacity);
         if (next.type === 'product' && key === 'quality') next.defect = value === 'good' ? 'none' : next.defect === 'none' ? 'damaged' : next.defect;
         if (next.type === 'product' && key === 'defect') next.quality = value === 'none' ? 'good' : 'defective';
@@ -2049,9 +2094,18 @@ export default class SceneEditor {
       else this.renderBehaviorFields(body, config, update);
       if (config.type === 'automation') this.renderRuleBuilder(body, object, config, update);
       if (config.type === 'conveyor' && config.layout === 'tee' && config.junctionMode === 'split') this.renderConveyorRouting(body, config, update);
-      if (['conveyor', 'source', 'processor', 'palletQueue'].includes(config.type)) this.organizeMachineFields(body, config);
+      if (['conveyor', 'source', 'processor', 'palletQueue', 'robot', 'vehicle', 'product'].includes(config.type)) this.organizeMachineFields(body, config);
+      if (config.type === 'vehicle') {
+        const vehicleActions = el('div', 'ed-actions');
+        if (this.vehicleRoutes) vehicleActions.appendChild(button('Ruta y misiones en plano', 'Configurar pasillos, recogidas, entregas y esperas', () => this.vehicleRoutes.open(object)));
+        if (this.cadWorkbench) vehicleActions.appendChild(button('Diseñar pieza personalizada', 'Abrir herramientas de modelado paramétrico; vincula la pieza al vehículo', () => this.cadWorkbench.open()));
+        vehicleActions.appendChild(button('Probar y conducir', 'Entrar en el puesto de conducción de este vehículo', () => this.perform(async () => { await this.leave(); this.vehicleDriving.mount(object.userData.editorId); })));
+        body.insertBefore(vehicleActions, body.firstChild);
+        body.appendChild(el('p', 'ed-hint', 'Probar → apunta al vehículo y pulsa, o acércate y pulsa F. WASD conduce; Q/E eleva; R/T inclina; Z/X retrae/extiende; J/L desplaza; U/O gira horquillas; P freno; G toma; K deposita; H bocina; F baja. Sólo las funciones de esta tipología están activas.'));
+      }
+      if (config.type === 'robot') this.renderRobotJoints(body, object, config, update);
       if (config.type === 'conveyor') body.appendChild(el('p', 'ed-hint', 'Los sensores detectan presencia y flancos de entrada/salida; el color y la calidad provienen de los atributos simulados del producto o del proceso de inspección. En rectas y curvas continuas puedes omitir sensores externos; las transferencias requieren detección y los acumuladores conservan sus sensores internos por zona.'));
-      if (config.type === 'product') body.appendChild(el('p', 'ed-hint', 'SKU, tipo, color y calidad son atributos de clasificación de la simulación. El color de clasificación no cambia la textura del modelo. No se inspeccionan automáticamente imágenes ni mallas 3D.'));
+      if (config.type === 'product') body.appendChild(el('p', 'ed-hint', config.variant ? 'El modelo conserva su tamaño real en metros. Masa es el total de esta carga; unidades es su contenido. Color modifica el cuerpo y sirve para clasificar; etiqueta y tapa se editan por separado.' : 'SKU, tipo, color y calidad son atributos de clasificación de la simulación. El color de clasificación no cambia la textura del modelo. No se inspeccionan automáticamente imágenes ni mallas 3D.'));
       if (config.type === 'source') body.appendChild(el('p', 'ed-hint', 'La calidad del producto o del catálogo se conserva en todo el flujo. El porcentaje de defectos añade fallos simulados reproducibles con la semilla; el tipo de defecto define el fallo inyectado. Estas decisiones usan atributos de simulación, sin inspección automática de imágenes o modelos.'));
       const source = FUNCTION_SOURCE[config.type];
       if (source) body.appendChild(el('p', 'ed-hint', source[1]));
@@ -2096,6 +2150,20 @@ export default class SceneEditor {
     const equipmentDefinition = config.type === 'conveyor' && equipmentRegistry && equipmentRegistry.resolveVariant(config);
     definition.fields.forEach(schemaField => {
       let field = schemaField;
+      if (config.type === 'robot') {
+        if (field.key === 'jointLimitsJson') return;
+        if (field.key === 'variant') field = Object.assign({}, field, {options: field.options.filter(option => behaviorSchema.robots.getDefinition(option.value).family === config.family)});
+        if (!['amr', 'agv', 'mobileManipulator', 'mobileSorter'].includes(config.family) && ['waypointsJson', 'batteryPercent', 'batteryDrainPerMeter'].includes(field.key)) return;
+        if (field.key === 'processTime' && config.operation !== 'process') return;
+        if (field.key === 'targetId' && config.operation !== 'process') return;
+      }
+      if (config.type === 'vehicle') {
+        if (field.key === 'variant') field = Object.assign({}, field, {options: field.options.filter(option => behaviorSchema.vehicles.getDefinition(option.value).family === config.family)});
+        const support = behaviorSchema.vehicles.supports(config), belongs = {tiltLimit: 'tilt', maxReach: 'reach', reachSpeed: 'reach', maxSideShift: 'sideShift', turretLimit: 'turret', boomLength: 'boom', maxBoomExtension: 'boom', boomAngleLimit: 'boom', boomPivotHeight: 'boom', maxTowKg: 'hitch'};
+        if (belongs[field.key] && !support[belongs[field.key]]) return;
+        if (config.mode !== 'automatic' && ['waypointsJson', 'routeLoop', 'sourceId', 'outputId'].includes(field.key)) return;
+      }
+      if (config.type === 'product' && !config.variant && ['width', 'height', 'depth', 'units', 'loadMode', 'palletType', 'palletMaterial', 'contents', 'labelColor', 'capColor'].includes(field.key)) return;
       if (config.type === 'audioZone' && (config.shape === 'sphere' ? ['width', 'height', 'depth'].includes(field.key) : field.key === 'radius')) return;
       if (config.equipmentId && equipmentDefinition) {
         const parameter = (equipmentDefinition.parameters || []).find(item => item.key === field.key);
@@ -2154,12 +2222,12 @@ export default class SceneEditor {
         if (config.mode !== 'command' && field.key === 'command') return;
         if (config.mode === 'command' && field.key === 'value' && !['speedUp', 'speedDown'].includes(config.command)) return;
       }
-      const fieldValue = ['info', 'billboard'].includes(config.type) && config[field.key] === undefined ? field.default : config[field.key];
+      const fieldValue = ['info', 'billboard', 'product', 'source'].includes(config.type) && config[field.key] === undefined ? field.default : config[field.key];
       let input;
       if (['select', 'room', 'audio', 'image', 'object'].includes(field.input)) {
         input = el('select');
         const media = ['audio', 'image'].includes(field.input);
-        const options = field.input === 'object' ? [{label: config.type === 'decal' ? 'Superficies próximas' : 'Selecciona un objeto…', value: ''}, {label: 'Este objeto', value: 'self'}].concat(this.document.getObjects(this.roomId).map(item => ({label: item.name || item.type, value: item.userData.editorId}))) : field.input === 'room' ? ROOM_LABELS.map((label, value) => ({label, value})) : media ? [{label: field.input === 'image' ? 'Selecciona una imagen…' : ['machineAudio', 'audioZone'].includes(config.type) ? 'Usar el perfil de sonido' : 'Selecciona un audio…', value: ''}].concat(this.entries.filter(entry => entry.kind === field.input).map(entry => ({label: entry.name, value: entry.importId || entry.path}))) : field.options;
+        const options = field.input === 'object' && config.type === 'robot' ? [{label: field.key === 'sourceId' ? 'Detectar equipo conectado' : field.key === 'targetId' ? 'Usar estación de recogida' : 'Selecciona un receptor…', value: ''}].concat(this.document.getObjects(this.roomId).filter(item => item !== this.selected && this.document.getBehaviors(item).some(value => ['conveyor', 'source', 'processor', 'palletQueue'].includes(value.type))).map(item => ({label: item.name || item.type, value: item.userData.editorId}))) : field.input === 'object' ? [{label: config.type === 'decal' ? 'Superficies próximas' : 'Selecciona un objeto…', value: ''}, {label: 'Este objeto', value: 'self'}].concat(this.document.getObjects(this.roomId).map(item => ({label: item.name || item.type, value: item.userData.editorId}))) : field.input === 'room' ? ROOM_LABELS.map((label, value) => ({label, value})) : media ? [{label: field.input === 'image' ? 'Selecciona una imagen…' : ['machineAudio', 'audioZone'].includes(config.type) ? 'Usar el perfil de sonido' : 'Selecciona un audio…', value: ''}].concat(this.entries.filter(entry => entry.kind === field.input).map(entry => ({label: entry.name, value: entry.importId || entry.path}))) : field.options;
         options.forEach(option => { const node = el('option', '', option.label); node.value = option.value; input.appendChild(node); });
         if (media && config[field.key] && !options.some(option => String(option.value) === String(config[field.key]))) {
           const option = el('option', '', config[field.key]); option.value = config[field.key]; input.appendChild(option);
@@ -2190,7 +2258,28 @@ export default class SceneEditor {
       if (input) rows.set(input.getAttribute('data-behavior-field'), row);
     });
     const dimensions = config.type === 'source' ? ['width', 'height', 'depth'] : ['length', 'width', 'depth', 'supportHeight', 'rise', 'radius', 'curveAngle', 'axis', 'gradeProfile', 'rollerPitch', 'mergeAngle', 'branchSide'];
-    const groups = [
+    const groups = config.type === 'robot' ? [
+      ['Arquitectura y herramienta', ['family', 'variant', 'operation', 'tool', 'withPanel']],
+      ['Dimensiones y volumen de trabajo', ['reach', 'length', 'width', 'height', 'baseHeight', 'approachHeight', 'positionTolerance']],
+      ['Operación y tiempos', ['mode', 'enabled', 'powered', 'running', 'paused', 'emergency', 'speed', 'cycleTime', 'processTime', 'setupTime']],
+      ['Recogida y entrega', ['sourceId', 'targetId', 'outputId']],
+      ['Compatibilidad de la carga', ['payloadKg', 'acceptedTypes', 'requireKnownMass', 'maxProductWidth', 'maxProductHeight', 'maxProductDepth']],
+      ['Ruta y energía', ['waypointsJson', 'batteryPercent', 'batteryDrainPerMeter']],
+      ['Apariencia por pieza', ['frameColor', 'accentColor', 'toolColor', 'finish', 'wear']],
+      ['Diseño paramétrico de piezas', ['detail', 'filletRadius', 'chamferSize', 'mountingHoles']]
+    ] : config.type === 'vehicle' ? [
+      ['Tipología y operación', ['family', 'variant', 'mode', 'powered', 'running', 'paused', 'parkingBrake', 'emergency', 'lights']],
+      ['Chasis y dirección', ['length', 'width', 'height', 'wheelbase', 'track', 'wheelRadius', 'speed', 'reverseSpeed', 'acceleration', 'brakeDeceleration', 'steerLimit']],
+      ['Mástil y herramienta', ['mastHeight', 'maxLift', 'liftSpeed', 'initialLift', 'forkBaseHeight', 'forkLength', 'forkWidth', 'forkThickness', 'forkSpread', 'tiltLimit', 'maxReach', 'reachSpeed', 'maxSideShift', 'turretLimit', 'boomLength', 'maxBoomExtension', 'boomAngleLimit', 'boomPivotHeight']],
+      ['Capacidad de carga', ['payloadKg', 'loadCenter', 'capacityHeightLimit', 'maxTowKg']],
+      ['Ruta y estaciones', ['waypointsJson', 'routeLoop', 'sourceId', 'outputId', 'carryLift', 'dockTolerance', 'batteryPercent', 'batteryDrainPerMeter']],
+      ['Cabina y acabado por piezas', ['cabinStyle', 'cabInterior', 'decals', 'serial', 'filletRadius', 'frameColor', 'accentColor', 'forkColor', 'finish', 'wear', 'detail']]
+    ] : config.type === 'product' ? [
+      ['Modelo y dimensiones', ['variant', 'productType', 'width', 'height', 'depth', 'mass', 'units', 'loadMode']],
+      ['Pallet y contenido', ['palletType', 'palletMaterial', 'contents', 'base']],
+      ['Aspecto y clasificación', ['color', 'labelColor', 'capColor', 'sku', 'quality', 'defect']],
+      ['Alimentación', ['sourceId', 'initialVelocity']]
+    ] : [
       [config.type === 'source' ? 'Dimensiones del producto' : 'Dimensiones y recorrido', dimensions],
       ['Operación', ['mode', 'enabled', 'withPanel', 'withSensors', 'speed', 'powered', 'running', 'paused', 'processTime', 'setupTime', 'parallelism', 'combineCount', 'splitCount', 'requiresOperator', 'operatorAvailable', 'operationTime', 'actuatorTime', 'turnTime', 'verticalSpeed', 'maxLoad', 'clearance', 'loadingMode', 'drive', 'surface', 'mechanism', 'rollingResistance', 'cleats', 'zoneLength']],
       ['Alimentación y capacidad', ['generationMode', 'productType', 'loadMode', 'capacity', 'outputCapacity', 'palletCapacity', 'delivery', 'interval', 'outputInterval', 'initialCount', 'totalLimit', 'autoGenerate', 'autoSpawn', 'spawnInterval', 'maxPackages', 'role', 'routing']],
@@ -2206,6 +2295,28 @@ export default class SceneEditor {
     };
     groups.forEach(([title, keys]) => append(title, keys)); append('Más parámetros', Array.from(rows.keys()));
     rest.forEach(child => body.appendChild(child));
+  }
+
+  renderRobotJoints(parent, object, config, update) {
+    const schema = behaviorSchema.robots, joints = schema.getJointDefinitions(config);
+    parent.appendChild(el('p', 'ed-hint', 'Vincula el equipo de recogida y el receptor; usa Probar para operar. En Manual, Marcha habilita y Despachar solicita un ciclo. El receptor ocupado retiene la carga.'));
+    const group = el('details', 'ed-component-source'); group.appendChild(el('summary', '', 'Ejes · postura inicial y límites'));
+    if (!joints.length) group.appendChild(el('p', 'ed-hint', 'La plataforma móvil utiliza la ruta local; sus puntos se expresan en metros respecto a la posición inicial.'));
+    joints.forEach(joint => {
+      const rotational = joint.unit === 'rad', factor = rotational ? 180 / Math.PI : 1;
+      const slider = el('input'); slider.type = 'range'; slider.min = joint.min * factor; slider.max = joint.max * factor; slider.step = rotational ? 1 : .01; slider.value = joint.home * factor;
+      slider.setAttribute('aria-label', 'Postura inicial ' + joint.id); slider.setAttribute('data-robot-joint', joint.id);
+      const row = this.field(group, joint.id + ' · ' + (rotational ? 'giro °' : 'carrera m'), slider), output = el('output', '', (joint.home * factor).toFixed(rotational ? 0 : 2)); row.appendChild(output);
+      slider.addEventListener('input', () => { output.textContent = Number(slider.value).toFixed(rotational ? 0 : 2); });
+      slider.addEventListener('change', () => {
+        const limits = JSON.parse(config.jointLimitsJson), entry = {id: joint.id, min: joint.min, max: joint.max, home: Number(slider.value) / factor};
+        update('jointLimitsJson', JSON.stringify(limits.filter(item => item.id !== joint.id).concat([entry])));
+      });
+    });
+    const limits = el('textarea'); limits.rows = 4; limits.value = config.jointLimitsJson; limits.maxLength = schema.MAX_JOINT_JSON;
+    limits.setAttribute('aria-label', 'Límites articulares del robot'); this.field(group, 'Límites personalizados · radianes / metros', limits).addEventListener('change', () => update('jointLimitsJson', limits.value));
+    group.appendChild(el('p', 'ed-hint', 'Los límites personalizados reducen el recorrido del modelo. El diseño paramétrico cambia las piezas y la cinemática conjuntamente; Detalle ligero reduce la geometría de acabado.'));
+    parent.appendChild(group);
   }
 
   renderInteractionInspector(object) {
@@ -2255,7 +2366,7 @@ export default class SceneEditor {
     const add = (keys, writable) => keys.forEach(key => fields.set(key, {key, writable,
       label: labels[key] || (/^zone\d+Occupied$/.test(key) ? 'Zona ' + key.match(/\d+/)[0] + ' · sensor de ocupación' : /^zone\d+Speed$/.test(key) ? 'Zona ' + key.match(/\d+/)[0] + ' · velocidad real (m/s)' : key),
       boolean: ['running', 'powered', 'paused', 'autoSpawn', 'emergency', 'palletFull', 'transferBlocked', 'externalSupply', 'internalSupplyActive', 'enabled', 'active', 'occupied', 'autoGenerate', 'blocked', 'full', 'empty', 'operatorAvailable', 'busy', 'settingUp', 'waitingOperator',
-        'mechanismReady', 'mechanismBusy', 'atLowerLevel', 'atUpperLevel', 'actuatorExtended', 'actuatorRetracted'].includes(key) || /^zone(?:[1-9]|[12][0-9]|3[0-2])Occupied$/.test(key)}));
+        'mechanismReady', 'mechanismBusy', 'atLowerLevel', 'atUpperLevel', 'actuatorExtended', 'actuatorRetracted', 'parkingBrake', 'lights', 'loaded'].includes(key) || /^zone(?:[1-9]|[12][0-9]|3[0-2])Occupied$/.test(key)}));
     this.document.getBehaviors(object).forEach(config => {
       if (config.type === 'conveyor') {
         add(config.drive === 'gravity' || config.drive === 'manual' ? ['enabled'] : ['running', 'powered', 'paused', 'autoSpawn', 'speed', 'emergency', 'enabled'], true);
@@ -2273,9 +2384,17 @@ export default class SceneEditor {
         add(['queued', 'queuedUnits', 'capacity', 'occupancy', 'full', 'empty', 'blocked', 'received', 'receivedUnits', 'delivered', 'deliveredUnits'], false);
       }
       if (config.type === 'source') { add(['running', 'paused', 'autoGenerate', 'interval', 'outputInterval', 'enabled'], true); add(['queued', 'queuedUnits', 'capacity', 'generated', 'generatedUnits', 'delivered', 'deliveredUnits', 'received', 'receivedUnits', 'blocked', 'full', 'empty', 'remaining'], false); }
+      if (config.type === 'robot') {
+        add(['powered', 'running', 'paused', 'emergency', 'speed', 'enabled'], true);
+        add(['inFlight', 'entryCount', 'exitCount', 'receivedUnits', 'deliveredUnits', 'completed', 'loadKg', 'payloadKg', 'utilization', 'setupSeconds', 'processSeconds', 'idleSeconds', 'blockedSeconds', 'downSeconds', 'tcpX', 'tcpY', 'tcpZ', 'distance'], false);
+      }
       if (config.type === 'processor') {
         add(['powered', 'running', 'paused', 'emergency', 'enabled', 'processTime', 'setupTime', 'operatorAvailable', 'outputInterval'], true);
         add(['busy', 'settingUp', 'waitingOperator', 'blocked', 'full', 'empty', 'queued', 'queuedUnits', 'outputQueued', 'capacity', 'parallelism', 'outputCapacity', 'activeJobs', 'progress', 'setupProgress', 'setupRemaining', 'entryCount', 'exitCount', 'receivedUnits', 'deliveredUnits', 'completed', 'completedUnits', 'utilization', 'setupSeconds', 'processSeconds', 'idleSeconds', 'blockedSeconds', 'operatorWaitSeconds', 'downSeconds', 'nominalCapacity'], false);
+      }
+      if (config.type === 'vehicle') {
+        add(['enabled', 'powered', 'running', 'paused', 'emergency', 'parkingBrake', 'lights', 'speed'], true);
+        add(['actualSpeed', 'lift', 'forkHeight', 'tilt', 'reach', 'sideShift', 'turret', 'steer', 'boomAngle', 'loadKg', 'capacityKg', 'payloadKg', 'loaded', 'receivedUnits', 'deliveredUnits', 'distance', 'batteryPercent', 'runSeconds', 'idleSeconds', 'blockedSeconds', 'blocked'], false);
       }
       if (config.type === 'motion') { add(['enabled', 'speed'], true); add(['position'], false); }
       if (config.type === 'sensor') { add(['enabled'], true); add(['active', 'occupied', 'count'], false); }

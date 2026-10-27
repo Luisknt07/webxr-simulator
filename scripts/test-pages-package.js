@@ -7,7 +7,7 @@ const decoders = ['basis_transcoder.js', 'basis_transcoder.wasm', 'draco_decoder
 const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'webxr-pages-package-'));
 function write(file, content = 'fixture') { const target = path.join(temporaryRoot, file); fs.mkdirSync(path.dirname(target), {recursive: true}); fs.writeFileSync(target, content); }
 try {
-  for (const file of ['index.html', 'bundle.js', 'mesh-optimizer-worker.js', 'collision-worker.js', '.nojekyll', 'LICENSE', 'src/lib/StartupStatus.js', 'src/editor/editor.css', 'assets/materials/ai-industrial-concrete-v1-512.jpg', 'assets/ai/native-texture-ai-worker.js', 'assets/model.glb', 'res/favicon.png']) write(file);
+  for (const file of ['index.html', 'bundle.js', 'mesh-optimizer-worker.js', 'collision-worker.js', 'cad-worker.js', '.nojekyll', 'LICENSE', 'src/lib/StartupStatus.js', 'src/editor/editor.css', 'assets/materials/ai-industrial-concrete-v1-512.jpg', 'assets/ai/native-texture-ai-worker.js', 'assets/model.glb', 'res/favicon.png']) write(file);
   // Real decoder binaries must remain at the paths requested by Three.js'
   // BasisTextureLoader and DRACOLoader, not merely exist in the repository.
   for (const file of decoders.concat('meshoptimizer.LICENSE.md')) write('src/vendor/' + file, fs.readFileSync(path.join(sourceRoot, 'src/vendor', file)));
@@ -18,7 +18,7 @@ try {
   for (const file of ['data/projects.sqlite', 'data/users/u1/private.json', 'server/account.js', '.git/config', '.env', 'node_modules/private.key', 'examples/private.json', 'bundle.js.map', 'src/studio/StudioClient.js']) write(file, 'private fixture must remain outside artifact');
   const revision = 'a'.repeat(40), result = prepare({root: temporaryRoot, revision});
   assert.equal(result.output, path.join(temporaryRoot, 'data/pages-site'));
-  for (const file of ['index.html', 'bundle.js', 'mesh-optimizer-worker.js', 'collision-worker.js', '.nojekyll', 'LICENSE', 'src/lib/StartupStatus.js', 'src/editor/editor.css', 'assets/model.glb', 'assets/ai/native-texture-ai-worker.js', 'assets/materials/ai-industrial-concrete-v1-512.jpg', 'assets/public-scenes/l-transfer.json', 'assets/public-scenes/inspection-sorting.json', 'res/favicon.png']) assert(fs.existsSync(path.join(result.output, file)), file);
+  for (const file of ['index.html', 'bundle.js', 'mesh-optimizer-worker.js', 'collision-worker.js', 'cad-worker.js', '.nojekyll', 'LICENSE', 'src/lib/StartupStatus.js', 'src/editor/editor.css', 'assets/model.glb', 'assets/ai/native-texture-ai-worker.js', 'assets/materials/ai-industrial-concrete-v1-512.jpg', 'assets/public-scenes/l-transfer.json', 'assets/public-scenes/inspection-sorting.json', 'res/favicon.png']) assert(fs.existsSync(path.join(result.output, file)), file);
   for (const file of decoders) {
     const packaged = fs.readFileSync(path.join(result.output, 'src/vendor', file)), original = fs.readFileSync(path.join(sourceRoot, 'src/vendor', file));
     assert(packaged.equals(original), 'A deployed decoder must be the actual runtime: ' + file);

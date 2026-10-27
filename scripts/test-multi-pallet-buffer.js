@@ -5,7 +5,8 @@ const h = require('./test-processor-runtime');
 const q = require('./test-pallet-queue-runtime');
 const {THREE, setup, add, record, vars, advance} = h;
 const source = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8').replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
-const prefabs = new Function('THREE', 'behaviorSchema', source('src/editor/IndustrialPrefabs.js') + '\nreturn {createProductVisual,createSourceProductVisual};')(THREE, h.behaviorSchema);
+const cargo = require('./load-product-prefabs.js')(THREE);
+const prefabs = new Function('THREE', 'behaviorSchema', 'require', source('src/editor/IndustrialPrefabs.js') + '\nreturn {createProductVisual,createSourceProductVisual};')(THREE, h.behaviorSchema, id => { assert.equal(id, './ProductPrefabs.js'); return cargo; });
 const checkpoint = new Function('THREE', 'createProductVisual', 'createSourceProductVisual', source('src/studio/SimulationCheckpoint.js') + '\nreturn {captureSimulation,restoreSimulation};')(THREE, prefabs.createProductVisual, prefabs.createSourceProductVisual);
 
 function run() {

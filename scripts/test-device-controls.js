@@ -68,7 +68,7 @@ async function productBridge() {
   const before = JSON.stringify(await f.document.serialize()); f.runtime.start('hall'); h.advance(f); const product = [...f.runtime.products.values()].find(value => value.sourceEntry); assert(product, 'The integration uses a real finite Source load.');
   const index = fs.readFileSync(path.join(__dirname, '../src/index.js'), 'utf8'), extract = name => { const match = index.match(new RegExp('function ' + name + '\\([^]*?\\n\\}')); assert(match); return match[0]; };
   class Boundary { constructor(ctx, callbacks) { this.callbacks = callbacks; } }
-  new Function('MobileNavigation', 'context', 'desktopController', 'desktopControllerData', 'raycontrol', ['setupMobileNavigation', 'onDesktopSelectStart', 'onDesktopSelectEnd'].map(extract).join('\n') + '\nsetupMobileNavigation();')(Boundary, f.ctx, f.desktop, data, f.ctx.raycontrol);
+  new Function('MobileNavigation', 'context', 'desktopController', 'desktopControllerData', 'raycontrol', 'let desktopVehicleAtMouseDown=null;\n' + ['setupMobileNavigation', 'onDesktopSelectStart', 'onDesktopSelectEnd'].map(extract).join('\n') + '\nsetupMobileNavigation();')(Boundary, f.ctx, f.desktop, data, f.ctx.raycontrol);
   const actions = f.ctx.mobileNavigation.callbacks;
   const aim = (point, offsets = [[0, .6, 1.4], [0, .6, -1.4], [1.4, .6, 0], [-1.4, .6, 0], [0, 1.5, .2]], ignore = [product.object]) => {
     const offset = offsets.find(values => !f.ctx.collisionWorld.rayBlocked(point.clone().add(new THREE.Vector3().fromArray(values)), point, {ignore})); assert(offset, 'The chosen load has a physically unoccluded approach.');

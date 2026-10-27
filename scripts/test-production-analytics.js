@@ -6,7 +6,8 @@ const h = require('./test-processor-runtime'), q = require('./test-pallet-queue-
 const {THREE, behaviorSchema, setup, add, record, vars, advance, close} = h;
 const {Recorder, controlChart} = require('../shared/productionAnalytics');
 const source = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8').replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
-const prefabs = new Function('THREE', 'behaviorSchema', source('src/editor/IndustrialPrefabs.js') + '\nreturn {createProductVisual,createSourceProductVisual};')(THREE, behaviorSchema);
+const cargo = require('./load-product-prefabs.js')(THREE);
+const prefabs = new Function('THREE', 'behaviorSchema', 'require', source('src/editor/IndustrialPrefabs.js') + '\nreturn {createProductVisual,createSourceProductVisual};')(THREE, behaviorSchema, id => { assert.equal(id, './ProductPrefabs.js'); return cargo; });
 const checkpoint = new Function('THREE', 'createProductVisual', 'createSourceProductVisual', source('src/studio/SimulationCheckpoint.js') + '\nreturn {captureSimulation,restoreSimulation};')(THREE, prefabs.createProductVisual, prefabs.createSourceProductVisual);
 const id = object => object.userData.editorId;
 const snapshot = (f, object, scope = 'module') => f.runtime.getAnalyticsSnapshot(id(object), scope);

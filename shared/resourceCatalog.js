@@ -4,6 +4,9 @@
 'use strict';
 
 const conveyorEquipment = require('./conveyor-equipment');
+const robotEquipment = require('./robot-equipment');
+const vehicleEquipment = require('./vehicle-equipment');
+const productEquipment = require('./product-equipment');
 const sceneResources = require('./scene-resources');
 const VERSION = 1;
 const STATUS = {functional: 'Funcional', visual: 'Solo visual', development: 'En desarrollo'};
@@ -21,7 +24,7 @@ const CATEGORIES = [
   {id: 'signage', name: 'Señalización', children: []},
   {id: 'interface', name: 'Interfaz', children: []},
   {id: 'education', name: 'Recursos educativos', children: []},
-  {id: 'products', name: 'Productos y cargas', children: []},
+  {id: 'products', name: 'Productos y cargas', children: productEquipment.PRODUCT_TYPES.map(item => [item.value, item.label])},
   {id: 'simulationtools', name: 'Herramientas de simulación', children: []},
   {id: 'files', name: 'Archivos incluidos', children: [['models', 'Modelos 3D'], ['images', 'Imágenes'], ['audio', 'Audio'], ['video', 'Vídeo'], ['source', 'Originales Blender'], ['data', 'Datos y otros']]}
 ];
@@ -70,8 +73,39 @@ function conveyorResources() {
     });
   });
 }
+function robotResources() {
+  const legacy = {'articulated-general': 'vehicle.industrial', collaborative: 'vehicle.collaborative', amr: 'vehicle.mobile', 'cylindrical-rpp': 'vehicle.cylindrical', 'polar-rrp': 'vehicle.polar', 'mobile-manipulator': 'vehicle.mobile-manipulator', 'mobile-sorter-crossbelt': 'vehicle.sorter'};
+  return robotEquipment.listEquipment({readyOnly: true}).map(definition => prefab(legacy[definition.variant] || definition.id, definition.name, 'vehicles', definition.description, 'robot', definition.variant, {
+    equipmentId: definition.id, equipmentVersion: definition.version, family: definition.family, variant: definition.variant, definition,
+    components: definition.components, parameters: ['Arquitectura y herramienta', 'Alcance y carga', 'Ejes y límites', 'Origen y receptor', 'Tiempo de ciclo y setup', 'Diseño de piezas', 'Acabados por pieza'],
+    dimensions: Object.assign({configurable: true}, definition.dimensions), ports: ['Recogida', 'Entrega'],
+    simulation: definition.simulationLevel, productProfiles: definition.productProfiles, provenance: definition.provenance, references: definition.references,
+    tags: ['robot', 'robótica', 'industria', definition.family, definition.mobility], synonyms: ['robot', 'manipulador', 'robótica', definition.family, definition.variant, definition.family === 'palletizer' ? 'paletizador paletizado estibas' : '']
+  }));
+}
+function vehicleResources() {
+  const legacy = {'forklift-electric-4w': 'vehicle.forklift', 'pallet-truck-manual': 'vehicle.pallet-truck', 'transport-cart': 'vehicle.cart'};
+  return vehicleEquipment.definitions.map(definition => prefab(legacy[definition.id] || 'vehicle.' + definition.id, definition.name, 'vehicles', definition.description, 'vehicle', definition.id, {
+    equipmentId: 'vehicle.' + definition.id, equipmentVersion: 1, family: definition.family, variant: definition.id, definition,
+    components: definition.components, parameters: ['Tipología y dimensiones', 'Carga y centro de carga', 'Elevación y mecanismos', 'Conducción manual', 'Rutas', 'Colores y desgaste'],
+    dimensions: {width: definition.preset.width, length: definition.preset.length, height: definition.preset.height, units: 'm', configurable: true},
+    simulation: 'Conducción y mecanismos cinemáticos, transporte de una carga identificada', references: definition.references,
+    tags: ['vehículo', 'logística', definition.family], synonyms: ['montacargas', 'carretilla', definition.family, definition.id]
+  }));
+}
+function productResources() {
+  return productEquipment.listEquipment().map(definition => resource(definition.id === 'box-small' ? 'product.box' : 'product.' + definition.id, definition.name, 'products', definition.description, {
+    action: {type: 'prefab', kind: 'product', variant: definition.id}, model: {type: 'prefab', kind: 'product', variant: definition.id}, thumbnail: {type: 'procedural', key: 'product.' + definition.id},
+    status: 'functional', simulation: 'product', variant: definition.id, family: definition.preset.productType, subcategory: definition.preset.productType,
+    components: ['Cuerpo y cierres', 'Etiqueta / SKU', 'Manipulación y clasificación'], parameters: ['Modelo', 'Ancho, alto y fondo', 'Masa total', 'Unidades', 'Tipo / calidad', 'Colores', 'Formato de pallet'],
+    dimensions: {width: definition.preset.width, height: definition.preset.height, depth: definition.preset.depth, units: 'm', configurable: true},
+    interaction: ['Ratón y teclado', 'Mandos WebXR', 'Equipos compatibles'], tags: ['producto', 'carga', definition.preset.productType], synonyms: [definition.id, 'producto', 'carga', definition.preset.productType], reason: ''
+  }));
+}
 const RESOURCES = [
   ...conveyorResources(),
+  ...robotResources(),
+  ...vehicleResources(),
   prefab('storage.queue', 'Acumulador FIFO', 'storage', 'Cola temporal con capacidad limitada, recepción de equipos y despacho manual o automático. Sin generación automática al insertarla.', 'source', 'queue', {ports: ['Entrada', 'Salida'], components: ['Superficie de carga', 'Soportes', 'Panel HMI'], parameters: ['Capacidad', 'Modo de despacho', 'Conexiones']}),
   prefab('storage.pallet', 'Almacén con estibas', 'storage', 'Almacenamiento temporal independiente con apilado visible, capacidad, retirada de la carga superior y despacho automático o manual.', 'palletQueue', undefined, {ports: ['Entrada', 'Salida'], components: ['Estiba', 'Cargas apiladas', 'Panel HMI'], parameters: ['Filas', 'Columnas', 'Capas', 'Capacidad', 'Conexiones'], synonyms: ['pallet queue', 'estibas', 'suelo', 'almacén']}),
   resource('storage.rack', 'Estantería', 'industrial', 'Almacenamiento en niveles con acceso a ubicaciones.', {subcategory: 'storage'}),
@@ -82,7 +116,6 @@ const RESOURCES = [
   prefab('processor.combine', 'Combinador', 'machines', 'Agrupa varias cargas en una salida conservando unidades y procedencia. No representa un robot o mecanismo físico de ensamble.', 'processor', 'combiner', {ports: ['Entrada', 'Salida'], components: ['Cámara de proceso', 'Panel HMI'], parameters: ['Entradas por ciclo', 'Tiempo', 'Setup', 'Capacidad'], synonyms: ['combiner', 'ensamble', 'combinar']}),
   prefab('processor.separate', 'Separador', 'machines', 'Divide lotes conservando sus unidades y procedencia, con capacidad y tiempos propios.', 'processor', 'separator', {ports: ['Entrada', 'Salida'], components: ['Cámara de proceso', 'Panel HMI'], parameters: ['Salidas por lote', 'Tiempo', 'Setup', 'Capacidad'], synonyms: ['separator', 'separar', 'dividir']}),
   ...[['filler', 'Llenadora / dosificadora'], ['packer', 'Empacadora / selladora'], ['labeler', 'Etiquetadora'], ['palletizer', 'Paletizadora']].map(([id, name]) => resource('machine.' + id, name, 'industrial', 'Familia con mecánica y comportamiento propios pendientes de implementación.', {subcategory: 'machines'})),
-  ...[['industrial', 'Robot industrial'], ['collaborative', 'Robot colaborativo'], ['mobile', 'Robot móvil'], ['forklift', 'Montacargas'], ['pallet-truck', 'Transpaleta'], ['cart', 'Carro de transporte']].map(([id, name]) => resource('vehicle.' + id, name, 'industrial', 'Familia pendiente; no se sustituye por una geometría sin movimiento, seguridad o control.', {subcategory: 'vehicles'})),
   resource('workstation.table', 'Mesa de trabajo', 'industrial', 'Puesto de trabajo independiente con dimensiones y apoyos propios.', {subcategory: 'workstations'}),
   prefab('control.sensor', 'Sensor de presencia', 'control', 'Detector configurable enlazado a un transportador de la escena. Estado visual y eventos de detección.', 'sensor', undefined, {components: ['Detector', 'Soporte'], parameters: ['Equipo', 'Posición de detección'], synonyms: ['fotocélula', 'sensor', 'detector']}),
   prefab('control.panel', 'Controlador / panel', 'control', 'Panel de mando HMI con encendido, marcha, pausa, parada, emergencia y velocidad. Selecciona explícitamente el equipo o alcance controlado.', 'plc', undefined, {components: ['Gabinete', 'Botones', 'HMI', 'Soporte'], parameters: ['Equipo controlado', 'Alcance'], synonyms: ['plc', 'hmi', 'botones', 'panel', 'controlador']}),
@@ -98,8 +131,7 @@ const RESOURCES = [
     action: {type: 'widget', kind}, status: 'functional', reason: '', components: ['Widget', 'Vínculo de datos'], parameters: ['Texto', 'Objeto', 'Variable', 'Acción', 'Presentación', 'Posición', 'Color'], simulation: 'Vínculo con las variables del equipo seleccionado', interaction: ['Escritorio', 'Mundo 3D / WebXR'], synonyms: [kind, 'interfaz', 'hmi', 'widget']
   })),
   resource('education.mission', 'Objetivo de misión', 'education', 'Misión con pasos y condiciones basados en eventos reales de la simulación. Permite progreso individual persistente cuando hay una cuenta iniciada.', {action: {type: 'studio', method: 'addMission'}, status: 'functional', reason: '', components: ['Misión', 'Pasos', 'Condiciones de evaluación'], parameters: ['Objetivo', 'Eventos', 'Equipo', 'Cantidad', 'Ayuda', 'Inicio', 'Fallo'], simulation: 'Eventos de salida confirmados', synonyms: ['misión', 'objetivo', 'evaluación', 'instrucción']}),
-  resource('product.box', 'Caja', 'products', 'Caja de cartón manipulable, con recogida, distancia ajustable y colocación manual sobre equipos compatibles.', {action: {type: 'prefab', kind: 'product'}, model: {type: 'prefab', kind: 'product'}, thumbnail: {type: 'procedural', key: 'product.box'}, status: 'functional', simulation: 'product', components: ['Producto', 'Agarre'], dimensions: {length: 0.25, width: 0.25, height: 0.25, units: 'm', configurable: true}, interaction: ['Ratón y teclado', 'Mandos WebXR'], parameters: ['Dimensiones', 'Color', 'Tipo', 'Calidad'], tags: ['logística', 'manufactura'], reason: ''}),
-  resource('product.variants', 'Botellas y contenedores', 'products', 'Los productos botella, caja reutilizable y bidón se generan mediante el catálogo configurable del Source.', {reason: 'Usa Generador de productos y configura su catálogo. No se presentan como objetos independientes hasta disponer de esa inserción.'})
+  ...productResources()
 ];
 
 function folded(value) { return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase(); }
@@ -190,4 +222,6 @@ function folderContains(folderId, resourceFolderId, folders) {
   return false;
 }
 
-module.exports = {VERSION, STATUS, FOLDERS, CATEGORIES, CONVEYOR_FAMILIES, RESOURCES, conveyorResources, assetResource, projectResources, normalizeOrganization, foldersFor, applyOrganization, matches, folderContains, defaultFolder, sceneResources};
+module.exports = {VERSION, STATUS, FOLDERS, CATEGORIES, CONVEYOR_FAMILIES, ROBOT_FAMILIES: robotEquipment.FAMILIES, VEHICLE_FAMILIES: vehicleEquipment.families,
+  MOBILITY_FAMILIES: robotEquipment.FAMILIES.concat(vehicleEquipment.families), PRODUCT_TYPES: productEquipment.PRODUCT_TYPES,
+  RESOURCES, conveyorResources, robotResources, vehicleResources, productResources, assetResource, projectResources, normalizeOrganization, foldersFor, applyOrganization, matches, folderContains, defaultFolder, sceneResources};

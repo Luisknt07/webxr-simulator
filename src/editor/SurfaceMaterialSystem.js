@@ -63,6 +63,7 @@ function cloneTexture(source, config, color, flipY) {
   if (source.isCompressedTexture) copy.isCompressedTexture = true;
   if (source.isCubeTexture) copy.isCubeTexture = true;
   copy.image = source.image;
+  copy.userData = Object.assign({}, source.userData || {});
   copy.mipmaps = source.mipmaps ? source.mipmaps.slice() : [];
   copy.encoding = color ? source.encoding : THREE.LinearEncoding;
   if (flipY !== undefined) copy.flipY = flipY;
@@ -279,6 +280,8 @@ export default class SurfaceMaterialSystem {
     if (original.emissive) material.emissive.copy(original.emissive);
     if (state.config.emissiveMode === 'custom') { material.emissive.set(state.config.emissive).convertSRGBToLinear(); material.emissiveIntensity = state.config.emissiveIntensity; }
     if (original.normalScale) material.normalScale.copy(original.normalScale);
+    if (config.normalMap && Number.isFinite(config.normalStrength)) material.normalScale.set(config.normalStrength, config.normalStrength);
+    else if (Number.isFinite(config.normalStrength)) material.normalScale.multiplyScalar(config.normalStrength);
     if (original.clearcoatNormalScale) material.clearcoatNormalScale.copy(original.clearcoatNormalScale);
     if (original.sheen) material.sheen = original.sheen.clone();
     material.visible = original.visible; material.name = config.name;

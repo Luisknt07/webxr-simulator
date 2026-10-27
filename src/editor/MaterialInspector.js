@@ -1,5 +1,6 @@
 import materialSchema from '../../shared/materials.js';
 import wearSchema from '../../shared/wear.js';
+import photographic from '../../shared/industrial-pbr.js';
 
 const PATTERNS = [['rust', 'Óxido'], ['grime', 'Suciedad'], ['scratches', 'Rayaduras'], ['chipped', 'Pintura saltada']];
 
@@ -87,6 +88,7 @@ export default class MaterialInspector {
 
   input(parent, field, value, update) {
     const editor = this.editor;
+    if (value === undefined && field.default !== undefined) value = field.default;
     let input;
     if (field.options) input = select(field.options, value);
     else if (field.input === 'image') {
@@ -135,6 +137,11 @@ export default class MaterialInspector {
       this.targets.set(object, value); editor.renderInspector();
     });
     const available = supports(slot);
+    if (typeof photographic !== 'undefined') {
+      const gallery=this.details(section,'Acabados fotográficos · CC0',false,object),row=node('div',undefined,'ed-photo-finishes');gallery.appendChild(row);
+      photographic.PROFILES.forEach(profile=>{const item=node('button',undefined,'ed-button ed-photo-finish');item.type='button';item.disabled=!available;item.title=profile.name+' · '+profile.provider;const preview=node('img');preview.src=photographic.path(profile.id,'color',256);preview.alt=profile.name;preview.loading='lazy';item.appendChild(preview);item.appendChild(node('span',profile.name));item.addEventListener('click',()=>this.update(object,Object.assign({type:'surfaceMaterial',enabled:true},materialSchema.getPreset('photo-'+profile.id),{slot}),slot));row.appendChild(item);});
+      gallery.appendChild(node('p','Mapas locales de ambientCG y Poly Haven (CC0), con normales y rugosidad. El acabado se aplica a la parte seleccionada y conserva las otras superficies.','ed-hint'));
+    }
     const missing = assignments.filter(item => !supports(item.slot));
     if (missing.length) section.appendChild(node('p', missing.length + ' acabado(s) guardado(s) no encuentran su pieza en este modelo. Puedes copiarlos a una superficie nueva o restaurarlos; recuperar el modelo original conserva sus destinos.', 'ed-native-info'));
     section.appendChild(node('p', 'Selecciona una parte antes de cambiar su acabado. Cada parte conserva su material; pantallas, indicadores y botones mantienen su función.', 'ed-hint'));
@@ -148,7 +155,7 @@ export default class MaterialInspector {
       else {
         const previous = current || this.defaults(object, slot);
         const maps = {};
-        ['texture', 'normalMap', 'roughnessMap', 'metalnessMap', 'colorMapMode', 'repeatX', 'repeatY'].forEach(key => { maps[key] = previous[key]; });
+        if (!choice.value.startsWith('photo-')) ['texture', 'normalMap', 'normalStrength', 'roughnessMap', 'metalnessMap', 'colorMapMode', 'repeatX', 'repeatY'].forEach(key => { maps[key] = previous[key]; });
         this.update(object, Object.assign({type: 'surfaceMaterial', enabled: true}, choice.value === 'custom' ? previous : materialSchema.getPreset(choice.value), maps, {preset: choice.value, slot}), slot);
       }
     });
@@ -164,7 +171,7 @@ export default class MaterialInspector {
         wear: this.details(section, 'Desgaste general', false, object)
       };
       materialSchema.fields.filter(field => !['preset', 'slot'].includes(field.key)).forEach(field => {
-        const group = ['wear', 'wearType', 'wearScale', 'seed'].includes(field.key) ? groups.wear : ['colorMapMode', 'texture', 'normalMap', 'roughnessMap', 'metalnessMap', 'repeatX', 'repeatY'].includes(field.key) ? groups.maps : groups.base;
+        const group = ['wear', 'wearType', 'wearScale', 'seed'].includes(field.key) ? groups.wear : ['colorMapMode', 'texture', 'normalMap', 'normalStrength', 'roughnessMap', 'metalnessMap', 'repeatX', 'repeatY'].includes(field.key) ? groups.maps : groups.base;
         this.input(group, field, values[field.key], update).disabled = !available;
       });
       groups.maps.appendChild(node('p', 'Conservar textura combina el color con la imagen del modelo. Color sólido elimina solo la imagen de color y mantiene los mapas de relieve, rugosidad y metalizado. Importa mapas propios en Archivos del proyecto.', 'ed-hint'));

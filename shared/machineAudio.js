@@ -2,7 +2,8 @@
 // Portable authoring settings. Runtime nodes/buffers never enter the document.
 const presets = [
   ['auto', 'Según la función del equipo'], ['motor', 'Motor y transmisión'], ['rollers', 'Rodillos en movimiento'], ['belt', 'Cinta transportadora'],
-  ['pneumatic', 'Actuador neumático'], ['elevator', 'Elevador y reductora'], ['processor', 'Máquina de proceso'], ['load', 'Carga y apoyo'],
+  ['pneumatic', 'Actuador neumático'], ['elevator', 'Elevador y reductora'], ['processor', 'Máquina de proceso'], ['servo', 'Servos y reductores del robot'], ['load', 'Carga y apoyo'],
+  ['electric-drive', 'Tracción eléctrica'], ['combustion', 'Motor térmico'], ['hydraulic', 'Bomba hidráulica'], ['horn', 'Bocina de vehículo'], ['reverse-alarm', 'Aviso de reversa'],
   ['button', 'Pulsador mecánico'], ['ventilation', 'Ventilación / HVAC'], ['warehouse', 'Ambiente de almacén'], ['factory', 'Ambiente de fábrica'], ['off', 'Silencio']
 ].map(([value, label]) => ({value, label}));
 const number = (key, label, value, min, max, step) => ({key, label, input: 'number', default: value, min, max, step});

@@ -31,7 +31,9 @@ class Element {
   focus() { this.focused = true; }
 }
 const source = fs.readFileSync(path.join(__dirname, '../src/editor/IndustrialPrefabs.js'), 'utf8').replace(/^import .*$/gm, '').replace(/export (const|function) /g, '$1 ');
-const createIndustrialPrefab = new Function('THREE', 'behaviorSchema', source + '\nreturn createIndustrialPrefab;')(THREE, behaviorSchema);
+const robotPrefabs = require('./load-robot-prefabs.js')(THREE);
+const prefabRequire = robotPrefabs.resolve;
+const createIndustrialPrefab = new Function('THREE', 'behaviorSchema', 'require', source + '\nreturn createIndustrialPrefab;')(THREE, behaviorSchema, prefabRequire);
 const browserSource = fs.readFileSync(path.join(__dirname, '../src/editor/ResourceBrowser.js'), 'utf8').replace(/^import .*$/gm, '').replace('export default class ResourceBrowser', 'class ResourceBrowser');
 const saved = new Map();
 const storage = {getItem: key => saved.get(key) || null, setItem: (key, value) => saved.set(key, value)};

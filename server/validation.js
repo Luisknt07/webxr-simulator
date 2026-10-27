@@ -92,11 +92,12 @@ function stateValue(value, partial, importIds) {
 
 function descriptorValue(value, importIds) {
   if (!plain(value)) invalid('El descriptor del recurso no es válido.');
+  if (value.type === 'cad') {try{return require('../shared/cad').normalizeDescriptor(value);}catch(error){invalid(error.message);}}
   if (value.prefab !== undefined) {
-    if (!['conveyor', 'sensor', 'plc', 'control', 'product', 'source', 'processor', 'palletQueue'].includes(value.prefab)) invalid('La plantilla industrial no es compatible.');
+if (!['conveyor', 'sensor', 'plc', 'control', 'product', 'source', 'processor', 'palletQueue', 'robot', 'vehicle'].includes(value.prefab)) invalid('La plantilla industrial no es compatible.');
     const descriptor = {prefab: value.prefab};
     if (value.variant !== undefined) {
-      const variants = value.prefab === 'conveyor' ? require('../shared/conveyors.js').presetVariants : value.prefab === 'source' ? ['queue'] : value.prefab === 'processor' ? ['combiner', 'separator'] : value.prefab === 'control' ? ['start', 'stop', 'emergency', 'pause', 'powerOn', 'powerOff', 'speedUp', 'speedDown', 'insertBox', 'resetEmergency', 'generate', 'dispatch', 'clearQueue', 'operator'] : [];
+const variants = value.prefab === 'vehicle' ? require('../shared/vehicles.js').variants : value.prefab === 'product' ? require('../shared/product-equipment.js').variants : value.prefab === 'robot' ? require('../shared/robots.js').variants : value.prefab === 'conveyor' ? require('../shared/conveyors.js').presetVariants : value.prefab === 'source' ? ['queue'] : value.prefab === 'processor' ? ['combiner', 'separator'] : value.prefab === 'control' ? ['start', 'stop', 'emergency', 'pause', 'powerOn', 'powerOff', 'speedUp', 'speedDown', 'insertBox', 'resetEmergency', 'generate', 'dispatch', 'clearQueue', 'operator'] : [];
       if (!variants.includes(value.variant)) invalid('La variante del equipo no es compatible.');
       descriptor.variant = value.variant;
     }

@@ -1,0 +1,21 @@
+# Productos y cargas configurables
+
+El catálogo permite insertar directamente 17 recetas: tres tamaños de caja, paquete flejado, caja plástica, contenedor abierto, botella, garrafa, tambor, saco, cilindro, bobina, pallets vacíos europeo/industrial/plástico, pallet cargado y jaula metálica. Son actores manipulables con atributos de producción; los detalles de tapa, etiqueta, flejes y soporte pertenecen al mismo actor.
+
+`shared/product-equipment.js` contiene presets, dimensiones, campos y validación. `ProductPrefabs.js` construye los modelos PBR procedurales, conserva un origen centrado en la base y comparte el decodificador con el Source. Ancho, alto, fondo, colores, SKU, masa, calidad, defecto, base y unidades son configurables. Los formatos de pallet son recetas dimensionales editables, sin asignarles una certificación de carga.
+
+La inserción directa utiliza **masa total de la carga**. Un pallet de 145 kg con 24 unidades sigue pesando 145 kg cuando lo toma un montacargas o entra a un proceso. El catálogo de un Source conserva su convención de **masa por unidad contenida**; `spec.units` expresa cuántas unidades contiene cada paquete. Un paquete de seis unidades cuenta seis, y un pallet de ocho paquetes de seis cuenta 48. El número de mallas decorativas no determina los contadores. Las unidades, SKU y origen deben conservarse al agrupar, separar y transferir.
+
+`sourceProduct.massIsTotal` distingue ambas convenciones en los visuales. Un actor directo tiene `true`; un visual creado por el Source tiene `false`. Una entrada de inventario conserva su masa por unidad y su total de unidades. El pallet generado por el Source añade su tara cuando corresponde, sin duplicarla al pasar por otro equipo.
+
+La masa de un lote se calcula desde sus cantidades reales y su procedencia, incluyendo las taras. Las fracciones conservan una parte proporcional de esa tara al separarse y recombinarse. El Combiner/Separator representa una transformación lógica de inventario: este cálculo no incorpora una máquina física de despaletizado ni simula retirar una base de madera. Para generar un producto que ya es un pallet o una jaula, el Source utiliza el modo Individual; no añade otro pallet debajo de una carga ya paletizada.
+
+Los pallets tienen tablas, bloques y patines separados con aberturas físicas para dos horquillas. La metadata `forkPockets` registra las alturas inferior y superior, los centros de entrada y los ejes X/Z. La detección del vehículo debe contrastar estas aberturas, el ancho y separación de las horquillas y la capacidad configurada. Un conjunto de cajas sobre la madera visual de un almacén no se convierte automáticamente en un pallet movible: debe existir una unidad paletizada real en el inventario.
+
+Las cargas planas y rígidas se adaptan a rodillos cuando sus dimensiones proporcionan apoyo suficiente. Botellas, sacos, cilindros y bobinas se marcan como bases inestables; conviene una banda continua o una bandeja. El tipo de producto por sí solo no prueba la estabilidad: el simulador comprueba los atributos de la base y los límites del equipo. Los productos nuevos también pueden participar en las reglas por tipo, SKU, color, calidad, dimensiones y unidades.
+
+Las mallas se agrupan por material, incluyendo los elementos repetidos de un pallet. Los detalles de cartón, madera, tejido y etiqueta utilizan texturas procedurales pequeñas. La prueba `scripts/test-product-equipment.js` verifica las 17 recetas, sus envolventes métricas, origen en el piso, materiales, aberturas declaradas y presupuesto acotado de mallas y triángulos.
+
+Los CEDI existentes conservan su comportamiento original. La opción robotizada agrega robots de proceso **in situ** en bandas reales y una zona de práctica con montacargas y pallets completos. El injerto es explícito, se puede deshacer y evita duplicarse al ejecutarlo otra vez. Las plantillas «CEDI robotizado · Clasificación y expedición» y «CEDI robotizado · Packing y logística» usan esa misma opción; los proyectos guardados anteriormente no se modifican al abrirlos.
+
+Al adaptar una instalación existente se busca una zona libre apoyada dentro del piso y se respetan los cerramientos. Si no cabe el vehículo con sus pallets, se omite esa zona y se muestra un aviso. La expansión de la nave sólo forma parte de construir una plantilla nueva.

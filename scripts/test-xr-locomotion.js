@@ -116,6 +116,8 @@ function productionFrame(f, root) {
   const finish = f.head(); assert(finish.z > start.z - .75 && finish.z < start.z - .6, 'Module movement followed by the exact main-loop collision pass stops at the thin wall.');
   close(finish.y, start.y);
 }
-assert(index.indexOf('syncXRControllers();', index.indexOf('function animate()')) < index.indexOf('context.xrLocomotion.tick(delta)'));
-assert(index.indexOf('context.xrLocomotion.tick(delta)') < index.indexOf('ecsyWorld.execute(delta, elapsedTime);', index.indexOf('function animate()')));
+const animateStart = index.indexOf('function animate(time, frame)'), controllerSync = index.indexOf('syncXRControllers(frame);', animateStart);
+assert(animateStart >= 0 && controllerSync > animateStart);
+assert(controllerSync < index.indexOf('context.xrLocomotion.tick(delta)'));
+assert(index.indexOf('context.xrLocomotion.tick(delta)') < index.indexOf('ecsyWorld.execute(delta, elapsedTime);', animateStart));
 console.log('XR sticks: head-relative collision walking, head-pivot 30-degree turns, neutral rearm, both mappings/hotplug, frame limits, menu/session/load guards and exact production collision-pass/tracked-pose preservation passed.');

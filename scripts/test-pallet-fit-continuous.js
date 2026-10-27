@@ -2,7 +2,8 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const h = require('./test-processor-runtime'), {THREE, behaviorSchema, setup, add, record, vars, advance} = h;
 const source = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8').replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
-const factory = new Function('THREE', 'behaviorSchema', source('src/editor/IndustrialPrefabs.js') + '\nreturn {createSourceProductVisual,createIndustrialPrefab};')(THREE, behaviorSchema);
+const cargo = require('./load-product-prefabs.js')(THREE);
+const factory = new Function('THREE', 'behaviorSchema', 'require', source('src/editor/IndustrialPrefabs.js') + '\nreturn {createSourceProductVisual,createIndustrialPrefab};')(THREE, behaviorSchema, id => { assert.equal(id, './ProductPrefabs.js'); return cargo; });
 const ConveyorAssembly = new Function('THREE', 'conveyorLayout', source('src/editor/ConveyorAssembly.js').replace('default class ConveyorAssembly', 'return class ConveyorAssembly'))(THREE, behaviorSchema.conveyorLayout);
 const fixture = fs.readFileSync(path.join(__dirname, 'test-simulation-checkpoint.js'), 'utf8');
 const checkpoint = new Function('require', '__dirname', fixture.slice(0, fixture.indexOf('function setup()')) + '\nreturn {captureSimulation,restoreSimulation};')(require, __dirname);

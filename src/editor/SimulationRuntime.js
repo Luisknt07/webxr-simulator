@@ -7,6 +7,8 @@ import ObjectPlacement from '../lib/ObjectPlacement.js';
 import ProductSourceRuntime from './ProductSourceRuntime.js';
 import ProcessorRuntime from './ProcessorRuntime.js';
 import PalletQueueRuntime from './PalletQueueRuntime.js';
+import RobotRuntime from './RobotRuntime.js';
+import VehicleRuntime from './VehicleRuntime.js';
 
 const {normalizeBehaviors, simulationTypes} = behaviorSchema;
 const conveyorLayout = behaviorSchema.conveyorLayout;
@@ -102,6 +104,8 @@ export default class SimulationRuntime {
     this.sourceRuntime = new ProductSourceRuntime(this);
     this.processorRuntime = new ProcessorRuntime(this);
     this.palletQueueRuntime = new PalletQueueRuntime(this);
+    this.robotRuntime = typeof RobotRuntime === 'function' ? new RobotRuntime(this) : null;
+    this.vehicleRuntime = typeof VehicleRuntime === 'function' ? new VehicleRuntime(this) : null;
     this.productionAnalytics = new behaviorSchema.productionAnalytics.Recorder();
   }
 
@@ -124,7 +128,7 @@ export default class SimulationRuntime {
         const all = normalizeBehaviors(this.document.getBehaviors(object));
         // A configured upstream still owns its destination while stopped,
         // empty or disabled. Its disabled behavior need not create a record.
-        flowConfigurations.set(id, all.filter(config => ['conveyor', 'source', 'processor', 'palletQueue'].includes(config.type)));
+        flowConfigurations.set(id, all.filter(config => ['conveyor', 'source', 'processor', 'palletQueue', 'robot'].includes(config.type)));
         configurations = all.filter(config => config.enabled && simulationTypes.includes(config.type));
       }
       catch (error) { this.notify(error.message); return; }
@@ -161,6 +165,10 @@ export default class SimulationRuntime {
           this.processorRuntime.attach(record, component);
         } else if (config.type === 'palletQueue') {
           this.palletQueueRuntime.attach(record, component);
+        } else if (config.type === 'robot' && this.robotRuntime) {
+          this.robotRuntime.attach(record, component);
+        } else if (config.type === 'vehicle' && this.vehicleRuntime) {
+          this.vehicleRuntime.attach(record, component);
         } else if (config.type === 'sensor') {
           Object.assign(component, {enabled: true, active: config.normallyClosed, count: 0, occupied: false, touching: new Set()});
           record.writable.push(descriptor('enabled', 'boolean', 'Habilitado'));
@@ -179,6 +187,14 @@ export default class SimulationRuntime {
       this.records.set(id, record);
     });
     this.configureSupply(flowConfigurations);
+    if (this.robotRuntime) this.robotRuntime.prepare();
+    this.robotSourceLinks = new Map();
+    this.records.forEach(record => {
+      const robot = record.components.robot;
+      if (!robot || robot.config.operation === 'process' && robot.config.tool === 'process' || !robot.config.sourceId || !this.records.has(robot.config.sourceId)) return;
+      const links = this.robotSourceLinks.get(robot.config.sourceId) || [];
+      links.push({id: record.id, port: 'input', route: 'main'}); this.robotSourceLinks.set(robot.config.sourceId, links);
+    });
     this.buildScopes();
     this.records.forEach(record => {
       if (record.components.conveyor) this.measureBelt(record);
@@ -189,6 +205,7 @@ export default class SimulationRuntime {
     this.refreshVariables();
     this.records.forEach(record => {
       if (record.components.control) this.registerControl(record);
+      if (record.components.vehicle) this.registerVehicle(record);
       if (record.components.product && visible(record.object)) this.registerProduct(record.object, record);
     });
     this.products.forEach(product => {
@@ -204,7 +221,10 @@ export default class SimulationRuntime {
   }
 
   stop() {
+    if (this.ctx.vehicleDriving) this.ctx.vehicleDriving.unmount(true);
+    if (this.vehicleRuntime) this.vehicleRuntime.stop();
     this.stopping = true;
+    if (this.robotRuntime) this.robotRuntime.stop();
     this.restoreProductInput();
     if (this.ctx.raycontrol) this.states.forEach(entry => {
       if (this.ctx.raycontrol.states[entry.name] !== entry.state) return;
@@ -246,9 +266,14 @@ export default class SimulationRuntime {
     this.sourceRuntime.stop();
     this.processorRuntime.stop();
     this.palletQueueRuntime.stop();
+    if (this.document.syncCADAttachments) {
+      this.document.syncCADAttachments();
+      if (this.document.additions) this.document.additions.forEach(entry => { if (entry.descriptor.type === 'cad' && entry.descriptor.attachment) this.invalidateCollision(entry.object); });
+    }
     this.records.clear();
     this.products.clear();
     this.scopeGroups.clear(); this.scopeLookup.clear();
+    if (this.robotSourceLinks) this.robotSourceLinks.clear();
     if (this.lineLookup) this.lineLookup.clear();
     this.packageCount = 0;
     this.running = false;
@@ -393,6 +418,12 @@ export default class SimulationRuntime {
       if (!graph.has(link.id) || link.id === record.id) return;
       graph.get(record.id).add(link.id); graph.get(link.id).add(record.id);
     }));
+    production.forEach(record => {
+      const robot = record.components.robot;
+      if (!robot || robot.config.operation !== 'process' || robot.config.tool !== 'process') return;
+      const sourceId = robot.config.sourceId || robot.config.targetId;
+      if (graph.has(sourceId)) { graph.get(record.id).add(sourceId); graph.get(sourceId).add(record.id); }
+    });
     this.lineLookup = new Map();
     production.forEach(record => {
       if (this.lineLookup.has(record.id)) return;
@@ -403,18 +434,21 @@ export default class SimulationRuntime {
     });
   }
 
-  machineComponent(record) { return record && (record.components.conveyor || record.components.source || record.components.processor || record.components.palletQueue); }
+  machineComponent(record) { return record && (record.components.conveyor || record.components.source || record.components.processor || record.components.palletQueue || record.components.robot || record.components.vehicle); }
 
   machineLinks(record) {
-    if (record.components.conveyor) return this.outputLinks(record);
     const component = this.machineComponent(record), config = component && component.config;
-    return config && config.outputId ? [{id: config.outputId, port: config.outputPort || 'input', route: 'main'}] : [];
+    if (record.components.robot && config.operation === 'process' && config.tool === 'process') return [];
+    const links = record.components.conveyor ? this.outputLinks(record) : config && config.outputId ? [{id: config.outputId, port: config.outputPort || 'input', route: 'main'}] : [];
+    if (record.components.robot && config.destinationRulesJson) behaviorSchema.robots.parseDestinationRules(config.destinationRulesJson).forEach(rule => { if (rule.outputId && !links.some(link => link.id === rule.outputId)) links.push({id: rule.outputId, port: 'input', route: 'branch'}); });
+    const pulled = this.robotSourceLinks && this.robotSourceLinks.get(record.id) || [];
+    return links.concat(pulled.filter(link => !links.some(existing => existing.id === link.id)));
   }
 
   productionRow(record) {
     const component = this.machineComponent(record); if (!component) return null;
     const config = component.config, v = record.variables, belt = record.components.conveyor, processor = record.components.processor;
-    const source = record.components.source, stock = record.components.palletQueue;
+    const source = record.components.source, stock = record.components.palletQueue, robot = record.components.robot;
     const row = record.productionRow || (record.productionRow = {});
     Object.assign(row, {id: record.id, name: record.object.name, type: config.type, state: 'idle', isRunning: false,
       obstruction: false, blocked: false, blockReason: '', parallelFractions: null, atCapacity: false,
@@ -458,6 +492,14 @@ export default class SimulationRuntime {
       row.blocked = source.queue.length > 0 && (!!source.transferBlocked || !!source.blocked && !source.generationBlocked);
       row.obstruction = row.blocked && !source.transferBlocked;
       useful = source.autoGenerate && !exhausted && source.queue.length < config.capacity || config.delivery === 'automatic' && source.queue.length > 0;
+    } else if (robot) {
+      Object.assign(row, {entryCount: robot.received, exitCount: robot.completed, entryUnits: robot.receivedUnits, exitUnits: robot.deliveredUnits,
+        occupied: robot.entry ? 1 : 0, capacity: 1, nominalCapacityPerMinute: 60 / Math.max(.1, config.cycleTime + (config.operation === 'process' ? config.processTime : 0))});
+      row.blocked = robot.blocked || !!robot.fault; row.obstruction = !!robot.fault; useful = robot.phase !== 'idle' && robot.phase !== 'wait-output';
+    } else if (record.components.vehicle) {
+      const vehicle = record.components.vehicle;
+      Object.assign(row, {entryCount: vehicle.received, exitCount: vehicle.delivered, entryUnits: vehicle.receivedUnits, exitUnits: vehicle.deliveredUnits, occupied: vehicle.entry ? 1 : 0, capacity: 1});
+      row.blocked = !!vehicle.blocked || vehicle.missionWaiting === 'capacity'; row.obstruction = !!vehicle.blocked || !!vehicle.missionObstacle; useful = Math.abs(vehicle.actualSpeed) > .001 || !!vehicle.hydraulicMoving;
     } else if (stock) {
       Object.assign(row, {entryCount: stock.received, exitCount: stock.inventory.delivered,
         entryUnits: stock.receivedUnits, exitUnits: stock.inventory.deliveredUnits,
@@ -494,6 +536,10 @@ export default class SimulationRuntime {
     // A closed loop has no external intake/output; internal laps are not sales.
     if (scope !== 'module' && !inputIds.length) inputIds = [];
     if (scope !== 'module' && !outputIds.length) outputIds = [];
+    if (scope !== 'module') {
+      const materialFlow = id => { const robot = this.records.get(id).components.robot; return !robot || robot.config.operation !== 'process' || robot.config.tool !== 'process'; };
+      inputIds = inputIds.filter(materialFlow); outputIds = outputIds.filter(materialFlow);
+    }
     const storageIds = scope === 'module' ? [] : outputIds.filter(id => this.records.get(id).components.palletQueue);
     return {inputIds, outputIds, storageIds};
   }
@@ -502,12 +548,11 @@ export default class SimulationRuntime {
     const component = this.machineComponent(record), entries = [];
     const add = (entry, stage, product) => {
       product = product || entry && entry.product;
-      const metadata = product ? this.productMetadata(product) : entry ? Object.assign({}, entry.spec,
-        behaviorSchema.productSources.loadSize(entry.spec, entry.load), {units: entry.units, sku: entry.spec.id}) : {};
-      if (!product && entry) {
-        const scale = entry.scale ? new THREE.Vector3().fromArray(entry.scale) : record.object.getWorldScale(new THREE.Vector3());
-        ['width', 'height', 'depth'].forEach((key, index) => { metadata[key] *= Math.abs(scale.getComponent(index)); });
-      }
+      // Logical FIFO entries use the same mass, provenance and scale calculation
+      // as their visible front load, without creating a mesh or GPU resources.
+      const metadata = product ? this.productMetadata(product) : entry ? this.productMetadata({sourceEntry: entry,
+        bounds: this.sourceRuntime.loadBounds(entry), scale: entry.scale ? new THREE.Vector3().fromArray(entry.scale) : record.object.getWorldScale(new THREE.Vector3()),
+        classification: {loadMode: ['pallet', 'cage'].includes(entry.spec.type) ? 'pallet' : 'individual'}}) : {};
       entries.push(Object.assign({id: entry && entry.id || product && (product.record && product.record.id || product.object.uuid),
         name: entry && entry.spec.name || product && product.object.name || 'Producto', stage}, metadata));
     };
@@ -556,22 +601,24 @@ export default class SimulationRuntime {
     const operating = components.filter(component => !component.config.drive || component.config.drive === 'motor');
     const incoming = new Set(); records.forEach(record => this.machineLinks(record).forEach(link => { if (group.members.has(link.id)) incoming.add(link.id); }));
     const sources = records.filter(record => record.components.source && !incoming.has(record.id));
-    const terminals = records.filter(record => !this.machineLinks(record).some(link => group.members.has(link.id)));
+    const materialFlow = record => !record.components.robot || record.components.robot.config.operation !== 'process' || record.components.robot.config.tool !== 'process';
+    const terminals = records.filter(record => materialFlow(record) && !this.machineLinks(record).some(link => group.members.has(link.id)));
     const sum = (values, key) => values.reduce((total, record) => total + (Number(record.variables && record.variables[key]) || 0), 0);
     const belts = records.filter(record => record.components.conveyor), processors = records.filter(record => record.components.processor);
+    const robots = records.filter(record => record.components.robot), carriers = robots.filter(materialFlow);
     const anchorBelt = anchor.components.conveyor || belts[0] && belts[0].components.conveyor;
     const motorBelts = belts.filter(record => record.components.conveyor.config.drive === 'motor');
-    const runSeconds = Math.max(0, ...belts.map(record => record.components.conveyor.runSeconds || 0));
-    const variables = {moduleCount: records.length, conveyorCount: belts.length, processorCount: processors.length,
+    const runSeconds = Math.max(0, ...belts.map(record => record.components.conveyor.runSeconds || 0), ...robots.map(record => record.components.robot.busySeconds || 0));
+    const variables = {moduleCount: records.length, conveyorCount: belts.length, processorCount: processors.length, robotCount: robots.length,
       sourceCount: sources.length, enabled: components.every(component => component.enabled !== false),
       powered: operating.every(component => component.powered !== false), running: operating.every(component => !!component.running),
       paused: components.some(component => !!component.paused), emergency: components.some(component => !!component.emergency),
       speed: anchorBelt ? anchorBelt.speed : 0, actualSpeed: motorBelts.length ? Math.min(...motorBelts.map(record => Math.abs(record.components.conveyor.actualSpeed || 0))) : 0,
-      entryCount: sources.length ? sum(sources, 'generated') : sum(records.filter(record => !incoming.has(record.id)), 'entryCount'),
+      entryCount: sources.length ? sum(sources, 'generated') : sum(records.filter(record => materialFlow(record) && !incoming.has(record.id)), 'entryCount'),
       exitCount: terminals.reduce((total, record) => total + (Number(record.variables[record.components.palletQueue ? 'received' : record.components.processor ? 'exitCount' : record.components.source ? 'delivered' : 'exitCount']) || 0), 0),
       generatedUnits: sum(sources, 'generatedUnits'), storedUnits: sum(terminals.filter(record => record.components.palletQueue), 'receivedUnits'),
-      inFlight: sum(belts, 'inFlight'), queued: sum(records, 'queued') + sum(processors, 'outputQueued'),
-      completed: sum(processors, 'completed'), palletCount: sum(terminals, 'palletCount'), palletCapacity: sum(terminals, 'palletCapacity'),
+      inFlight: sum(belts, 'inFlight') + sum(carriers, 'inFlight'), queued: sum(records, 'queued') + sum(processors, 'outputQueued'),
+      completed: sum(processors, 'completed'), robotCycles: sum(robots, 'completed'), palletCount: sum(terminals, 'palletCount'), palletCapacity: sum(terminals, 'palletCapacity'),
       palletFull: terminals.some(record => record.variables.full || record.variables.palletFull),
       transferBlocked: records.some(record => record.variables.transferBlocked || record.variables.blocked),
       utilization: this.productionAnalytics ? this.productionAnalytics.summary(group.memberIds).utilization : 0,
@@ -670,10 +717,15 @@ export default class SimulationRuntime {
   }
 
   productMetadata(product) {
-    const entry = product && product.sourceEntry, leaves = [];
+    const entry = product && product.sourceEntry, leaves = [], visiting = new Set();
     const visit = value => {
+      if (visiting.has(value)) throw new Error('La procedencia de la carga contiene un ciclo.');
+      visiting.add(value);
       if (value.members && value.members.length) value.members.forEach(visit);
-      else leaves.push(Object.assign({units: value.units || 1}, value.spec || {}));
+      // spec.units describes the contents of one package. The inventory entry
+      // already includes every package on the pallet; never replace that total.
+      else leaves.push(Object.assign({}, value.spec || {}, {units: value.units || 1}));
+      visiting.delete(value);
     };
     if (entry) visit(entry);
     const metadata = product && product.classification || {sku: 'product', productType: 'box', color: '#b78b53', quality: 'good', defect: 'none'};
@@ -687,9 +739,9 @@ export default class SimulationRuntime {
     return {sku: uniform('sku', 'product'), productType: uniform('productType', 'box'), color: uniform('color', '#b78b53'),
       quality: leaves.length ? leaves.some(spec => spec.quality === 'defective') ? 'defective' : leaves.every(spec => spec.quality === 'good') ? 'good' : 'mixed' : metadata.quality,
       defect: leaves.length ? !defects.length ? 'none' : defects.every(value => value === defects[0]) ? defects[0] : 'mixed' : metadata.defect,
-      width: Math.abs(size.x), height: Math.abs(size.y), depth: Math.abs(size.z), units: entry ? entry.units : 1,
-      mass: leaves.length ? leaves.reduce((sum, spec) => sum + (spec.mass || 1) * spec.units, 0) + (entry.load && entry.load.loadMode === 'pallet' ? behaviorSchema.productSources.pallets.dimensions(entry.load, true).tare : 0) : metadata.mass || 1,
-      loadMode: entry && entry.load && entry.load.loadMode || 'individual', base: entry && entry.load && entry.load.loadMode === 'pallet' ? 'runners' : uniform('base', 'flat')};
+      width: Math.abs(size.x), height: Math.abs(size.y), depth: Math.abs(size.z), units: entry ? entry.units : metadata.units || 1,
+      mass: entry ? behaviorSchema.productSources.entryMass(entry) : metadata.mass || 1,
+      loadMode: metadata.loadMode === 'pallet' || entry && entry.load && entry.load.loadMode === 'pallet' ? 'pallet' : 'individual', base: entry && entry.load && entry.load.loadMode === 'pallet' ? 'runners' : uniform('base', 'flat')};
   }
 
   routeDecision(belt, product, sequenceOffset = 0) {
@@ -733,6 +785,8 @@ export default class SimulationRuntime {
       if (action === 'powerOn' || action === 'powerOff') return this.setVariable(id, 'powered', action === 'powerOn');
     }
     if (record && record.components.processor) return this.processorRuntime.command(record, action, value);
+    if (record && record.components.robot) return this.robotRuntime.command(record, action, value);
+    if (record && record.components.vehicle) return this.vehicleRuntime.command(record, action, value);
     if (record && record.components.palletQueue) return this.palletQueueRuntime.command(record, action, value);
     if (record && record.components.source) return this.sourceRuntime.command(record, action, value);
     if (!belt) throw new Error('El mando necesita una banda transportadora de destino.');
@@ -825,6 +879,14 @@ export default class SimulationRuntime {
     return true;
   }
 
+  registerVehicle(record) {
+    if (!this.ctx.raycontrol) return;
+    const name = this.statePrefix + 'vehicle-' + record.id, state = {colliderMesh: record.object, controller: 'both', raycaster: true, consumeSelect: true, captureSelect: true,
+      isSelectable: (hit, controller) => !this.ctx.drivingVehicle && this.validInteraction(record.object, hit, controller, false),
+      onSelectStart: (hit, controller) => { if (this.running && this.ctx.vehicleDriving && this.validInteraction(record.object, hit, controller, true)) this.ctx.vehicleDriving.mount(record.id); }};
+    this.ctx.raycontrol.addState(name, state); this.ctx.raycontrol.activateState(name); this.states.push({name, state});
+  }
+
   registerProduct(object, record, item) {
     let product = this.products.get(object);
     if (product) { if (item) product.item = item; return product; }
@@ -835,7 +897,7 @@ export default class SimulationRuntime {
     const config = record && record.components.product && record.components.product.config || {}, source = object.userData.sourceProduct || {};
     product.classification = Object.freeze({sku: config.sku || source.sku || 'product', productType: config.productType || source.type || 'box',
       color: (config.color || source.color || '#b78b53').toLowerCase(), quality: config.quality || source.quality || 'good', defect: config.defect || source.defect || 'none',
-      mass: config.mass || source.mass || 1, base: config.base || source.base || 'flat', initialVelocity: config.initialVelocity || 0});
+      mass: config.mass || source.mass || 1, units: config.units || source.units || 1, loadMode: config.loadMode || source.loadMode || 'individual', base: config.base || source.base || 'flat', initialVelocity: config.initialVelocity || 0});
     this.products.set(object, product);
     if (!this.ctx.raycontrol) return product;
     const name = this.statePrefix + 'product-' + (++this.productSequence);
@@ -913,7 +975,7 @@ export default class SimulationRuntime {
     const binding = {controller, down: false};
     binding.start = () => {
       const input = this.ctx.raycontrol;
-      if (!this.running || !this.ctx.vrMode || this.ctx.studioMenuOpen || controller.userData && controller.userData.studioMenuTrigger || this.ctx.editor && this.ctx.editor.active ||
+      if (!this.running || this.ctx.drivingVehicle || !this.ctx.vrMode || this.ctx.studioMenuOpen || controller.userData && controller.userData.studioMenuTrigger || this.ctx.editor && this.ctx.editor.active ||
         !input || input.enabled === false || !data.enabled || data.active || binding.down || this.held.has(controller)) return;
       binding.down = true;
       const entries = input.selectionEntries ? input.selectionEntries(data) : [];
@@ -988,6 +1050,7 @@ export default class SimulationRuntime {
 
   pickupProduct(product, controller, inputMode = 'select') {
     if (!controller || product.heldBy || this.held.has(controller) || controller.userData && controller.userData.grabbing) return false;
+    if (this.ctx.drivingVehicle || product.vehicleOwnerId || product.robotOwnerId || product.robotReservedBy || product.vehicleReservedBy) return false;
     if (!this.processorRuntime.canPickup(product)) return false;
     if (!this.palletQueueRuntime.canPickup(product)) { this.notify('Retira primero las cajas superiores de esta columna de la estiba.'); return false; }
     if (product.item && product.item.palletOwnerId) {
@@ -1413,6 +1476,12 @@ export default class SimulationRuntime {
   }
 
   validateVariable(record, key, value) {
+    const vehicle = record && record.components.vehicle;
+    if (vehicle && key === 'running' && value && (vehicle.emergency || !vehicle.powered)) throw new Error('Enciende y rearma el vehículo antes de habilitarlo.');
+    const robot = record && record.components.robot;
+    if (robot && key === 'running' && value && robot.emergency) throw new Error('Restablece la emergencia antes de arrancar el robot.');
+    if (robot && key === 'running' && value && !robot.powered) throw new Error('Enciende la alimentación antes de arrancar el robot.');
+    if (robot && key === 'running' && value && robot.fault) throw new Error('Rearma la alarma del robot antes de arrancar.');
     if (!record) throw new Error('El objeto no participa en la simulación actual.');
     const field = record.writable.find(item => item.key === key);
     if (!field) throw new Error('La variable es de solo lectura o no existe.');
@@ -1447,6 +1516,18 @@ export default class SimulationRuntime {
     });
     const inventory = record.components.source || record.components.palletQueue;
     if (inventory && (key === 'powered' && !value || key === 'emergency' && value)) { inventory.running = false; inventory.paused = false; }
+    const robot = record.components.robot;
+    if (robot) {
+      if (key === 'emergency' && value || key === 'powered' && !value) robot.running = false;
+      if (key === 'emergency' && !value) robot.fault = '';
+      if (key === 'running' || key === 'powered' && !value || key === 'emergency' && value) robot.paused = false;
+    }
+    const vehicle = record.components.vehicle;
+    if (vehicle) {
+      if (key === 'running' && value) { vehicle.missionObstacle = false; vehicle.blocked = false; }
+      if (key === 'emergency' && value || key === 'powered' && !value) { vehicle.running = false; vehicle.actualSpeed = 0; this.vehicleRuntime.setInput(record, {brake: 1}); }
+      if (key === 'running' || key === 'emergency' && value || key === 'powered' && !value) vehicle.paused = false;
+    }
     if (belt) {
       // Emergency is latched: releasing it permits a later explicit Start,
       // but must never restart machinery as a side effect of the reset.
@@ -1500,6 +1581,8 @@ export default class SimulationRuntime {
         this.sourceRuntime.step(step);
         this.processorRuntime.step(step);
         this.palletQueueRuntime.step(step);
+        if (this.robotRuntime) this.robotRuntime.step(step);
+        if (this.vehicleRuntime) this.vehicleRuntime.step(step);
         this.records.forEach(record => this.transport(record, step));
         this.scopeGroups.forEach(group => {
           if (group.memberIds.some(id => this.records.get(id).components.conveyor.actualSpeed !== 0)) group.runSeconds += step;
@@ -1604,7 +1687,7 @@ export default class SimulationRuntime {
       // its intake must not collide with that station's displayed first load.
       if (product.processorLocked && product.processorOwnerId === record.id) return;
       if (item && (item === excluded || item.beltId || item.palletOwnerId) ||
-        excluded && excluded.mesh === product.object || !visible(product.object) || !product.heldBy && !this.collisionWorld(product.object)) return;
+        excluded && excluded.mesh === product.object || !visible(product.object) || !product.heldBy && !product.robotOwnerId && !product.vehicleOwnerId && !this.collisionWorld(product.object)) return;
       updateTree(product.object);
       ignore.push(product.object);
       extraBoxes.push(product.bounds.clone().applyMatrix4(product.object.matrixWorld));
@@ -1710,6 +1793,7 @@ export default class SimulationRuntime {
   }
 
   transferDetails(record, belt, item, reservations = []) {
+    if (this.robotRuntime && !this.robotRuntime.canDispatch(record, item.product)) return {blocked: true};
     if (belt.speed < 0) return null;
     const branch = item.route === 'branch' && belt.config.layout === 'tee' && belt.config.junctionMode !== 'merge';
     const id = branch ? belt.config.branchId : belt.config.outputId;
@@ -1906,6 +1990,7 @@ export default class SimulationRuntime {
     if (belt.config.mechanism === 'zones') belt.zoneSpeeds = Array.from({length: Math.ceil(this.pathLength(belt.config) / belt.config.zoneLength)}, () => 0);
     belt.packages.forEach(item => {
       item.previous.copy(item.box);
+      if (item.product && (item.product.robotReservedBy || item.product.vehicleReservedBy)) { item.swept.copy(item.box); return; }
       const point = this.pathPoint(belt.config, item.offset + this.pathLength(belt.config, item.route) / 2, item.route);
       let distance = belt.actualSpeed * delta / this.tangentScale(record, point);
       const midpoint = this.pathPoint(belt.config, item.offset + this.pathLength(belt.config, item.route) / 2 + distance / 2, item.route);
@@ -2068,6 +2153,8 @@ export default class SimulationRuntime {
       if (record.components.source) Object.assign(variables, this.sourceRuntime.variables(record));
       if (record.components.processor) Object.assign(variables, this.processorRuntime.variables(record));
       if (record.components.palletQueue) Object.assign(variables, this.palletQueueRuntime.variables(record));
+      if (record.components.robot && this.robotRuntime) Object.assign(variables, this.robotRuntime.variables(record));
+      if (record.components.vehicle && this.vehicleRuntime) Object.assign(variables, this.vehicleRuntime.variables(record));
       const inventory = record.components.source || record.components.palletQueue;
       if (inventory) Object.assign(variables, {powered: inventory.powered !== false, emergency: !!inventory.emergency});
       if (sensor) Object.assign(variables, {enabled: sensor.enabled, active: sensor.active, occupied: sensor.occupied, count: sensor.count});
@@ -2120,6 +2207,7 @@ export default class SimulationRuntime {
       const belt = record.components.conveyor;
       if (!belt) return;
       belt.packages = belt.packages.filter(item => {
+        if (item.product && (item.product.robotReservedBy || item.product.vehicleReservedBy)) return true;
         if (!item.exited) return true;
         const transfer = this.transferDetails(record, belt, item, transfers);
         if (transfer) {

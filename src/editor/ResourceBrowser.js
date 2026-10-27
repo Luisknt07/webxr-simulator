@@ -334,6 +334,13 @@ export default class ResourceBrowser {
               if (!count) row.title = 'Esta familia aún no tiene variantes completas disponibles.';
             });
           }
+          if (category.id === 'industrial' && id === 'vehicles' && this.state.folder.startsWith('industrial/vehicles')) {
+            (catalog.MOBILITY_FAMILIES || catalog.ROBOT_FAMILIES || []).forEach(family => {
+              const count = this.resources.filter(resource => resource.subcategory === 'vehicles' && resource.family === family.id && resource.action).length;
+              const row = addFolder(group, 'industrial/vehicles/' + family.id, family.name, count);
+              row.classList.add('studio-resource-conveyor-family');
+            });
+          }
         }); this.folderList.appendChild(group);
       });
     } else if (this.tab === 'favorites') {
