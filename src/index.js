@@ -862,6 +862,13 @@ function animate(time, frame) {
   var delta = clock.getDelta();
   var elapsedTime = clock.elapsedTime;
 
+  // WebGL can be lost before its DOM event reaches Three's internal listener.
+  // Avoid environment/PMREM/shader work in that gap: r112's compile diagnostics
+  // otherwise throw on null logs and stop its animation callback permanently.
+  // Keep sampling the clock so recovery does not advance a large catch-up step.
+  const gl = renderer.getContext && renderer.getContext();
+  if (gl && gl.isContextLost && gl.isContextLost() || context.graphics && context.graphics.lost) return;
+
   // r112 does not expose the session-init promise. Button state also clears
   // this gate after a denied/failed start, without deferring the user gesture.
   if (context.xrEntryPending && context.vrButton && !context.vrButton.disabled) {

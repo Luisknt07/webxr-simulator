@@ -4,7 +4,7 @@ const schema = require('../shared/behaviors');
 const fixture = fs.readFileSync(path.join(__dirname, 'test-industrial-lab-lines.js'), 'utf8');
 const {harness, releaseGeometry} = new Function('require', '__dirname', fixture.slice(0, fixture.indexOf('\nasync function run()')) + '\nreturn {harness,releaseGeometry};')(require, __dirname);
 const builders = require('./load-industrial-cedi')(THREE, schema);
-const Visuals = new Function('THREE', fs.readFileSync(path.join(__dirname, '../src/editor/IndustrialVisuals.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE);
+const Visuals = new Function('THREE', 'RollerInstanceBatches', fs.readFileSync(path.join(__dirname, '../src/editor/IndustrialVisuals.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE, require('./load-roller-instance-batches')(THREE));
 const session = new inspector.Session(); session.connect();
 const post = (method, args) => new Promise((resolve, reject) => session.post(method, args || {}, (error, result) => error ? reject(error) : resolve(result)));
 (async () => {

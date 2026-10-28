@@ -52,7 +52,27 @@ try {
   assert(workflow.includes('run: node scripts/validate-public-scenes.js')); assert(!workflow.includes('run: node scripts/generate-public-scenes.js'), 'Packaging cannot run a generator whose dependencies are deliberately absent.');
   const isolated = require('node:child_process').spawnSync(process.execPath, ['-e', "const M=require('node:module'),p=require('node:path'),load=M._load;M._load=function(id,parent,main){if(!id.startsWith('.')&&!p.isAbsolute(id)&&!M.isBuiltin(id))throw new Error('Unexpected npm dependency: '+id);return load.call(this,id,parent,main)};require('./scripts/validate-public-scenes').validate();"], {cwd: sourceRoot, encoding: 'utf8'});
   assert.equal(isolated.status, 0, 'A clean CI checkout must validate without node_modules: ' + isolated.stderr);
-  console.log('Pages package: allowlisted runtime with real Basis/Draco decoder JS/WASM, both public projections, workers/materials/styles, source revision/hash, no private files, bounded replacement and symlink rejection passed.');
+  // The temporary all-example preview is a separate contract from the normal
+  // two-scene regression above. Its inventory follows the real framework
+  // recipes; adding an example cannot silently omit it from Pages.
+  const previewIds = require('./validate-scene-thumbnails').expectedIds(sourceRoot);
+  const previewScenes = previewIds.map(id => ({id, name: id, roomId: id.startsWith('original-') ? id.slice(9) : publicScenes.SCENES.find(scene => scene.id === id)?.roomId || 'hall', public: true, included: true}));
+  write('assets/public-scenes/catalog.json', JSON.stringify({previewAllExamples: true, requiresLogin: false, includedCount: previewScenes.length, scenes: previewScenes}));
+  const thumbnailBytes = new Map();
+  for (const scene of previewScenes) {
+    const projectedDocument = {format: 'hello-webxr-editor', version: 1, rooms: {[scene.roomId]: {additions: [], overrides: []}}, studio: {scenes: [{id: scene.roomId}]}, imports: []};
+    write('assets/public-scenes/' + scene.id + '.json', JSON.stringify({project: publicScenes.project(projectedDocument, scene)}));
+    const bytes = Buffer.from('offline-thumbnail-fixture:' + scene.id); thumbnailBytes.set(scene.id, bytes); write('assets/scene-thumbnails/' + scene.id + '.png', bytes);
+  }
+  write('assets/scene-thumbnails/manifest.json', JSON.stringify({format: 'thumbnail-package-fixture', scenes: previewIds}));
+  const preview = prepare({root: temporaryRoot, revision});
+  assert.equal(preview.publication.previewAllExamples, true);
+  assert.deepEqual(preview.publication.scenes.slice().sort(), previewIds.slice().sort());
+  assert.equal(preview.publication.scenes.length, require('./validate-public-scenes').inventory(sourceRoot).includedCount);
+  assert.deepEqual(fs.readdirSync(path.join(preview.output, 'assets/scene-thumbnails')).sort(), ['manifest.json'].concat(previewIds.map(id => id + '.png')).sort());
+  for (const [id, bytes] of thumbnailBytes) assert(fs.readFileSync(path.join(preview.output, 'assets/scene-thumbnails', id + '.png')).equals(bytes), 'Pages must copy the offline preview unchanged: ' + id);
+  for (const file of ['data', 'server', '.git', '.env', 'node_modules', 'examples']) assert(!fs.existsSync(path.join(preview.output, file)), 'All-example publication still excludes private storage: ' + file);
+  console.log('Pages package: restricted publication and all ' + previewIds.length + ' framework examples with static preview assets, real Basis/Draco decoders, source hashes, no private files, bounded replacement and symlink rejection passed.');
 } finally {
   // The generated fixture is an inspected mkdtemp child of the OS temp root.
   const resolved = path.resolve(temporaryRoot), parent = path.resolve(os.tmpdir());

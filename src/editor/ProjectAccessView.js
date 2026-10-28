@@ -1,8 +1,8 @@
 import {compileBlankProject} from './StudySceneProject.js';
 import publicScenes from '../../shared/public-scenes.js';
+import PublicSceneLibrary from './PublicSceneLibrary.js';
 
 const ROOMS = ['hall', 'sound', 'photogrammetry', 'vertigo', 'panoramastereo', 'panorama1', 'panorama2', 'panorama3', 'panorama4', 'panorama5'];
-function node(tag, text, parent) { const result = document.createElement(tag); if (text !== undefined) result.textContent = text; if (parent) parent.appendChild(result); return result; }
 
 /** Server-backed scene selection. Public projections contain one authorized
  * room, never a hidden copy of the owner's complete private project. */
@@ -130,6 +130,7 @@ export default class ProjectAccessView {
   async accountChanged(user, options = {}) {
     const old = this.user && this.user.id; this.user = user || null;
     if (old === (this.user && this.user.id) && !options.reload) return;
+    this.disposeGallery();
     this.generation++; this.identityGeneration++; const editor = this.editor;
     const canvas = editor.ctx.renderer && editor.ctx.renderer.domElement; if (canvas) canvas.style.visibility = 'hidden';
     editor.projectSync.stop(); editor.clearObjectClipboard();
@@ -153,27 +154,35 @@ export default class ProjectAccessView {
     if (canvas) canvas.style.visibility = '';
     } catch (error) { editor.accessLoadFailed = true; throw error; }
   }
+  disposeGallery() {
+    this.galleryGeneration = (this.galleryGeneration || 0) + 1;
+    if (this.sceneLibrary) this.sceneLibrary.dispose(); this.sceneLibrary = null;
+  }
   async gallery(host, studio) {
-    const generation = this.galleryGeneration = (this.galleryGeneration || 0) + 1;
-    const scope = this.identityGeneration;
+    this.disposeGallery(); const generation = this.galleryGeneration, scope = this.identityGeneration;
     const publicCatalog = await this.publicCatalog();
-    if (!host.isConnected || generation !== this.galleryGeneration) return;
-    node('p', publicCatalog.previewAllExamples ? 'Vista previa temporal: todos los ejemplos incluidos están disponibles sin iniciar sesión. Cada escenario se carga al abrirlo; los proyectos de usuarios conservan sus permisos.' : this.staticPublic ? 'Dos ejemplos públicos interactivos. Esta publicación estática no ofrece cuentas ni proyectos privados.' : 'Dos ejemplos públicos. Inicia sesión para consultar el catálogo completo y tus proyectos.', host).className = 'studio-muted';
-    const render = (title, entries, included) => {
-      node('h3', title, host);
-      entries.forEach(scene => { const card = node('div', undefined, host); card.className = 'studio-card'; node('strong', scene.name || scene.title, card); if (scene.collection) node('p', scene.collection, card);
-        const open = node('button', 'Explorar escenario', card); open.type = 'button';
-        open.addEventListener('click', () => studio.guard(async () => {
-          const result = included ? await this.editor.projectClient.request('GET', '/library/scenes/' + encodeURIComponent(scene.id)) : await this.publicProject(scene.id);
-          if (scope !== this.identityGeneration) return;
-          if (this.editor.active) this.editor.leave(); await this.editor.applyServerProject(result.project, {roomId: scene.roomId, accessGeneration: scope}); studio.close();
-        }));
-      });
-    };
-    render('Disponibles para todos', publicCatalog.scenes || [], false);
+    if (!host.isConnected || generation !== this.galleryGeneration || scope !== this.identityGeneration) return;
+    const entries = (publicCatalog.scenes || []).map(scene => ({scene, included: false}));
     if (studio.client.user && !publicCatalog.previewAllExamples) {
       const result = await this.editor.projectClient.request('GET', '/library/scenes');
-      if (host.isConnected && generation === this.galleryGeneration) render('Ejemplos incluidos · acceso con cuenta', result.scenes || [], true);
-    } else if (!this.staticPublic && !publicCatalog.previewAllExamples) { const login = node('button', 'Iniciar sesión para ver más escenarios', host); login.addEventListener('click', () => studio.open('account')); }
+      if (!host.isConnected || generation !== this.galleryGeneration || scope !== this.identityGeneration) return;
+      (result.scenes || []).forEach(scene => { if (!entries.some(value => value.scene.id === scene.id)) entries.push({scene, included: true}); });
+    }
+    this.sceneLibrary = new PublicSceneLibrary(host, studio, entries, {
+      currentId: this.editor.currentProject && (this.editor.currentProject.publicSceneId || this.editor.currentProject.librarySceneId),
+      requiresLogin: !studio.client.user && !this.staticPublic && !publicCatalog.previewAllExamples,
+      open: async (entry, library) => {
+        if (library.disposed || generation !== this.galleryGeneration || scope !== this.identityGeneration) return;
+        const scene = entry.scene, current = this.editor.currentProject;
+        if (current && (current.publicSceneId === scene.id || current.librarySceneId === scene.id)) { studio.close(); return; }
+        const result = entry.included ? await this.editor.projectClient.request('GET', '/library/scenes/' + encodeURIComponent(scene.id)) : await this.publicProject(scene.id);
+        if (library.disposed || !host.isConnected || generation !== this.galleryGeneration || scope !== this.identityGeneration) return;
+        if (this.editor.active) await this.editor.leave();
+        if (library.disposed || generation !== this.galleryGeneration || scope !== this.identityGeneration) return;
+        await this.editor.applyServerProject(result.project, {roomId: scene.roomId, accessGeneration: scope});
+        if (!library.disposed && generation === this.galleryGeneration && scope === this.identityGeneration) studio.close();
+      }
+    });
+    this.sceneLibrary.focus(); return this.sceneLibrary;
   }
 }

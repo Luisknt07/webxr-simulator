@@ -6,7 +6,7 @@ const schema = require('../shared/behaviors');
 const fixture = fs.readFileSync(path.join(__dirname, 'test-industrial-lab-lines.js'), 'utf8');
 const {harness, buildIndustrialLabLines, releaseGeometry} = new Function('require', '__dirname', fixture.slice(0, fixture.indexOf('\nasync function run()')) + '\nreturn {harness,buildIndustrialLabLines,releaseGeometry};')(require, __dirname);
 const buildIndustrialLab = require('./load-industrial-lab')(THREE, schema, buildIndustrialLabLines);
-const Visuals = new Function('THREE', fs.readFileSync(path.join(__dirname, '../src/editor/IndustrialVisuals.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE);
+const Visuals = new Function('THREE', 'RollerInstanceBatches', fs.readFileSync(path.join(__dirname, '../src/editor/IndustrialVisuals.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE, require('./load-roller-instance-batches')(THREE));
 const clone = value => JSON.parse(JSON.stringify(value));
 const id = object => object.userData.editorId;
 

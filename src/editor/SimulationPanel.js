@@ -82,6 +82,13 @@ export default class SimulationPanel {
   }
 
   tick(snapshot) {
+    // Closed panels do not need a copy of every machine variable and event on
+    // every render frame. Recording remains authoritative and requests the
+    // same complete snapshots; an open readout only paints four times/second.
+    if (!snapshot) {
+      if (!this.recorder.active && (!this.opened || this.editor.simulation.time - this.lastPaint < 0.25)) return;
+      snapshot = this.editor.simulation.getSnapshot();
+    }
     if (this.recorder.active) {
       this.recorder.capture(snapshot);
       if (!this.recorder.active) {

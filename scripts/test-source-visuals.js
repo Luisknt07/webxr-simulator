@@ -17,7 +17,7 @@ const cargo = require('./load-product-prefabs.js')(THREE);
 const prefab = new Function('THREE', 'behaviorSchema', 'document', 'require', read('IndustrialPrefabs.js')
   .replace(/^export const /gm, 'const ').replace(/^export function /gm, 'function ') + '\nreturn {createIndustrialPrefab,createSourceProductVisual};')(THREE, behaviorSchema, dom, id => { assert.equal(id, './ProductPrefabs.js'); return cargo; });
 const SceneDocument = new Function('THREE', 'behaviorSchema', 'createIndustrialPrefab', read('SceneDocument.js').replace('export default class SceneDocument', 'return class SceneDocument'))(THREE, behaviorSchema, prefab.createIndustrialPrefab);
-const IndustrialVisuals = new Function('THREE', read('IndustrialVisuals.js').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE);
+const IndustrialVisuals = new Function('THREE', 'RollerInstanceBatches', read('IndustrialVisuals.js').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE, require('./load-roller-instance-batches')(THREE));
 const close = (actual, expected, message) => assert(Math.abs(actual - expected) < 0.00001, message || `${actual} != ${expected}`);
 function bounds(object) { object.updateMatrixWorld(true); return new THREE.Box3().setFromObject(object); }
 

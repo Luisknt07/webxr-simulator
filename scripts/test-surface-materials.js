@@ -11,7 +11,7 @@ const System = new Function('THREE', 'materialSchema', source)(THREE, materialSc
 const prefabSource = fs.readFileSync(path.join(__dirname, '../src/editor/IndustrialPrefabs.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace(/^export const /gm, 'const ').replace(/^export function /gm, 'function ');
 const createIndustrialPrefab = new Function('THREE', 'behaviorSchema', prefabSource + '\nreturn createIndustrialPrefab;')(THREE, behaviorSchema);
 const visualSource = fs.readFileSync(path.join(__dirname, '../src/editor/IndustrialVisuals.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals');
-const IndustrialVisuals = new Function('THREE', visualSource)(THREE);
+const IndustrialVisuals = new Function('THREE', 'RollerInstanceBatches', visualSource)(THREE, require('./load-roller-instance-batches')(THREE));
 function texture(shade = 220) {
   const result = new THREE.DataTexture(new Uint8Array([shade, shade, shade, 255]), 1, 1, THREE.RGBAFormat);
   result.encoding = THREE.sRGBEncoding; result.needsUpdate = true; return result;

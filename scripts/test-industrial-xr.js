@@ -44,7 +44,7 @@ const RayControl = new Function('THREE', 'EventDispatcher', source('src/lib/RayC
 const ProductFeedback = fs.existsSync(path.join(__dirname, '../src/editor/ProductFeedback.js')) ? new Function('THREE', source('src/editor/ProductFeedback.js').replace('default class ProductFeedback', 'return class ProductFeedback'))(THREE) : undefined;
 const Runtime = new Function('THREE', 'behaviorSchema', 'automationSchema', 'createProductVisual', 'ProductFeedback', 'ObjectPlacement', 'ProductSourceRuntime', 'ProcessorRuntime', 'PalletQueueRuntime', source('src/editor/SimulationRuntime.js').replace('default class SimulationRuntime', 'return class SimulationRuntime'))(THREE, behaviorSchema, automationSchema, prefabs.createProductVisual, ProductFeedback, ObjectPlacement, ProductSourceRuntime, ProcessorRuntime, PalletQueueRuntime);
 const CollisionWorld = new Function('THREE', 'getGeometryTree', source('src/lib/CollisionWorld.js').replace('default class CollisionWorld', 'return class CollisionWorld'))(THREE, getGeometryTree);
-const IndustrialVisuals = new Function('THREE', source('src/editor/IndustrialVisuals.js').replace('default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE);
+const IndustrialVisuals = new Function('THREE', 'RollerInstanceBatches', source('src/editor/IndustrialVisuals.js').replace('default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE, require('./load-roller-instance-batches')(THREE));
 
 function inputTarget() {
   const target = new THREE.EventDispatcher(); target.clientHeight = 800;

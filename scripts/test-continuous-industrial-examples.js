@@ -6,7 +6,7 @@ const schema = require('../shared/behaviors'), {histogram} = require('./continuo
 const fixture = fs.readFileSync(path.join(__dirname, 'test-industrial-lab-lines.js'), 'utf8');
 const {harness, releaseGeometry} = new Function('require', '__dirname', fixture.slice(0, fixture.indexOf('\nasync function run()')) + '\nreturn {harness,releaseGeometry};')(require, __dirname);
 const builders = require('./load-industrial-cedi')(THREE, schema);
-const Visuals = new Function('THREE', fs.readFileSync(path.join(__dirname, '../src/editor/IndustrialVisuals.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE);
+const Visuals = new Function('THREE', 'RollerInstanceBatches', fs.readFileSync(path.join(__dirname, '../src/editor/IndustrialVisuals.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE, require('./load-roller-instance-batches')(THREE));
 const id = object => object.userData.editorId, clone = value => JSON.parse(JSON.stringify(value));
 const config = (f, object) => f.document.getBehaviors(object).find(value => ['source', 'processor', 'conveyor', 'palletQueue'].includes(value.type));
 function leaves(entry) {

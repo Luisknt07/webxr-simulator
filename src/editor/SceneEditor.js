@@ -260,6 +260,7 @@ export default class SceneEditor {
       if (event.value) this.stopOrbitMotion();
       this.orbit.enabled = this.active && !event.value;
       if (event.value) {
+        if (this.performance.clearPresentation) this.performance.clearPresentation();
         this.industrialVisuals.dispose(); this.materials.dispose(); this.document.begin();
         const resizeTarget = this.transform.object || this.selected;
         const explicitGroup = this.studioTools && this.studioTools.selection.size > 1;
@@ -857,6 +858,7 @@ export default class SceneEditor {
   }
 
   stopRuntime() {
+    if (this.performance && this.performance.clearPresentation) this.performance.clearPresentation();
     if (this.simulationPanel) this.simulationPanel.endSession();
     if (this.finishes) this.finishes.dispose();
     this.industrialVisuals.dispose();
@@ -868,6 +870,7 @@ export default class SceneEditor {
 
   syncSurfaceMaterials() {
     if (this.pendingEdits || this.loadingProject || this.document.loading || this.transform && this.transform.dragging) return;
+    if ((this.materials.dirty || this.materials.roomId !== this.roomId) && this.performance.clearPresentation) this.performance.clearPresentation();
     const ready = this.materials.sync(this.roomId);
     // Animated rollers own private texture copies. Rebind those wrappers when
     // an asynchronous PBR image finishes loading, keeping its native motion.
@@ -913,7 +916,8 @@ export default class SceneEditor {
     if (!this.pendingEdits && !this.loadingProject && !this.document.loading) this.lineMonitors.sync(this.roomId, this.simulationPaused ? 0 : delta, false);
     this.decals.sync(this.roomId);
     this.wearPaint.sync(this.roomId);
-    this.simulationPanel.tick(this.simulation.getSnapshot());
+    this.simulationPanel.tick();
+    if (this.performance.syncPresentation) this.performance.syncPresentation(false);
   }
 
   resize() {
@@ -1210,6 +1214,7 @@ export default class SceneEditor {
     this.pendingEdits++;
     try {
       this.industrialVisuals.dispose();
+      if (this.performance.clearPresentation) this.performance.clearPresentation();
       this.materials.dispose();
       const result = await action();
       if (this.ctx.roomAssets && result && result.isObject3D) await this.ctx.roomAssets.prepareDependencies(this.root);

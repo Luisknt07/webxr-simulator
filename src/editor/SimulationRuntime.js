@@ -100,6 +100,7 @@ export default class SimulationRuntime {
     this.scopeGroups = new Map();
     this.scopeLookup = new Map();
     this.controlFeedback = new Map();
+    this.actorMatrices = new WeakMap();
     this.productFeedback = new ProductFeedback(ctx);
     this.sourceRuntime = new ProductSourceRuntime(this);
     this.processorRuntime = new ProcessorRuntime(this);
@@ -264,6 +265,7 @@ export default class SimulationRuntime {
       if (this.document.additions) this.document.additions.forEach(entry => { if (entry.descriptor.type === 'cad' && entry.descriptor.attachment) this.invalidateCollision(entry.object); });
     }
     this.records.clear();
+    this.actorMatrices = new WeakMap();
     this.products.clear();
     this.scopeGroups.clear(); this.scopeLookup.clear();
     if (this.robotSourceLinks) this.robotSourceLinks.clear();
@@ -1571,21 +1573,13 @@ export default class SimulationRuntime {
     const world = this.ctx.collisionWorld;
     const ownsFrame = world && world.beginFrame && world.endFrame && !world.frameActive;
     if (ownsFrame) world.beginFrame();
-    // A render frame can contain several fixed steps. Update only simulation
-    // actors and their descendants, rather than every mesh of the whole room
-    // again at each step. A nested sensor shares its ancestor actor's update.
-    const actors = new Set(Array.from(this.records.values(), record => record.object));
-    const roots = Array.from(actors).filter(object => {
-      for (let parent = object.parent; parent; parent = parent.parent) if (actors.has(parent)) return false;
-      return true;
-    });
     try {
       this.updateHeldProducts();
       while (remaining > 1e-10) {
         const step = Math.min(remaining, STEP);
         this.time += step;
         this.records.forEach(record => this.move(record, step));
-        roots.forEach(updateTree);
+        this.syncActorMatrices();
         this.sourceRuntime.step(step);
         this.processorRuntime.step(step);
         this.palletQueueRuntime.step(step);
@@ -1605,6 +1599,27 @@ export default class SimulationRuntime {
       this.productFeedback.update(elapsed);
       if (ownsFrame) world.endFrame();
     }
+  }
+
+  syncActorMatrices() {
+    // A static PLC or conveyor can contain hundreds of cosmetic meshes. The
+    // fixed simulation step only needs to propagate a changed actor transform;
+    // machinery runtimes already update their articulated/load transforms.
+    // Check every actor (including nested sensors/motion actors), so moving a
+    // parent, reparenting a load or adding a new child is observed immediately.
+    this.records.forEach(record => {
+      const object = record.object;
+      object.updateWorldMatrix(true, false);
+      let saved = this.actorMatrices.get(object);
+      const elements = object.matrixWorld.elements;
+      let changed = !saved || saved.parent !== object.parent || saved.children !== object.children.length;
+      if (!changed) for (let index = 0; index < 16; index++) if (saved.matrix[index] !== elements[index]) { changed = true; break; }
+      if (!changed) return;
+      object.updateWorldMatrix(false, true);
+      if (!saved) { saved = {matrix: new Array(16)}; this.actorMatrices.set(object, saved); }
+      for (let index = 0; index < 16; index++) saved.matrix[index] = elements[index];
+      saved.parent = object.parent; saved.children = object.children.length;
+    });
   }
 
   invalidateCollision(object) {

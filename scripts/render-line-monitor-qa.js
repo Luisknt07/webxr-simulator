@@ -8,7 +8,8 @@ const root = path.resolve(__dirname, '..'), artifacts = path.join(root, 'data/qa
 const fixture = fs.readFileSync(path.join(__dirname, 'test-industrial-lab-lines.js'), 'utf8');
 const h = new Function('require', '__dirname', fixture.slice(0, fixture.indexOf('\nasync function run()')) + '\nreturn {fixture,buildIndustrialLabLines,releaseGeometry};')(require, __dirname);
 const source = fs.readFileSync(path.join(root, 'src/editor/LineMonitorSystem.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class LineMonitorSystem', 'class LineMonitorSystem');
-const System = new Function('THREE', 'behaviorSchema', source + '\nreturn LineMonitorSystem;')(THREE, schema);
+const displaySource = fs.readFileSync(path.join(root, 'src/editor/DynamicDisplayResolution.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class DynamicDisplayResolution', 'class DynamicDisplayResolution');
+const System = new Function('THREE', 'behaviorSchema', displaySource + '\n' + source + '\nreturn LineMonitorSystem;')(THREE, schema);
 const f = h.fixture(), cell = h.buildIndustrialLabLines(f.document, 'hall', {scene: f.scene, cellIds: ['sorting']}).cells[0];
 f.runtime.start('hall');
 const advance = seconds => { for (let t = 0; t < seconds - 1e-9; t += .1) { f.scene.updateMatrixWorld(true); f.runtime.execute(Math.min(.1, seconds - t)); } };
@@ -35,7 +36,7 @@ const data = Object.assign({}, model, {records: model.records.map(record => {
 const json = value => JSON.stringify(value).replace(/</g, '\\u003c');
 const three = fs.readFileSync(path.join(root, 'node_modules/three/build/three.min.js'), 'utf8').replace(/<\/script/gi, '<\\/script');
 const html = '<!doctype html><meta charset="utf-8"><style>body{margin:18px;background:#08131c;color:#dcecf5;font:15px sans-serif}canvas{display:block;margin-top:12px;border:1px solid #527486}</style>' +
-  '<div>Canvas de producción · datos reales de 46 s simulados, incluidos 4 s de pausa y 3 s sin alimentación</div><canvas id="screen" width="1024" height="576"></canvas><script>' + three + '</script><script>' + source +
+  '<div>Canvas de producción · datos reales de 46 s simulados, incluidos 4 s de pausa y 3 s sin alimentación</div><canvas id="screen" width="1024" height="576"></canvas><script>' + three + '</script><script>' + displaySource + '\n' + source +
   '\nconst behaviorSchema={conveyorEquipment:{resolveVariant:config=>{const record=model.records.find(record=>record.config===config);return record&&record.definition}}},model=' + json(data) + ';' +
   'const point=p=>new THREE.Vector3(p.x,p.y,p.z),points=a=>a.map(point);model.project=p=>({x:model.offset.x+p.x*model.scale,y:model.offset.y+p.z*model.scale});' +
   'model.records.forEach(r=>{r.position=point(r.position);const saved=r.object,o=new THREE.Group();o.name=saved.name;o.userData=saved.userData;saved.names.forEach(name=>{const n=new THREE.Group();n.name=name;n.add(new THREE.Group());o.add(n)});r.object=o});' +

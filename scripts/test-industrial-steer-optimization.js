@@ -8,7 +8,7 @@ const {createIndustrialPrefab: factory, batchDetails} = new Function('THREE', 'b
   .replace(/export const /g, 'const ').replace(/export function /g, 'function ') + '\nreturn {createIndustrialPrefab,batchDetails};')(THREE, schema);
 const SceneDocument = new Function('THREE', 'behaviorSchema', 'createIndustrialPrefab', read('SceneDocument.js')
   .replace('export default class SceneDocument', 'return class SceneDocument'))(THREE, schema, factory);
-const IndustrialVisuals = new Function('THREE', read('IndustrialVisuals.js').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE);
+const IndustrialVisuals = new Function('THREE', 'RollerInstanceBatches', read('IndustrialVisuals.js').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE, require('./load-roller-instance-batches')(THREE));
 const near = (a, b, epsilon = 1e-5) => assert(Math.abs(a - b) <= epsilon, a + ' != ' + b);
 function expanded(geometry, name) {
   const attribute = geometry.attributes[name], result = [], index = geometry.index;

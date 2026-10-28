@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import behaviorSchema from '../../shared/behaviors.js';
+import DynamicDisplayResolution from './DynamicDisplayResolution.js';
 
 const WIDTH = 1024, HEIGHT = 576, PAGE_SIZE = 10, PREVIEW_LIMIT = 4, PREVIEW_TRIANGLES = 10000;
 const MAP = {x: 20, y: 116, width: 660, height: 364, right: 680, bottom: 480};
@@ -181,6 +182,7 @@ export default class LineMonitorSystem {
     this.inventory = []; this.inventoryStamp = []; this.inventoryDirty = true; this.scanElapsed = 1;
     this.prefix = 'industrial-line-monitor-' + (++nextMonitor) + '-';
     this.previewCache = new Map(); this.stats = {draws: 0, previewBuilds: 0};
+    this.displayResolution = new DynamicDisplayResolution(ctx, WIDTH, HEIGHT);
   }
 
   invalidate() { this.inventoryDirty = true; this.entries.forEach(entry => { entry.dirty = true; }); }
@@ -201,7 +203,7 @@ export default class LineMonitorSystem {
   create(owner, config) {
     const dom = this.ctx.document || (typeof document !== 'undefined' ? document : null);
     if (!dom || !dom.createElement) return null;
-    const canvas = dom.createElement('canvas'); canvas.width = WIDTH; canvas.height = HEIGHT;
+    const canvas = dom.createElement('canvas'); canvas.width = 256; canvas.height = 144;
     const drawing = canvas.getContext && canvas.getContext('2d'); if (!drawing) return null;
     const texture = new THREE.CanvasTexture(canvas); texture.encoding = THREE.sRGBEncoding;
     texture.minFilter = THREE.LinearFilter; texture.magFilter = THREE.LinearFilter; texture.generateMipmaps = false;
@@ -840,6 +842,7 @@ export default class LineMonitorSystem {
 
   draw(entry, model) {
     const context = entry.drawing; entry.regions = [];
+    if (context.setTransform) context.setTransform(entry.canvas.width / WIDTH, 0, 0, entry.canvas.height / HEIGHT, 0, 0);
     context.fillStyle = COLORS.background; context.fillRect(0, 0, WIDTH, HEIGHT);
     this.text(entry, short(entry.config.title || 'SUPERVISIÓN DE LÍNEA', 36), 20, 30, 23, COLORS.text, 500);
     this.text(entry, model.live ? 'EN VIVO · ' + model.records.length + ' equipos' : 'EDITAR · Pulsa Probar para operar', 20, 55, 15, model.live ? COLORS.green : COLORS.cyan);
@@ -895,7 +898,7 @@ export default class LineMonitorSystem {
       input.deactivateState(entry.name); delete input.states[entry.name];
     }
     entry.presses.clear(); entry.preview = null; entry.previewLabels = []; entry.planes.forEach(plane => { if (plane.parent) plane.parent.remove(plane); });
-    entry.plane.geometry.dispose(); entry.plane.material.dispose(); entry.texture.dispose(); this.entries.delete(owner);
+    entry.plane.geometry.dispose(); entry.plane.material.dispose(); entry.texture.dispose(); entry.canvas.width = entry.canvas.height = 0; this.entries.delete(owner);
   }
 
   sync(roomId, delta = 0, editing = false) {
@@ -910,6 +913,7 @@ export default class LineMonitorSystem {
       entry.config = config; entry.editing = editing;
       const performance = this.ctx.performanceVisibility;
       const shown = visible(owner) && (!performance || !performance.isVisible || performance.isVisible(owner)); entry.planes.forEach(plane => { plane.visible = shown; });
+      this.displayResolution.update(entry, delta, editing, shown);
       const active = shown && !editing && this.simulation.running, input = this.ctx.raycontrol;
       if (entry.active !== active && input) {
         if (active) input.activateState(entry.name); else { input.deactivateState(entry.name); entry.presses.clear(); }

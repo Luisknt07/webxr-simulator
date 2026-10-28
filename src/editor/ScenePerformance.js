@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import RuntimeResourceMemory from './RuntimeResourceMemory.js';
 import CosmeticVisualLod from './CosmeticVisualLod.js';
+import StaticArchitectureBatches from './StaticArchitectureBatches.js';
 
 function resources() {
   return {geometries: new Set(), materials: new Set(), textures: new Set(), attributes: new Set(), objects: new Set(), renderTargets: new Set(), renderTargetTextures: new Set(), cpuArrays: new Set(), audioBuffers: new Set(), encodedStrings: new Set()};
@@ -39,13 +40,18 @@ function collectTarget(value, target) {
 // every sample adds allocation and GC without changing either result.
 function mergeResources(target, source) { Object.keys(target).filter(key => key !== 'objects').forEach(key => source[key].forEach(value => target[key].add(value))); }
 const scanClock = () => typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
-const MAP_KEYS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'lightMap', 'alphaMap', 'bumpMap', 'displacementMap', 'envMap', 'gradientMap', 'uniforms', 'preparedConcreteUniforms'];
+const MAP_KEYS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'lightMap', 'alphaMap', 'bumpMap', 'displacementMap', 'envMap', 'gradientMap', 'uniforms', 'preparedConcreteUniforms', 'surfaceWearMap'];
 function materialMaps(material) { return MAP_KEYS.map(key => material[key]).concat(material.preparedConcreteUniforms && material.preparedConcreteUniforms.preparedConcreteMap && material.preparedConcreteUniforms.preparedConcreteMap.value); }
 function sameMaterialMaps(material, values) { for (let index = 0; index < MAP_KEYS.length; index++) if (material[MAP_KEYS[index]] !== values[index]) return false; return (material.preparedConcreteUniforms && material.preparedConcreteUniforms.preparedConcreteMap && material.preparedConcreteUniforms.preparedConcreteMap.value) === values[MAP_KEYS.length]; }
 
-function collect(root, target, stopRoots) {
+function collect(root, target, stopRoots, hiddenTarget) {
   if (!root || !root.isObject3D || (stopRoots && stopRoots.has(root)) || target.objects.has(root)) return;
+  // Authored-hidden native museum meshes can live under an active industrial
+  // room. They retain CPU/undo ownership, but are not GPU residents merely for
+  // sharing that room ID. Do not use camera/frustum culling for this eviction.
+  if (hiddenTarget && root.visible === false) { collect(root, hiddenTarget, stopRoots); return; }
   target.objects.add(root);
+  if (root.instanceMatrix) target.attributes.add(root.instanceMatrix);
   if (root.geometry && !target.geometries.has(root.geometry)) {
     target.geometries.add(root.geometry);
     attributesOf(root.geometry).forEach(attribute => target.attributes.add(attribute));
@@ -56,7 +62,7 @@ function collect(root, target, stopRoots) {
   (root.animations || []).forEach(clip => (clip.tracks || []).forEach(track => { if (track.times) target.cpuArrays.add(track.times); if (track.values) target.cpuArrays.add(track.values); }));
   if (root.background && root.background.isTexture) target.textures.add(root.background);
   if (root.environment && root.environment.isTexture) target.textures.add(root.environment);
-  root.children.forEach(child => collect(child, target, stopRoots));
+  root.children.forEach(child => collect(child, target, stopRoots, hiddenTarget));
 }
 
 function collectAsset(asset, target) {
@@ -118,6 +124,7 @@ export default class ScenePerformance {
     this.inverse = new THREE.Matrix4();
     this.testBox = new THREE.Box3();
     this.memory = new RuntimeResourceMemory(); this.lod = new CosmeticVisualLod(); this.cameras = [];
+    this.architecture = new StaticArchitectureBatches(document);
     this.memoryStats = {gpuGeometryBytes: 0, gpuTextureBytes: 0, retainedCpuBytesEstimated: 0, memoryEstimated: true, estimateKind: 'reachable-resource-backing-stores', estimateConfidence: 'low'};
     this.stats = {inactiveGPUEvictions: 0, releasedGeometries: 0, releasedMaterials: 0, releasedTextures: 0, inactiveRooms: 0, contextTextureReleaseCycles: 0, contextReleasedTextures: 0, contextReleasedRenderTargets: 0, contextReleasedGeometries: 0, contextReleasedMaterials: 0, inventoryCacheHits: 0, inventoryScans: 0, inventoryScanMs: 0};
   }
@@ -125,14 +132,23 @@ export default class ScenePerformance {
   setRoom(roomId) {
     roomId = String(roomId);
     if (this.disposed || roomId === this.roomId) return;
-    this.lod.clear();
+    this.lod.clear(); this.clearPresentation();
     this.roomId = roomId;
     this.invalidate();
     if (this.ctx.roomAssets && this.ctx.roomAssets.setActiveRoom) this.ctx.roomAssets.setActiveRoom(roomId, this.document.getRoot(roomId));
     this.reconcile();
   }
 
-  invalidate() { this.dirty = true; this.inactiveInventory = new WeakMap(); this.assetInventory = new WeakMap(); this.snapshotInventory = new WeakMap(); }
+  invalidate() { this.dirty = true; this.architecture.invalidate(); this.inactiveInventory = new WeakMap(); this.assetInventory = new WeakMap(); this.snapshotInventory = new WeakMap(); }
+
+  clearPresentation() { this.architecture.clear(); }
+
+  syncPresentation(editing = false) {
+    const renderer = this.ctx.renderer;
+    const enabled = !!(renderer && (renderer.capabilities && renderer.capabilities.isWebGL2 ||
+      renderer.extensions && renderer.extensions.get && renderer.extensions.get('ANGLE_instanced_arrays')));
+    this.architecture.sync(this.roomId, {editing, enabled, version: this.ctx.editor && this.ctx.editor.changeVersion});
+  }
 
   cachedInventory(root, cache, collectValue) {
     let entry = cache.get(root); const children = root.children ? root.children.length : 0;
@@ -153,7 +169,7 @@ export default class ScenePerformance {
       const root = this.document.getRoot(roomId);
       if (!root) return;
       roomRoots.add(root);
-      if (String(roomId) === this.roomId) collect(root, resident);
+      if (String(roomId) === this.roomId) collect(root, resident, null, inactive);
       else { mergeResources(inactive, this.cachedInventory(root, this.inactiveInventory, target => collect(root, target))); this.stats.inactiveRooms++; }
     });
 
@@ -283,6 +299,7 @@ export default class ScenePerformance {
 
   update(camera, delta = 0) {
     if (this.disposed) return;
+    if (this.ctx.editor && this.ctx.editor.active) this.clearPresentation();
     this.elapsed += Math.max(0, Number.isFinite(delta) ? delta : 0);
     // A continuous transform/paint drag can invalidate every frame. Expensive
     // ownership/texture scans stay at most once a second, except room switches.
@@ -346,7 +363,8 @@ export default class ScenePerformance {
 
   getStats() {
     const info = this.ctx.renderer && this.ctx.renderer.info;
-    return Object.assign({}, this.stats, this.memoryStats, this.lod.getStats(), {
+    const visuals = this.ctx.editor && this.ctx.editor.industrialVisuals;
+    return Object.assign({}, this.stats, this.memoryStats, this.lod.getStats(), this.architecture.getStats(), visuals && visuals.getStats ? visuals.getStats() : {}, {
       roomId: this.roomId,
       drawCalls: info && info.render ? info.render.calls : 0,
       triangles: info && info.render ? info.render.triangles : 0,
@@ -359,6 +377,7 @@ export default class ScenePerformance {
     // Resources still belong to the document; disposing this manager must not
     // destroy the active room or invalidate undo/copy references.
     this.disposed = true;
+    this.architecture.dispose();
     this.lod.dispose();
     this.frustums.length = 0;
     this.bounds = new WeakMap();

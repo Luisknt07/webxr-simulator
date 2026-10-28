@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import RollerInstanceBatches from './RollerInstanceBatches';
 
 const DISPLAY_INTERVAL = 0.2;
 const WHITE = '#e8f3f8';
@@ -26,6 +27,8 @@ function cloneSurfaceMaterial(original) {
   // Three r112 drops custom shader hooks/defines during Material.copy. Keep
   // authored PBR wear when adding private machine indicators or rolling UVs.
   material.onBeforeCompile = original.onBeforeCompile;
+  if (original.staticInstanceBatchShader === original.onBeforeCompile) material.staticInstanceBatchShader = material.onBeforeCompile;
+  if (original.surfaceWearMap) material.surfaceWearMap = original.surfaceWearMap;
   if (original.defines) material.defines = Object.assign({}, original.defines);
   return material;
 }
@@ -92,6 +95,8 @@ export default class IndustrialVisuals {
     this.colors = new Map();
     this.buttons = new Map();
     this.rollers = new Map();
+    this.rollerBatches = new RollerInstanceBatches();
+    this.rollerInstancing = RollerInstanceBatches.supported(ctx.renderer);
     this.belts = new Map();
     this.processorHeads = new Map();
     this.mechanisms = new Map();
@@ -117,7 +122,9 @@ export default class IndustrialVisuals {
     this.contactStates = new Map(); this.contactInput = null;
   }
 
-  invalidate() { this.dirty = true; }
+  invalidate() { this.dirty = true; this.rollerBatches.invalidate(); }
+
+  getStats() { return this.rollerBatches.getStats(); }
 
   resolveConveyor(record) {
     if (!record) return null;
@@ -155,6 +162,7 @@ export default class IndustrialVisuals {
   }
 
   scan(roomId, root, objectCount) {
+    this.rollerBatches.clear();
     this.resetContactHands();
     this.roomId = String(roomId);
     this.root = root;
@@ -648,6 +656,7 @@ export default class IndustrialVisuals {
       const sensors = entry.conveyor && entry.scope === 'module' ? this.sensors.filter(sensor => sensor.conveyor === entry.conveyor).map(sensor => ({name: sensor.record.object.name, variables: values(sensor.record)})) : [];
       this.paintDisplay(entry, snapshot.variables, sensors, editing, snapshot);
     });
+    this.rollerBatches.sync(root, this.rollers, {editing, supported: this.rollerInstancing});
   }
 
   paintDisplay(entry, state, sensors, editing, snapshot) {
@@ -1055,6 +1064,7 @@ export default class IndustrialVisuals {
   }
 
   dispose() {
+    this.rollerBatches.dispose();
     this.resetContactHands();
     if (this.contactInput && this.contactInput.removeEventListener) {
       this.contactInput.removeEventListener('controllerDisconnected', this.contactCancelled);

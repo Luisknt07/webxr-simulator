@@ -35,7 +35,8 @@ async function run() {
   f.lod.dispose(); assert.equal(bolt.layers.mask, 1);
 
   const Memory = new Function('THREE', read('editor/RuntimeResourceMemory.js').replace('default class RuntimeResourceMemory', 'return class RuntimeResourceMemory'))(THREE);
-  const Performance = new Function('THREE', 'RuntimeResourceMemory', 'CosmeticVisualLod', read('editor/ScenePerformance.js').replace('default class ScenePerformance', 'return class ScenePerformance'))(THREE, Memory, Lod);
+  const Architecture = new Function('THREE', read('editor/StaticArchitectureBatches.js').replace('default class StaticArchitectureBatches', 'return class StaticArchitectureBatches'))(THREE);
+  const Performance = new Function('THREE', 'RuntimeResourceMemory', 'CosmeticVisualLod', 'StaticArchitectureBatches', read('editor/ScenePerformance.js').replace('default class ScenePerformance', 'return class ScenePerformance'))(THREE, Memory, Lod, Architecture);
   let limits = economy; const manager = new Performance({scene: f.scene, graphics: {getLimits: () => limits}, renderer: {domElement: {height: 720}, info: {render: {}, memory: {}}}}, f.document); manager.setRoom('hall'); manager.update(f.camera, .2); assert(manager.getStats().cosmeticLodHidden > 0, 'The existing ScenePerformance lifecycle applies the effective graphics policy.'); limits = {tier: 'ultra', visualDistanceScale: 1.8}; manager.update(f.camera, 0); assert.equal(manager.getStats().cosmeticLodHidden, 0); manager.dispose(); assert.equal(bolt.layers.mask, 1);
 
   const protectedFixture = setup(), container = new THREE.Group(); container.userData.editorPrefabKey = 'conveyor'; protectedFixture.root.add(container);

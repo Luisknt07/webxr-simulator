@@ -70,7 +70,7 @@ const prefabs = new Function('THREE', 'behaviorSchema', 'document', source('src/
 const SceneDocument = new Function('THREE', 'behaviorSchema', 'createIndustrialPrefab', source('src/editor/SceneDocument.js').replace('default class SceneDocument', 'return class SceneDocument'))(THREE, behaviorSchema, prefabs.createIndustrialPrefab);
 const ProductFeedback = new Function('THREE', source('src/editor/ProductFeedback.js').replace('default class ProductFeedback', 'return class ProductFeedback'))(THREE);
 const Runtime = new Function('THREE', 'behaviorSchema', 'automationSchema', 'createProductVisual', 'ProductFeedback', 'ObjectPlacement', 'ProductSourceRuntime', 'ProcessorRuntime', 'PalletQueueRuntime', source('src/editor/SimulationRuntime.js').replace('default class SimulationRuntime', 'return class SimulationRuntime'))(THREE, behaviorSchema, automationSchema, prefabs.createProductVisual, ProductFeedback, ObjectPlacement, ProductSourceRuntime, ProcessorRuntime, PalletQueueRuntime);
-const IndustrialVisuals = new Function('THREE', source('src/editor/IndustrialVisuals.js').replace('default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE);
+const IndustrialVisuals = new Function('THREE', 'RollerInstanceBatches', source('src/editor/IndustrialVisuals.js').replace('default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE, require('./load-roller-instance-batches')(THREE));
 const CollisionWorld = new Function('THREE', 'getGeometryTree', source('src/lib/CollisionWorld.js').replace('default class CollisionWorld', 'return class CollisionWorld'))(THREE, getGeometryTree);
 const SurfaceMaterialSystem = new Function('THREE', 'materialSchema', source('src/editor/SurfaceMaterialSystem.js').replace('default class SurfaceMaterialSystem', 'return class SurfaceMaterialSystem'))(THREE, materialSchema);
 const decalGeometrySource = fs.readFileSync(path.join(__dirname, '../node_modules/three/examples/jsm/geometries/DecalGeometry.js'), 'utf8').replace(/import \{[\s\S]*?\} from "[^\"]+";/, '').replace('export { DecalGeometry, DecalVertex };', 'return DecalGeometry;');
@@ -291,6 +291,7 @@ async function run() {
       assert(loaded.runtime.records.get(loadedMachine.userData.editorId).variables.actualSpeed > 0);
       const owned = new Map();
       loaded.surface.states.forEach(state => new Set([...state.materials, ...state.textures]).forEach(resource => {
+        if (owned.has(resource)) return; // Exact pooled textures can have several material owners.
         owned.set(resource, 0); resource.addEventListener('dispose', () => owned.set(resource, owned.get(resource) + 1));
       }));
       loaded.visuals.dispose(); loaded.runtime.stop(); loaded.paint.dispose(); loaded.surface.dispose(); loaded.ctx.editor.active = true;

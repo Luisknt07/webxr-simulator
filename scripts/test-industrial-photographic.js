@@ -196,7 +196,7 @@ test('native maps and moving UVs survive defaults, authored per-part PBR survive
 test('real rolling wrappers survive prune and switch every inherited photographic channel to the new tier', async () => {
   const doc = setup(), actor = doc.addPrefab('hall', 'conveyor'), ctx = context();
   const finish = new Finish(ctx, doc, {load: instant}); await settle(finish);
-  const Visuals = new Function('THREE', source('src/editor/IndustrialVisuals.js').replace('default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE);
+  const Visuals = new Function('THREE', 'RollerInstanceBatches', source('src/editor/IndustrialVisuals.js').replace('default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE, require('./load-roller-instance-batches')(THREE));
   const visuals = new Visuals(ctx, doc, {running: false, records: new Map()}); visuals.sync('hall', 0, true); await settle(finish);
   const wrappers = []; actor.traverse(mesh => {if (mesh.userData.industrialRoller && mesh.material.normalMap) wrappers.push(mesh.material);}); assert(wrappers.length > 0);
   const retained = wrappers[0].normalMap, release = disposed(retained); await settle(finish, 'sound'); assert.equal(release(), 1); assert(retained.image && retained.image.width === 512);
@@ -251,7 +251,7 @@ test('real roller wrappers keep authored UVs and roughness stable across two def
     const ticket = deferred(); requests.push({ticket, url}); return ticket.promise;
   }});
   await settle(finish);
-  const Visuals = new Function('THREE', source('src/editor/IndustrialVisuals.js').replace('default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE);
+  const Visuals = new Function('THREE', 'RollerInstanceBatches', source('src/editor/IndustrialVisuals.js').replace('default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE, require('./load-roller-instance-batches')(THREE));
   const visuals = new Visuals(ctx, doc, {running: false, records: new Map()}); visuals.sync('hall', 0, true); await settle(finish);
   const rolling = []; actor.traverse(mesh => { if (mesh.userData.industrialRoller && mesh.material.normalMap) rolling.push(mesh.material); }); assert(rolling.length);
   const originals = new Map(rolling.map(material => [material, {map: material.map, roughness: material.roughness, base: material.userData.industrialPhotographicBase.roughness, offset: material.map.offset.toArray(), repeat: material.map.repeat.toArray()}]));

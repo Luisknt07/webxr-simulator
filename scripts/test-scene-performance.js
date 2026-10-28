@@ -6,7 +6,7 @@ const THREE = require('three');
 const source = fs.readFileSync(path.join(__dirname, '../src/editor/ScenePerformance.js'), 'utf8')
   .replace(/^import .*;\r?\n/gm, '').replace('export default class ScenePerformance', 'class ScenePerformance');
 const helper = file => new Function('THREE', fs.readFileSync(path.join(__dirname, '../src/editor', file + '.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class ' + file, 'return class ' + file))(THREE);
-const ScenePerformance = new Function('THREE', 'RuntimeResourceMemory', 'CosmeticVisualLod', source + '\nreturn ScenePerformance;')(THREE, helper('RuntimeResourceMemory'), helper('CosmeticVisualLod'));
+const ScenePerformance = new Function('THREE', 'RuntimeResourceMemory', 'CosmeticVisualLod', 'StaticArchitectureBatches', source + '\nreturn ScenePerformance;')(THREE, helper('RuntimeResourceMemory'), helper('CosmeticVisualLod'), helper('StaticArchitectureBatches'));
 const disposed = new Map();
 function watch(resource) { resource.addEventListener('dispose', () => disposed.set(resource, (disposed.get(resource) || 0) + 1)); return resource; }
 function texture() { const result = watch(new THREE.Texture({width: 4, height: 4})); result.needsUpdate = true; return result; }
@@ -74,6 +74,48 @@ function setup(roots, extra = {}) {
   manager.setRoom(1);
   manager.update(null, 10);
   assert.equal(inactiveMesh.geometry, identity);
+}
+
+// A hidden native subtree can belong to the active room without consuming GPU
+// residency. Its CPU image/geometry remains intact and reentry reuploads it.
+{
+  const root = new THREE.Group(), hidden = new THREE.Group(), surface = mesh(texture());
+  hidden.add(surface); hidden.visible = false; root.add(hidden);
+  const {manager} = setup([root]); const pixels = surface.material.map.image;
+  manager.setRoom(0);
+  assert.equal(disposed.get(surface.material.map), 1);
+  assert.equal(manager.getStats().gpuTextureBytes, 0);
+  assert.equal(surface.material.map.image, pixels);
+  assert(manager.getStats().retainedCpuBytesEstimated > 0);
+  manager.update(null, 2); assert.equal(disposed.get(surface.material.map), 1);
+  const version = surface.material.map.version; hidden.visible = true; manager.update(null, 1.1);
+  assert.equal(surface.material.map.version, version + 1);
+  assert(manager.getStats().gpuTextureBytes > 0);
+  hidden.visible = false; manager.update(null, 1.1);
+  assert.equal(disposed.get(surface.material.map), 2);
+  assert.equal(surface.material.map.image, pixels); manager.dispose();
+}
+
+// r112 exposes extensions.get (not the modern extensions.has API). The real
+// manager enables architectural instancing on WebGL1 + ANGLE and restores it
+// on entering authoring, without changing physics objects or materials.
+{
+  const root = new THREE.Group(), owners = [], material = new THREE.MeshStandardMaterial();
+  for (let index = 0; index < 4; index++) {
+    const owner = new THREE.Group(); owner.name = 'CEDI \u00b7 test wall';
+    owner.userData.editorDescriptor = {type: 'box'}; owner.userData.editorBehaviors = [];
+    owner.position.x = index * 2; owner.add(new THREE.Mesh(new THREE.BoxBufferGeometry(), material)); root.add(owner); owners.push(owner);
+  }
+  const {manager, ctx, document} = setup([root]);
+  document.getObjects = () => owners; document.getBehaviors = owner => owner.userData.editorBehaviors || [];
+  ctx.renderer.capabilities = {isWebGL2: false}; ctx.renderer.extensions = {get: key => key === 'ANGLE_instanced_arrays' ? {} : null};
+  ctx.editor = {active: false, changeVersion: 1};
+  manager.setRoom(0); manager.syncPresentation();
+  assert.equal(manager.getStats().architectureSources, 4); assert.equal(manager.getStats().architectureBatches, 1);
+  assert(owners.every(owner => owner.children[0].layers.mask === 0 && owner.children[0].visible));
+  ctx.editor.active = true; manager.update(null, 0);
+  assert.equal(manager.getStats().architectureSources, 0); assert(owners.every(owner => owner.children[0].layers.mask === 1));
+  manager.dispose();
 }
 
 // Ordinary camera culling is advisory, preserves authored visibility, and has a

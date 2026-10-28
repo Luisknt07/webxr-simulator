@@ -2,8 +2,8 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), THREE = require('three');
 const schema = require('../shared/behaviors.js'), h = require('./test-vehicle-runtime.js');
 const read = file => fs.readFileSync(path.join(__dirname, '../src/editor', file), 'utf8').replace(/^import .*;\r?\n/gm, '');
-const {Monitor, machineName} = new Function('THREE', 'behaviorSchema', read('LineMonitorSystem.js').replace('export default class LineMonitorSystem', 'class LineMonitorSystem') + '\nreturn {Monitor:LineMonitorSystem,machineName};')(THREE, schema);
-const Visuals = new Function('THREE', read('IndustrialVisuals.js').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE);
+const {Monitor, machineName} = new Function('THREE', 'behaviorSchema', 'DynamicDisplayResolution', read('LineMonitorSystem.js').replace('export default class LineMonitorSystem', 'class LineMonitorSystem') + '\nreturn {Monitor:LineMonitorSystem,machineName};')(THREE, schema, require('./load-dynamic-display-resolution')(THREE));
+const Visuals = new Function('THREE', 'RollerInstanceBatches', read('IndustrialVisuals.js').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE, require('./load-roller-instance-batches')(THREE));
 const documentSource = read('SceneDocument.js').split('export default class SceneDocument')[0];
 const remap = new Function('THREE', 'behaviorSchema', documentSource + '\nreturn remapBehaviorReferences;')(THREE, schema);
 const rule = {field: 'sku', operator: 'eq', value: 'sku-b', outputId: 'branch'};

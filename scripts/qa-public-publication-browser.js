@@ -103,8 +103,8 @@ async function readCatalog(browser, staticPublic) {
 }
 
 async function verifyAnonymousExamples(browser, catalog, staticPublic) {
-  // Read each projection sequentially. This tests all 30 preview endpoints
-  // without instantiating 30 worlds or retaining their large JSON documents.
+  // Read each projection sequentially, without constructing every world or
+  // retaining the large JSON documents behind the metadata-only gallery.
   const projections = await browser.call(async (scenes, isStatic) => {
     const summaries = [];
     for (const scene of scenes) {
@@ -125,21 +125,57 @@ async function verifyAnonymousExamples(browser, catalog, staticPublic) {
 async function openGallery(browser, catalog) {
   await browser.evaluate('context.studio.open("scenes")');
   await browser.until(() => browser.call(count => context.studio.content.querySelectorAll('.studio-card').length === count && !context.studio.busy, catalog.scenes.length), 'Public gallery does not match its catalog (' + catalog.scenes.length + ' examples).');
-  const names = await browser.evaluate('[...context.studio.content.querySelectorAll(".studio-card strong")].map(e=>e.textContent)');
-  assert.deepEqual(names, catalog.scenes.map(scene => scene.name), 'Public gallery order/content differs from its metadata.');
-  return names;
+  const cards = await browser.evaluate('[...context.studio.content.querySelectorAll(".studio-card")].map(e=>({id:e.dataset.sceneId,name:e.querySelector("strong")?.textContent,visible:!e.hidden}))');
+  assert.deepEqual(cards.map(card=>card.id).sort(),catalog.scenes.map(scene=>scene.id).sort(),'Grouped public gallery differs from its authorized metadata.');
+  cards.forEach(card=>{assert.equal(card.name,catalog.scenes.find(scene=>scene.id===card.id)?.name);assert(card.visible);});
+  return cards.map(card=>card.name);
 }
 
 async function openGalleryScene(browser, catalog, index) {
   const scene = catalog.scenes[index];
-  assert(await browser.call((cardIndex, name) => {
-    const card = context.studio.content.querySelectorAll('.studio-card')[cardIndex];
+  assert(await browser.call((id, name) => {
+    const card = [...context.studio.content.querySelectorAll('.studio-card')].find(node=>node.dataset.sceneId===id&&!node.hidden);
     if (!card || card.querySelector('strong')?.textContent !== name || !card.querySelector('button')) return false;
     card.querySelector('button').click(); return true;
-  }, index, scene.name), 'Public gallery has no matching action: ' + scene.id);
-  await browser.until(() => browser.call(id => context.editor.currentProject?.publicSceneId === id && !context.editor.loadingProject && !context.studio.busy, scene.id), 'Public example did not open: ' + scene.id);
+  }, scene.id, scene.name), 'Public gallery has no matching action: ' + scene.id);
+  await browser.until(() => browser.call(id => context.editor.currentProject?.publicSceneId === id && !context.editor.loadingProject && !context.studio.busy && context.studio.drawer.hidden, scene.id), 'Public example did not open: ' + scene.id);
   await browser.evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
   return scene;
+}
+
+async function verifyGalleryUX(browser,catalog) {
+  const original=await browserState(browser);await openGallery(browser,catalog);
+  const before=await browser.call(()=>{
+    const library=context.editor.accessView.sceneLibrary,drawer=context.studio.drawer,rect=drawer.getBoundingClientRect();
+    window.__qaVisitorLibrary=library;window.__qaVisitorCards=library.cards.map(value=>value.card);
+    return {modal:drawer.classList.contains('studio-scene-library-modal'),role:drawer.getAttribute('role'),ariaModal:drawer.getAttribute('aria-modal'),width:rect.width,viewport:innerWidth,
+      groups:[...context.studio.content.querySelectorAll('.studio-scene-category-title')].map(node=>node.textContent),canvases:context.studio.content.querySelectorAll('canvas').length,
+      actions:[...context.studio.content.querySelectorAll('.studio-scene-card button')].map(node=>node.textContent),images:library.images.map(image=>({loading:image.loading,decoding:image.decoding,url:image.src}))};
+  });
+  assert(before.modal&&before.role==='dialog'&&before.ariaModal==='true');if(before.viewport>=900)assert(before.width>before.viewport*.6,'The visitor library must be a wide modal.');
+  assert.equal(before.canvases,0,'Opening the gallery must not construct 3D preview canvases.');assert(before.actions.every(label=>/^(Explorar escenario|Continuar en este escenario)$/.test(label)));
+  before.images.forEach(image=>{assert.equal(image.loading,'lazy');assert.equal(image.decoding,'async');assert(new URL(image.url).pathname.includes('/assets/scene-thumbnails/'));});
+  if(before.images.length)await browser.until(()=>browser.call(()=>{
+    const host=context.editor.accessView.sceneLibrary.results.getBoundingClientRect();
+    const visible=[...context.studio.content.querySelectorAll('.studio-scene-card:not([hidden]) img')].filter(image=>{const r=image.getBoundingClientRect();return r.bottom>host.top&&r.top<host.bottom;});
+    return visible.length>0&&visible.every(image=>image.complete&&image.naturalWidth>0);
+  }),'Visible offline scene images did not load.',30000);
+  const target=catalog.scenes.find(scene=>scene.id==='forklift-training')||catalog.scenes[0];
+  await browser.call(()=>context.editor.accessView.sceneLibrary.search.focus());await browser.send('Input.insertText',{text:target.name});
+  const filtered=await browser.call(()=>({ids:context.editor.accessView.sceneLibrary.cards.filter(value=>!value.card.hidden).map(value=>value.entry.id),sameNodes:context.editor.accessView.sceneLibrary.cards.every((value,index)=>value.card===__qaVisitorCards[index]),canvases:context.studio.content.querySelectorAll('canvas').length}));
+  assert(filtered.ids.includes(target.id));if(catalog.scenes.length>1)assert(filtered.ids.length<catalog.scenes.length);assert(filtered.sameNodes);assert.equal(filtered.canvases,0);
+  await browser.call(()=>{const library=context.editor.accessView.sceneLibrary;library.search.value='';library.search.dispatchEvent(new Event('input',{bubbles:true}));library.categorySelect.value=library.entries[library.entries.length-1].category;library.categorySelect.dispatchEvent(new Event('change',{bubbles:true}));});
+  const grouped=await browser.call(()=>{const library=context.editor.accessView.sceneLibrary;return {category:library.category,shown:library.cards.filter(value=>!value.card.hidden).map(value=>({id:value.entry.id,category:value.entry.category})),headings:[...library.results.querySelectorAll('.studio-scene-category')].filter(node=>!node.hidden).length};});
+  assert(grouped.shown.length>0);assert(grouped.shown.every(value=>value.category===grouped.category));assert.equal(grouped.headings,1);
+  await browser.screenshot('public-library-filtered');
+  for(const type of ['keyDown','keyUp'])await browser.send('Input.dispatchKeyEvent',{type,key:'Escape',code:'Escape',windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});
+  await browser.until(()=>browser.evaluate('context.studio.drawer.hidden'),'Escape did not close the visitor library.');
+  const closed=await browser.evaluate('({disposed:__qaVisitorLibrary.disposed,images:__qaVisitorLibrary.images.length,listeners:__qaVisitorLibrary.listeners.length+__qaVisitorLibrary.cardListeners.length,content:!!document.querySelector(".studio-scene-library")})');
+  assert.deepEqual(closed,{disposed:true,images:0,listeners:0,content:false});
+  await openGallery(browser,catalog);assert.equal(await browser.evaluate('context.editor.accessView.sceneLibrary.search.value'),'');
+  assert.equal((await browserState(browser)).scene,original.scene,'Filtering and reopening never load another world.');
+  await browser.evaluate('delete window.__qaVisitorLibrary;delete window.__qaVisitorCards');
+  browser.report.libraryUX={before,filtered,grouped,closed,readOnly:true};return browser.report.libraryUX;
 }
 
 function validateLoadedScene(state, scene) {
@@ -179,7 +215,7 @@ async function verify(origin, base, expected, local) {
     await b.send('Page.navigate',{url:origin+base}); await ready(); await b.evaluate('context.studio.ready');
     const catalog=await readCatalog(b,true),first=await browserState(b);validateLoadedScene(first,catalog.scenes[0]);assert.equal(first.static,true);assert.equal(first.online,false);b.report.initial=first;
     await b.screenshot('public-initial');
-    b.report.gallery=await openGallery(b,catalog);await b.screenshot('public-gallery');
+    b.report.gallery=await openGallery(b,catalog);await b.screenshot('public-gallery');await verifyGalleryUX(b,catalog);
     await openGalleryScene(b,catalog,1);
     const second=await browserState(b);validateLoadedScene(second,catalog.scenes[1]);b.report.second=second;await b.screenshot('public-second');
     await verifyAnonymousExamples(b,catalog,true);
@@ -214,7 +250,7 @@ async function run(){
     const catalog=await readCatalog(b,false),state=await browserState(b),initialScene=catalog.scenes.find(scene=>scene.id===state.scene);
     assert(initialScene,'Server opened a scene outside its anonymous catalog.');validateLoadedScene(state,initialScene);
     assert.equal(state.static,false);assert.equal(state.online,true);assert.equal(await b.evaluate('context.studio.client.user'),null);b.report.publicTunnel=state;await b.screenshot('public-tunnel');
-    b.report.gallery=await openGallery(b,catalog);await b.screenshot('public-tunnel-gallery');
+    b.report.gallery=await openGallery(b,catalog);await b.screenshot('public-tunnel-gallery');await verifyGalleryUX(b,catalog);
     await openGalleryScene(b,catalog,1);const second=await browserState(b);validateLoadedScene(second,catalog.scenes[1]);b.report.second=second;await b.screenshot('public-tunnel-second');
     await verifyAnonymousExamples(b,catalog,false);
     await verifyMobile(b,url.href,catalog);
@@ -225,4 +261,4 @@ async function run(){
   if(external){const url=new URL(external);assert.equal(url.protocol,'https:');await verify(url.origin,url.pathname.endsWith('/')?url.pathname:url.pathname+'/',expected);return;}
   const fixture=await startStaticServer();try{if(!arg('--base')||arg('--base')==='/')await verify(fixture.origin,'/',expected,fixture);fixture.requests.length=0;if(!arg('--base')||arg('--base')==='/webxr-simulator/')await verify(fixture.origin,'/webxr-simulator/',expected,fixture);}finally{await fixture.close();}
 }
-module.exports={startStaticServer,verify,withBrowser,validateCatalog,validatePublicProjection,validateLoadedScene,readCatalog,verifyAnonymousExamples,openGallery,openGalleryScene,verifyMobile};if(require.main===module)run().catch(error=>{console.error(error);process.exitCode=1;});
+module.exports={startStaticServer,verify,withBrowser,validateCatalog,validatePublicProjection,validateLoadedScene,readCatalog,verifyAnonymousExamples,openGallery,openGalleryScene,verifyGalleryUX,verifyMobile};if(require.main===module)run().catch(error=>{console.error(error);process.exitCode=1;});

@@ -23,7 +23,7 @@ const createIndustrialPrefab = new Function('THREE', 'behaviorSchema', 'document
   .replace(/^export const /gm, 'const ')
   .replace(/^export function /gm, 'function ') + '\nreturn createIndustrialPrefab;')(THREE, behaviorSchema, dom);
 const SceneDocument = new Function('THREE', 'behaviorSchema', 'createIndustrialPrefab', source('SceneDocument.js').replace('export default class SceneDocument', 'return class SceneDocument'))(THREE, behaviorSchema, createIndustrialPrefab);
-const IndustrialVisuals = new Function('THREE', source('IndustrialVisuals.js').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE);
+const IndustrialVisuals = new Function('THREE', 'RollerInstanceBatches', source('IndustrialVisuals.js').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE, require('./load-roller-instance-batches')(THREE));
 
 function setup() {
   const document = new SceneDocument({});

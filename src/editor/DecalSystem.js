@@ -75,7 +75,7 @@ export default class DecalSystem {
     this.configurations = new WeakMap();
     this.converted = new WeakMap();
     this.convertedResources = new Set();
-    this.stats = {behaviorReads: 0, boundsBuilds: 0, surfacePasses: 0, projections: 0, textureBuilds: 0, inputTriangles: 0};
+    this.stats = {behaviorReads: 0, boundsBuilds: 0, surfacePasses: 0, surfaceVisits: 0, candidateVisits: 0, projections: 0, textureBuilds: 0, inputTriangles: 0};
     this.roomId = null;
   }
 
@@ -257,6 +257,7 @@ export default class DecalSystem {
     const inverseOwner = new THREE.Matrix4().getInverse(owner.matrixWorld);
     const candidates = [];
     surfaces.forEach(entry => {
+      this.stats.candidateVisits++;
       const object = entry.object;
       if (state.pattern !== 'image' && protectedWearSurface(object)) return;
       if (target ? !within(object, target) : within(object, owner)) return;
@@ -367,11 +368,16 @@ export default class DecalSystem {
       if (!keep.has(owner)) { this._disposeState(state); this.states.delete(owner); }
     });
     if (!owners.length) return;
-    root.updateWorldMatrix(true, true);
-    const surfaces = [];
+    const surfaceLists = new Map();
     this.stats.surfacePasses++;
-    root.traverse(object => { if (this.isSurface(object)) surfaces.push({object, bounds: this._bounds(object)}); });
     owners.forEach(({object: owner, config}) => {
+      owner.updateWorldMatrix(true, false);
+      const target = config.targetId === 'self' ? owner : config.targetId ? this.document.getObject(config.targetId) : root;
+      // Most industrial brush layers target their own machine. They cannot
+      // clip any other machine, wall or helper in the room, so share that
+      // target's current surface inventory instead of scanning the entire room
+      // for every layer. Unbound image projectors keep the global inventory.
+      const surfaces = target && within(target, root) ? this._surfaces(target, surfaceLists) : [];
       let state = this.states.get(owner);
       if (!state) { state = this._create(owner); this.states.set(owner, state); }
       const pattern = config.pattern || 'image';
@@ -388,6 +394,15 @@ export default class DecalSystem {
       state.material.userData.studioColorSpace = 'linear';
       this._project(state, config, root, surfaces);
     });
+  }
+
+  _surfaces(target, lists) {
+    if (lists.has(target)) return lists.get(target);
+    target.updateWorldMatrix(true, true);
+    const surfaces = [];
+    target.traverse(object => { this.stats.surfaceVisits++; if (this.isSurface(object)) surfaces.push({object, bounds: this._bounds(object)}); });
+    lists.set(target, surfaces);
+    return surfaces;
   }
 
   dispose() {

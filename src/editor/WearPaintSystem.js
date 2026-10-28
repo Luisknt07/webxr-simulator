@@ -34,7 +34,9 @@ export default class WearPaintSystem {
   _install(key, owner, layer) {
     let entry = this.entries.get(key);
     if (entry && entry.owner !== owner) { this._remove(key); entry = null; }
-    const signature = JSON.stringify(layer);
+    // Normalized layers are private immutable snapshots of the serialized
+    // layer JSON. A brush preview/new edit creates a new normalized object.
+    const signature = entry && entry.layer === layer ? entry.signature : JSON.stringify(layer);
     if (!entry) {
       const object = new THREE.Group(); object.name = 'Desgaste · ' + layer.pattern;
       object.matrixAutoUpdate = false;
@@ -51,6 +53,7 @@ export default class WearPaintSystem {
       config.stamps = JSON.stringify(layer.stamps);
       entry.object.userData.editorBehaviors = [config];
     }
+    entry.layer = layer;
     return entry;
   }
 

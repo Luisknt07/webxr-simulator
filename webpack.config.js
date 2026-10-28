@@ -10,6 +10,10 @@ const application = {
   module: {
     rules: [
     {
+      test: /[\\/]three[\\/]build[\\/]three(?:\.module)?\.js$/,
+      use: { loader: require('path').join(__dirname, 'scripts/loaders/three-r112-instancing.js') }
+    },
+    {
       test: /\.(js|mjs)$/,
       exclude: /(node_modules)/,
       use: { loader: 'babel-loader' }

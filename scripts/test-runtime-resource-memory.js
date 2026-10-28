@@ -2,7 +2,8 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), THREE = require('three');
 const read = name => fs.readFileSync(path.join(__dirname, '../src/editor', name + '.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class ' + name, 'return class ' + name);
 const Memory = new Function('THREE', read('RuntimeResourceMemory'))(THREE), Lod = new Function('THREE', read('CosmeticVisualLod'))(THREE);
-const Performance = new Function('THREE', 'RuntimeResourceMemory', 'CosmeticVisualLod', read('ScenePerformance'))(THREE, Memory, Lod);
+const Architecture = new Function('THREE', read('StaticArchitectureBatches'))(THREE);
+const Performance = new Function('THREE', 'RuntimeResourceMemory', 'CosmeticVisualLod', 'StaticArchitectureBatches', read('ScenePerformance'))(THREE, Memory, Lod, Architecture);
 const resources = () => ({attributes: new Set(), textures: new Set(), renderTargets: new Set(), cpuArrays: new Set(), audioBuffers: new Set(), encodedStrings: new Set()});
 const sample = (textures, targets = []) => { const all = resources(); textures.forEach(texture => all.textures.add(texture)); targets.forEach(target => { all.renderTargets.add(target); all.textures.add(target.texture); if (target.depthTexture) all.textures.add(target.depthTexture); }); return new Memory().sample(all, all, {capabilities: {isWebGL2: true, maxSamples: 4}}); };
 
@@ -49,4 +50,15 @@ const sample = (textures, targets = []) => { const all = resources(); textures.f
   const samples = stats.resourceMemorySamples; for (let frame = 0; frame < 50; frame++) { manager.invalidate(); manager.update(null, .01); } assert.equal(manager.getStats().resourceMemorySamples, samples, 'Even continuous dirty events cannot rescan all resources every frame.'); manager.update(null, .6); assert.equal(manager.getStats().resourceMemorySamples, samples + 1);
   active.add(old); manager.update(null, 1.1); assert.equal(old.material.map.image.width, 8); assert.equal(disposed, 1, 'Undo/paste resources can become resident without losing their CPU data.'); manager.dispose();
 }
-console.log('Resource memory estimates: unique/interleaved GPU uploads versus retained CPU stores, mip/normal/float/packed/compressed/cube/3D textures, render/depth/MSAA targets, history/paste/cache retention, once-per-second scans and explicit estimate scope passed.');
+{
+  const root = new THREE.Group(), geometry = new THREE.BoxBufferGeometry(), material = new THREE.MeshStandardMaterial();
+  const wear = new THREE.DataTexture(new Uint8Array(64), 4, 4); material.surfaceWearMap = wear;
+  root.add(new THREE.InstancedMesh(geometry, material, 10), new THREE.InstancedMesh(geometry, material, 5));
+  const document = {rooms: new Map([['hall', {root}]]), getRoot: () => root};
+  const manager = new Performance({scene: root, renderer: {info: {memory: {}, render: {}}}}, document); manager.setRoom('hall');
+  const buffers = Object.values(geometry.attributes).reduce((sum, attribute) => sum + attribute.array.byteLength, geometry.index.array.byteLength);
+  assert.equal(manager.getStats().gpuGeometryBytes, buffers + 15 * 64, 'Each batch matrix buffer is counted in addition to shared geometry.');
+  assert.equal(manager.getStats().gpuTextureBytes, 64, 'Shader-owned wear maps remain visible to resident memory accounting.');
+  manager.dispose();
+}
+console.log('Resource memory estimates: unique/interleaved GPU uploads versus retained CPU stores, mip/normal/float/packed/compressed/cube/3D textures, render/depth/MSAA targets, history/paste/cache retention, instance matrices, shader wear and explicit estimate scope passed.');

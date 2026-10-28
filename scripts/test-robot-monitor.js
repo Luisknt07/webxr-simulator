@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), THREE = require('three');
 const behaviorSchema = require('../shared/behaviors.js');
 const code = fs.readFileSync(path.join(__dirname, '../src/editor/LineMonitorSystem.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class LineMonitorSystem', 'class LineMonitorSystem');
-const {LineMonitorSystem, machineName, operation} = new Function('THREE', 'behaviorSchema', code + '\nreturn {LineMonitorSystem,machineName,operation};')(THREE, behaviorSchema);
+const {LineMonitorSystem, machineName, operation} = new Function('THREE', 'behaviorSchema', 'DynamicDisplayResolution', code + '\nreturn {LineMonitorSystem,machineName,operation};')(THREE, behaviorSchema, require('./load-dynamic-display-resolution')(THREE));
 const scene = new THREE.Scene(), objects = [], byId = new Map();
 function add(id, config, position) { const object = new THREE.Group(); object.name = id; object.userData.editorId = id; object.userData.editorBehaviors = [config]; object.position.fromArray(position || [0, 0, 0]); scene.add(object); objects.push(object); byId.set(id, object); return object; }
 const source = add('source', Object.assign(behaviorSchema.defaultBehavior('source'), {delivery: 'manual'}), [1, 1, 1]);

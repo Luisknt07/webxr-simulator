@@ -12,7 +12,7 @@ const dom = {createElement() {
 const read = file => fs.readFileSync(path.join(__dirname, '../src/editor', file), 'utf8').replace(/^import .*;\r?\n/gm, '');
 const createIndustrialPrefab = new Function('THREE', 'behaviorSchema', 'document', read('IndustrialPrefabs.js').replace(/^export const /gm, 'const ').replace(/^export function /gm, 'function ') + '\nreturn createIndustrialPrefab;')(THREE, behaviorSchema, dom);
 const SceneDocument = new Function('THREE', 'behaviorSchema', 'createIndustrialPrefab', read('SceneDocument.js').replace('export default class SceneDocument', 'return class SceneDocument'))(THREE, behaviorSchema, createIndustrialPrefab);
-const IndustrialVisuals = new Function('THREE', read('IndustrialVisuals.js').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE);
+const IndustrialVisuals = new Function('THREE', 'RollerInstanceBatches', read('IndustrialVisuals.js').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE, require('./load-roller-instance-batches')(THREE));
 const close = (actual, expected, label) => assert(Math.abs(actual - expected) < 0.00001, label || `${actual} != ${expected}`);
 
 async function run() {

@@ -156,6 +156,9 @@ function proceduralProperties(config) {
   texture.repeat.set(config.repeatX, config.repeatY); return texture;
 }
 function installWear(material, original, config, texture) {
+  // Keep shader-owned samplers discoverable by GPU accounting and eviction.
+  // This runtime field is deliberately outside serializable userData.
+  material.surfaceWearMap = texture;
   const before = original.onBeforeCompile;
   const source = before ? before.toString() : '';
   let key = 0; for (let index = 0; index < source.length; index++) key = Math.imul(key, 31) + source.charCodeAt(index) | 0;
@@ -214,8 +217,9 @@ export default class SurfaceMaterialSystem {
   constructor(ctx, document, library, notify) {
     this.ctx = ctx || {}; this.document = document; this.library = library; this.notify = notify || (() => {});
     this.states = new Map(); this.meshBindings = new WeakMap(); this.owned = new WeakSet(); this.configurations = new WeakMap();
+    this.proceduralPool = new Map(); this.pooledTextures = new WeakSet();
     this.dirty = true; this.roomId = null; this.ready = DONE;
-    this.stats = {scans: 0, applications: 0, textureLoads: 0};
+    this.stats = {scans: 0, applications: 0, textureLoads: 0, proceduralPoolHits: 0, proceduralTextures: 0, proceduralReferences: 0};
   }
 
   invalidate() { this.dirty = true; this.configurations = new WeakMap(); }
@@ -250,9 +254,19 @@ export default class SurfaceMaterialSystem {
       if (group.preparedTicket) group.preparedTicket.release();
       if (group.preparedBindings) group.preparedBindings.forEach(uniforms => { uniforms.preparedConcreteMap.value = null; uniforms.preparedConcreteStrength.value = 0; });
       group.materials.forEach(material => material.dispose());
-      group.textures.forEach(texture => texture.dispose());
+      group.textures.forEach(texture => { if (!this.pooledTextures.has(texture)) texture.dispose(); });
       group.resources.forEach(resource => disposeResource(resource));
     });
+    // Immutable procedural maps can be shared across equipment/architecture.
+    // Each owner holds one reference per exact pixel/sampler recipe, and the
+    // last owner releases the GPU allocation immediately (no unbounded cache).
+    if (state.procedural) state.procedural.forEach((texture, key) => {
+      const entry = this.proceduralPool.get(key);
+      if (!entry || entry.texture !== texture) return;
+      entry.references--; this.stats.proceduralReferences--;
+      if (!entry.references) { texture.dispose(); this.proceduralPool.delete(key); }
+    });
+    this.stats.proceduralTextures = this.proceduralPool.size;
   }
 
   dispose() {
@@ -320,6 +334,16 @@ export default class SurfaceMaterialSystem {
       installWear(material, original, config, state.wear);
     } else material.onBeforeCompile = original.onBeforeCompile;
     if (this.ctx.preparedMaterials && preparedConcreteFloor(state, original)) this._prepareConcrete(state, material);
+    if (original.onBeforeCompile === THREE.Material.prototype.onBeforeCompile) material.staticInstanceBatchShader = material.onBeforeCompile;
+    // Only generated, static architectural boxes with the standard base shader
+    // opt into semantic batching. Unknown imported/custom shader callbacks keep
+    // their independent draw. The batcher also compares all live material maps,
+    // render flags and UV transforms, so asynchronous or edited maps diverge.
+    if (/^CEDI\s*\u00b7\s*/u.test(state.owner.name || '') && state.owner.userData.editorDescriptor &&
+      state.owner.userData.editorDescriptor.type === 'box' && original.onBeforeCompile === THREE.Material.prototype.onBeforeCompile && !material.preparedConcreteUniforms) {
+      material.userData.staticArchitectureBatchKey = JSON.stringify(config);
+      material.staticArchitectureBatchShader = material.onBeforeCompile;
+    }
     this.owned.add(material); state.materials.add(material); state.copies.set(original, material);
     return material;
   }
@@ -342,12 +366,20 @@ export default class SurfaceMaterialSystem {
   _procedural(state, kind, create) {
     const owner = state.root || state, config = state.config;
     if (!owner.procedural) owner.procedural = new Map();
+    const capabilities = this.ctx.renderer && this.ctx.renderer.capabilities;
+    const anisotropy = capabilities && capabilities.getMaxAnisotropy ? Math.min(4, capabilities.getMaxAnisotropy()) : 1;
     const key = JSON.stringify([kind, config.preset, config.seed, config.repeatX, config.repeatY,
-      kind === 'wear' ? config.wearType : '']);
+      kind === 'wear' ? config.wearType : '', anisotropy]);
     if (!owner.procedural.has(key)) {
-      const texture = create(config); owner.procedural.set(key, texture); owner.textures.add(texture);
-      const capabilities = this.ctx.renderer && this.ctx.renderer.capabilities;
-      texture.anisotropy = capabilities && capabilities.getMaxAnisotropy ? Math.min(4, capabilities.getMaxAnisotropy()) : 1;
+      let entry = this.proceduralPool.get(key);
+      if (entry) this.stats.proceduralPoolHits++;
+      else {
+        const texture = create(config); texture.anisotropy = anisotropy;
+        entry = {texture, references: 0}; this.proceduralPool.set(key, entry); this.pooledTextures.add(texture);
+      }
+      entry.references++; this.stats.proceduralReferences++;
+      owner.procedural.set(key, entry.texture); owner.textures.add(entry.texture);
+      this.stats.proceduralTextures = this.proceduralPool.size;
     }
     return owner.procedural.get(key);
   }

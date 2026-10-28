@@ -7,7 +7,8 @@ const behaviorSchema = require('../shared/behaviors');
 const studioSchema = require('../shared/studio-document');
 const {validateDocument} = require('../server/validation');
 function source(file) { return fs.readFileSync(path.join(__dirname, '..', file), 'utf8').replace(/^import .*$/gm, ''); }
-const createIndustrialPrefab = new Function('THREE', 'behaviorSchema', source('src/editor/IndustrialPrefabs.js').replace(/export (const|function) /g, '$1 ') + '\nreturn createIndustrialPrefab;')(THREE, behaviorSchema);
+const prefabDependencies = require('./load-robot-prefabs')(THREE);
+const createIndustrialPrefab = new Function('THREE', 'behaviorSchema', 'require', source('src/editor/IndustrialPrefabs.js').replace(/export (const|function) /g, '$1 ') + '\nreturn createIndustrialPrefab;')(THREE, behaviorSchema, prefabDependencies.resolve);
 const SceneDocument = new Function('THREE', 'behaviorSchema', 'createIndustrialPrefab', source('src/editor/SceneDocument.js').replace('export default class SceneDocument', 'return class SceneDocument'))(THREE, behaviorSchema, createIndustrialPrefab);
 class Element {
   constructor() { this.children = []; this.listeners = {}; this.value = ''; }

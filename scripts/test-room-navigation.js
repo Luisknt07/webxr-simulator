@@ -168,7 +168,7 @@ function frameHarness(options = {}) {
     desktopControllerData: {currentIntersection: null},
     rooms: [{execute: invoke('room')}],
     constrainVRCamera: invoke('vrCollision'),
-    renderer: {render: invoke('render')},
+    renderer: {render: invoke('render'), getContext: () => ({isContextLost: () => !!options.lost})},
     gotoRoom: invoke('goto')
   };
   const animate = new Function(...Object.keys(dependencies), animateMatch[0] + '\nreturn animate;')(...Object.values(dependencies));
@@ -177,6 +177,12 @@ function frameHarness(options = {}) {
 
 function testFrameBoundaries() {
   const names = harness => harness.calls.map(call => call[0]);
+  const lost = frameHarness({lost: true, xr: true}); lost.animate();
+  assert.deepEqual(names(lost), ['clock'], 'A GPU loss before its DOM event cannot enter shader, environment or simulation work.');
+  const restored = frameHarness(); restored.context.graphics = {lost: true}; restored.animate();
+  assert.deepEqual(names(restored), ['clock']);
+  restored.context.graphics = null; restored.animate();
+  assert(names(restored).includes('render'), 'The frame callback resumes after recovery without a simulation catch-up from the loss.');
   const hidden = frameHarness({hidden: true}); hidden.animate();
   assert.deepEqual(names(hidden), ['clock'], 'A hidden desktop tab does not execute systems, query DOM, render or begin collision work.');
   const covered = frameHarness({transition: true, xr: true}), frame = {tracked: true}; covered.animate(2, frame);

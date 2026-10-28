@@ -11,7 +11,7 @@ const {validateDocument} = require('../server/validation');
 const source = name => fs.readFileSync(path.join(__dirname, '../src/editor', name), 'utf8').replace(/^import .*;\r?\n/gm, '');
 const createIndustrialPrefab = new Function('THREE', 'behaviorSchema', source('IndustrialPrefabs.js').replace(/^export const /gm, 'const ').replace(/^export function /gm, 'function ') + '\nreturn createIndustrialPrefab;')(THREE, schema);
 const SceneDocument = new Function('THREE', 'behaviorSchema', 'createIndustrialPrefab', source('SceneDocument.js').replace('export default class SceneDocument', 'return class SceneDocument'))(THREE, schema, createIndustrialPrefab);
-const IndustrialVisuals = new Function('THREE', source('IndustrialVisuals.js').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE);
+const IndustrialVisuals = new Function('THREE', 'RollerInstanceBatches', source('IndustrialVisuals.js').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE, require('./load-roller-instance-batches')(THREE));
 const near = (actual, expected, tolerance = 1e-5) => assert(Math.abs(actual - expected) < tolerance, `${actual} != ${expected}`);
 const persisted = value => JSON.parse(JSON.stringify(value, (key, field) => typeof field === 'number' ? Math.round(field * 1e12) / 1e12 : field));
 function nodes(root, predicate) { const result = []; root.traverse(node => { if (predicate(node)) result.push(node); }); return result; }
