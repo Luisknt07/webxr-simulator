@@ -44,50 +44,87 @@ function stagingPosition(document, original, occupied, inverse, allowExpansion, 
 
 function localMatrix(rootInverse, object) { object.updateWorldMatrix(true, true); return new THREE.Matrix4().multiplyMatrices(rootInverse, object.matrixWorld); }
 function configurations(document, objects, roomRoot) { return objects.map(object => ({object, config: document.getBehaviors(object).find(value => MACHINE_TYPES.includes(value.type))})).filter(row => row.config && shown(row.object, roomRoot)); }
+function upstreamSources(rows, start) {
+  const incoming = new Map(), byId = new Map(rows.map(row => [row.object.userData.editorId, row]));
+  rows.forEach(row => {
+    const outputs = [row.config.outputId, row.config.branchId];
+    if (row.config.type === 'robot' && row.config.destinationRulesJson) schema.robots.parseDestinationRules(row.config.destinationRulesJson).forEach(rule => outputs.push(rule.outputId));
+    outputs.filter(Boolean).forEach(id => {if (!incoming.has(id)) incoming.set(id, []); incoming.get(id).push(row);});
+  });
+  const seen = new Set(), sources = [], visit = row => {
+    if (!row || seen.has(row)) return; seen.add(row);
+    const previous = incoming.get(row.object.userData.editorId) || [];
+    if (row.config.type === 'source' && (row.config.autoGenerate || row.config.initialCount > 0 || !previous.length)) sources.push(row.object);
+    previous.forEach(visit);
+    if (row.config.type === 'robot' && row.config.sourceId) visit(byId.get(row.config.sourceId));
+  };
+  visit(start); return sources;
+}
 function baseSupported(position, base, floors, inverse) {
   const matrix = new THREE.Matrix4().getInverse(inverse), ray = new THREE.Raycaster(); ray.near = 0; ray.far = .4 * new THREE.Vector3().setFromMatrixColumn(matrix, 1).length();
   const down = new THREE.Vector3(0, -1, 0).transformDirection(matrix);
   return floors.some(row => Math.abs(row.box.max.y - position.y) < .06 && base.min.x >= row.box.min.x + .15 && base.max.x <= row.box.max.x - .15 && base.min.z >= row.box.min.z + .15 && base.max.z <= row.box.max.z - .15 &&
     [base.min.x, base.max.x].every(x => [base.min.z, base.max.z].every(z => {ray.set(new THREE.Vector3(x, position.y + .18, z).applyMatrix4(matrix), down); return ray.intersectObject(row.object, true).some(hit => Math.abs(hit.point.clone().applyMatrix4(inverse).y - position.y) < .04);})));
 }
-function contactPoints(row, inverse, outgoing, maximumHeight) {
+function contactPoints(row, inverse, outgoing, productSize) {
   const c = row.config, object = row.object, matrix = localMatrix(inverse, object), points = [];
+  const maximumHeight = productSize.height, minimumHeight = Math.min(.18, maximumHeight);
   if (c.type === 'conveyor') {
     const length = schema.conveyorLayout.pathLength(c), point = schema.conveyorLayout.pathPoint(c, outgoing ? length - .30 : 0);
-    for (const height of [.2, maximumHeight]) points.push(new THREE.Vector3(point.x, (point.y || 0) + height + .005, point.z).applyMatrix4(matrix));
+    for (const height of [minimumHeight, maximumHeight]) points.push(new THREE.Vector3(point.x, (point.y || 0) + height + .005, point.z).applyMatrix4(matrix));
   } else if (c.type === 'palletQueue') {
     const layout = schema.palletQueues.layout(c), top = Math.min(c.maxStackHeight || maximumHeight * c.layers, maximumHeight * c.layers);
-    layout.pallets.forEach(bay => { for (const x of [-1, 1]) for (const z of [-1, 1]) for (const height of [maximumHeight, top + maximumHeight]) points.push(new THREE.Vector3(bay.position[0] + x * Math.max(0, c.width / 2 - .12), -1 + layout.palletTop + 1 + height, bay.position[2] + z * Math.max(0, c.depth / 2 - .12)).applyMatrix4(matrix)); });
+    // A gripper reaches actual package centres/top faces, not the outside
+    // corners of all pallets plus an additional, nonexistent stack layer.
+    if (c.layoutMode === 'fit') layout.pallets.forEach(bay => {
+      for (const x of [-1, 1]) for (const z of [-1, 1]) for (const height of [minimumHeight, top]) points.push(new THREE.Vector3(
+        bay.position[0] + x * Math.max(0, (c.width - productSize.width) / 2), layout.palletTop + height + .005,
+        bay.position[2] + z * Math.max(0, (c.depth - productSize.depth) / 2)).applyMatrix4(matrix));
+    });
+    else layout.slots.forEach(slot => {for (const height of [minimumHeight, maximumHeight]) points.push(new THREE.Vector3(slot.x, layout.palletTop + (slot.layer + 1) * height + .005, slot.z).applyMatrix4(matrix));});
   } else {
     const position = c.type === 'processor' ? schema.processors.layout(c)[outgoing ? 'outputPosition' : 'inputPosition'] : [0, 0, 0];
-    for (const height of [.2, maximumHeight]) points.push(new THREE.Vector3(position[0], position[1] + height + .005, position[2]).applyMatrix4(matrix));
+    for (const height of [minimumHeight, maximumHeight]) points.push(new THREE.Vector3(position[0], position[1] + height + .005, position[2]).applyMatrix4(matrix));
   }
   return points;
 }
-function cellPlacement(document, edge, occupied, inverse, maximumHeight, floors, allowExpansion) {
-  const picks = contactPoints(edge.source, inverse, true, maximumHeight), places = contactPoints(edge.target, inverse, false, maximumHeight);
-  const first = picks[0], last = places[0], center = first.clone().add(last).multiplyScalar(.5);
+function cellPlacement(document, edge, occupied, inverse, productSize, floors, allowExpansion, authored) {
+  const picks = contactPoints(edge.source, inverse, true, productSize), places = contactPoints(edge.target, inverse, false, productSize);
+  const first = picks.reduce((sum, point) => sum.add(point), new THREE.Vector3()).multiplyScalar(1 / picks.length);
+  const last = places.reduce((sum, point) => sum.add(point), new THREE.Vector3()).multiplyScalar(1 / places.length);
+  const center = new THREE.Box3().setFromPoints(picks.concat(places)).getCenter(new THREE.Vector3());
   const direction = last.clone().sub(first).setY(0); if (direction.lengthSq() < .01) direction.set(1, 0, 0); direction.normalize();
   const normal = new THREE.Vector3(-direction.z, 0, direction.x), sourceConfig = edge.source.config;
   const floorY = new THREE.Vector3(0, -(sourceConfig.type === 'conveyor' ? sourceConfig.supportHeight || 1 : 1), 0).applyMatrix4(localMatrix(inverse, edge.source.object)).y;
-  const targets = picks.concat(places), baseHeight = .85, approachHeight = .38;
-  for (const side of [1, -1]) for (const offset of [1.5, 1.85, 2.2]) for (const along of [0, -.5, .5]) {
-    const position = center.clone().addScaledVector(normal, side * offset).addScaledVector(direction, along).setY(floorY), base = new THREE.Box3(new THREE.Vector3(position.x - .53, floorY + .025, position.z - .53), new THREE.Vector3(position.x + .53, floorY + baseHeight + .06, position.z + .53));
-    if (occupied.some(row => row.box.intersectsBox(base))) continue;
-    if (!allowExpansion && !baseSupported(position, base, floors, inverse)) continue;
-    const yaw = Math.atan2(-(center.z - position.z), center.x - position.x), rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw), matrix = new THREE.Matrix4().compose(position, rotation, new THREE.Vector3(1, 1, 1)), local = new THREE.Matrix4().getInverse(matrix);
-    const reach = Math.max(2.6, Math.ceil((Math.max(...targets.map(point => point.clone().sub(position.clone().add(new THREE.Vector3(0, baseHeight, 0))).length())) + .65) * 10) / 10);
-    if (reach > 5.5) continue;
-    const config = Object.assign({}, schema.robots.defaults('articulated-general'), {reach, baseHeight, approachHeight, payloadKg: 120, running: true, mode: 'automatic', withPanel: false, speed: 1.6, cycleTime: 1.8, processTime: 0, setupTime: .2, maxProductWidth: 2, maxProductDepth: 2, maxProductHeight: 2, wear: .25});
-    // The generic catalogue home points its tool across the adjoining deck.
-    // Fold upward before materializing the first product in a real cell.
-    const home = schema.robotKinematics.inverse(config, {x: reach * .25, y: baseHeight + reach * .65, z: 0});
+  const targets = picks.concat(places), approachHeight = .18, high = Math.max(...picks.map(point => point.y)) + approachHeight;
+  const paths = targets.concat(targets.map(point => point.clone().setY(Math.max(point.y + approachHeight, high))));
+  const candidates = new Map();
+  // Floor raycasts, obstacle checks and world/local transforms are independent
+  // of arm reach. Prepare them once instead of repeating that work per tier.
+  for (const baseHeight of [.45, .65]) {
+    const values = []; candidates.set(baseHeight, values);
+    for (const side of [1, -1]) for (const offset of [.9, 1.1, 1.3, 1.5, 1.65, 1.85]) for (const along of [0, -.4, .4, -.8, .8]) {
+      const position = center.clone().addScaledVector(normal, side * offset).addScaledVector(direction, along).setY(floorY), base = new THREE.Box3(new THREE.Vector3(position.x - .40, floorY + .025, position.z - .40), new THREE.Vector3(position.x + .40, floorY + baseHeight + .06, position.z + .40));
+      if (occupied.some(row => row.box.intersectsBox(base)) || !allowExpansion && !baseSupported(position, base, floors, inverse)) continue;
+      const yaw = Math.atan2(-(center.z - position.z), center.x - position.x), rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw), local = new THREE.Matrix4().getInverse(new THREE.Matrix4().compose(position, rotation, new THREE.Vector3(1, 1, 1)));
+      const localPaths = paths.map(point => point.clone().applyMatrix4(local));
+      // Downward contact tooling adds .20 m between the wrist and the TCP.
+      const minimumReach = Math.max(...localPaths.map(point => Math.hypot(point.x, point.y + .20 - baseHeight, point.z)));
+      values.push({position, rotation, base, localPaths, minimumReach});
+    }
+  }
+  for (const reach of [1.6, 1.8, 2, 2.2, 2.4, 2.6, 2.8, 3.2]) for (const baseHeight of [.45, .65]) {
+    const viable = candidates.get(baseHeight).filter(value => value.minimumReach <= reach + 1e-7); if (!viable.length) continue;
+    const config = Object.assign({}, schema.robots.defaults('articulated-general'), {payloadKg: Math.max(12, Math.ceil(productSize.mass * 1.25)), running: true, mode: 'automatic', withPanel: false, speed: 1.2, cycleTime: 2.4, processTime: 0, setupTime: .2, maxProductWidth: Math.max(.6, productSize.width), maxProductDepth: Math.max(.6, productSize.depth), maxProductHeight: Math.max(.6, productSize.height), wear: .25}, authored || {}, {reach, baseHeight, approachHeight});
+    // Fold into a compact, metric ready pose. Never scale a home height by
+    // reach: that made a 5.5 m retrofit raise its gripper above four metres.
+    const home = schema.robotKinematics.inverse(config, {x: .35, y: baseHeight + .65, z: 0});
     if (!home.reached) continue;
     config.jointLimitsJson = JSON.stringify(schema.robots.getJointDefinitions(config).map((joint, index) => ({id: joint.id, min: joint.min, max: joint.max, home: home.joints[index]})));
-    const high = Math.max(...picks.map(point => point.y)) + approachHeight;
-    const paths = targets.concat(targets.map(point => point.clone().setY(Math.max(point.y + approachHeight, high))));
-    if (!paths.every(point => {const pose = schema.robotKinematics.inverse(config, point.clone().applyMatrix4(local)); return pose.reached !== false && (pose.error || 0) < config.positionTolerance;})) continue;
-    return {position, rotation, config, picks, places, base};
+    for (const candidate of viable) {
+      if (!candidate.localPaths.every(point => {const pose = schema.robotKinematics.inverse(config, point); return pose.reached !== false && (pose.error || 0) < config.positionTolerance;})) continue;
+      return {position: candidate.position, rotation: candidate.rotation, config, picks, places, base: candidate.base};
+    }
   }
   return null;
 }
@@ -116,25 +153,32 @@ export function retrofitCediRobotics(document, roomId, options = {}) {
     };
     let installed = 0;
     for (const role of ['loading', 'transfer', 'unloading'].slice(0, options.robotCount || 3)) {
-      if (rows.some(row => row.config.type === 'robot' && row.object.name.includes(PREFIX + roleNames[role] + ' · '))) continue;
+      const existing = rows.find(row => row.config.type === 'robot' && row.object.name.includes(PREFIX + roleNames[role] + ' · '));
+      if (existing && !options.refitRobotCells) continue;
+      if (existing && (existing.config.family !== 'articulated' || existing.config.operation !== 'pick-place')) {
+        warnings.push('La célula personalizada de ' + roleNames[role].toLowerCase() + ' conserva su arquitectura y operación; ajústala en el inspector.'); continue;
+      }
       let chosen;
-      for (const edge of categories[role]) {
+      const previousEdge = existing && {source: byId.get(existing.config.sourceId), target: byId.get(existing.config.outputId)};
+      for (const edge of existing ? previousEdge.source && previousEdge.target ? [previousEdge] : [] : categories[role]) {
         if (cells.some(cell => cell.source === edge.source.object)) continue;
-        const line = lines.find(item => item.objects.includes(edge.source.object)), sources = line ? line.sources || [] : rows.filter(row => row.config.type === 'source').map(row => row.object);
-        const heights = sources.flatMap(object => {const value = machine(document, object, 'source'); return value ? schema.productSources.normalizeCatalog(value.catalog || '[]').map(spec => spec.height) : [];});
-        const maximumHeight = Math.max(.5, ...heights.filter(Number.isFinite)), placement = cellPlacement(document, edge, occupied, inverse, maximumHeight, floorRows, options.allowExpansion === true);
+        const line = lines.find(item => item.objects.includes(edge.source.object)), sources = upstreamSources(rows, edge.source);
+        const profiles = sources.flatMap(object => {const value = machine(document, object, 'source'); if (!value) return []; const catalogue = schema.productSources.normalizeCatalog(value.catalog || '[]'); return catalogue.length ? catalogue : [value];});
+        const maximum = (key, fallback) => Math.max(fallback, ...profiles.map(spec => spec[key]).filter(Number.isFinite));
+        const productSize = {width: maximum('width', .3), depth: maximum('depth', .3), height: maximum('height', .3), mass: maximum('mass', 4)};
+        const placement = cellPlacement(document, edge, occupied.filter(row => !existing || row.object !== existing.object), inverse, productSize, floorRows, options.allowExpansion === true, existing && existing.config);
         if (placement) { chosen = {edge, line, placement}; break; }
       }
-      if (!chosen) { if (categories[role].length) warnings.push('No hay una base apoyada y alcance libre para la célula de ' + roleNames[role].toLowerCase() + '; conserva el enlace original.'); continue; }
-      const {edge, line, placement} = chosen, reused = legacy.shift(), robot = reused ? reused.object : document.addPrefab(roomId, 'robot', 'articulated-general');
+      if (!chosen) { if (existing || categories[role].length) warnings.push('No hay una base apoyada y alcance industrial de hasta 3,2 m para la célula de ' + roleNames[role].toLowerCase() + '; conserva el enlace y equipo originales.'); continue; }
+      const {edge, line, placement} = chosen, reused = existing || legacy.shift(), robot = reused ? reused.object : document.addPrefab(roomId, 'robot', 'articulated-general');
       patch(document, robot, 'robot', Object.assign({}, placement.config, {sourceId: edge.source.object.userData.editorId, outputId: edge.target.object.userData.editorId, targetId: ''}));
       document.setProperty(robot, 'name', PREFIX + roleNames[role] + ' · ' + edge.source.object.name); document.setTransform(robot, {position: placement.position.toArray(), quaternion: placement.rotation.toArray()});
-      patch(document, edge.source.object, edge.source.config.type, {outputId: robot.userData.editorId, outputPort: 'input'});
-      if (!reused) added.push(robot); robots.push(robot); installed++; occupied.push({object: robot, box: roomBox(robot, inverse, root)});
+      if (!existing) patch(document, edge.source.object, edge.source.config.type, {outputId: robot.userData.editorId, outputPort: 'input'});
+      if (!reused) added.push(robot); robots.push(robot); installed++; const occupiedIndex = occupied.findIndex(row => row.object === robot); if (occupiedIndex >= 0) occupied.splice(occupiedIndex, 1); occupied.push({object: robot, box: roomBox(robot, inverse, root)});
       const cell = {role, robot, source: edge.source.object, target: edge.target.object}; cells.push(cell);
       if (line) {
         if (!line.objects.includes(robot)) line.objects.push(robot); line.memberIds = Array.from(new Set((line.memberIds || []).concat(robot.userData.editorId)));
-        line.links = (line.links || []).filter(link => !(link.source === edge.source.object.userData.editorId && link.target === edge.target.object.userData.editorId)).concat([{source: edge.source.object.userData.editorId, sourcePort: 'output', target: robot.userData.editorId, targetPort: 'input'}, {source: robot.userData.editorId, sourcePort: 'output', target: edge.target.object.userData.editorId, targetPort: 'input'}]);
+        line.links = (line.links || []).filter(link => !(link.source === edge.source.object.userData.editorId && [edge.target.object.userData.editorId, robot.userData.editorId].includes(link.target)) && !(link.source === robot.userData.editorId && link.target === edge.target.object.userData.editorId)).concat([{source: edge.source.object.userData.editorId, sourcePort: 'output', target: robot.userData.editorId, targetPort: 'input'}, {source: robot.userData.editorId, sourcePort: 'output', target: edge.target.object.userData.editorId, targetPort: 'input'}]);
       }
     }
     // Existing profiles retain their type, dimensions, quality and count. Only

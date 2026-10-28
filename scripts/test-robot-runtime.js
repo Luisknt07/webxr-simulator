@@ -149,7 +149,9 @@ function run() {
   }
 
   for (const kind of ['conveyor', 'processor', 'palletQueue']) {
-    const cell = fixture(); cell.runtime.stop();
+    // This receiver-API regression deliberately spans the former medium-cell
+    // envelope (including distant pallet bays), not the new compact catalogue.
+    const cell = fixture('articulated', {reach: 2.2, baseHeight: .65}); cell.runtime.stop();
     const values = kind === 'conveyor' ? {powered: true, running: true, autoSpawn: false, length: 1, speed: 0, withPallet: false, withPanel: false, withSensors: false} :
       kind === 'processor' ? {powered: true, running: true, setupTime: 0, processTime: .1, delivery: 'manual'} :
         {running: true, palletCount: 1, columns: 2, rows: 2, layers: 2, capacity: 8, width: 1.2, depth: .8, delivery: 'manual'};

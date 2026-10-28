@@ -385,7 +385,7 @@ export default class StudioTools {
   async integrateRobotics() {
     this.assertStudyReady(); const editor = this.editor;
     return editor.perform(() => {
-      const result = retrofitCediRobotics(editor.document, editor.roomId, {scene: editor.hooks.renderScene});
+      const result = retrofitCediRobotics(editor.document, editor.roomId, {scene: editor.hooks.renderScene, refitRobotCells: true});
       if (editor.entities) editor.entities.sync(); editor.renderTree(); editor.renderInspector();
       const message = result.changed ? result.robots.length + ' robots y ' + result.vehicles.length + ' vehículos integrados. Pulsa Probar para operar.' : result.warnings.length ? 'No se agregaron equipos.' : 'La escena ya está equipada.';
       editor.toast(message + (result.warnings.length ? ' ' + result.warnings.join(' ') : ''));

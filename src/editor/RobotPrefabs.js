@@ -40,6 +40,49 @@ function roundedShape(w, h, radius) {
   shape.lineTo(x, y + r); shape.quadraticCurveTo(x, y, x + r, y); return shape;
 }
 
+// Tangent, curved castings replace box-shaped links. The long axis is X and
+// its two bearing centres remain exactly 0 and length; contour changes never
+// move a joint or the mathematical TCP. The smaller distal end also tapers in
+// depth, as a manufactured arm housing does around its wrist drive.
+function castingShape(length, proximal, distal) {
+  const shape = new THREE.Shape();
+  shape.moveTo(-proximal, 0);
+  shape.bezierCurveTo(-proximal, -proximal * .58, -proximal * .58, -proximal, 0, -proximal);
+  shape.bezierCurveTo(length * .26, -proximal * .97, length * .72, -distal * .94, length, -distal);
+  shape.bezierCurveTo(length + distal * .58, -distal, length + distal, -distal * .58, length + distal, 0);
+  shape.bezierCurveTo(length + distal, distal * .58, length + distal * .58, distal, length, distal);
+  shape.bezierCurveTo(length * .68, distal * .96, length * .25, proximal, 0, proximal);
+  shape.bezierCurveTo(-proximal * .58, proximal, -proximal, proximal * .58, -proximal, 0);
+  return shape;
+}
+
+function housingDepth(length, depth, x) { return depth * (1 - .28 * Math.max(0, Math.min(1, x / Math.max(.001, length)))); }
+
+function volumeSections(length, proximal, distal, depth) {
+  // x, half-height, half-depth, vertical centre, lateral centre. Curved front
+  // and rear faces are essential: a bevel around a flat extrusion still reads
+  // as an excavator plate when seen from a working cell.
+  return [
+    [-proximal, 0, 0, 0, 0], [-proximal * .86, proximal * .50, depth * .25, 0, 0],
+    [-proximal * .50, proximal * .84, depth * .43, 0, 0], [0, proximal, depth * .50, 0, 0],
+    [length * .14, proximal * .88, depth * .56, proximal * .035, depth * .035],
+    [length * .38, proximal * .68 + distal * .07, depth * .52, proximal * .065, depth * .08],
+    [length * .68, proximal * .44 + distal * .30, depth * .43, proximal * .045, depth * .09],
+    [length * .90, distal * .98, depth * .37, distal * .025, depth * .025],
+    [length, distal, depth * .36, 0, 0], [length + distal * .55, distal * .82, depth * .28, 0, 0],
+    [length + distal * .86, distal * .48, depth * .15, 0, 0], [length + distal, 0, 0, 0, 0]
+  ];
+}
+
+function volumeSurface(sections, x, y, side, exponent = .8) {
+  const index = Math.max(0, Math.min(sections.length - 2, sections.findIndex((section, i) => i + 1 < sections.length && sections[i + 1][0] >= x)));
+  const a = sections[index], b = sections[index + 1], t = Math.max(0, Math.min(1, (x - a[0]) / Math.max(.0001, b[0] - a[0])));
+  const at = i => a[i] + (b[i] - a[i]) * t;
+  const fraction = Math.min(.999, Math.abs((y - at(3)) / Math.max(.0001, at(1))));
+  const power = 2 / exponent;
+  return at(4) + side * at(2) * Math.pow(1 - Math.pow(fraction, power), 1 / power);
+}
+
 function builder(config) {
   const geometries = new Map(), surfaces = new Map();
   const segments = config.detail === 'low' ? 10 : config.detail === 'high' ? 22 : 16;
@@ -69,6 +112,62 @@ function builder(config) {
       if (type === 'box') result = new THREE.BoxBufferGeometry(...args);
       if (type === 'cylinder') result = new THREE.CylinderBufferGeometry(args[0], args[1], args[2], args[3] || segments);
       if (type === 'lathe') result = new THREE.LatheBufferGeometry(args[0].map(p => new THREE.Vector2(p[0], p[1])), args[1] || segments);
+      if (type === 'casting') {
+        const [length, proximal, distal, depth] = args;
+        const bevel = Math.min(Math.max(config.filletRadius * .38, config.chamferSize), depth * .18, distal * .30);
+        result = new THREE.ExtrudeBufferGeometry(castingShape(length, proximal - bevel, distal - bevel), {
+          depth: Math.max(.001, depth - 2 * bevel), steps: 1, curveSegments: config.detail === 'low' ? 3 : config.detail === 'high' ? 6 : 4,
+          bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: config.detail === 'high' ? 2 : 1
+        });
+        result.translate(0, 0, -depth / 2 + bevel);
+        const position = result.attributes.position;
+        for (let index = 0; index < position.count; index++) position.setZ(index, position.getZ(index) * housingDepth(length, 1, position.getX(index)));
+        result.computeVertexNormals();
+        result.userData = {robotCasting: {length, proximal, distal, depth, bevel}};
+      }
+      if (type === 'volume') {
+        const [length, proximal, distal, depth] = args, sections = volumeSections(length, proximal, distal, depth);
+        const around = config.detail === 'low' ? 12 : config.detail === 'high' ? 24 : 18;
+        const vertices = [], uv = [], indices = [];
+        const exponent = Math.max(.6, Math.min(1, .6 + config.filletRadius / Math.max(.02, Math.min(proximal, depth / 2)) * .9));
+        sections.forEach((section, ring) => {
+          for (let side = 0; side <= around; side++) {
+            const angle = side / around * Math.PI * 2, sine = Math.sin(angle), cosine = Math.cos(angle);
+            vertices.push(section[0], section[3] + section[1] * Math.sign(sine) * Math.pow(Math.abs(sine), exponent),
+              section[4] + section[2] * Math.sign(cosine) * Math.pow(Math.abs(cosine), exponent));
+            uv.push((section[0] + proximal) / (length + proximal + distal), side / around);
+            if (ring && side < around) {
+              const current = ring * (around + 1) + side, previous = current - around - 1;
+              // Avoid coincident-pole triangles while closing the cast ends.
+              if (ring > 1) indices.push(previous, current, previous + 1);
+              if (ring < sections.length - 1) indices.push(previous + 1, current, current + 1);
+            }
+          }
+        });
+        result = new THREE.BufferGeometry(); result.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        result.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); result.setIndex(indices); result.computeVertexNormals();
+        // The UV seam is duplicated, but its normals must describe one smooth
+        // casting, not a hard line along the front face.
+        const normal = result.attributes.normal;
+        sections.forEach((_, ring) => {
+          const a = ring * (around + 1), b = a + around;
+          if (ring === 0 || ring === sections.length - 1) {
+            for (let side = 0; side <= around; side++) normal.setXYZ(a + side, ring === 0 ? -1 : 1, 0, 0);
+            return;
+          }
+          const n = new THREE.Vector3(normal.getX(a) + normal.getX(b), normal.getY(a) + normal.getY(b), normal.getZ(a) + normal.getZ(b)).normalize();
+          normal.setXYZ(a, n.x, n.y, n.z); normal.setXYZ(b, n.x, n.y, n.z);
+        });
+        result.userData = {robotCasting: {length, proximal, distal, depth, bevel: Math.min(config.filletRadius, depth * .18), exponent, volumetric: true, sections}};
+      }
+      if (type === 'footprint') {
+        const [length, width, height, radius] = args, bevel = Math.min(config.chamferSize, height * .15);
+        result = new THREE.ExtrudeBufferGeometry(roundedShape(length - bevel * 2, width - bevel * 2, radius), {
+          depth: height - bevel * 2, steps: 1, curveSegments: config.detail === 'low' ? 3 : 5,
+          bevelEnabled: bevel > 0, bevelSize: bevel, bevelThickness: bevel, bevelSegments: config.detail === 'high' ? 2 : 1
+        });
+        result.translate(0, 0, -height / 2 + bevel); result.rotateX(Math.PI / 2);
+      }
       if (type === 'round') {
         const [w, h, depth] = args, bevel = Math.min(config.chamferSize, Math.min(w, h, depth) * .16);
         const radius = Math.min(config.filletRadius, Math.min(w, h) * .45);
@@ -88,6 +187,14 @@ function builder(config) {
     if (parent) parent.add(object); return object;
   };
   const box = (name, size, role, parent, position, round = false) => mesh(name, geometry(round ? 'round' : 'box', size), role, parent, position);
+  const casting = (name, dimensions, role, parent, position) => {
+    const object = mesh(name, geometry('casting', dimensions), role, parent, position);
+    object.userData.robotContouredHousing = true; return object;
+  };
+  const housing = (name, dimensions, role, parent, position) => {
+    const object = mesh(name, geometry('volume', dimensions), role, parent, position);
+    object.userData.robotContouredHousing = true; return object;
+  };
   const cylinder = (name, radius, length, role, parent, position, rotation, topRadius) => mesh(name, geometry('cylinder', [topRadius === undefined ? radius : topRadius, radius, length, segments]), role, parent, position, rotation);
   const rod = (name, a, b, radius, role, parent) => {
     const start = new THREE.Vector3().fromArray(a), end = new THREE.Vector3().fromArray(b), direction = end.clone().sub(start);
@@ -110,7 +217,7 @@ function builder(config) {
     const object = mesh(name, new THREE.TubeBufferGeometry(path, config.detail === 'high' ? 16 : 10, radius, 5, false), 'rubber', parent);
     object.userData.industrialCosmeticDetail = true; return object;
   };
-  return {config, segments, geometry, material, mesh, box, cylinder, rod, bolts, boltRing, cable};
+  return {config, segments, geometry, material, mesh, box, casting, housing, cylinder, rod, bolts, boltRing, cable};
 }
 
 function group(parent, name, position) {
@@ -119,15 +226,18 @@ function group(parent, name, position) {
 function joint(parent, id, position, rig) {
   const object = group(parent, id + ' · articulación', position); object.userData.robotJoint = id; rig.joints.push(object); return object;
 }
-function hinge(b, parent, radius, length, axis = 'z') {
+function hinge(b, parent, radius, length, axis = 'z', painted = false) {
   const rotation = axis === 'z' ? [Math.PI / 2, 0, 0] : axis === 'x' ? [0, 0, Math.PI / 2] : [0, 0, 0];
   const edge = Math.min(.012, length * .12), profile = [[0, -length / 2], [radius * .83, -length / 2], [radius, -length / 2 + edge], [radius, length / 2 - edge], [radius * .83, length / 2], [0, length / 2]];
-  b.mesh('Reductor de precisión', b.geometry('lathe', [profile]), 'accent', parent, [0, 0, 0], rotation);
-  b.cylinder('Tapa mecanizada del reductor', radius * .80, .022, 'metal', parent,
+  b.mesh('Reductor de precisión', b.geometry('lathe', [profile]), painted ? 'frame' : 'accent', parent, [0, 0, 0], rotation);
+  b.cylinder('Tapa mecanizada del reductor', radius * (painted ? .68 : .80), .022, painted ? 'accent' : 'metal', parent,
     axis === 'z' ? [0, 0, length / 2 + .006] : axis === 'x' ? [length / 2 + .006, 0, 0] : [0, length / 2 + .006, 0], rotation);
   if (axis === 'z') {
     b.boltRing(parent, radius * .62, length / 2 + .022);
-    b.cylinder('Servomotor y freno integrado', radius * .62, radius * .95, 'accent', parent, [0, 0, -length / 2 - radius * .35], rotation);
+    const motorLength = radius * .95;
+    const motorProfile = [[0, -motorLength / 2], [radius * .43, -motorLength / 2], [radius * .60, -motorLength * .31],
+      [radius * .68, -motorLength * .06], [radius * .67, motorLength * .23], [radius * .52, motorLength / 2], [0, motorLength / 2]];
+    b.mesh('Servomotor y freno integrado', b.geometry('lathe', [motorProfile]), painted ? 'frame' : 'accent', parent, [0, 0, -length / 2 - radius * .35], rotation);
     if (b.config.detail !== 'low') {
       const fins = new THREE.InstancedMesh(b.geometry('cylinder', [radius * .69, radius * .69, .007, b.segments]), b.material('metal'), 5);
       fins.name = 'Aletas de refrigeración del servomotor'; fins.userData.industrialCosmeticDetail = true; fins.userData.industrialMaterialRole = 'metal';
@@ -139,7 +249,8 @@ function hinge(b, parent, radius, length, axis = 'z') {
   }
 }
 function pedestal(b, rig, d) {
-  const radius = Math.max(.13, Math.min(.34, d.reach * .13)), mount = b.config.family === 'mobileManipulator' ? b.config.height + .025 : 0, height = Math.max(.08, d.baseHeight - mount);
+  const collaborative = b.config.variant === 'collaborative';
+  const radius = Math.max(.10, Math.min(.34, d.reach * (collaborative ? .075 : .13))), mount = b.config.family === 'mobileManipulator' ? b.config.height + .025 : 0, height = Math.max(.08, d.baseHeight - mount);
   const base = group(rig.visual, 'Base anclada al piso');
   base.position.y = mount;
   const plate = b.box('Placa base achaflanada', [radius * 2.8, .05, radius * 2.8], 'metal', base, [0, .025, 0], true);
@@ -154,7 +265,12 @@ function pedestal(b, rig, d) {
     plate.geometry.rotateX(Math.PI / 2); plate.geometry.translate(0, .025, 0);
     old.dispose();
   }
-  b.cylinder('Zócalo cónico de fundición', radius, Math.max(.04, height - .05), 'frame', base, [0, .05 + Math.max(.04, height - .05) / 2, 0], undefined, radius * .76);
+  const castingHeight = Math.max(.04, height - .05), profile = [
+    [0, 0], [radius * 1.17, 0], [radius * 1.21, castingHeight * .08], [radius * 1.18, castingHeight * .27],
+    [radius * 1.07, castingHeight * .68], [radius * .96, castingHeight * .85], [radius * .83, castingHeight * .96], [radius * .78, castingHeight], [0, castingHeight]
+  ];
+  const support = b.mesh('Zócalo perfilado de fundición', b.geometry('lathe', [profile]), 'frame', base, [0, .05, 0]);
+  support.userData.robotContouredHousing = true;
   b.cylinder('Corona de giro J1', radius * .81, .07, 'metal', base, [0, height, 0]);
   b.bolts(base, [-1, 1].flatMap(x => [-1, 1].map(z => [x * radius, .057, z * radius])), .024, 'y');
   b.box('Caja de conexiones y prensaestopas', [radius * 1.2, height * .3, radius * .38], 'accent', base, [0, height * .43, -radius], true);
@@ -164,12 +280,28 @@ function pedestal(b, rig, d) {
   ];
   return radius;
 }
-function link(b, parent, length, thickness, name, opposite = false) {
-  b.box(name + ' · carcasa de fundición', [length, thickness, thickness * .83], 'frame', parent, [length / 2, 0, 0], true);
-  b.box(name + ' · tapa de servicio', [length * .61, thickness * .62, .018], 'accent', parent, [length * .5, 0, -thickness * .43], true);
-  b.bolts(parent, [0.22, .78].flatMap(x => [-1, 1].map(y => [length * x, thickness * .21 * y, thickness * .42])), thickness * .047);
-  const side = opposite ? -1 : 1;
-  b.cable(parent, [[.03, thickness * .48, -thickness * .5], [length * .25, thickness * .75, -thickness * .55], [length * .7, thickness * .65, -thickness * .55], [length * .96, thickness * .48, -thickness * .5]], thickness * .065 * side * side);
+function link(b, parent, length, thickness, name, distal = false) {
+  const proximal = thickness * (distal ? .78 : .94), tip = thickness * (distal ? .42 : .66), depth = thickness * (distal ? 1.35 : 1.62);
+  const shell = b.housing(name + ' · carcasa perfilada de fundición', [length, proximal, tip, depth], 'frame', parent);
+  const sections = shell.geometry.userData.robotCasting.sections, exponent = shell.geometry.userData.robotCasting.exponent;
+  const surface = (x, y, side) => volumeSurface(sections, x, y, side, exponent), back = (x, y = 0) => surface(x, y, -1);
+  // A service cover follows the same tapered back surface rather than lying
+  // in a constant-Z plane and separating from the housing at its narrow end.
+  const coverLength = length * .42, coverStart = length * .25;
+  const cover = b.casting(name + ' · tapa de servicio conformada', [coverLength, thickness * .20, thickness * .14, .012], 'accent', parent, [coverStart, 0, 0]);
+  const vertices = cover.geometry.attributes.position;
+  // The builder owns one independently disposable casting geometry per shape.
+  for (let index = 0; index < vertices.count; index++) vertices.setZ(index, vertices.getZ(index) + back(vertices.getX(index) + coverStart, vertices.getY(index)) - .001);
+  cover.geometry.computeVertexNormals();
+  b.bolts(parent, [.20, .72].flatMap(x => [-1, 1].map(y => [length * x, thickness * .36 * y, surface(length * x, thickness * .36 * y, 1) + .004])), thickness * .046);
+  const start = length * .12, end = length * .86;
+  for (const x of [start, end]) b.cylinder(name + ' · racor sellado de cable', thickness * .105, thickness * .14, 'metal', parent, [x, 0, back(x) - thickness * .035], [Math.PI / 2, 0, 0]);
+  b.cable(parent, [[start, 0, back(start) - thickness * .11], [length * .28, thickness * .35, back(length * .28) - thickness * .16],
+    [length * .67, thickness * .29, back(length * .67) - thickness * .16], [end, 0, back(end) - thickness * .11]], thickness * .055, name + ' · manguera guiada');
+  shell.userData.industrialStickerAnchors = [
+    {id: distal ? 'equipment-id' : 'warning-pinch', position: [length * .40, 0, surface(length * .40, 0, 1)], normal: [0, 0, 1], size: [Math.min(length * .22, .15), Math.min(thickness * .56, .075)]}
+  ];
+  return shell;
 }
 
 function tool(b, parent, rig) {
@@ -219,24 +351,55 @@ function tool(b, parent, rig) {
 }
 
 function articulated(b, rig, d) {
-  const radius = pedestal(b, rig, d), t = Math.max(.09, Math.min(.25, d.reach * .105));
-  const yaw = joint(rig.visual, 'J1', [0, d.baseHeight, 0], rig); hinge(b, yaw, radius * .8, .10, 'y');
-  b.box('Horquilla del hombro', [t * 1.5, t * 1.45, t * .75], 'frame', yaw, [0, 0, -t * .42], true);
-  const shoulder = joint(yaw, 'J2', [0, 0, 0], rig); hinge(b, shoulder, t * .76, t * 1.5); link(b, shoulder, d.upperArm, t, 'Brazo superior');
-  shoulder.userData.industrialStickerAnchors = [{id: 'warning-pinch', position: [d.upperArm * .5, 0, t * .415], normal: [0, 0, 1], size: [Math.min(.11, d.upperArm * .2), t * .48]}];
-  const elbow = joint(shoulder, 'J3', [d.upperArm, 0, 0], rig); hinge(b, elbow, t * .65, t * 1.22); link(b, elbow, d.forearm, t * .77, 'Antebrazo', true);
+  const radius = pedestal(b, rig, d), collaborative = b.config.variant === 'collaborative';
+  const payload = Math.max(.86, Math.min(1.18, Math.pow(b.config.payloadKg / 16, .09)));
+  const t = Math.max(.085, Math.min(.30, d.reach * (collaborative ? .074 : b.config.family === 'palletizer' ? .112 : .112) * payload));
+  rig.castingShells = [];
+  const yaw = joint(rig.visual, 'J1', [0, d.baseHeight, 0], rig); hinge(b, yaw, radius * .8, .10, 'y', true);
+  // Both cast cheeks overlap the J1 bearing crown and support the full J2
+  // axle. They remain on the yaw body while the upper arm swings between them.
+  const saddle = b.housing('Cuerpo giratorio del hombro', [t * .46, t * .93, t * .74, t * 1.66], 'frame', yaw, [-t * .27, -t * .41, 0]);
+  rig.castingShells.push(saddle);
+  const waist = [[0, -t * .78], [radius * .68, -t * .78], [radius * .88, -t * .56], [radius * .96, -t * .21], [radius * .90, t * .06], [radius * .71, t * .26], [0, t * .26]];
+  b.mesh('Cintura anular del hombro', b.geometry('lathe', [waist]), 'frame', yaw);
+  for (const side of [-1, 1]) {
+    const cheek = b.casting('Oreja de apoyo del eje del hombro', [t * .30, t * .74, t * .62, t * .24], 'frame', yaw, [-t * .16, -t * .13, side * t * .84]);
+    rig.castingShells.push(cheek);
+  }
+  b.cylinder('Eje pasante de apoyo J2', t * .33, t * 1.96, 'metal', yaw, [0, 0, 0], [Math.PI / 2, 0, 0]);
+  const shoulder = joint(yaw, 'J2', [0, 0, 0], rig); hinge(b, shoulder, t * .91, t * 1.70, 'z', true);
+  rig.castingShells.push(link(b, shoulder, d.upperArm, t, 'Brazo superior'));
+  const counter = b.housing('Contrapeso perfilado del brazo', [t * .33, t * .75, t * .59, t * 1.49], 'frame', shoulder, [-t * .57, -t * .13, -t * .12]);
+  rig.castingShells.push(counter);
+  b.cylinder('Registro circular del contrapeso', t * .38, .015, 'accent', shoulder, [-t * .60, -t * .13, t * .63], [Math.PI / 2, 0, 0]);
+  const elbow = joint(shoulder, 'J3', [d.upperArm, 0, 0], rig); hinge(b, elbow, t * .72, t * 1.42, 'z', true);
+  rig.castingShells.push(link(b, elbow, d.forearm, t * .78, 'Antebrazo', true));
   if (b.config.family === 'palletizer') {
     // The working wrist is levelled independently; the pair of connecting rods
     // is recomputed from the same joint positions, preserving a parallelogram.
     rig.palletWrist = joint(rig.visual, 'J4', [0, 0, 0], rig); hinge(b, rig.palletWrist, t * .46, t * .8, 'x');
     rig.parallelRods = [0, 1, 2, 3].map(() => b.cylinder('Biela del paralelogramo de nivelación', t * .065, 1, 'metal', rig.visual));
+    rig.parallelOffset = t * .62; rig.parallelSide = t * .91;
+    rig.parallelMounts = [0, 1, 2, 3, 4, 5].map(() => ({
+      axle: b.cylinder('Eje de anclaje del paralelogramo', t * .085, 1, 'metal', rig.visual),
+      bridge: b.cylinder('Puente de apoyo del paralelogramo', t * .11, 1, 'frame', rig.visual),
+      pin: b.cylinder('Pasador de biela del paralelogramo', t * .13, t * .33, 'metal', rig.visual)
+    }));
+    b.casting('Cabezal perfilado de paletizado', [t * .36, t * .45, t * .32, t * .83], 'frame', rig.palletWrist, [-t * .24, 0, 0]);
     tool(b, rig.palletWrist, rig);
   } else {
-    const roll = joint(elbow, 'J4', [d.forearm, 0, 0], rig); hinge(b, roll, t * .43, t * .78, 'x');
-    const bend = joint(roll, 'J5', [0, 0, 0], rig); hinge(b, bend, t * .34, t * .75);
-    const spin = joint(bend, 'J6', [0, 0, 0], rig); b.cylinder('Brida ISO de herramienta', t * .28, .035, 'metal', spin, [0, 0, 0], [0, 0, Math.PI / 2]);
+    const roll = joint(elbow, 'J4', [d.forearm, 0, 0], rig);
+    const wrist = b.housing('Carcasa estrechada de muñeca J4', [t * .50, t * .38, t * .29, t * .87], 'frame', roll, [-t * .51, 0, 0]);
+    rig.castingShells.push(wrist); hinge(b, roll, t * .34, t * .65, 'x');
+    const bend = joint(roll, 'J5', [0, 0, 0], rig); hinge(b, bend, t * .28, t * .65);
+    const spin = joint(bend, 'J6', [0, 0, 0], rig);
+    b.cylinder('Brida ISO de herramienta', t * .27, .055, 'metal', spin, [.034, 0, 0], [0, 0, Math.PI / 2]);
+    b.cylinder('Guardapolvo del eje de herramienta', t * .30, .018, 'rubber', spin, [.006, 0, 0], [0, 0, Math.PI / 2]);
     tool(b, spin, rig);
   }
+  // Manufacturer-independent identity for material/geometry audits. These
+  // shapes are authored castings, not a claim of production CAD dimensions.
+  rig.design = {style: collaborative ? 'compact-collaborative' : b.config.family === 'palletizer' ? 'reinforced-palletizer' : 'compact-industrial', section: t};
 }
 
 function radialRobot(b, rig, d) {
@@ -334,9 +497,11 @@ function mobile(b, rig, d) {
   }
   const chassis = isRail ? joint(rig.visual, 'J1', [0, 0, 0], rig) : group(rig.visual, 'Chasis móvil'); rig.chassis = chassis;
   const bottom = isRail ? .2 : .08, bodyHeight = isRail ? Math.max(.18, d.baseHeight + .15 - bottom) : Math.max(.18, d.height - bottom);
-  b.box('Carrocería modular de transporte', [long, bodyHeight, width], 'frame', chassis, [0, bottom + bodyHeight / 2, 0], true);
-  b.box('Protector perimetral elastómero', [long + .025, .075, width + .025], 'rubber', chassis, [0, bottom + .055, 0], true);
-  b.box('Cubierta superior desmontable', [long * .89, .024, width * .88], 'metal', chassis, [0, bottom + bodyHeight + .012, 0], true);
+  const roundedBase = b.config.family === 'mobileManipulator';
+  const chassisPart = (name, size, role, position) => roundedBase ? b.mesh(name, b.geometry('footprint', [size[0], size[2], size[1], Math.min(size[0], size[2]) * .17]), role, chassis, position) : b.box(name, size, role, chassis, position, true);
+  chassisPart('Carrocería modular de transporte', [long, bodyHeight, width], 'frame', [0, bottom + bodyHeight / 2, 0]);
+  chassisPart('Protector perimetral elastómero', [long + .025, .075, width + .025], 'rubber', [0, bottom + .055, 0]);
+  chassisPart('Cubierta superior desmontable', [long * .89, .024, width * .88], 'metal', [0, bottom + bodyHeight + .012, 0]);
   chassis.userData.industrialStickerAnchors = [
     {id: 'equipment-id', position: [0, bottom + bodyHeight * .55, width / 2], normal: [0, 0, 1], size: [Math.min(.24, long * .3), Math.min(.095, bodyHeight * .24)]},
     {id: 'capacity', position: [0, bottom + bodyHeight + .024, -width * .23], normal: [0, 1, 0], size: [Math.min(.22, long * .24), Math.min(.12, width * .2)]}
@@ -404,7 +569,7 @@ export function createRobot(value = {}, options = {}) {
   const config = robotSchema.normalize(value), root = new THREE.Group();
   root.name = (robotSchema.getDefinition(config.variant) || {}).name || 'Robot';
   root.userData.editorPrefabKey = 'robot'; root.userData.editorPrefabVariant = config.variant;
-  root.userData.robotGeometryVersion = 1; root.userData.robotFamily = config.family;
+  root.userData.robotGeometryVersion = 2; root.userData.robotFamily = config.family;
   refreshRobotGeometry(root, config, options); return root;
 }
 
@@ -439,7 +604,7 @@ export function refreshRobotGeometry(root, value = {}, options = {}) {
     }
   }
   visual.userData.robotParametricDesign = {filletRadius: config.filletRadius, chamferSize: config.chamferSize, mountingHoles: config.mountingHoles, detail: config.detail};
-  root.userData.robotFamily = config.family; root.userData.editorPrefabVariant = config.variant;
+  root.userData.robotGeometryVersion = 2; root.userData.robotFamily = config.family; root.userData.editorPrefabVariant = config.variant;
   expose(root, rig); updateRobotPose(root, kinematics.homePose(config));
   return root;
 }
@@ -456,11 +621,16 @@ export function updateRobotPose(root, pose = {}) {
     else {
       rig.palletWrist.position.fromArray(solved.frames[3].position); rig.palletWrist.quaternion.fromArray(solved.quaternion);
       const shoulder = solved.frames[1].position, elbow = solved.frames[2].position, tcp = solved.frames[3].position;
-      const offset = new THREE.Vector3(0, .12, 0).applyAxisAngle(new THREE.Vector3(0, 0, 1), -j[1]).applyAxisAngle(UP, j[0]).toArray();
+      const offset = [0, rig.parallelOffset, 0];
       [-1, 1].forEach((sign, index) => {
-        const shift = [Math.sin(j[0]) * sign * .09, 0, Math.cos(j[0]) * sign * .09];
+        const shift = [Math.sin(j[0]) * sign * rig.parallelSide, 0, Math.cos(j[0]) * sign * rig.parallelSide];
         const a = shoulder.map((v, i) => v + shift[i] + offset[i]), b = elbow.map((v, i) => v + shift[i] + offset[i]), end = tcp.map((v, i) => v + shift[i] + offset[i]);
         setRod(rig.parallelRods[index * 2], a, b); setRod(rig.parallelRods[index * 2 + 1], b, end);
+        [shoulder, elbow, tcp].forEach((pivot, point) => {
+          const mount = rig.parallelMounts[index * 3 + point], inner = pivot.map((v, i) => v + shift[i]), outer = inner.map((v, i) => v + offset[i]);
+          setRod(mount.axle, pivot, inner); setRod(mount.bridge, inner, outer); mount.pin.position.fromArray(outer);
+          mount.pin.quaternion.setFromUnitVectors(UP, new THREE.Vector3(Math.sin(j[0]), 0, Math.cos(j[0])));
+        });
       });
     }
   } else if (c.family === 'cylindrical' || c.family === 'polar') {

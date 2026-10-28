@@ -33,26 +33,26 @@ const OPERATIONS = [
 const DEFAULTS = {
   family: 'articulated', variant: 'articulated-general', enabled: true,
   powered: true, running: false, paused: false, emergency: false, mode: 'automatic', withPanel: true,
-  operation: 'pick-place', speed: 0.65, payloadKg: 20, reach: 2.2,
-  length: 2.8, width: 2.2, height: 1.4, baseHeight: 0.65,
+  operation: 'pick-place', speed: 0.65, payloadKg: 12, reach: 1.4,
+  length: .8, width: .8, height: 1.6, baseHeight: .45,
   tool: 'gripper', cycleTime: 4, processTime: 2, setupTime: 0, approachHeight: 0.18,
   positionTolerance: 0.025, sourceId: '', targetId: '', outputId: '',
   waypointsJson: '[]', jointLimitsJson: '[]', acceptedTypes: 'all', requireKnownMass: false,
   maxProductWidth: 1.2, maxProductHeight: 1.5, maxProductDepth: 1.2,
   batteryPercent: 100, batteryDrainPerMeter: 0.025,
   destinationRulesJson: '[]', sorterMode: 'crossbelt', dischargeTime: 1, transferTolerance: .10, dockDistance: .65,
-  frameColor: '#dc9d31', accentColor: '#26333f', toolColor: '#aebdc7', finish: 'painted',
+  frameColor: '#e87825', accentColor: '#26333f', toolColor: '#aebdc7', finish: 'painted',
   wear: 0.16, detail: 'balanced', filletRadius: 0.025, chamferSize: 0.012, mountingHoles: true
 };
 function variant(id, family, name, preset) { return {id, family, name, preset: Object.assign({}, DEFAULTS, preset, {family, variant: id})}; }
 const VARIANTS = [
   variant('articulated-general', 'articulated', 'Articulado de manipulación', {}),
   variant('articulated-process', 'articulated', 'Articulado de proceso', {tool: 'process', operation: 'process', processTime: 5, frameColor: '#426d94'}),
-  variant('collaborative', 'articulated', 'Brazo de apariencia colaborativa', {payloadKg: 8, reach: 1.3, speed: 0.3, frameColor: '#d4dce2', accentColor: '#4b9ca9', filletRadius: 0.04}),
+  variant('collaborative', 'articulated', 'Brazo de apariencia colaborativa', {payloadKg: 8, reach: 1.3, length: .5, width: .5, height: 1.4, baseHeight: .35, speed: 0.3, frameColor: '#d4dce2', accentColor: '#4b9ca9', filletRadius: 0.04}),
   variant('scara', 'scara', 'SCARA de ensamblaje', {payloadKg: 5, reach: 1.1, baseHeight: 1, height: 0.5, cycleTime: 2, tool: 'vacuum', frameColor: '#e2e7e9'}),
   variant('delta', 'delta', 'Delta de picking', {payloadKg: 3, reach: 1.3, baseHeight: 0.9, height: 1.6, length: 2.4, width: 2.2, tool: 'vacuum', cycleTime: 1.5, maxProductWidth: 0.5, maxProductDepth: 0.5, maxProductHeight: 0.5}),
   variant('cartesian', 'cartesian', 'Pórtico XYZ', {payloadKg: 40, reach: 3, length: 4, width: 2.4, height: 1.7, baseHeight: 0.8, cycleTime: 5, frameColor: '#4e7894'}),
-  variant('palletizer', 'palletizer', 'Paletizador de cajas', {payloadKg: 60, reach: 2.6, tool: 'vacuum', operation: 'palletize', cycleTime: 5, frameColor: '#d69a28'}),
+  variant('palletizer', 'palletizer', 'Paletizador de cajas', {payloadKg: 60, reach: 2.6, length: 1.2, width: 1.2, baseHeight: .65, tool: 'vacuum', operation: 'palletize', cycleTime: 5, frameColor: '#d69a28'}),
   variant('amr', 'amr', 'AMR de plataforma', {payloadKg: 250, length: 1.2, width: 0.8, height: 0.38, baseHeight: 0, tool: 'platform', operation: 'transport', speed: 0.8, frameColor: '#4778a1', maxProductWidth: 1.2, maxProductDepth: 1.2}),
   variant('agv', 'agv', 'AGV de plataforma guiada', {payloadKg: 400, length: 1.5, width: 0.9, height: 0.42, baseHeight: 0, tool: 'platform', operation: 'transport', speed: 0.6, frameColor: '#b5a433', maxProductWidth: 1.2, maxProductDepth: 1.4}),
   variant('shuttle', 'shuttle', 'Shuttle de transferencia lineal', {payloadKg: 120, length: 5, width: 1.2, height: 0.5, baseHeight: 0.4, tool: 'platform', operation: 'transport', speed: 0.7, frameColor: '#4778a1', maxProductWidth: 1.2, maxProductDepth: 1.2}),
@@ -77,7 +77,7 @@ function fields() {
     choice('mode', 'Modo', [{id: 'automatic', name: 'Automático'}, {id: 'manual', name: 'Manual · iniciar desde el panel'}]),
     choice('operation', 'Operación', OPERATIONS), choice('tool', 'Herramienta', TOOLS),
     check('powered', 'Alimentado'), check('running', 'En marcha al iniciar'), check('paused', 'Pausado'), check('emergency', 'Emergencia enclavada'), check('withPanel', 'Panel de control propio'),
-    number('speed', 'Velocidad TCP / desplazamiento · m/s', 0.05, 3, 0.05), number('payloadKg', 'Carga máxima simulada · kg', 0.1, 3000, 0.5), number('reach', 'Alcance geométrico nominal · m', 0.3, 10, 0.05),
+    number('speed', 'Velocidad TCP / desplazamiento · m/s', 0.05, 3, 0.05), number('payloadKg', 'Carga máxima simulada · kg', 0.1, 3000, 0.5), number('reach', 'Alcance nominal del brazo sin herramienta · m', 0.3, 10, 0.05),
     number('length', 'Largo / carrera X · m', 0.5, 30, 0.05), number('width', 'Ancho / carrera Z · m', 0.3, 15, 0.05), number('height', 'Altura / carrera vertical · m', 0.15, 8, 0.05), number('baseHeight', 'Altura de base sobre el piso · m', 0, 5, 0.05),
     number('cycleTime', 'Tiempo mínimo de ciclo · s', 0.2, 3600, 0.1), number('processTime', 'Tiempo de proceso · s', 0, 3600, 0.1), number('setupTime', 'Preparación inicial · s', 0, 3600, 0.1),
     number('approachHeight', 'Separación de aproximación · m', 0.02, 1, 0.01), number('positionTolerance', 'Tolerancia geométrica · m', 0.002, 0.15, 0.001),
@@ -113,7 +113,9 @@ function parseWaypoints(value = {}) {
 }
 function baseJoints(config) {
   const joint = (id, kind, axis, min, max, home = 0) => ({id, kind, axis, min, max, home, unit: kind === 'revolute' ? 'rad' : 'm'});
-  if (config.family === 'articulated' || config.family === 'mobileManipulator') return [joint('J1', 'revolute', 'y', -Math.PI, Math.PI), joint('J2', 'revolute', 'z', -1.4, 2.6, config.family === 'mobileManipulator' ? 1.4 : 0.8), joint('J3', 'revolute', 'z', -2.7, 2.7, config.family === 'mobileManipulator' ? -2.4 : -1.45), joint('J4', 'revolute', 'x', -Math.PI, Math.PI), joint('J5', 'revolute', 'z', -2.2, 2.2, config.family === 'mobileManipulator' ? -.5707963267948966 : 0.65), joint('J6', 'revolute', 'x', -Math.PI * 2, Math.PI * 2)];
+  // Fold toward the base, with the tool pointing down. The former generic
+  // pose stretched the wrist horizontally across adjacent work surfaces.
+  if (config.family === 'articulated' || config.family === 'mobileManipulator') return [joint('J1', 'revolute', 'y', -Math.PI, Math.PI), joint('J2', 'revolute', 'z', -1.4, 2.6, 1.4), joint('J3', 'revolute', 'z', -2.7, 2.7, -2.4), joint('J4', 'revolute', 'x', -Math.PI, Math.PI), joint('J5', 'revolute', 'z', -2.2, 2.2, -.5707963267948966), joint('J6', 'revolute', 'x', -Math.PI * 2, Math.PI * 2)];
   if (config.family === 'cylindrical') return [joint('J1', 'revolute', 'y', -Math.PI, Math.PI), joint('J2', 'prismatic', 'y', 0, config.height, config.height * .45), joint('J3', 'prismatic', 'x', .15, config.reach, config.reach * .55)];
   if (config.family === 'polar') return [joint('J1', 'revolute', 'y', -Math.PI, Math.PI), joint('J2', 'revolute', 'z', -.35, 1.35, .3), joint('J3', 'prismatic', 'x', .15, config.reach, config.reach * .55)];
   if (config.family === 'mobileSorter') return [joint('J1', 'prismatic', 'x', -config.length - config.maxProductDepth, config.length + config.maxProductDepth), joint('J2', 'revolute', 'z', -.55, .55)];

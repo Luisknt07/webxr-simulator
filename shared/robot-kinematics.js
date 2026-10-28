@@ -39,6 +39,9 @@ function configuration(value) {
 
 function getDimensions(value) {
   const c = configuration(value), reach = c.reach;
+  // `reach` retains its saved-data meaning: combined shoulder/elbow span.
+  // The existing 0.20 m tool offset is additional; changing a catalogue preset
+  // must never rescale or silently shorten an authored/custom kinematic chain.
   return {family: c.family, reach, length: c.length, width: c.width, height: c.height, baseHeight: c.baseHeight,
     shoulder: [0, c.baseHeight, 0], upperArm: reach * .52, forearm: reach * .48,
     deltaTop: c.baseHeight + c.height, deltaRadius: reach * .42,
