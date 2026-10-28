@@ -61,6 +61,13 @@ export default class VehicleForkCamera {
     // The offscreen scene has already been tone mapped. Basic feed surfaces
     // skip a second tone mapping, then apply the main output transfer once.
     this.target.texture.encoding = THREE.LinearEncoding;
+    // In desktop mode the world-space VR screen is hidden and the visible feed
+    // is composited by a separate GPU quad. Register the actual target owner so
+    // room memory reclamation cannot mistake its hidden screen map for an
+    // unused image texture. r112 does not mark RT textures automatically.
+    const targets = this.ctx.performanceRenderTargets || (this.ctx.performanceRenderTargets = new Set());
+    if (targets.add) targets.add(this.target);
+    else if (Array.isArray(targets) && !targets.includes(this.target)) targets.push(this.target);
     if (this.plane) { this.plane.material.map = this.target.texture; this.plane.material.needsUpdate = true; }
     if (!this.overlayScene) {
       this.overlayScene = new THREE.Scene(); this.overlayCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -110,6 +117,7 @@ export default class VehicleForkCamera {
     const eyeZ = entry ? Math.min(entryFace - .025, Math.max(.08, entryFace - .17)) : entryFace + distance;
     const elevation = entry ? Math.hypot(distance, eyeZ - aim.z) * .61 : distance * .82;
     const eye = new THREE.Vector3(aim.x + this.side * distance, aim.y + elevation, eyeZ);
+    const localAimX = aim.x;
     eye.applyMatrix4(forks.matrixWorld); aim.applyMatrix4(forks.matrixWorld);
     this.camera.position.copy(eye); this.camera.up.copy(UP); this.camera.lookAt(aim); this.camera.updateMatrixWorld(true);
     const visible = [];
@@ -117,7 +125,7 @@ export default class VehicleForkCamera {
     for (const side of [-1, 1]) for (const x of [-1, 1]) for (const z of shaft) visible.push(new THREE.Vector3(side * config.forkSpread / 2 + x * config.forkWidth / 2, -config.forkThickness, z).applyMatrix4(forks.matrixWorld));
     const loadZ = load && entry ? [load.min.z, Math.min(load.max.z, load.min.z + .18)] : load && [load.min.z, load.max.z];
     const pocketSpan = config.forkSpread / 2 + config.forkWidth / 2 + .12;
-    const loadX = load && entry ? [Math.max(load.min.x, aim.x - pocketSpan), Math.min(load.max.x, aim.x + pocketSpan)] : load && [load.min.x, load.max.x];
+    const loadX = load && entry ? [Math.max(load.min.x, localAimX - pocketSpan), Math.min(load.max.x, localAimX + pocketSpan)] : load && [load.min.x, load.max.x];
     if (load) for (const x of loadX) for (const z of loadZ) for (const y of [load.min.y, Math.min(load.max.y, load.min.y + (entry ? .22 : .35))]) visible.push(new THREE.Vector3(x, y, z).applyMatrix4(forks.matrixWorld));
     const view = this.camera.matrixWorldInverse, viewPoints = visible.map(point => point.clone().applyMatrix4(view));
     const bounds = new THREE.Box3().setFromPoints(viewPoints);
@@ -178,7 +186,9 @@ export default class VehicleForkCamera {
       this.hideHelpers(); if (renderer.xr) renderer.xr.enabled = false;
       renderer.autoClear = true; if (renderer.shadowMap) { renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; }
       if (renderer.info) renderer.info.autoReset = false;
-      renderer.setRenderTarget(this.target); renderer.setViewport(0, 0, profile.width, profile.height); renderer.setScissorTest(false);
+      // setRenderTarget applies the target's physical-pixel viewport. Calling
+      // setViewport here would multiply it by the desktop DPR again in r112.
+      renderer.setRenderTarget(this.target); renderer.setScissorTest(false);
       renderer.render(scene, this.camera); this.elapsed = 0; this.stats.frames++; this.stats.status = 'active';
       if (this.plane) this.plane.visible = !!this.ctx.vrMode; return true;
     } catch (_) { this.stats.failures++; this.failed = true; this.release('unavailable'); this.elapsed = 0; return false; }
@@ -210,7 +220,13 @@ export default class VehicleForkCamera {
   release(status = 'inactive') {
     if (this.plane) { this.plane.visible = false; if (this.plane.material.map) { this.plane.material.map = null; this.plane.material.needsUpdate = true; } }
     if (this.overlay) this.overlay.material.map = null;
-    if (this.target) this.target.dispose(); this.target = null;
+    if (this.target) {
+      const targets = this.ctx.performanceRenderTargets;
+      if (targets && targets.delete) targets.delete(this.target);
+      else if (Array.isArray(targets)) { const index = targets.indexOf(this.target); if (index >= 0) targets.splice(index, 1); }
+      this.target.dispose();
+    }
+    this.target = null;
     this.stats.width = this.stats.height = this.stats.estimatedGpuBytes = 0; this.stats.status = status;
   }
   unmount() {

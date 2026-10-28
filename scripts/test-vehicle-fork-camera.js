@@ -7,21 +7,22 @@ const source = fs.readFileSync(path.join(__dirname, 'test-vehicle-driving.js'), 
 const {setup, Element} = new Function('require', '__dirname', source.slice(0, source.indexOf('const desktop = setup();')) + '\nreturn {setup,Element};')(require, __dirname);
 Element.prototype.getBoundingClientRect = function () { return this.rect || {left: 0, top: 0, width: 768, height: 432}; };
 const near = (a, b, eps = 1e-6) => assert(Math.abs(a - b) < eps, `${a} != ${b}`);
-function renderer(f) {
+function renderer(f, pixelRatio = 1.25) {
   const canvas = new Element('canvas'); canvas.width = 1600; canvas.height = 900; canvas.rect = {left: 0, top: 60, width: 1280, height: 720};
   const state = {target: null, cube: 2, mip: 3, viewport: new THREE.Vector4(4, 5, 800, 450), scissor: new THREE.Vector4(7, 8, 444, 333), scissorTest: true, framebuffer: f.ctx.vrMode ? {} : null};
+  state.glViewport = state.viewport.clone().multiplyScalar(pixelRatio).floor();
   f.session.renderState = {baseLayer: {framebuffer: state.framebuffer}};
   const calls = [], api = f.ctx.renderer;
   Object.assign(api, {domElement: canvas, autoClear: false, toneMapping: THREE.ReinhardToneMapping, toneMappingExposure: 1.7,
     shadowMap: {enabled: true, autoUpdate: true, needsUpdate: true}, info: {autoReset: true, render: {calls: 17, triangles: 256, frame: 5, lines: 2, points: 0}},
     getRenderTarget: () => state.target, getActiveCubeFace: () => state.cube, getActiveMipmapLevel: () => state.mip,
     getViewport: out => out.copy(state.viewport), getScissor: out => out.copy(state.scissor), getScissorTest: () => state.scissorTest,
-    setRenderTarget(target, cube, mip) { state.target = target; state.cube = cube; state.mip = mip; }, setFramebuffer(value) { state.framebuffer = value; },
-    setViewport(x, y, w, z) { state.viewport.copy(x && x.isVector4 ? x : new THREE.Vector4(x, y, w, z)); },
+    setRenderTarget(target, cube, mip) { state.target = target; state.cube = cube; state.mip = mip; state.glViewport.copy(target ? target.viewport : state.viewport.clone().multiplyScalar(pixelRatio).floor()); }, setFramebuffer(value) { state.framebuffer = value; },
+    setViewport(x, y, w, z) { state.viewport.copy(x && x.isVector4 ? x : new THREE.Vector4(x, y, w, z)); state.glViewport.copy(state.viewport).multiplyScalar(pixelRatio).floor(); },
     setScissor(x, y, w, z) { state.scissor.copy(x && x.isVector4 ? x : new THREE.Vector4(x, y, w, z)); }, setScissorTest: value => { state.scissorTest = value; },
-    getPixelRatio: () => 1.25, getContext: () => ({isContextLost: () => false}),
+    getPixelRatio: () => pixelRatio, getContext: () => ({isContextLost: () => false}),
     render(scene, camera) {
-      calls.push({scene, camera, target: state.target, viewport: state.viewport.clone(), scissor: state.scissor.clone()});
+      calls.push({scene, camera, target: state.target, viewport: state.glViewport.clone(), scissor: state.scissor.clone()});
       if (state.target) {
         assert.equal(api.xr.enabled, false); assert.equal(api.shadowMap.autoUpdate, false); assert.equal(api.shadowMap.needsUpdate, false);
         for (const helper of [f.cameraRig, f.driving.docking.plane, f.driving.worldPanel.plane, f.driving.docking.forkCamera.plane]) assert.equal(helper.visible, false);
@@ -43,6 +44,7 @@ const original = baseline(desktop, r), population = desktop.runtime.products.siz
 assert(monitor.renderBefore(desktop.scene, .02)); assert.deepEqual(baseline(desktop, r), original);
 assert.equal(feed.target.width, 384); assert.equal(feed.target.height, 216); assert.equal(feed.getStats().maxFPS, 12); assert.equal(feed.getStats().estimatedGpuBytes, 384 * 216 * 6);
 assert.equal(r.calls[0].scene, desktop.scene); assert.notEqual(r.calls[0].camera, desktop.camera);
+assert(r.calls[0].viewport.equals(feed.target.viewport), 'r112 render targets use physical pixels, independently of the desktop DPR.');
 for (let frame = 0; frame < 10; frame++) monitor.renderBefore(desktop.scene, 1 / 120);
 assert(feed.getStats().frames <= 2, 'The secondary world pass obeys its independent FPS cap.');
 assert(monitor.postRender()); assert.deepEqual(baseline(desktop, r), original);
@@ -88,6 +90,36 @@ feed.setEnabled(true);assert(monitor.renderBefore(desktop.scene,.2));feed.onLost
 const {ForkCamera}=require('./load-vehicle-driving.js')(THREE),listenerProbe=new ForkCamera(desktop.driving);
 assert(r.canvas.listeners.get('webglcontextlost').has(listenerProbe.onLost));listenerProbe.dispose();assert(!r.canvas.listeners.get('webglcontextlost').has(listenerProbe.onLost));
 desktop.driving.dispose();assert(!feed.target);assert.equal(desktop.active.size,0);desktop.runtime.stop();
+
+for (const dpr of [1, 1.5, 2, 2.5]) {
+  const f = setup(false, true), screen = renderer(f, dpr); assert(f.driving.mount(f.record.id));
+  const feed = f.driving.docking.forkCamera;
+  assert(f.driving.docking.renderBefore(f.scene, .2));
+  assert(screen.calls[0].viewport.equals(feed.target.viewport), 'Auxiliary viewport must not be multiplied by DPR ' + dpr);
+  assert.equal(screen.calls[0].viewport.z, feed.target.width); assert.equal(screen.calls[0].viewport.w, feed.target.height);
+  f.driving.dispose(); f.runtime.stop();
+}
+
+// A pallet bay translated across a large CEDI must retain exactly the same
+// optical crop. Framing compares bounds in fork-local space, never world X.
+for (const yaw of [0, .6, -.85]) {
+  const f = setup(false, true); renderer(f); assert(f.driving.mount(f.record.id));
+  const feed = f.driving.docking.forkCamera, palletOrigin = f.pallet.position.clone(), palletRotation = f.pallet.quaternion.clone();
+  let baseline;
+  for (const x of [0, -32, 47]) {
+    f.object.position.set(x, 0, 0); f.object.rotation.y = yaw;
+    f.pallet.position.copy(palletOrigin).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw).add(new THREE.Vector3(x, 0, 0));
+    f.pallet.quaternion.copy(palletRotation).premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw));
+    f.scene.updateMatrixWorld(true); f.driving.docking.update(true); assert(feed.renderBefore(f.scene, .2));
+    const frame = feed.framing; assert(frame.localLoad, 'The same aligned physical pallet remains the framing target.');
+    const inverse = new THREE.Matrix4().getInverse(frame.forks.matrixWorld);
+    const local = {eye:frame.eye.clone().applyMatrix4(inverse).toArray(), aim:frame.aim.clone().applyMatrix4(inverse).toArray(),
+      bounds:frame.localLoad.min.toArray().concat(frame.localLoad.max.toArray()), points:frame.visible.flatMap(point=>point.clone().applyMatrix4(inverse).toArray()), projection:feed.camera.projectionMatrix.elements.slice()};
+    if (!baseline) baseline = local;
+    else for (const key of Object.keys(local)) {assert.equal(local[key].length,baseline[key].length);local[key].forEach((value,index)=>near(value,baseline[key][index],1e-7));}
+  }
+  f.driving.dispose(); f.runtime.stop();
+}
 
 // ENTRY mode must show the two exposed shafts at the first few centimetres,
 // not only the tips after passing through the entire pallet. All visibility
