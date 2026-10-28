@@ -30,7 +30,7 @@ for (const pose of [{lift: 0, tilt: 0}, {lift: .72, tilt: .04}, {lift: 2.7, tilt
   assert(desktop.camera.quaternion.equals(new THREE.Quaternion()));
   assert(desktop.camera.getWorldPosition(new THREE.Vector3()).distanceTo(rig.driverSeat.getWorldPosition(new THREE.Vector3())) < 1e-7, 'The cab camera stays at the seat while auxiliary framing follows the real tines.');
 }
-assert.match(desktop.driving.viewButton.textContent, /Cabina/); const commands = desktop.commands.length;
+assert.match(desktop.driving.viewButton.controlLabel.textContent, /Cabina/); const commands = desktop.commands.length;
 nodes(desktop.driving.hud, node => Object.prototype.hasOwnProperty.call(node.dataset, 'vehicleView'))[0].fire('click'); assert.equal(desktop.driving.viewIndex, 1); const chase = desktop.camera.matrixWorld.clone();
 desktop.driving.forkCameraButton.fire('click'); assert.equal(desktop.driving.viewIndex, 1); assert(desktop.camera.matrixWorld.equals(chase), 'Toggling the auxiliary feed also preserves a selected chase camera.');
 nodes(desktop.driving.hud, node => Object.prototype.hasOwnProperty.call(node.dataset, 'vehicleView'))[0].fire('click'); assert.equal(desktop.driving.viewIndex, 0); assert.equal(desktop.commands.length, commands, 'Changing camera does not send a machinery command.');
@@ -123,9 +123,9 @@ inspection.driving.dispose(); inspection.runtime.stop();
 // The VR helper shares one canvas and uses the existing rays for both hands.
 // Its auxiliary camera never modifies the headset's tracked local pose.
 const vr = setup(true), trackingQ = vr.camera.quaternion.clone(), trackingP = vr.camera.position.clone(); assert(vr.driving.mount(vr.record.id));
-const vrMonitor = vr.driving.docking, rigPose = vr.cameraRig.matrixWorld.clone(); assert(vrMonitor.element.hidden); assert(vrMonitor.plane.visible); assert.equal(vrMonitor.state.controller, 'both'); assert(vrMonitor.state.isSelectable()); assert.equal(vr.driving.worldPanel.actions.length, 14);
+const vrMonitor = vr.driving.docking, rigPose = vr.cameraRig.matrixWorld.clone(); assert(vrMonitor.element.hidden); assert(vrMonitor.plane.visible); assert.equal(vrMonitor.state.controller, 'both'); assert(vrMonitor.state.isSelectable()); assert(vr.driving.worldPanel.regions.length <= 6); assert(vr.driving.worldPanel.actions.some(([action]) => action === 'controls'));
 vrMonitor.state.onSelectStart({uv: new THREE.Vector2(680 / 768, 1 - 30 / 432)}); assert.equal(vrMonitor.page, 'guide');
-const leftEdge = vr.driving.worldPanel.plane.position.x - .82 / 2, monitorRightEdge = vrMonitor.plane.position.x + .66 / 2; assert(monitorRightEdge < leftEdge - .03, 'The auxiliary screen does not cover the14 existing cockpit actions.');
+const leftEdge = vr.driving.worldPanel.plane.position.x - .82 * vr.driving.worldPanel.plane.scale.x / 2, monitorRightEdge = vrMonitor.plane.position.x + .66 * vrMonitor.plane.scale.x / 2; assert(monitorRightEdge < leftEdge - .03, 'The auxiliary screen does not cover the compact physical-cab menu.');
 for (let i = 0; i < 4; i++) { vr.driving.command('view'); vr.driving.follow(); }
 assert.equal(vr.driving.viewIndex, 0); assert(vr.camera.quaternion.equals(trackingQ)); assert(vr.camera.position.equals(trackingP)); assert(vr.cameraRig.matrixWorld.equals(rigPose));
 const beforeVRFeed = vrMonitor.cameraEnabled; vr.driving.command('forkCamera'); assert.equal(vrMonitor.cameraEnabled, !beforeVRFeed); vr.driving.command('forkCamera'); assert.equal(vrMonitor.cameraEnabled, beforeVRFeed); assert(vr.cameraRig.matrixWorld.equals(rigPose)); assert(vr.camera.quaternion.equals(trackingQ)); assert(vr.camera.position.equals(trackingP));
@@ -135,4 +135,4 @@ const monitorStateName = vrMonitor.stateName; delete vr.ctx.raycontrol.removeSta
 assert(vr.camera.quaternion.equals(trackingQ)); assert(vr.camera.position.equals(trackingP));
 for (let i = 0; i < 3; i++) { assert(vr.driving.mount(vr.record.id)); assert(vr.driving.unmount(true)); assert.equal(vr.active.size, 0); }
 vr.driving.dispose(); vr.runtime.stop();
-console.log('Vehicle docking view: separate real fork camera across lift/tilt/parent transforms, C preserves cab/chase and XR tracking, read-only guidance, authoritative traffic-light states, unchanged14 commands and repeated resource cleanup passed.');
+console.log('Vehicle docking view: separate real fork camera across lift/tilt/parent transforms, C preserves cab/chase and XR tracking, read-only guidance, authoritative traffic-light states, compact capability-aware cab menu and repeated resource cleanup passed.');

@@ -48,6 +48,7 @@ for (const hand of [f.left, f.right]) for (const event of ['squeezestart', 'sque
 f.driving.dispose(); f.runtime.stop();
 
 const arbitration = setup(), steering = arbitration.api.rig(arbitration.record).controls.wheel;
+assert(arbitration.driving.command('xrControls')); assert.equal(arbitration.driving.xrControlMode, 'controllers', 'Conflicting-stick arbitration explicitly exercises the accessibility alternative.'); neutral(arbitration);
 wheelAt(arbitration, arbitration.right, steering, .2); arbitration.driving.beforeStep(); squeeze(arbitration.right, true); arbitration.driving.beforeStep(); wheelAt(arbitration, arbitration.right, steering, .6); h.axis(arbitration.left, .9, 0); arbitration.driving.beforeStep(); assert(arbitration.v.input.steer < -.1 && arbitration.v.input.steer > -.5);
 squeeze(arbitration.right, false); arbitration.driving.beforeStep(); assert.equal(arbitration.v.input.steer, 0, 'Releasing a right-hand wheel does not replay the other hand\'s deflected steering stick.');
 h.axis(arbitration.left, 0, 0); arbitration.driving.beforeStep(); h.axis(arbitration.left, .9, 0); arbitration.driving.beforeStep(); assert(arbitration.v.input.steer > .8);

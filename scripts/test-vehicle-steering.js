@@ -4,7 +4,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),THREE=require('three');
 const vehicles=require('../shared/vehicles'),prefabs=require('./load-vehicle-prefabs')(THREE);
 const code=fs.readFileSync(path.join(__dirname,'../src/editor/VehicleCabInteraction.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export default class VehicleCabInteraction','return class VehicleCabInteraction');
-const Cab=new Function('THREE',code)(THREE);
+const Cab=new Function('THREE','vehicles','VehicleCabLabels',code)(THREE,vehicles,require('./load-vehicle-cab-labels')(THREE));
 const close=(a,b,tolerance=1e-9)=>assert(Math.abs(a-b)<tolerance,a+' != '+b),delta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 function observer(root,rig){root.updateWorldMatrix(true,true);const camera=new THREE.PerspectiveCamera(55,1,.01,100);camera.position.copy(rig.driverSeat.getWorldPosition(new THREE.Vector3()));camera.up.set(0,1,0);camera.lookAt(rig.controls.wheel.object.getWorldPosition(new THREE.Vector3()));camera.updateMatrixWorld(true);return camera;}
 function screenAngle(camera,wheel){const center=wheel.object.getWorldPosition(new THREE.Vector3()).project(camera),mark=new THREE.Vector3(0,wheel.radius,0).applyMatrix4(wheel.object.matrixWorld).project(camera);return Math.atan2(mark.y-center.y,mark.x-center.x);}

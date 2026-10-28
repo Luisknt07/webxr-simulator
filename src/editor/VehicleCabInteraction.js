@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import vehicles from '../../shared/vehicles.js';
+import VehicleCabLabels from './VehicleCabLabels.js';
 
 const CHANNELS = new Set(['lift', 'tilt', 'reach', 'sideShift', 'turret']);
 const clamp = value => Math.max(-1, Math.min(1, value));
@@ -13,13 +15,15 @@ export default class VehicleCabInteraction {
   constructor(driving) {
     this.driving = driving; this.ctx = driving.ctx; this.hands = new Map(); this.controls = []; this.consumedSources = new Set(); this.releasedSources = new Set(); this.neutralChannels = new Set();
     this.input = this.ctx.raycontrol; this.cancelled = () => this.reset();
+    this.labels = new VehicleCabLabels(this.ctx, {document: driving.document});
     if (this.input && this.input.addEventListener) this.input.addEventListener('controllerInputCancelled', this.cancelled);
   }
   mount(root) {
     this.clear(); const rig = root && root.userData.vehicleRig, controls = rig && rig.controls;
     if (!controls) return;
+    const features = vehicles.supports(rig.config || {});
     const add = (descriptor, kind) => {
-      if (!descriptor || !descriptor.object || !descriptor.object.parent || kind === 'lever' && !CHANNELS.has(descriptor.id)) return;
+      if (!descriptor || !descriptor.object || !descriptor.object.parent || kind === 'lever' && (!CHANNELS.has(descriptor.id) || !features[descriptor.id])) return;
       const axis = new THREE.Vector3().fromArray(descriptor.axis || [0, 0, 1]).normalize();
       const u = new THREE.Vector3(1, 0, 0); if (Math.abs(u.dot(axis)) > .9) u.set(0, 1, 0);
       u.addScaledVector(axis, -u.dot(axis)).normalize(); const v = new THREE.Vector3().crossVectors(axis, u).normalize();
@@ -28,7 +32,10 @@ export default class VehicleCabInteraction {
         origin: new THREE.Vector3().fromArray(descriptor.pivotLocal || [0, 0, 0]), value: 0, owner: null});
     };
     add(controls.wheel || controls.steering, 'wheel'); (controls.levers || []).forEach(value => add(value, 'lever'));
+    this.labels.mount(root, this.controls); this.syncLabels();
   }
+  setGuidance(control) {this.labels.setGuidance(control); this.syncLabels();}
+  syncLabels() {this.labels.sync(!!this.driving.id && !this.driving.blocked(), this.hands);}
   pose(hand) {
     // A lost gripSpace pose must release the control, never reuse a stale hand.
     if (hand.data.grip && hand.source.gripSpace) return visible(hand.data.grip) ? hand.data.grip : null;
@@ -125,7 +132,7 @@ export default class VehicleCabInteraction {
     this.controls.forEach(control => this.frame(control));
     for (const hand of this.hands.values()) {
       const pose = this.pose(hand), grip = pressed(hand);
-      if (!pose || hand.data.selectionCapture) {this.release(hand); hand.previousGrip = grip; if (hand.ghost) hand.ghost.visible = false; continue;}
+      if (!pose || hand.data.selectionCapture) {this.release(hand); hand.hover = null; hand.previousGrip = grip; if (hand.ghost) hand.ghost.visible = false; continue;}
       const point = pose.getWorldPosition(new THREE.Vector3()); hand.hover = null;
       if (!grip) {this.release(hand, false); if (neutral(hand)) hand.armed = true;}
       let nearest = null, best = Infinity;
@@ -146,6 +153,7 @@ export default class VehicleCabInteraction {
       });
       if (isNeutral) this.neutralChannels.delete(channel);
     });
+    this.syncLabels();
   }
   owns(source) {return this.consumedSources.has(source);}
   apply(input) {
@@ -154,12 +162,13 @@ export default class VehicleCabInteraction {
   }
   reset() {
     this.hands.forEach(hand => {this.release(hand); hand.hover = null; hand.previousGrip = pressed(hand); if (hand.ghost) hand.ghost.visible = false;}); this.consumedSources.clear();
+    this.syncLabels();
   }
   removeHand(hand) {
     this.release(hand); hand.controller.removeEventListener('squeezestart', hand.start); hand.controller.removeEventListener('squeezeend', hand.end);
     if (hand.ghost) {if (hand.ghost.parent) hand.ghost.parent.remove(hand.ghost); hand.ghost.geometry.dispose(); hand.ghost.material.dispose();}
     this.hands.delete(hand.controller);
   }
-  clear() {Array.from(this.hands.values()).forEach(hand => this.removeHand(hand)); this.controls = []; this.consumedSources.clear(); this.releasedSources.clear(); this.neutralChannels.clear();}
+  clear() {Array.from(this.hands.values()).forEach(hand => this.removeHand(hand)); this.controls = []; this.consumedSources.clear(); this.releasedSources.clear(); this.neutralChannels.clear(); this.labels.clear();}
   dispose() {this.clear(); if (this.input && this.input.removeEventListener) this.input.removeEventListener('controllerInputCancelled', this.cancelled);}
 }

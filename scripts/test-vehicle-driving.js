@@ -60,15 +60,25 @@ const touch = nodes(desktop.driving.hud, element => element.dataset.vehicleHold 
 touch.fire('pointerdown', {pointerId: 7}); desktop.driving.beforeStep(); assert.equal(desktop.v.input.lift, 1); touch.fire('pointercancel', {pointerId: 7}); desktop.driving.beforeStep(); assert.equal(desktop.v.input.lift, 0);
 assert.equal(desktop.driving.worldPanel.plane.visible, false); assert.equal(desktop.driving.worldState.state.isSelectable(), false);
 function verifyWorldGrid(f) {
-const worldActions = f.driving.worldPanel.actions, hits = [], invoke = f.driving.command;
-f.driving.command = action => { hits.push(action); return true; }; assert.equal(worldActions.length, 14);
-worldActions.forEach(([action], index) => {
-  const x = index % 2 ? .75 : .25, y = 210 + (Math.floor(index / 2) + .5) * 400 / 7;
-  f.driving.worldState.state.onSelectStart({uv: {x, y: 1 - y / 640}}); assert.equal(hits[index], action);
-});
-assert.ok(['lights', 'powerOff', 'couple', 'uncouple'].every(action => hits.includes(action)));
-f.driving.worldState.state.onSelectStart({uv: {x: .5, y: 1 - 610 / 640}}); assert.equal(hits.length, 14);
-f.driving.command = invoke;
+  const page = () => {
+    const panel = f.driving.worldPanel, regions = panel.regions.slice(), hits = [], invoke = f.driving.command;
+    assert.deepEqual(regions.map(region => region.action), panel.actions.map(([action]) => action)); assert(regions.length);
+    f.driving.command = action => {hits.push(action); return true;};
+    try {
+      regions.forEach((region, index) => {
+        assert(region.w > 0 && region.h > 0 && region.x >= 0 && region.y >= 0 && region.x + region.w <= 1024 && region.y + region.h <= 640);
+        f.driving.worldState.state.onSelectStart({uv: {x: (region.x + region.w / 2) / 1024, y: 1 - (region.y + region.h / 2) / 640}}); assert.equal(hits[index], region.action);
+      });
+      f.driving.worldState.state.onSelectStart({uv: {x: .01, y: .99}}); assert.equal(hits.length, regions.length, 'The informational header cannot issue a vehicle command.');
+    } finally {f.driving.command = invoke;}
+    return hits;
+  };
+  assert.equal(f.driving.worldPage, 'cab'); const compact = page(); assert(compact.length <= 6 && compact.includes('controls') && compact.includes('exit'));
+  assert(f.driving.command('controls')); assert.equal(f.driving.worldPage, 'controls'); const secondary = page();
+  assert.ok(['lights', 'powerOff', 'stop', 'pause', 'resetEmergency', 'controls'].every(action => secondary.includes(action)), 'All safety and energy commands remain available on the complete panel.');
+  const hitch = f.driving.features().hitch || f.record.components.vehicle.config.maxTowKg > 0;
+  for (const action of ['couple', 'uncouple']) assert.equal(secondary.includes(action), !!hitch, 'Only an actual hitch offers towing commands.');
+  assert(f.driving.command('controls')); assert.equal(f.driving.worldPage, 'cab');
 }
 desktop.v.actualSpeed = .2; desktop.record.variables.actualSpeed = 0; assert.equal(desktop.driving.unmount(), false, 'Exit uses actual runtime speed, never stale HMI telemetry.'); desktop.v.actualSpeed = 0;
 assert.ok(desktop.driving.unmount()); assert.equal(desktop.ctx.drivingVehicle, null); assert.ok(desktop.v.parkingBrake); assert.equal(desktop.v.input.brake, 1);
@@ -90,10 +100,10 @@ canvas.fire('click'); assert(look.isLocked);
 assert(cold.driving.mount(cold.record.id)); assert.equal(cold.dom.pointerLockElement, null); assert.equal(look.isLocked, false, 'Mounting releases the real pointer lock so cockpit buttons can receive clicks.');
 const button = action => nodes(cold.driving.hud, element => element.dataset.vehicleCommand === action)[0];
 const mouseClick = action => (cold.dom.pointerLockElement || button(action)).fire('click');
-assert.match(cold.driving.status.textContent, /Energía: APAGADA/); assert.match(cold.driving.hint.textContent, /1\. Pulsa Encender/);
+assert.equal(cold.driving.status.textContent, cold.record.object.name); assert.match(cold.driving.phase.textContent, /Apagado.*Freno P activo/); assert.equal(cold.driving.nextStep.action, 'powerOn'); assert.match(cold.driving.guideText.textContent, /Enciende.*Mando: B/);
 mouseClick('start'); assert.equal(cold.v.running, false); assert.match(cold.notices.at(-1), /Enciende y rearma/);
-mouseClick('powerOn'); assert.equal(cold.v.powered, true); assert.equal(cold.v.running, false); assert.equal(button('powerOn').attributes['aria-pressed'], 'true'); assert.match(cold.driving.hint.textContent, /2\. Pulsa Marcha/);
-mouseClick('start'); assert.equal(cold.v.running, true); assert.equal(button('start').attributes['aria-pressed'], 'true'); assert.equal(button('parkingBrake').attributes['aria-pressed'], 'true'); assert.match(cold.driving.hint.textContent, /3\. Desactiva Freno P/);
+mouseClick('powerOn'); assert.equal(cold.v.powered, true); assert.equal(cold.v.running, false); assert.equal(button('powerOn').attributes['aria-pressed'], 'true'); assert.equal(cold.driving.nextStep.action, 'start'); assert.match(cold.driving.guideText.textContent, /Pulsa Marcha.*Mando: V/);
+mouseClick('start'); assert.equal(cold.v.running, true); assert.equal(button('start').attributes['aria-pressed'], 'true'); assert.equal(button('parkingBrake').attributes['aria-pressed'], 'true'); assert.equal(cold.driving.nextStep.action, 'parkingBrake'); assert.match(cold.driving.guideText.textContent, /libera el freno.*Mando: P/);
 key(cold, 'KeyW'); cold.driving.beforeStep(); const parked = cold.object.position.clone(); h.step(cold, .3); assert(cold.object.position.equals(parked), 'Starting never silently releases the parking brake.'); key(cold, 'KeyW', false);
 mouseClick('parkingBrake'); assert.equal(cold.v.parkingBrake, false); assert.equal(button('parkingBrake').attributes['aria-pressed'], 'false');
 cold.driving.beforeStep(); key(cold, 'KeyW');
@@ -107,12 +117,27 @@ canvas.fire('click'); assert(look.isLocked); key(cold, 'Tab'); assert.equal(look
 mouseClick('powerOn'); mouseClick('start'); assert(cold.v.powered && cold.v.running); mouseClick('emergency'); assert(cold.v.emergency && !cold.v.running); mouseClick('start'); assert(!cold.v.running); mouseClick('resetEmergency'); assert(!cold.v.emergency && !cold.v.running); mouseClick('start'); assert(cold.v.running);
 cold.driving.dispose(); look.dispose(); cold.runtime.stop();
 
+// Default VR cab reserves grip for physical controls. Traction uses the left
+// stick; the left trigger brakes, while right-stick clicking opens the panel.
+const cabMode = setup(true, true), cabLeft = pad('left'), cabRight = pad('right'); cabMode.ctx.raycontrol.controllers = [cabLeft, cabRight];
+const cabHead = cabMode.camera.quaternion.clone(), cabPosition = cabMode.camera.position.clone(); assert(cabMode.driving.mount(cabMode.record.id)); assert.equal(cabMode.driving.xrControlMode, 'cab'); cabMode.driving.beforeStep();
+axis(cabLeft, .7, -.8); axis(cabRight, .8, -.7); cabMode.driving.beforeStep(); assert(cabMode.v.input.throttle > .5); assert.equal(cabMode.v.input.steer, 0, 'The default cab uses the real wheel for steering.'); assert.equal(cabMode.v.input.lift, 0); assert.equal(cabMode.v.input.tilt, 0);
+press(cabLeft, 1, true); press(cabRight, 1, true); cabMode.driving.beforeStep(); assert.equal(cabMode.v.input.brake, 0, 'A free grip does not brake in cab mode.'); assert.equal(cabMode.v.entry, null); assert(!cabMode.commands.includes('pickup') && !cabMode.commands.includes('release'), 'A free right grip cannot take or drop cargo.');
+press(cabLeft, 0, true); cabMode.driving.beforeStep(); assert.equal(cabMode.v.input.brake, 1, 'The left trigger operates the cab brake.'); press(cabLeft, 0, false);
+axis(cabLeft, 0, 0); axis(cabRight, 0, 0); press(cabLeft, 1, false); press(cabRight, 1, false); cabMode.driving.beforeStep();
+press(cabRight, 3, true); cabMode.driving.beforeStep(); assert.equal(cabMode.driving.worldPage, 'controls'); cabMode.driving.beforeStep(); assert.equal(cabMode.driving.worldPage, 'controls', 'A held right-stick click cannot repeatedly toggle the control panel.'); press(cabRight, 3, false); cabMode.driving.beforeStep(); press(cabRight, 3, true); cabMode.driving.beforeStep(); assert.equal(cabMode.driving.worldPage, 'cab');
+assert(cabMode.camera.quaternion.equals(cabHead) && cabMode.camera.position.equals(cabPosition), 'Default cab actions preserve the actual tracked headset pose.'); cabMode.driving.unmount(true); cabMode.driving.dispose(); cabMode.runtime.stop();
+
+const towing = setup(true), towRecord = towing.addVehicle('tow-tractor', [4, 0, 0]); towing.record = towRecord; assert(towing.driving.mount(towRecord.id)); verifyWorldGrid(towing);
+assert(towing.driving.command('controls')); assert(towing.driving.worldPanel.actions.some(([action]) => action === 'couple') && towing.driving.worldPanel.actions.some(([action]) => action === 'uncouple')); assert(!towing.driving.worldPanel.actions.some(([action]) => action === 'pickup' || action === 'release'), 'A tow tractor exposes its hitch and omits unsupported fork-cargo commands.'); towing.driving.unmount(true); towing.driving.dispose(); towing.runtime.stop();
+
 const vr = setup(true, true), left = pad('left'), right = pad('right'); vr.ctx.raycontrol.controllers = [left, right];
 const trackingRotation = vr.camera.quaternion.clone(), trackingPosition = vr.camera.position.clone();
 axis(left, .5, -.8); axis(right, 0, -.7); assert.ok(vr.driving.mount(vr.record.id)); vr.driving.beforeStep();
 assert.equal(vr.v.input.throttle, 0); assert.equal(vr.v.input.lift, 0, 'Held sticks must return to neutral when mounting.');
 assert.ok(vr.camera.quaternion.equals(trackingRotation)); assert.ok(vr.camera.position.equals(trackingPosition)); assert.ok(vr.driving.hud.hidden);
 assert.ok(vr.driving.worldPanel.plane.visible); assert.ok(vr.driving.worldState.state.isSelectable()); verifyWorldGrid(vr);
+assert.equal(vr.driving.xrControlMode, 'cab'); assert(vr.driving.command('xrControls')); assert.equal(vr.driving.xrControlMode, 'controllers', 'Legacy stick/hydraulic/grip shortcuts are an explicit accessibility alternative.');
 axis(left, 0, 0); axis(right, 0, 0); vr.driving.beforeStep(); axis(left, .5, -.8); axis(right, 0, -.7); vr.driving.beforeStep();
 assert.ok(vr.v.input.throttle > .5); assert.ok(vr.v.input.steer > 0); assert.ok(vr.v.input.lift > .5);
 const metered = {throttle: vr.v.input.throttle, steer: vr.v.input.steer};
@@ -141,5 +166,5 @@ for (const state of [{powered: false}, {powered: true, running: false}, {powered
 }
 press(stopRight, 5, true); stopped.driving.beforeStep(); assert.equal(stopped.ctx.drivingVehicle, null, 'A powered-off vehicle still permits right B to exit after neutral rearm.'); stopped.driving.dispose(); stopped.runtime.stop();
 assert.match(fs.readFileSync(path.join(__dirname, '../src/editor/editor.css'), 'utf8'), /\.vehicle-driving-hud\s*\{/);
-console.log('Vehicle driving: real pointer-lock release and DOM cold start, parking interlocks/state feedback, keyboard/touch/XR input, camera/seat tracking, neutral rearm, 14 ray-hit controls, host authority and exact headset preservation passed.');
+console.log('Vehicle driving: real pointer-lock release and DOM cold start, guided state feedback, keyboard/touch/default physical cab and explicit legacy XR inputs, compact/full capability-aware ray regions, neutral rearm, host authority and exact headset preservation passed.');
 module.exports = {setup, pad, axis, press, near, key, nodes, Element, Driving};

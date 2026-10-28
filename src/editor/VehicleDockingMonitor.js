@@ -29,7 +29,7 @@ export default class VehicleDockingMonitor {
     this.feed = dom.createElement('section'); this.feed.className = 'vehicle-fork-camera'; this.feed.dataset.vehicleForkCamera = '';
     const header = dom.createElement('div'); header.className = 'vehicle-fork-camera-header';
     this.cameraButton = dom.createElement('button'); this.cameraButton.type = 'button'; this.cameraButton.textContent = 'Cámara de horquillas · C'; this.cameraButton.dataset.vehicleForkCameraToggle = '';
-    this.sideButton = dom.createElement('button'); this.sideButton.type = 'button'; this.sideButton.textContent = 'Cambiar lado'; this.sideButton.dataset.vehicleForkCameraSide = '';
+    this.sideButton = dom.createElement('button'); this.sideButton.type = 'button'; this.sideButton.textContent = 'Cambiar lado · Shift+N'; this.sideButton.dataset.vehicleForkCameraSide = '';
     this.cameraModeButton = dom.createElement('button'); this.cameraModeButton.type = 'button'; this.cameraModeButton.textContent = 'Vista: Entrada'; this.cameraModeButton.dataset.vehicleForkCameraMode = '';
     this.feedViewport = dom.createElement('div'); this.feedViewport.className = 'vehicle-fork-camera-viewport'; this.feedViewport.dataset.vehicleForkCameraViewport = ''; this.feedViewport.setAttribute('aria-label', 'Cámara real de horquillas y pallet');
     header.appendChild(this.cameraButton); header.appendChild(this.cameraModeButton); header.appendChild(this.sideButton); this.feed.appendChild(header); this.feed.appendChild(this.feedViewport);
@@ -79,7 +79,7 @@ export default class VehicleDockingMonitor {
     if (this.plane) this.plane.visible = available && !!this.ctx.vrMode;
     this.forkCamera.setAvailable(available && !this.driving.blocked());
     this.feed.hidden = !this.cameraSupported || !this.cameraEnabled; this.cameraButton.setAttribute('aria-pressed', String(!!this.cameraEnabled));
-    this.cameraModeButton.textContent = 'Vista: ' + (this.forkCamera.mode === 'entry' ? 'Entrada' : 'Puntas');
+    this.cameraModeButton.textContent = 'Vista: ' + (this.forkCamera.mode === 'entry' ? 'Entrada' : 'Puntas') + ' · Shift+C';
     this.element.dataset.camera = this.cameraEnabled ? 'on' : 'off';
     if (!available) return;
     const now = typeof performance === 'undefined' ? Date.now() : performance.now();
@@ -142,7 +142,7 @@ export default class VehicleDockingMonitor {
     const ruler = .5 * scale; c.strokeStyle = '#bdd2d9'; c.beginPath(); c.moveTo(area.x + 12, area.y + area.h - 38); c.lineTo(area.x + 12 + ruler, area.y + area.h - 38); c.stroke(); c.fillStyle = '#bdd2d9'; c.font = '14px sans-serif'; c.fillText('0.5 m', area.x + 12, area.y + area.h - 43);
   }
   paintGuide(c) {
-    const rows = ['1 · Alinea ambas horquillas con las entradas del pallet.', '2 · Ajusta altura e inclinación; avanza lentamente.', '3 · Detente: verde confirma la validación real.', '4 · Tomar / Depositar conserva identidad y contenido.', 'C: cámara auxiliar · Cambiar lado ajusta la perspectiva.', 'RV: pulsa la imagen para cambiar lado; el visor no se mueve.'];
+    const rows = this.ctx.vrMode ? ['1 · Agarra el volante para alinear ambas horquillas.', '2 · Usa las palancas de altura e inclinación con agarre.', '3 · Detente: verde confirma la validación real.', '4 · Pulsa Tomar / Depositar en el tablero de la cabina.', 'CÁMARA muestra las uñas; ENTRADA / PUNTAS cambia la vista.', 'Pulsa la imagen para cambiar lado; el visor no se mueve.'] : ['1 · A / D: alinea ambas horquillas con los huecos.', '2 · Q / E: altura · R / T: inclinación · W / S: aproximar.', '3 · Espacio: frena; verde confirma el apoyo real.', '4 · G: tomar · Shift+K: preparar depósito · K: depositar.', 'C: cámara · Shift+C: entrada / puntas · Shift+N: lado.', 'Sigue la siguiente acción resaltada en los mandos.'];
     c.font = '22px sans-serif'; c.fillStyle = '#d8edf4'; rows.forEach((row, index) => this.text(c, row, 25, 100 + index * 47, WIDTH - 50));
     c.fillStyle = '#f1c66c'; c.font = '18px sans-serif'; c.fillText('Amarillo: ajustar · Rojo: revisar impedimento · Verde: operación disponible', 25, 407);
   }
