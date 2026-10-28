@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
   <base href="./">
   <!-- Global site tag (gtag.js) - Google Analytics -->
@@ -18,37 +18,36 @@
   <link rel="apple-touch-icon-precomposed" sizes="144x144" href="./res/apple-touch-icon-144x144.png" />
   <link rel="apple-touch-icon-precomposed" sizes="120x120" href="./res/apple-touch-icon-120x120.png" />
   <link rel="apple-touch-icon-precomposed" sizes="152x152" href="./res/apple-touch-icon-152x152.png" />
-  <link rel="icon" type="image/png" href="./res/favicon-32x32.png" sizes="32x32" />
-  <link rel="icon" type="image/png" href="./res/favicon-16x16.png" sizes="16x16" />
-  <meta name="application-name" content="Hello WebXR!"/>
-  <meta name="msapplication-TileColor" content="#C6C6C6" />
+  <link rel="icon" type="image/svg+xml" href="./res/smart-twin-mark.svg" />
+  <meta name="application-name" content="SMART-TWIN Simulator"/>
+  <meta name="theme-color" content="#0c1b28">
+  <meta name="msapplication-TileColor" content="#0c1b28" />
   <meta name="msapplication-TileImage" content="./res/mstile-144x144.png" />
 
   <!-- Search Engine -->
-  <meta name="description" content="WebXR multi-experience by the Mozilla Mixed Reality team to celebrate the official release of the WebXR specification.">
-  <meta name="image" content="https://raw.githubusercontent.com/MozillaReality/hello-webxr/master/res/big_thumbnail.jpg">
+  <meta name="description" content="Diseña, simula y explora procesos industriales, automatización y gemelos digitales en la web y en realidad virtual.">
+  <meta name="image" content="https://luisknt07.github.io/webxr-simulator/assets/smart-twin-cover.jpg">
   <!-- Schema.org for Google -->
-  <meta itemprop="name" content="Hello WebXR!">
-  <meta itemprop="description" content="WebXR multi-experience by the Mozilla Mixed Reality team to celebrate the official release of the WebXR specification.">
-  <meta itemprop="image" content="https://raw.githubusercontent.com/MozillaReality/hello-webxr/master/res/big_thumbnail.jpg">
+  <meta itemprop="name" content="SMART-TWIN Simulator">
+  <meta itemprop="description" content="Simulación industrial, automatización y gemelos digitales en la web y en realidad virtual.">
+  <meta itemprop="image" content="https://luisknt07.github.io/webxr-simulator/assets/smart-twin-cover.jpg">
   <!-- Twitter -->
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Hello WebXR!">
-  <meta name="twitter:description" content="WebXR multi-experience by the Mozilla Mixed Reality team to celebrate the official release of the WebXR specification. https://mixedreality.mozilla.org/hello-webxr">
-  <meta name="twitter:site" content="@mozillareality">
-  <meta name="twitter:creator" content="@mozillareality">
-  <meta name="twitter:image:src" content="https://raw.githubusercontent.com/MozillaReality/hello-webxr/master/res/big_thumbnail.jpg">
-  <meta name="twitter:player" content="https://www.youtube.com/user/mozhacks">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="SMART-TWIN Simulator">
+  <meta name="twitter:description" content="Diseña, simula y explora tu industria.">
+  <meta name="twitter:image:src" content="https://luisknt07.github.io/webxr-simulator/assets/smart-twin-cover.jpg">
   <!-- Open Graph general (Facebook, Pinterest & Google+) -->
-  <meta name="og:title" content="Hello WebXR!">
-  <meta name="og:description" content="WebXR multi-experience by the Mozilla Mixed Reality team to celebrate the official release of the WebXR specification.">
-  <meta name="og:image" content="https://raw.githubusercontent.com/MozillaReality/hello-webxr/master/res/big_thumbnail.jpg">
-  <meta name="og:url" content="https://mixedreality.mozilla.org/hello-webxr">
-  <meta name="og:site_name" content="Hello WebXR!">
-  <meta name="og:locale" content="en_US">
-  <meta name="og:type" content="website">
+  <meta property="og:title" content="SMART-TWIN Simulator">
+  <meta property="og:description" content="Simulación industrial, automatización y gemelos digitales en la web y en realidad virtual.">
+  <meta property="og:image" content="https://luisknt07.github.io/webxr-simulator/assets/smart-twin-cover.jpg">
+  <meta property="og:image:alt" content="Línea de producción industrial con transportadores, productos y robots.">
+  <meta property="og:url" content="https://luisknt07.github.io/webxr-simulator/">
+  <meta property="og:site_name" content="SMART-TWIN Simulator">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:type" content="website">
 
-  <title>HELLO / STUDIO ? Escenarios WebXR</title>
+  <title>SMART-TWIN Simulator · Simulación industrial</title>
+  <link rel="preload" as="image" href="assets/smart-twin-cover.jpg" fetchpriority="high">
   <link rel="stylesheet" href="src/editor/editor.css">
   <link rel="stylesheet" href="src/editor/projects.css">
   <link rel="stylesheet" href="src/editor/resources.css">
@@ -133,32 +132,38 @@ header a:hover path, #mrlogo:hover path.mrlogobg{
 
 #loading {
   z-index: 9999;
-  position: absolute;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background: url(assets/loadingbg.jpg);
-  background-size: cover;
-  background-position: center;
+  position: fixed;
+  inset: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: auto;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-end;
+  padding: clamp(28px, 5vw, 80px);
+  color: #f2f8fc;
+  font-family: "Segoe UI", Arial, sans-serif;
+  background: #0c1b28 url(assets/smart-twin-cover.jpg) center 52% / cover no-repeat;
+  isolation: isolate;
 }
-#loading h1 {
-  color: white;
-  font-size: 6rem;
-  margin: 1rem;
-  text-shadow: 1px 3px 5px rgba(0, 0, 0, 0.1);
-}
-#loading div {
-  text-align: center;
-  position: absolute;
-  width: 100vw;
-  top: calc(50vh - 120px);
-  font-size: 2rem;
-}
-#loading #loading-message { max-width: 620px; margin: 14px auto; padding: 0 20px; color: #1c2935; font: 15px/1.5 "Segoe UI", Arial, sans-serif; }
-#loading #loading-error { max-width: min(660px, calc(100vw - 40px)); max-height: 35vh; overflow: auto; margin: 16px auto; padding: 16px; border: 1px solid #914950; border-radius: 7px; background: #fff0f1ed; color: #802532; font: 13px/1.6 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; box-sizing: border-box; }
-#loading #loading-retry { padding: 10px 18px; border: 1px solid #326c69; border-radius: 6px; background: #173b39; color: white; font: 14px "Segoe UI", Arial, sans-serif; cursor: pointer; }
+#loading::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, #071827b8, #07182713 75%), linear-gradient(0deg, #061522ed, #08182700 72%); pointer-events: none; }
+#loading .loading-wordmark { position: absolute; top: clamp(25px, 4vw, 55px); left: clamp(28px, 5vw, 80px); display: flex; align-items: center; gap: 12px; color: #fff; font-size: 16px; letter-spacing: .08em; }
+#loading .loading-symbol { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #b5fff278; border-radius: 11px; color: #8af4db; background: #0a253170; font-size: 29px; }
+#loading .loading-content { width: min(640px, 100%); position: relative; padding-top: 90px; }
+#loading .loading-eyebrow { margin: 0 0 16px; color: #9ee9de; font-size: 11px; font-weight: 600; letter-spacing: .2em; }
+#loading h1 { margin: 0; color: #fff; font-size: clamp(42px, 6.2vw, 88px); font-weight: 700; line-height: .98; letter-spacing: -.045em; text-shadow: 0 3px 25px #06152230; }
+#loading h1 span { display: block; margin-top: 8px; color: #8af4db; font-weight: 400; font-size: .68em; letter-spacing: -.025em; }
+#loading .loading-tagline { margin: 22px 0 30px; color: #dce6ed; font-size: clamp(15px, 1.6vw, 20px); line-height: 1.5; }
+#loading .loading-status { display: flex; align-items: center; gap: 14px; max-width: 520px; min-height: 66px; padding: 12px 18px; box-sizing: border-box; border: 1px solid #a2c9d332; border-radius: 12px; background: #0b2334d9; }
+#loading .loading-status svg { flex: none; width: 32px; height: 32px; transform: rotate(-90deg); }
+#loading #loading-message { margin: 0; color: #e3eef5; font: 13px/1.6 "Segoe UI", Arial, sans-serif; overflow-wrap: anywhere; }
+#loading .loading-caption { margin: 20px 0 0; color: #b2c8d4; font-size: 10px; letter-spacing: .18em; }
+#loading #loading-error { max-width: min(660px, calc(100vw - 56px)); max-height: 25vh; overflow: auto; margin: 16px 0; padding: 16px; border: 1px solid #bd6d70; border-radius: 9px; background: #371e2df2; color: #ffdade; font: 12px/1.6 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; box-sizing: border-box; }
+#loading #loading-retry { margin-top: 16px; padding: 11px 20px; border: 1px solid #8af4db; border-radius: 7px; background: #8af4db; color: #092331; font: 600 14px "Segoe UI", Arial, sans-serif; cursor: pointer; }
 #loading.loading-failed h1 { font-size: clamp(28px, 5vw, 54px); }
-#loading.loading-failed svg { display: none; }
+#loading.loading-failed .loading-status svg { display: none; }
+@media(max-width:600px) { #loading { padding: 28px; background-position: 64% center; } #loading::before { background: linear-gradient(0deg, #061522f5 3%, #0615229c 48%, #07182712 85%); } #loading .loading-eyebrow { font-size: 9px; letter-spacing: .15em; } #loading .loading-tagline { margin: 19px 0 24px; } #loading .loading-caption { font-size: 9px; line-height: 1.7; letter-spacing: .12em; } }
+@media(max-height:550px) { #loading { padding: 24px 36px; } #loading .loading-wordmark { top: 20px; left: 36px; font-size: 12px; } #loading .loading-symbol { width: 28px; height: 28px; font-size: 22px; } #loading .loading-content { padding-top: 65px; } #loading .loading-eyebrow { margin-bottom: 10px; } #loading h1 { font-size: 42px; } #loading .loading-tagline { margin: 12px 0; font-size: 14px; } #loading .loading-caption { margin-top: 12px; } #loading .loading-status { min-height: 52px; padding: 8px 14px; } }
 
 .hidden {
   display: none;
@@ -222,7 +227,7 @@ body.vr-mode #desktop-reticle {
   </style>
 
   <script src="src/lib/StartupStatus.js"></script>
-  <script src="bundle.js"></script>
+  <script src="bundle.js" defer></script>
 
   <script type="text/javascript">
     function aclick(ev) {
@@ -239,15 +244,21 @@ body.vr-mode #desktop-reticle {
 <body>
 
 <div id="loading">
-  <div>
-    <h1 id="loading-title"> Hello!</h1>
-    <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" version="1.1">
-      <path stroke="#000" stroke-width="8px" fill="none" d="M 50 5 a 45 45 0 1 0 0.0001 0"
-      stroke-dasharray="282 282" stroke-dashoffset="282" id="progressbar"/>
-    </svg>
-    <p id="loading-message" role="status">Cargando la experiencia…</p>
+  <div class="loading-wordmark" aria-hidden="true"><span class="loading-symbol">◇</span><strong>SMART-TWIN</strong></div>
+  <div class="loading-content">
+    <p class="loading-eyebrow">SIMULACIÓN INDUSTRIAL · WEBXR</p>
+    <h1 id="loading-title">SMART-TWIN <span>Simulator</span></h1>
+    <p class="loading-tagline">Diseña, simula y explora tu industria.</p>
+    <div class="loading-status">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="45" stroke="#ffffff25" stroke-width="6" fill="none"/>
+        <path stroke="#8af4db" stroke-width="6" stroke-linecap="round" fill="none" d="M 50 5 a 45 45 0 1 0 0.0001 0" stroke-dasharray="282 282" stroke-dashoffset="282" id="progressbar"/>
+      </svg>
+      <p id="loading-message" role="status">Cargando la experiencia…</p>
+    </div>
     <pre id="loading-error" role="alert" hidden></pre>
     <button id="loading-retry" type="button" hidden>Volver a intentar</button>
+    <p class="loading-caption">GEMELOS DIGITALES &nbsp; / &nbsp; AUTOMATIZACIÓN &nbsp; / &nbsp; REALIDAD VIRTUAL</p>
   </div>
 </div>
 

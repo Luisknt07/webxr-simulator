@@ -24,7 +24,7 @@ export default class AdminWorkspace {
       const overlay = this.modal = el('div', undefined, document.body, 'studio-admin-modal-overlay');
       const dialog = el('section', undefined, overlay, 'studio-admin-modal'); dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', 'studio-admin-modal-title');
       const header = el('header', undefined, dialog, 'studio-admin-modal-header'), title = el('div', undefined, header);
-      el('span', 'HELLO / STUDIO · SUPERADMINISTRADOR', title, 'studio-admin-eyebrow'); const heading = el('h1', 'Administración', title); heading.id = 'studio-admin-modal-title';
+      el('span', 'SMART-TWIN Simulator · SUPERADMINISTRADOR', title, 'studio-admin-eyebrow'); const heading = el('h1', 'Administración', title); heading.id = 'studio-admin-modal-title';
       this.closeButton = action(header, 'Cerrar ×', () => this.close()); this.closeButton.setAttribute('aria-label', 'Cerrar administración');
       this.modalContent = el('div', undefined, dialog, 'studio-admin-modal-content');
       const footer = el('footer', 'Gestión de cuentas, recursos y prácticas · Hora de Ecuador', dialog, 'studio-admin-modal-footer'); footer.setAttribute('aria-live', 'polite');
@@ -95,7 +95,7 @@ export default class AdminWorkspace {
     const filterRole = choose(filterRow, 'Acceso', [{id: 'all', label: 'Todos los permisos'}, {id: 'admin', label: 'Superadministradores'}, {id: 'creator', label: 'Creadores'}, {id: 'viewer', label: 'Exploradores'}], this.userRole);
     const sort = choose(filterRow, 'Ordenar por', [{id: 'name', label: 'Nombre · A–Z'}, {id: 'seen', label: 'Último acceso'}, {id: 'storage', label: 'Mayor espacio usado'}], this.userSort);
     const status = el('p', '', list, 'studio-admin-list-status'); status.setAttribute('aria-live', 'polite');
-    const scroll = el('div', undefined, list, 'studio-admin-table-scroll'), table = el('table', undefined, scroll); table.setAttribute('aria-label', 'Cuentas de Studio'); const head = el('thead', undefined, table), header = el('tr', undefined, head);
+    const scroll = el('div', undefined, list, 'studio-admin-table-scroll'), table = el('table', undefined, scroll); table.setAttribute('aria-label', 'Cuentas de SMART-TWIN Simulator'); const head = el('thead', undefined, table), header = el('tr', undefined, head);
     ['Usuario', 'Acceso', 'Proyectos', 'Espacio'].forEach(text => { const cell = el('th', text, header); cell.scope = 'col'; }); const rows = el('tbody', undefined, table);
     const pagination = el('div', undefined, list, 'studio-admin-pagination'), previous = action(pagination, '← Anterior', () => { this.userPage--; this.renderUserList(true); }), page = el('span', '', pagination), next = action(pagination, 'Siguiente →', () => { this.userPage++; this.renderUserList(true); });
     const size = choose(pagination, 'Por página', [{id: '25', label: '25'}, {id: '50', label: '50'}, {id: '100', label: '100'}], String(this.pageSize));

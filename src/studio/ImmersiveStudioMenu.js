@@ -38,7 +38,7 @@ export default class ImmersiveStudioMenu {
     const panel = create(WIDTH, HEIGHT, 1.12, 1.05, 'Menú inmersivo · pantalla');
     if (!panel) return false;
     this.surface = panel; this.canvas = panel.canvas; this.drawing = panel.drawing; this.texture = panel.texture;
-    this.panel = panel.mesh; this.group = helper(new THREE.Group()); this.group.name = 'HELLO / STUDIO · interfaz VR';
+    this.panel = panel.mesh; this.group = helper(new THREE.Group()); this.group.name = 'SMART-TWIN Simulator · interfaz VR';
     this.group.visible = false; this.panel.visible = false;
     this.group.add(this.panel); this.ctx.scene.add(this.group);
     this.state = {xrMenu: true, vrOnly: true, controller: 'both', raycaster: true, captureSelect: true, consumeSelect: true,
@@ -167,7 +167,7 @@ export default class ImmersiveStudioMenu {
     // Never simulate an exit by changing vrMode here.
   }
   async authenticate(register = false) {
-    if (this.editor.staticPublic) { this.clearCredentials(); this.error = 'Las cuentas requieren el servidor de Studio. Puedes explorar los dos ejemplos públicos.'; this.dirty = true; return; }
+    if (this.editor.staticPublic) { this.clearCredentials(); this.error = 'Las cuentas requieren el servidor de SMART-TWIN Simulator. Puedes explorar los dos ejemplos públicos.'; this.dirty = true; return; }
     const username = this.fields.username.trim(), password = this.fields.password, code = this.fields.code.trim();
     if (!username || !password) { this.error = 'Escribe usuario y contraseña con el teclado del panel.'; this.dirty = true; return; }
     return this.run(async () => {
@@ -183,7 +183,7 @@ export default class ImmersiveStudioMenu {
   }
   async reconnectAccount() {
     return this.run(async () => {
-      if (!this.studio.reconnectAccountService) throw new Error('El acceso necesita la versión conectada al servidor de Studio.');
+      if (!this.studio.reconnectAccountService) throw new Error('El acceso necesita la versión conectada al servidor de SMART-TWIN Simulator.');
       const generation = this.generation;
       await this.studio.reconnectAccountService();
       if (!this.active || !this.opened || generation !== this.generation) return;
@@ -280,7 +280,7 @@ export default class ImmersiveStudioMenu {
     if (this.client.user) { this.page = 'home'; this.paintHome(); return; }
     if (this.editor.staticPublic) {
       this.text('Publicación pública sin servidor de cuentas.', 46, 215, 31, C.dim);
-      this.text('Los proyectos privados requieren Studio con servidor.', 46, 275, 26, C.dim);
+      this.text('Los proyectos privados requieren SMART-TWIN Simulator con servidor.', 46, 275, 26, C.dim);
       this.text('Usa el enlace HTTPS del servidor o túnel para iniciar sesión.', 46, 330, 25, C.dim);
       this.button('reconnect-account', this.busy ? 'Comprobando conexión…' : 'Reintentar conexión de cuentas', 46, 385, 932, 66, () => this.reconnectAccount(), {accent: true});
       this.button('public-scenes', 'Explorar escenarios públicos', 46, 480, 932, 66, () => this.navigate('scenes'));
@@ -320,8 +320,8 @@ export default class ImmersiveStudioMenu {
   paint() {
     if (!this.drawing || !this.opened) return; this.regions = [];
     const d = this.drawing; d.fillStyle = C.bg; d.fillRect(0, 0, WIDTH, HEIGHT); d.fillStyle = '#1a3443'; d.fillRect(0, 0, WIDTH, 126);
-    const names = {home: 'HELLO / STUDIO', account: 'Iniciar sesión', register: 'Crear cuenta', scenes: 'Escenarios', projects: 'Mis proyectos', projectScenes: 'Escenarios del proyecto', settings: 'Ajustes del visor', controls: 'Controles VR', users: 'Usuarios · resumen', classroom: 'Mis prácticas', progress: 'Mi progreso'};
-    this.text(names[this.page] || 'HELLO / STUDIO', 46, 70, 35, C.text, 'bold'); this.text(this.busy ? 'Procesando…' : 'Apunta y pulsa el gatillo', 46, 110, 22, C.dim);
+    const names = {home: 'SMART-TWIN Simulator', account: 'Iniciar sesión', register: 'Crear cuenta', scenes: 'Escenarios', projects: 'Mis proyectos', projectScenes: 'Escenarios del proyecto', settings: 'Ajustes del visor', controls: 'Controles VR', users: 'Usuarios · resumen', classroom: 'Mis prácticas', progress: 'Mi progreso'};
+    this.text(names[this.page] || 'SMART-TWIN Simulator', 46, 70, this.page === 'home' ? 32 : 35, C.text, 'bold'); this.text(this.busy ? 'Procesando…' : 'Apunta y pulsa el gatillo', 46, 110, 22, C.dim);
     this.button('exit-vr', this.exiting ? 'Saliendo…' : 'Salir de RV', 500, 28, 184, 64, () => this.exitVR(), {size: 23, danger: true, disabled: this.exiting});
     this.button('close', '×', 886, 24, 92, 72, () => this.close(), {size: 42});
     if (this.page !== 'home') this.button('home', '← Menú', 704, 28, 158, 64, () => this.navigate('home'), {size: 25});

@@ -415,7 +415,7 @@ export default class SceneEditor {
     const brand = this.brand = el('div', 'ed-brand');
     brand.appendChild(el('span', 'ed-logo', '◇'));
     const brandText = el('div');
-    brandText.appendChild(el('strong', '', 'HELLO / STUDIO'));
+    brandText.appendChild(el('strong', '', 'SMART-TWIN Simulator'));
     brandText.appendChild(el('small', '', 'Editor de escenarios WebXR'));
     brand.appendChild(brandText);
     toolbar.appendChild(brand);

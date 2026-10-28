@@ -229,7 +229,7 @@ export default class EditorShell {
       ['Ayuda', [
         ['Controles del editor', () => { e.viewportHelp.hidden = !e.viewportHelp.hidden; }],
         ['Enfocar selección', () => e.focus(), 'F'], ['Vista inicial', () => e.home()],
-        ['Acerca de HELLO / STUDIO', () => this.openWorkspace('help')]
+        ['Acerca de SMART-TWIN Simulator', () => this.openWorkspace('help')]
       ]]
     ];
   }
@@ -341,7 +341,7 @@ export default class EditorShell {
       const monitor = this.editor.simulationPanel;
       monitor.panel.classList.add('ed-docked-simulation'); this.workcontent.appendChild(monitor.panel); monitor.toggle(true); monitor.render(true);
     } else if (id === 'help') {
-      this.workcontent.appendChild(node('h2', '', 'HELLO / STUDIO'));
+      this.workcontent.appendChild(node('h2', '', 'SMART-TWIN Simulator'));
       this.workcontent.appendChild(node('p', '', 'Editor de escenarios WebXR. Guarda la configuración del proyecto con Archivo → Guardar. Los resultados de simulación se guardan desde Resultados.'));
       this.workcontent.appendChild(node('p', '', 'Navega con WASD. Q sube y E baja. Espacio alterna mover, rotar y escalar. Ctrl C / Ctrl V copia el objeto con sus componentes. La experiencia inmersiva se abre desde Probar.'));
       this.workcontent.appendChild(node('p', '', 'Los equipos son modelos didácticos. El estado Funcional, Solo visual o En desarrollo de cada recurso indica su alcance real.'));

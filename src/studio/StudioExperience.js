@@ -43,7 +43,7 @@ export default class StudioExperience {
       const identity = this.editor.initialIdentity ? await Promise.resolve(this.editor.initialIdentity) : await this.client.me();
       if (identity) { this.client.user = identity.user || null; this.client.capabilities = identity.capabilities; this.client.configured = identity.configured; }
       this.online = !(identity && identity.staticPublic);
-      if (identity && identity.staticPublic) this.connectionError = 'Esta publicación pública es estática. Las cuentas, proyectos privados y sesiones compartidas requieren el servidor de Studio.';
+      if (identity && identity.staticPublic) this.connectionError = 'Esta publicación pública es estática. Las cuentas, proyectos privados y sesiones compartidas requieren el servidor de SMART-TWIN Simulator.';
     }
     catch (error) { this.online = false; this.connectionError = error.message; }
     if (this.client.configured && (!this.client.user || !this.client.user.permissions.editor) && this.editor.active) { this.editor.leave(); this.open('account'); }
@@ -97,14 +97,14 @@ export default class StudioExperience {
       // upload capabilities before identity or stale-response checks finish.
       const health = await editor.projectClient.request('GET', '/health');
       if (!current()) throw stale();
-      if (!health || health.storage !== 'sqlite' || !health.capabilities || health.capabilities.privateProjects !== true) throw new Error('Este sitio no ofrece el servidor de cuentas de Studio.');
+      if (!health || health.storage !== 'sqlite' || !health.capabilities || health.capabilities.privateProjects !== true) throw new Error('Este sitio no ofrece el servidor de cuentas de SMART-TWIN Simulator.');
       // A separate read-only client cannot resurrect the live user when a
       // delayed /me response arrives after logout or another login.
       const probe = new StudioClient(client.base || '/api/studio'); probe.user = user;
       const identity = await probe.me();
       if (!current()) throw stale();
       if (!identity || typeof identity.configured !== 'boolean' || !Object.prototype.hasOwnProperty.call(identity, 'user') ||
-        identity.user !== null && (!identity.user || typeof identity.user.id !== 'string' || !identity.user.permissions || typeof identity.user.permissions !== 'object')) throw new Error('El servidor no devolvió una identidad de Studio válida.');
+        identity.user !== null && (!identity.user || typeof identity.user.id !== 'string' || !identity.user.permissions || typeof identity.user.permissions !== 'object')) throw new Error('El servidor no devolvió una identidad de SMART-TWIN Simulator válida.');
       if (user && (!identity.user || identity.user.id !== user.id)) throw stale();
       editor.serverCapabilities = health.capabilities; editor.serverLimits = health.limits || {}; editor.storageAvailable = true;
       if (editor.projectClient) { editor.projectClient.assetUploadAvailable = health.capabilities.assetUpload === true; if (health.limits && Number.isSafeInteger(health.limits.maxAssetBytes) && health.limits.maxAssetBytes > 0) editor.projectClient.maxAssetBytes = health.limits.maxAssetBytes; }
@@ -161,8 +161,8 @@ export default class StudioExperience {
     this.ctx.cameraRig.position.copy(position); this.ctx.cameraRig.quaternion.copy(marker.getWorldQuaternion(new THREE.Quaternion()));
   }
   build(vrButton) {
-    this.header = el('nav', undefined, document.body, 'studio-header'); this.header.setAttribute('aria-label', 'HELLO Studio');
-    const brand = el('a', undefined, this.header, 'studio-brand'); brand.href = '/'; el('strong', 'HELLO', brand); el('span', '/ STUDIO', brand);
+    this.header = el('nav', undefined, document.body, 'studio-header'); this.header.setAttribute('aria-label', 'SMART-TWIN Simulator');
+    const brand = el('a', undefined, this.header, 'studio-brand'); brand.href = '/'; el('strong', 'SMART-TWIN', brand); el('span', 'Simulator', brand);
     const actions = el('div', undefined, this.header, 'studio-header-actions'); this.accountButton = button(actions, 'Iniciar sesión', () => this.open(this.client.user ? 'personal' : 'account'), 'studio-account');
     this.flightButton = button(actions, 'Vuelo dron', () => this.setDesktopFlight(!this.ctx.desktopFlight), 'studio-flight');
     this.flightButton.setAttribute('aria-pressed', 'false'); this.flightButton.title = 'Volar en escritorio · WASD · Q subir · E bajar · Ctrl acelerar';
@@ -210,7 +210,7 @@ export default class StudioExperience {
   personal() {
     const content = this.content, user = this.client.user;
     const identity = el('div', undefined, content, 'studio-person'); identity.appendChild(avatarBadge(user ? user.avatar : DEFAULT_AVATAR)); el('strong', user ? user.displayName : 'Invitado', identity);
-    el('p', user ? 'Perfil guardado en este servidor de Studio.' : 'Puedes explorar. Inicia sesión para guardar progreso y participar en salas.', content, 'studio-muted');
+    el('p', user ? 'Perfil guardado en este servidor de SMART-TWIN Simulator.' : 'Puedes explorar. Inicia sesión para guardar progreso y participar en salas.', content, 'studio-muted');
     if (user && this.editor.simulationPaused && !this.room) button(content, '▶ Reanudar simulación', () => { this.editor.simulationPaused = false; this.close(); }, 'studio-primary');
     button(content, '▦   Escenarios   ›', () => this.open('scenes'), 'studio-action');
     const entries = user ? [['◎', 'Mi avatar', 'avatar'], ['♧', 'Sesiones multiusuario', 'rooms'], ['▣', 'Sesiones guardadas', 'sessions'], ['▥', 'Mi progreso', 'progress'], ['▤', 'Mis prácticas y evaluaciones', 'classroom']] : [];

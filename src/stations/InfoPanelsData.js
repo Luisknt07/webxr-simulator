@@ -30,7 +30,7 @@ export default [
     offsety: 0.04
   },
   {
-    title: 'HELLO / STUDIO',
+    title: 'SMART-TWIN Simulator',
     description: 'Explora escenarios e interactúa con sus objetos. Desde el menú puedes abrir el editor, crear equipos y configurar simulaciones.\n\nExperiencia original de Mozilla Mixed Reality.',
     offsety: 0.06
   },

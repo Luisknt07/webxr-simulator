@@ -1,6 +1,8 @@
-# webxr-simulator
+# SMART-TWIN Simulator
 
-El editor HELLO / STUDIO incorpora Biblioteca / Proyecto / Favoritos, menús y espacios de trabajo, cuentas reales, sesiones reanudables y simulación compartida. Consulta la [guía de uso y validación](docs/studio-guide.md) y la [documentación de cuentas y salas](docs/studio-service.md). Ejecuta `npm.cmd start` y abre `https://localhost:8080/editor`; la primera cuenta registrada administra los permisos del servidor.
+![SMART-TWIN Simulator](assets/smart-twin-cover.jpg)
+
+SMART-TWIN Simulator incorpora Biblioteca / Proyecto / Favoritos, menús y espacios de trabajo, cuentas reales, sesiones reanudables y simulación compartida. Consulta la [guía de uso y validación](docs/studio-guide.md) y la [documentación de cuentas y salas](docs/studio-service.md). Ejecuta `npm.cmd start` y abre `https://localhost:8080/editor`; la primera cuenta registrada administra los permisos del servidor.
 
 La [organización de proyectos y escenas](docs/projects-scenes-access.md) describe las plantillas, la guía paramétrica de construcción, los monitores vinculables, las pestañas de edición y la copia entre niveles. Incluye también el catálogo público de dos escenas, permisos privados, cuotas iniciales de 2 proyectos y 20 MiB, administración docente y limpieza futura tras 30 días de inactividad. La guía funciona con el catálogo local; no requiere un servicio de IA externo.
 
@@ -10,7 +12,7 @@ La [guía de transportadores](docs/conveyor-library.md) describe las ocho famili
 
 Los [proyectos de ejemplo portables](examples/README.md) incluyen los 16 escenarios industriales actuales, con equipos, señalización, monitores, materiales y configuración de sonido. Se pueden importar en otra instalación sin copiar la base de datos local.
 
-## Hello WebXR!
+## Origen: Hello WebXR!
 
 La [calidad gráfica adaptativa](docs/adaptive-graphics.md) incorpora perfiles por dispositivo, controles táctiles y concreto preparado con IA. Se configura en **Ajustes** o **Rendimiento** y conserva los datos de los escenarios.
 

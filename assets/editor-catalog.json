@@ -1159,6 +1159,13 @@
     "kind": "image"
   },
   {
+    "path": "smart-twin-cover.jpg",
+    "name": "smart-twin-cover.jpg",
+    "extension": "jpg",
+    "size": 432957,
+    "kind": "image"
+  },
+  {
     "path": "sound.glb",
     "name": "sound.glb",
     "extension": "glb",

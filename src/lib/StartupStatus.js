@@ -31,7 +31,7 @@
       if (state.ready || state.error) return;
       state.error = error && error.message || String(error || 'Error desconocido al iniciar.');
       state.message = 'La carga se detuvo. Puedes volver a intentarlo.';
-      console.error('Error al iniciar Hello WebXR:', error);
+      console.error('Error al iniciar SMART-TWIN Simulator:', error);
       render();
     },
     complete: function () {
