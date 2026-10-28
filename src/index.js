@@ -923,8 +923,11 @@ function animate(time, frame) {
     if (collisionWorld) collisionWorld.invalidate();
     if (context.editor) context.editor.execute(delta, elapsedTime);
     constrainVRCamera();
+    const docking = context.vehicleDriving && context.vehicleDriving.docking;
+    if (docking && docking.renderBefore) docking.renderBefore(scene, delta);
     renderer.render(scene, camera);
     if (context.xrMirror) context.xrMirror.postRender(scene, camera, delta);
+    if (docking && docking.postRender) docking.postRender();
     if (context.goto !== null) {
       gotoRoom(context.goto);
       context.goto = null;

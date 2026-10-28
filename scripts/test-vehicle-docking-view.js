@@ -13,20 +13,26 @@ Element.prototype.getContext = function () {
 };
 Element.prototype.getBoundingClientRect = function () { return {left: 0, top: 0, width: 768, height: 432}; };
 
-// The camera is driven by actual fork world matrices at every articulation,
-// not by a duplicated initial-lift/configuration formula.
+// C toggles an auxiliary feed while the main camera remains in the selected
+// cab/chase view. The feed uses actual fork matrices at every articulation.
 const desktop = setup(false, true), parent = new THREE.Group(); parent.rotation.y = -.3; parent.position.set(-3, .2, 4); desktop.scene.add(parent); parent.add(desktop.cameraRig);
 desktop.root.rotation.y = .7; desktop.root.position.set(3, 0, -5); desktop.scene.updateMatrixWorld(true);
 assert(desktop.driving.mount(desktop.record.id)); const rig = desktop.api.rig(desktop.record);
-assert.equal(desktop.driving.viewIndex, 0); key(desktop, 'KeyC'); assert.equal(desktop.driving.viewIndex, 1); key(desktop, 'KeyC', false); key(desktop, 'KeyC'); assert.equal(desktop.driving.viewIndex, 2); key(desktop, 'KeyC', false);
+assert.equal(desktop.driving.viewIndex, 0); assert(desktop.driving.docking.cameraEnabled);
+const cabinWorld = desktop.camera.matrixWorld.clone(), cabinLocal = desktop.camera.matrix.clone();
+key(desktop, 'KeyC'); assert.equal(desktop.driving.viewIndex, 0); assert(!desktop.driving.docking.cameraEnabled); key(desktop, 'KeyC', false); key(desktop, 'KeyC'); assert.equal(desktop.driving.viewIndex, 0); assert(desktop.driving.docking.cameraEnabled); key(desktop, 'KeyC', false);
+assert(desktop.camera.matrixWorld.equals(cabinWorld)); assert(desktop.camera.matrix.equals(cabinLocal));
 for (const pose of [{lift: 0, tilt: 0}, {lift: .72, tilt: .04}, {lift: 2.7, tilt: -.08, sideShift: .08}]) {
   assert(desktop.api.applyPose(desktop.record, Object.assign({}, desktop.v.pose, pose), false)); desktop.driving.follow();
-  const eye = desktop.camera.getWorldPosition(new THREE.Vector3()), target = new THREE.Vector3(0, -desktop.config.forkThickness * .25, Math.min(.70, desktop.config.forkLength * .62)).applyMatrix4(rig.forks.matrixWorld);
+  desktop.driving.docking.update(true); const feed = desktop.driving.docking.forkCamera, framing = feed.frame(desktop.driving.docking.snapshot), eye = feed.camera.getWorldPosition(new THREE.Vector3()), target = framing.aim.clone();
   const eyeLocal = eye.clone().applyMatrix4(new THREE.Matrix4().getInverse(rig.forks.matrixWorld)); assert(eyeLocal.x < -desktop.config.width/2-.3, 'The inspection camera is laterally outside the body, rather than inside a loaded carton.');
-  near(desktop.camera.getWorldDirection(new THREE.Vector3()).dot(target.sub(eye).normalize()), 1);
+  near(feed.camera.getWorldDirection(new THREE.Vector3()).dot(target.sub(eye).normalize()), 1);
   assert(desktop.camera.quaternion.equals(new THREE.Quaternion()));
+  assert(desktop.camera.getWorldPosition(new THREE.Vector3()).distanceTo(rig.driverSeat.getWorldPosition(new THREE.Vector3())) < 1e-7, 'The cab camera stays at the seat while auxiliary framing follows the real tines.');
 }
-assert.match(desktop.driving.viewButton.textContent, /Horquillas/); const commands = desktop.commands.length;
+assert.match(desktop.driving.viewButton.textContent, /Cabina/); const commands = desktop.commands.length;
+nodes(desktop.driving.hud, node => Object.prototype.hasOwnProperty.call(node.dataset, 'vehicleView'))[0].fire('click'); assert.equal(desktop.driving.viewIndex, 1); const chase = desktop.camera.matrixWorld.clone();
+desktop.driving.forkCameraButton.fire('click'); assert.equal(desktop.driving.viewIndex, 1); assert(desktop.camera.matrixWorld.equals(chase), 'Toggling the auxiliary feed also preserves a selected chase camera.');
 nodes(desktop.driving.hud, node => Object.prototype.hasOwnProperty.call(node.dataset, 'vehicleView'))[0].fire('click'); assert.equal(desktop.driving.viewIndex, 0); assert.equal(desktop.commands.length, commands, 'Changing camera does not send a machinery command.');
 near(desktop.camera.getWorldPosition(new THREE.Vector3()).distanceTo(rig.driverSeat.getWorldPosition(new THREE.Vector3())), 0);
 
@@ -75,43 +81,58 @@ inspection.pallet.position.z = 3.6; inspection.scene.updateMatrixWorld(true);
 const dock = inspection.api.pickupDock(inspection.record, {yaw: 0}, inspectedProduct); assert(dock);
 inspection.object.position.copy(dock.position); inspection.object.rotation.set(0, dock.yaw || 0, 0); inspection.scene.updateMatrixWorld(true);
 assert(inspection.api.applyPose(inspection.record, Object.assign({}, inspection.v.pose, {lift: dock.toolY - inspection.v.originWorld.y - inspection.config.forkBaseHeight}), false));
-inspection.scene.updateMatrixWorld(true); assert(inspection.driving.mount(inspection.record.id)); inspection.driving.command('view'); inspection.driving.command('view');
+inspection.scene.updateMatrixWorld(true); assert(inspection.driving.mount(inspection.record.id)); inspection.driving.docking.update(true);
+const inspectionFeed = inspection.driving.docking.forkCamera; inspectionFeed.setMode('tips'); inspectionFeed.frame(inspection.driving.docking.snapshot);
 // Sample actual visible first surfaces at the production wide-screen FOV. An
 // unoccluded target alone missed the previous huge wheel at the image edge.
 const visible=object=>{for(let node=object;node;node=node.parent)if(!node.visible||node.userData.editorRuntimeHelper)return false;return true;},meshes=[];
 [inspection.object,inspectedProduct.object].forEach(root=>root.traverse(node=>{if(node.isMesh&&visible(node))meshes.push(node);}));
 const wheelPivots=new Set(inspection.api.rig(inspection.record).wheels.map(wheel=>wheel.pivot)),counts={wheel:0,cargo:0,forks:0},ray=new THREE.Raycaster(),frustumSampleCount=32*18;
-for(let y=0;y<18;y++)for(let x=0;x<32;x++){ray.setFromCamera(new THREE.Vector2((x+.5)/32*2-1,1-(y+.5)/18*2),inspection.camera);const first=ray.intersectObjects(meshes,false)[0];if(!first)continue;let node=first.object;while(node&&!wheelPivots.has(node)&&node!==inspectedProduct.object&&node!==inspection.api.rig(inspection.record).forks)node=node.parent;if(wheelPivots.has(node))counts.wheel++;else if(node===inspectedProduct.object)counts.cargo++;else if(node===inspection.api.rig(inspection.record).forks)counts.forks++;}
+for(let y=0;y<18;y++)for(let x=0;x<32;x++){ray.setFromCamera(new THREE.Vector2((x+.5)/32*2-1,1-(y+.5)/18*2),inspectionFeed.camera);const first=ray.intersectObjects(meshes,false)[0];if(!first)continue;let node=first.object;while(node&&!wheelPivots.has(node)&&node!==inspectedProduct.object&&node!==inspection.api.rig(inspection.record).forks)node=node.parent;if(wheelPivots.has(node))counts.wheel++;else if(node===inspectedProduct.object)counts.cargo++;else if(node===inspection.api.rig(inspection.record).forks)counts.forks++;}
 assert(counts.wheel/frustumSampleCount<.10,'A front wheel cannot fill the inspection frame.');assert(counts.cargo/frustumSampleCount>.10&&counts.forks>0,'The real pallet/cargo and fork surfaces both remain visible in the wide-screen inspection view.');
 for (const carried of [false, true]) {
   if (carried) assert(inspection.driving.command('pickup'));
   for (const transform of [{lift: inspection.v.pose.lift, tilt: 0, yaw: 0}, {lift: .8, tilt: .06, yaw: -.7}, {lift: 2.4, tilt: -.06, yaw: .3}]) {
     if (carried) { inspection.object.rotation.y = transform.yaw; inspection.scene.updateMatrixWorld(true); assert(inspection.api.applyPose(inspection.record, Object.assign({}, inspection.v.pose, {lift: transform.lift, tilt: transform.tilt}), false)); }
-    inspection.driving.follow(); const eye = inspection.camera.getWorldPosition(new THREE.Vector3());
+    inspection.driving.follow(); inspection.driving.docking.update(true); inspectionFeed.frame(inspection.driving.docking.snapshot); const eye = inspectionFeed.camera.getWorldPosition(new THREE.Vector3());
     const cargoBox = inspectedProduct.bounds.clone().applyMatrix4(inspectedProduct.object.matrixWorld).expandByScalar(.025);
     assert(!cargoBox.containsPoint(eye), 'A full24-box pallet never encloses the inspection camera.');
     const inBody = eye.clone().applyMatrix4(new THREE.Matrix4().getInverse(inspection.object.matrixWorld));
     assert(Math.abs(inBody.x) > inspection.config.width/2+.3, 'The exterior inspection camera does not occupy the chassis or operator seat.');
     assert(eye.y >= inspection.v.originWorld.y + .06, 'Low fork viewing remains above the actual ground plane.');
-    const screen = new THREE.Vector3(0, -inspection.config.forkThickness*.25, .05).applyMatrix4(inspection.api.rig(inspection.record).forks.matrixWorld).project(inspection.camera);
-    assert(Math.abs(screen.x) < .95 && Math.abs(screen.y) < .95, 'The entry end of the tines remains inside the main viewport.');
-    if(!carried){const forks=inspection.api.rig(inspection.record).forks;for(const side of [-1,1]){const point=new THREE.Vector3(side*inspection.config.forkSpread/2,-inspection.config.forkThickness*.25,.07).applyMatrix4(forks.matrixWorld),distance=point.distanceTo(eye),ray=new THREE.Raycaster(eye,point.sub(eye).normalize(),0,distance+.02),hits=ray.intersectObjects([inspection.object,inspectedProduct.object],true);assert(hits.length,'The real tine entry has a visible surface.');let node=hits[0].object;while(node&&node!==forks)node=node.parent;assert.equal(node,forks,'The inspection ray reaches the real fork entry before a carton, chassis or mast can occlude it.');}}
+    const screen = new THREE.Vector3(0, -inspection.config.forkThickness*.25, .05).applyMatrix4(inspection.api.rig(inspection.record).forks.matrixWorld).project(inspectionFeed.camera);
+    assert(Math.abs(screen.x) < .95 && Math.abs(screen.y) < .95, 'The entry end of the tines remains inside the auxiliary viewport.');
+    near(inspection.camera.getWorldPosition(new THREE.Vector3()).distanceTo(inspection.api.rig(inspection.record).driverSeat.getWorldPosition(new THREE.Vector3())), 0);
+    // This is an orthographic front-entry feed. Check rays produced by that
+    // camera to the exposed tips; the loaded pallet legitimately hides heels.
+    const forks = inspection.api.rig(inspection.record).forks;
+    for (const side of [-1, 1]) {
+      const point = new THREE.Vector3(side * inspection.config.forkSpread / 2, -inspection.config.forkThickness * .20, inspection.config.forkLength - .012).applyMatrix4(forks.matrixWorld);
+      const projected = point.clone().project(inspectionFeed.camera), tipRay = new THREE.Raycaster();
+      assert(Math.abs(projected.x) < 1 && Math.abs(projected.y) < 1, 'Both fork tips stay within the auxiliary image.');
+      tipRay.setFromCamera(new THREE.Vector2(projected.x, projected.y), inspectionFeed.camera);
+      const hits = tipRay.intersectObjects([inspection.object, inspectedProduct.object], true);
+      assert(hits.length, 'The exposed real tine tip has a visible surface.');
+      let node = hits[0].object; while (node && node !== forks) node = node.parent;
+      assert(node === forks, 'The actual camera ray reaches the exposed fork tip before cargo, chassis or mast; side=' + side + ', first=' + (hits[0].object.name || hits[0].object.type) + '.');
+    }
   }
 }
 inspection.driving.dispose(); inspection.runtime.stop();
 
 // The VR helper shares one canvas and uses the existing rays for both hands.
-// It never modifies tracked local pose or adds a camera/render target.
+// Its auxiliary camera never modifies the headset's tracked local pose.
 const vr = setup(true), trackingQ = vr.camera.quaternion.clone(), trackingP = vr.camera.position.clone(); assert(vr.driving.mount(vr.record.id));
 const vrMonitor = vr.driving.docking, rigPose = vr.cameraRig.matrixWorld.clone(); assert(vrMonitor.element.hidden); assert(vrMonitor.plane.visible); assert.equal(vrMonitor.state.controller, 'both'); assert(vrMonitor.state.isSelectable()); assert.equal(vr.driving.worldPanel.actions.length, 14);
 vrMonitor.state.onSelectStart({uv: new THREE.Vector2(680 / 768, 1 - 30 / 432)}); assert.equal(vrMonitor.page, 'guide');
 const leftEdge = vr.driving.worldPanel.plane.position.x - .82 / 2, monitorRightEdge = vrMonitor.plane.position.x + .66 / 2; assert(monitorRightEdge < leftEdge - .03, 'The auxiliary screen does not cover the14 existing cockpit actions.');
 for (let i = 0; i < 4; i++) { vr.driving.command('view'); vr.driving.follow(); }
 assert.equal(vr.driving.viewIndex, 0); assert(vr.camera.quaternion.equals(trackingQ)); assert(vr.camera.position.equals(trackingP)); assert(vr.cameraRig.matrixWorld.equals(rigPose));
+const beforeVRFeed = vrMonitor.cameraEnabled; vr.driving.command('forkCamera'); assert.equal(vrMonitor.cameraEnabled, !beforeVRFeed); vr.driving.command('forkCamera'); assert.equal(vrMonitor.cameraEnabled, beforeVRFeed); assert(vr.cameraRig.matrixWorld.equals(rigPose)); assert(vr.camera.quaternion.equals(trackingQ)); assert(vr.camera.position.equals(trackingP));
 vr.ctx.studioMenuOpen = true; assert(!vrMonitor.state.isSelectable()); const page = vrMonitor.page; vrMonitor.state.onSelectStart({uv: new THREE.Vector2(680/768, 1-30/432)}); assert.equal(vrMonitor.page, page); vr.ctx.studioMenuOpen = false;
 const resources = [vrMonitor.plane.geometry, vrMonitor.plane.material, vrMonitor.texture], disposed = new Set(); resources.forEach(resource => resource.addEventListener('dispose', () => disposed.add(resource)));
 const monitorStateName = vrMonitor.stateName; delete vr.ctx.raycontrol.removeState; assert(vr.driving.unmount(true)); assert.equal(disposed.size, 3); assert.equal(vr.ctx.raycontrol.states[monitorStateName], undefined); assert.equal(vr.active.size, 0);
 assert(vr.camera.quaternion.equals(trackingQ)); assert(vr.camera.position.equals(trackingP));
 for (let i = 0; i < 3; i++) { assert(vr.driving.mount(vr.record.id)); assert(vr.driving.unmount(true)); assert.equal(vr.active.size, 0); }
 vr.driving.dispose(); vr.runtime.stop();
-console.log('Vehicle docking view: actual fork camera across lift/tilt/parent transforms, 10Hz read-only contour guidance, authoritative traffic-light states, unchanged14 commands, VR head pose/rays and repeated resource cleanup passed.');
+console.log('Vehicle docking view: separate real fork camera across lift/tilt/parent transforms, C preserves cab/chase and XR tracking, read-only guidance, authoritative traffic-light states, unchanged14 commands and repeated resource cleanup passed.');

@@ -101,8 +101,9 @@ export default class PalletQueueRuntime {
     const component = record.components.palletQueue;
     if (!component || component.queue.length + reservations.length >= component.config.capacity) return null;
     const item = this.itemFor(product), perPallet = component.config.acceptsPallets ? 1 : component.config.columns * component.config.rows * component.config.layers;
-    const wholePallet = product.object.userData.sourceProduct && product.object.userData.sourceProduct.loadMode === 'pallet';
-    if (component.config.acceptsPallets && !wholePallet) return null;
+    // Authored pallets keep their metadata in the visual child; generated
+    // loads keep it on the root. Resolve both through the custody runtime.
+    if (component.config.acceptsPallets && this.runtime.productMetadata(product).loadMode !== 'pallet') return null;
     if (component.config.layoutMode === 'fit' && !component.config.acceptsPallets) return this.fitPlacement(record, product, reservations, markFull);
     const occupied = new Set(component.items.map(value => (value.palletIndex || 0) * perPallet + value.palletSlot));
     reservations.forEach(value => occupied.add(value.globalSlot === undefined ? value.slot : value.globalSlot));

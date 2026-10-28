@@ -8,9 +8,10 @@ import {applyIndustrialFloorPresentation} from './IndustrialFloorPresentation.js
 import {applyIndustrialMonitorLayout} from './IndustrialMonitorLayout.js';
 import {applyIndustrialMessages} from './IndustrialMessages.js';
 import {applyIndustrialAging} from './IndustrialAgingPresentation.js';
+import {buildIndustrialVehicleStudy} from './IndustrialVehicleStudy.js';
 import {studyScene, STUDY_ENVIRONMENT_DEFAULTS} from './StudySceneCatalog.js';
 
-const MACHINE_TYPES = ['source', 'conveyor', 'processor', 'palletQueue', 'robot'];
+const MACHINE_TYPES = ['source', 'conveyor', 'processor', 'palletQueue', 'robot', 'vehicle'];
 const machine = (document, object) => document.getBehaviors(object).find(value => MACHINE_TYPES.includes(value.type));
 const patch = (document, object, changes) => document.setBehaviors(object, document.getBehaviors(object).map(value => MACHINE_TYPES.includes(value.type) ? Object.assign({}, value, changes) : value));
 
@@ -129,6 +130,11 @@ export function buildStudyScene(document, roomId, id, options = {}) {
   const definition = studyScene(id), root = document.getRoot(roomId), scene = options.scene || root, own = !document.transaction;
   if (own) document.begin();
   try {
+    if (definition.vehicles) {
+      const built = buildIndustrialVehicleStudy(document, roomId, options);
+      if (!options.preview) configureStudyEnvironment(document, roomId, built);
+      if (own) document.commit(); return Object.assign(built, {presetId: id, definition});
+    }
     if (definition.kind) {
       const built = buildIndustrialCediLevel(document, roomId, {kind: definition.kind, scene, robotized: definition.robotized === true, continuous: options.continuous !== false, floorPresentation: !options.preview && options.floorPresentation !== false, monitorLayout: !options.preview && options.monitorLayout !== false, industrialMessages: !options.preview && options.industrialMessages !== false, industrialAging: !options.preview && options.industrialAging !== false});
       if (!options.preview) { configureStudyEnvironment(document, roomId, built); addStudyMission(document, roomId, definition, built.lines); }

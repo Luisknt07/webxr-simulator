@@ -61,7 +61,7 @@ async function authoringTransactions() {
 }
 
 async function run() {
-  assert.equal(study.STUDY_SCENES.length, 19); assert.equal(new Set(study.STUDY_SCENES.map(scene => scene.id)).size, 19);
+  assert.equal(study.STUDY_SCENES.length, require('./validate-public-scenes').inventory().templateCount); assert.equal(new Set(study.STUDY_SCENES.map(scene => scene.id)).size, study.STUDY_SCENES.length);
   for (const definition of study.STUDY_SCENES.filter(scene => scene.advanced)) {
     const f = fixture(), built = study.buildStudyScene(f.document, 'hall', definition.id, {scene: f.scene}), line = built.lines[0];
     const saved = validateDocument(await f.document.serialize(), value => value); assert(saved.studio.missions.length === 1);
@@ -101,6 +101,6 @@ async function run() {
   const cedi = await study.compileStudyProject(['cedi-sorting', 'cedi-packing'], {nativeDocument: f.document});
   assert.equal(cedi.document.studio.environments.length, 2); validateDocument(cedi.document, value => value).studio.environments.forEach(assertStudyEnvironment);
   cedi.document.studio.scenes.forEach(scene => assert.equal(cedi.document.rooms[scene.id].additions.filter(row => row.descriptor.type === 'industrialFloor').length, 1, 'Each CEDI level has a single floor presentation.'));
-  releaseGeometry(f); await authoringTransactions(); console.log('Study catalog: 19 presets, deterministic advanced flow, manual idle, server validation, detached preparation and actual-geometry preview passed.');
+  releaseGeometry(f); await authoringTransactions(); console.log('Study catalog:' + study.STUDY_SCENES.length + ' presets, deterministic advanced flow, manual idle, server validation, detached preparation and actual-geometry preview passed.');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });

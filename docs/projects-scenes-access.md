@@ -43,7 +43,7 @@ Las pestañas de proyectos conservan espacios de trabajo del navegador para la m
 
 ## Escenas públicas y biblioteca
 
-En modo normal se muestran hasta **dos escenas públicas activas**, configurables por el superadministrador. Inicialmente son Transferencia rectangular a 90° e Inspección y clasificación. Temporalmente está activada la vista previa de los **30 ejemplos incluidos** del sistema: 19 plantillas, laboratorio completo y diez experiencias originales. Cada ejemplo es una proyección independiente de sólo lectura; no se consulta ni se publica el contenido privado de ninguna cuenta. El catálogo no carga todas las salas en el navegador.
+En modo normal se muestran hasta **dos escenas públicas activas**, configurables por el superadministrador. Inicialmente son Transferencia rectangular a 90° e Inspección y clasificación. Temporalmente está activada la vista previa de **todos los ejemplos incluidos** del sistema: las plantillas registradas, el laboratorio completo y diez experiencias originales. Las cantidades se calculan desde el catálogo, incluyendo nuevas prácticas de vehículos. Cada ejemplo es una proyección independiente de sólo lectura; no se consulta ni se publica el contenido privado de ninguna cuenta. El catálogo no carga todas las salas en el navegador.
 
 Administración → Escenas públicas permite desactivar la vista previa y recuperar la selección normal de dos salas sin borrarla. La API y las descargas directas de proyecciones adicionales exigen entonces una cuenta. Los proyectos de usuarios mantienen siempre sus permisos anteriores. La reversión de GitHub Pages requiere regenerar y desplegar la publicación estática; véase `docs/public-publication.md`.
 

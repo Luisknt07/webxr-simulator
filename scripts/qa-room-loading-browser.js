@@ -9,7 +9,7 @@ async function run() {
   assert(/^[a-f0-9]{64}$/.test(expected)); assert.equal(createHash('sha256').update(fs.readFileSync(path.join(ROOT, 'bundle.js'))).digest('hex'), expected);
   fs.mkdirSync(OUTPUT, {recursive: true}); const fixture = await startTemporaryServer();
   try {
-    const catalog = await fixture.request('/api/public/scenes'); assert.equal(catalog.status, 200); assert.equal(catalog.body.previewAllExamples, true); assert.equal(catalog.body.scenes.length, 30);
+    const catalog = await fixture.request('/api/public/scenes'); assert.equal(catalog.status, 200); assert.equal(catalog.body.previewAllExamples, true); assert.equal(catalog.body.scenes.length, require('./validate-public-scenes').inventory().includedCount);
     await withBrowser(fixture.origin, async b => {
       await b.navigate('/');
       await b.call(() => {

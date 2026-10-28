@@ -434,12 +434,24 @@ body.editor-mode { overflow: hidden; }
 .vehicle-driving-pads { display: none; margin-top: 10px; }
 .vehicle-driving-views { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
 .vehicle-driving-views [aria-pressed="true"] { border-color: #78dfc1; background: #215b50; }
-.vehicle-docking-monitor { position: fixed; z-index: 31; top: 82px; right: 12px; width: min(430px, 43vw); padding: 5px; box-sizing: border-box; border: 1px solid #526c77; border-radius: 10px; color: #d9edf4; background: rgba(11, 29, 40, .97); font: 12px/1.4 system-ui, sans-serif; }
+.vehicle-docking-monitor { position: fixed; z-index: 31; top: 82px; right: 12px; width: min(430px, 43vw); padding: 5px; box-sizing: border-box; border: 1px solid #526c77; border-radius: 10px; color: #d9edf4; background: transparent; font: 12px/1.4 system-ui, sans-serif; }
+.vehicle-docking-monitor[data-camera="on"] { width: min(840px, calc(100vw - 24px)); }
 .vehicle-docking-monitor[hidden] { display: none; }
-.vehicle-docking-monitor canvas { display: block; width: 100%; height: auto; cursor: pointer; }
-.vehicle-docking-monitor .vehicle-docking-summary { margin: 2px 8px 5px; }
+.vehicle-docking-body { display: grid; grid-template-columns: minmax(0, 1fr); align-items: end; gap: 8px; }
+.vehicle-docking-monitor[data-camera="on"] .vehicle-docking-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.vehicle-docking-monitor canvas { display: block; width: 100%; height: auto; cursor: pointer; border-radius: 5px; }
+.vehicle-fork-camera { min-width: 0; }
+.vehicle-fork-camera[hidden] { display: none; }
+.vehicle-fork-camera-header { display: flex; justify-content: space-between; gap: 5px; padding: 5px; background: #0b1d28; border-radius: 5px 5px 0 0; }
+.vehicle-fork-camera-header button { min-width: 0; padding: 6px 8px; border: 1px solid #58717e; border-radius: 4px; color: #eef7fa; background: #24404d; font: inherit; cursor: pointer; }
+.vehicle-fork-camera-header button[aria-pressed="true"] { background: #215b50; border-color: #78dfc1; }
+.vehicle-fork-camera-header button:focus-visible { outline: 2px solid #c2fff0; outline-offset: 2px; }
+/* The auxiliary GPU image is drawn in the existing world canvas underneath
+   this opening. Keep every ancestor transparent: an opaque card hides it. */
+.vehicle-fork-camera-viewport { width: 100%; aspect-ratio: 16 / 9; background: transparent; pointer-events: none; }
+.vehicle-docking-monitor .vehicle-docking-summary { margin: 6px 0 0; padding: 7px 9px; background: rgba(11, 29, 40, .97); border-radius: 5px; }
 .vehicle-docking-monitor[data-state="ready"] { border-color: #71e6b3; }
 .vehicle-docking-monitor[data-state="near"] { border-color: #f1c66c; }
 .vehicle-docking-monitor[data-state="blocked"] { border-color: #ff8f93; }
-@media (max-width: 720px) { .vehicle-docking-monitor { top: 76px; right: 8px; width: min(340px, 68vw); font-size: 11px; } }
+@media (max-width: 720px) { .vehicle-docking-monitor { top: 76px; right: 8px; width: min(340px, 68vw); font-size: 11px; } .vehicle-docking-monitor[data-camera="on"] { width: calc(100vw - 16px); } .vehicle-fork-camera-header { flex-wrap: wrap; } .vehicle-fork-camera-header button { padding: 4px 6px; } }
 @media (pointer: coarse) { .vehicle-driving-pads { display: flex; } .vehicle-driving-hud { max-height: 46vh; font-size: 12px; } .vehicle-driving-hud button { min-height: 42px; } }

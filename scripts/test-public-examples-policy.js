@@ -2,6 +2,7 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), os = require('node:os'), path = require('node:path'), http = require('node:http');
 const {ProjectStore} = require('../server/storage'), {createApiHandler} = require('../server/api'), {validateDocument} = require('../server/validation');
 const publicExamples = require('../shared/public-scenes');
+const expectedInventory = require('./validate-public-scenes').inventory();
 async function run() {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'webxr-public-examples-')), store = new ProjectStore({dataDir: temporary});
   const privateDocument = {format: 'hello-webxr-editor', version: 1, imports: [], rooms: {hall: {additions: [], overrides: [{id: 'native:hall:root.0', name: 'PRIVATE_SENTINEL'}]}, sound: {additions: [], overrides: []}}};
@@ -13,8 +14,8 @@ async function run() {
     const beforeSelection = api.studio.access.publicationSettings().scenes, beforePrivate = JSON.stringify(store.getProject(privateProject.id));
     const getProject = store.getProject.bind(store), requireProject = store._requireProject.bind(store);
     store.getProject = () => {throw new Error('Example preview must never read a saved user project');}; store._requireProject = store.getProject;
-    const catalog = await request('/public/scenes'); assert.equal(catalog.status, 200); assert.equal(catalog.body.previewAllExamples, true); assert.equal(catalog.body.scenes.length, 30);
-    assert.equal(catalog.body.scenes.filter(scene => scene.original).length, 10); assert.equal(catalog.body.scenes.filter(scene => scene.templateId).length, 19); assert.equal(new Set(catalog.body.scenes.map(scene => scene.id)).size, 30);
+    const catalog = await request('/public/scenes'); assert.equal(catalog.status, 200); assert.equal(catalog.body.previewAllExamples, true); assert.equal(catalog.body.scenes.length, expectedInventory.includedCount);
+    assert.equal(catalog.body.scenes.filter(scene => scene.original).length, expectedInventory.originalCount); assert.equal(catalog.body.scenes.filter(scene => scene.templateId).length, expectedInventory.templateCount); assert.equal(new Set(catalog.body.scenes.map(scene => scene.id)).size, expectedInventory.includedCount);
     for (const scene of catalog.body.scenes) {
       const response = await request('/public/scenes/' + scene.id); assert.equal(response.status, 200, scene.id + ':' + JSON.stringify(response.body)); const project = response.body.project;
       validateDocument(project.document, () => {throw new Error('An included example cannot resolve server imports');});
@@ -22,6 +23,7 @@ async function run() {
       assert(!JSON.stringify(project).includes('PRIVATE_SENTINEL')); assert(!JSON.stringify(project).includes('/api/assets/'));
       assert(project.document.rooms[scene.roomId].overrides.every(row => Object.keys(row).every(key => ['id', 'visible'].includes(key)) && row.visible === false));
       if (['cedi-sorting', 'cedi-packing', 'industrial-lab-complete'].includes(scene.id)) {const rows = project.document.rooms[scene.roomId].additions; assert.equal(rows.filter(row => (row.behaviors || []).some(c => c.type === 'robot')).length, 3); assert(rows.some(row => (row.behaviors || []).some(c => c.type === 'vehicle' && c.sourceId && c.outputId)));}
+      if (scene.templateId === 'forklift-training') {const schema = require('../shared/vehicles'), rows = project.document.rooms[scene.roomId].additions, variants = new Set(rows.flatMap(row => (row.behaviors || []).filter(c => c.type === 'vehicle').map(c => c.variant))); schema.VARIANTS.filter(definition => schema.supports(definition.preset).forks).forEach(definition => assert(variants.has(definition.id), 'The public training contains the physical fork variant ' + definition.id));}
       assert(api.studio.access.exampleProjects.size <= 2, 'Serving a gallery does not retain thirty scene documents.');
     }
     store.getProject = getProject; store._requireProject = requireProject;
@@ -36,7 +38,7 @@ async function run() {
     assert.equal(api.studio.access.canDownloadPublicExample({headers: {cookie: ordinary.cookie}}, 'cedi-sorting.json'), true, 'Signed-in example access remains available in restricted mode.');
     assert.match(fs.readFileSync(path.join(__dirname, '../webpack.config.js'), 'utf8'), /assets\\\/public-scenes[\s\S]*canDownloadPublicExample/, 'The actual static middleware uses the same reversible policy.');
     assert.deepEqual(api.studio.access.publicationSettings().scenes, beforeSelection, 'Reverting preview restores the untouched publication selection.');
-    const restored = await request('/publication/scenes', 'PUT', {previewAllExamples: true}, admin.cookie); assert.equal(restored.body.scenes.length, 30); assert.equal(JSON.stringify(store.getProject(privateProject.id)), beforePrivate);
+    const restored = await request('/publication/scenes', 'PUT', {previewAllExamples: true}, admin.cookie); assert.equal(restored.body.scenes.length, expectedInventory.includedCount); assert.equal(JSON.stringify(store.getProject(privateProject.id)), beforePrivate);
     assert.equal((await request('/publication/scenes', 'PUT', {previewAllExamples: 'yes'}, admin.cookie)).status, 400); assert.equal(errors.length, 0);
     const contaminated = {format: 'hello-webxr-editor', version: 1, owner: 'PRIVATE_OWNER', rooms: privateDocument.rooms, imports: [{id: 'private-import', url: '/api/assets/private'}], studio: {version: 1, resources: [{secret: 'PRIVATE_RESOURCE'}], scenes: [{id: 'hall', name: 'Example'}, {id: 'sound', name: 'PRIVATE_ROOM'}]}};
     const safe = publicExamples.project(contaminated, {id: 'fixture', name: 'Fixture', roomId: 'hall'}); assert(!JSON.stringify(safe).includes('PRIVATE_')); assert.deepEqual(safe.document.rooms.hall.overrides, []); assert.deepEqual(safe.document.imports, []);
@@ -46,7 +48,7 @@ async function run() {
     const generated = await require('./generate-public-scenes')(staticRoot, {previewAllExamples: false}); assert.deepEqual(generated.map(scene => scene.id), ['l-transfer', 'inspection-sorting']);
     const restricted = JSON.parse(fs.readFileSync(path.join(staticRoot, 'assets/public-scenes/catalog.json'), 'utf8')); assert.equal(restricted.previewAllExamples, false); assert.equal(restricted.scenes.length, 2); assert(!fs.existsSync(path.join(staticRoot, 'assets/public-scenes/stale-example.json')), 'Restricted Pages regeneration removes formerly public example projections.');
     assert.equal(JSON.stringify(store.getProject(privateProject.id)), beforePrivate, 'Static generation never modifies the server fixture or its private data.');
-    console.log('Public examples policy:30 visitor examples (19 templates +10 originals +Lab), current robotic cells, demand-only bounded cache, no saved-project reads/imports/private overrides, read-only projections, admin-only reversible policy and unchanged private data passed.');
+    console.log('Public examples policy:' + expectedInventory.includedCount + ' visitor examples (' + expectedInventory.templateCount + ' templates +' + expectedInventory.originalCount + ' originals +Lab), current robotic/vehicle examples, bounded cache, no saved-project reads/imports/private overrides, read-only projections, reversible policy and unchanged private data passed.');
   } finally {await new Promise(resolve => server.close(resolve)); api.close(); const target = path.resolve(temporary); if (path.dirname(target) !== path.resolve(os.tmpdir()) || !path.basename(target).startsWith('webxr-public-examples-')) throw new Error('Unexpected fixture directory'); fs.rmSync(target, {recursive: true, force: true});}
 }
 run().catch(error => {console.error(error); process.exitCode = 1;});

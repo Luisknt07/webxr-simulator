@@ -35,7 +35,7 @@ async function generate(root = path.resolve(__dirname, '..'), options = {}) {
     schema.studio.ROOM_IDS.forEach((room, index) => append({id: 'original-' + room, roomId: room, name: schema.studio.ROOM_NAMES[index], collection: 'Experiencias originales', original: true}, {format: 'hello-webxr-editor', version: 1, rooms: {[room]: {overrides: [], additions: []}}, imports: [], studio: {scenes: [{id: room, name: schema.studio.ROOM_NAMES[index]}], startRoomId: room}}));
     w.scene.traverse(node => {if (node.geometry) node.geometry.dispose();});
   }
-  outputs.set('catalog.json', JSON.stringify({scenes, maxActive: 2, requiresLogin: !previewAllExamples, previewAllExamples, includedCount: scenes.length}) + '\n');
+  outputs.set('catalog.json', JSON.stringify({scenes, maxActive: 2, requiresLogin: !previewAllExamples, previewAllExamples, includedCount: scenes.length, templateCount: templates.length, originalCount: previewAllExamples ? schema.studio.ROOM_IDS.length : 0, laboratoryCount: previewAllExamples ? 1 : 0}) + '\n');
   // Bounded cleanup removes former generated JSON, not arbitrary directories.
   for (const name of fs.readdirSync(directory)) if (/^[a-z0-9-]+\.json$/.test(name) && !outputs.has(name)) fs.unlinkSync(path.join(directory, name));
   for (const [name, value] of outputs) fs.writeFileSync(path.join(directory, name), value);

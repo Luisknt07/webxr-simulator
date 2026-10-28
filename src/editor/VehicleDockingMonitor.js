@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import VehicleForkCamera from './VehicleForkCamera.js';
 
 const WIDTH = 768, HEIGHT = 432;
 const COLORS = {ready: '#71e6b3', near: '#f1c66c', blocked: '#ff8f93'};
@@ -7,11 +8,14 @@ const point = value => Array.isArray(value) && value.length >= 3 && value.every(
 const polygon = value => Array.isArray(value) && value.length >= 3 && value.every(point);
 const measure = (value, scale, suffix) => finite(value) ? (value * scale).toFixed(1) + suffix : '—';
 
-/** Read-only single-canvas guidance. It shares the runtime's pickup/release
- * checks and draws actual world contours; it never predicts a successful load
- * or creates another scene render / WebGL render target. */
+/** Read-only contour guidance plus an optional, bounded real-camera feed. Both
+ * use the runtime's physical pickup/release data and never mutate custody. */
 export default class VehicleDockingMonitor {
-  constructor(driving) { this.driving = driving; this.ctx = driving.ctx; this.visible = true; this.page = 'alignment'; this.lastUpdate = -Infinity; }
+  constructor(driving) { this.driving = driving; this.ctx = driving.ctx; this.visible = true; this.page = 'alignment'; this.lastUpdate = -Infinity; this.forkCamera = new VehicleForkCamera(driving); }
+  get cameraEnabled() { return this.forkCamera.enabled && this.cameraSupported; }
+  toggleCamera() { if (!this.cameraSupported) return false; const enabled = this.forkCamera.setEnabled(!this.forkCamera.enabled); this.update(true); return enabled; }
+  renderBefore(scene, delta) { return this.forkCamera.renderBefore(scene, delta); }
+  postRender() { return this.forkCamera.postRender(); }
   mount() {
     this.unmount(); const dom = this.driving.document;
     if (!dom || !dom.createElement) return;
@@ -21,7 +25,20 @@ export default class VehicleDockingMonitor {
     this.element = dom.createElement('section'); this.element.className = 'vehicle-docking-monitor'; this.element.dataset.vehicleDockingMonitor = '';
     this.element.setAttribute('aria-label', 'Ayuda de alineación');
     this.summary = dom.createElement('p'); this.summary.className = 'vehicle-docking-summary'; this.summary.setAttribute('aria-live', 'polite');
-    this.element.appendChild(this.canvas); this.element.appendChild(this.summary); if (dom.body) dom.body.appendChild(this.element);
+    this.body = dom.createElement('div'); this.body.className = 'vehicle-docking-body'; this.body.appendChild(this.canvas);
+    this.feed = dom.createElement('section'); this.feed.className = 'vehicle-fork-camera'; this.feed.dataset.vehicleForkCamera = '';
+    const header = dom.createElement('div'); header.className = 'vehicle-fork-camera-header';
+    this.cameraButton = dom.createElement('button'); this.cameraButton.type = 'button'; this.cameraButton.textContent = 'Cámara de horquillas · C'; this.cameraButton.dataset.vehicleForkCameraToggle = '';
+    this.sideButton = dom.createElement('button'); this.sideButton.type = 'button'; this.sideButton.textContent = 'Cambiar lado'; this.sideButton.dataset.vehicleForkCameraSide = '';
+    this.cameraModeButton = dom.createElement('button'); this.cameraModeButton.type = 'button'; this.cameraModeButton.textContent = 'Vista: Entrada'; this.cameraModeButton.dataset.vehicleForkCameraMode = '';
+    this.feedViewport = dom.createElement('div'); this.feedViewport.className = 'vehicle-fork-camera-viewport'; this.feedViewport.dataset.vehicleForkCameraViewport = ''; this.feedViewport.setAttribute('aria-label', 'Cámara real de horquillas y pallet');
+    header.appendChild(this.cameraButton); header.appendChild(this.cameraModeButton); header.appendChild(this.sideButton); this.feed.appendChild(header); this.feed.appendChild(this.feedViewport);
+    this.cameraClick = () => { if (!this.driving.blocked()) this.toggleCamera(); };
+    this.sideClick = () => { if (!this.driving.blocked()) this.forkCamera.switchSide(); };
+    this.cameraModeClick = () => { if (!this.driving.blocked()) { this.forkCamera.toggleMode(); this.update(true); } };
+    this.cameraButton.addEventListener('click', this.cameraClick); this.sideButton.addEventListener('click', this.sideClick);
+    this.cameraModeButton.addEventListener('click', this.cameraModeClick);
+    this.body.appendChild(this.feed); this.element.appendChild(this.body); this.element.appendChild(this.summary); if (dom.body) dom.body.appendChild(this.element);
     this.click = event => {
       if (event.stopPropagation) event.stopPropagation();
       if (this.driving.blocked()) return;
@@ -36,6 +53,9 @@ export default class VehicleDockingMonitor {
     this.plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(.66, .37125), new THREE.MeshBasicMaterial({map: this.texture}));
     this.plane.name = 'Monitor de alineación de cargas'; this.plane.position.set(-.79, -.13, .68); this.plane.rotation.y = Math.PI;
     this.plane.userData.editorRuntimeHelper = true; this.driving.seat.add(this.plane);
+    const rig = this.driving.visualRoot && this.driving.visualRoot.userData.vehicleRig;
+    this.cameraSupported = !!(rig && rig.forks && rig.config && !['tow', 'cart'].includes(rig.config.family));
+    if (this.cameraSupported) this.forkCamera.mount({element: this.feedViewport, parent: this.driving.seat});
     const input = this.ctx.raycontrol;
     this.stateName = this.driving.simulation.statePrefix + 'vehicle-docking-monitor';
     this.state = {colliderMesh: this.plane, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
@@ -44,13 +64,23 @@ export default class VehicleDockingMonitor {
     if (input) { input.addState(this.stateName, this.state); input.activateState(this.stateName); }
     this.lastUpdate = -Infinity; this.update(true);
   }
-  select(x, y) { if (x >= WIDTH - 156 && x <= WIDTH - 16 && y >= 15 && y <= 57) { this.page = this.page === 'alignment' ? 'guide' : 'alignment'; this.update(true); return true; } return false; }
+  select(x, y) {
+    if (y >= 15 && y <= 57) {
+      if (x >= WIDTH - 320 && x <= WIDTH - 168 && this.cameraSupported) { this.toggleCamera(); return true; }
+      if (x >= WIDTH - 488 && x <= WIDTH - 332 && this.cameraSupported) { this.forkCamera.toggleMode(); this.update(true); return true; }
+      if (x >= WIDTH - 156 && x <= WIDTH - 16) { this.page = this.page === 'alignment' ? 'guide' : 'alignment'; this.update(true); return true; }
+    } return false;
+  }
   toggle() { this.visible = !this.visible; this.update(true); return this.visible; }
   update(force = false) {
     if (!this.element) return;
     const driving = this.driving, record = driving.record(), available = !!record && this.visible && !(this.ctx.editor && this.ctx.editor.active);
     this.element.hidden = !available || !!this.ctx.vrMode;
     if (this.plane) this.plane.visible = available && !!this.ctx.vrMode;
+    this.forkCamera.setAvailable(available && !this.driving.blocked());
+    this.feed.hidden = !this.cameraSupported || !this.cameraEnabled; this.cameraButton.setAttribute('aria-pressed', String(!!this.cameraEnabled));
+    this.cameraModeButton.textContent = 'Vista: ' + (this.forkCamera.mode === 'entry' ? 'Entrada' : 'Puntas');
+    this.element.dataset.camera = this.cameraEnabled ? 'on' : 'off';
     if (!available) return;
     const now = typeof performance === 'undefined' ? Date.now() : performance.now();
     if (!force && now - this.lastUpdate < 100) return; this.lastUpdate = now;
@@ -66,7 +96,9 @@ export default class VehicleDockingMonitor {
   }
   paint(data, phase, reason) {
     const c = this.context, accent = COLORS[this.severity];
-    c.fillStyle = '#0b1d28'; c.fillRect(0, 0, WIDTH, HEIGHT); c.fillStyle = accent; c.font = 'bold 26px sans-serif'; c.fillText(phase + ' · ' + (this.severity === 'ready' ? 'LISTO' : this.severity === 'near' ? 'AJUSTAR' : 'REVISAR'), 20, 40);
+    c.fillStyle = '#0b1d28'; c.fillRect(0, 0, WIDTH, HEIGHT); c.fillStyle = accent; c.font = 'bold 26px sans-serif'; c.fillText((data.phase === 'drop' ? 'DEPÓSITO' : 'TOMA') + ' · ' + (this.severity === 'ready' ? 'LISTO' : this.severity === 'near' ? 'AJUSTAR' : 'REVISAR'), 20, 40);
+    if (this.cameraSupported) { c.fillStyle = this.cameraEnabled ? '#226856' : '#294551'; c.fillRect(WIDTH - 320, 15, 152, 42); c.fillStyle = '#eff8fa'; c.font = '20px sans-serif'; c.fillText(this.cameraEnabled ? 'CÁMARA ON' : 'CÁMARA OFF', WIDTH - 309, 43); }
+    if (this.cameraSupported) { c.fillStyle = '#294551'; c.fillRect(WIDTH - 488, 15, 156, 42); c.fillStyle = '#eff8fa'; c.font = '20px sans-serif'; c.fillText(this.forkCamera.mode === 'entry' ? 'ENTRADA' : 'PUNTAS', WIDTH - 474, 43); }
     c.fillStyle = '#294551'; c.fillRect(WIDTH - 156, 15, 140, 42); c.fillStyle = '#eff8fa'; c.font = '20px sans-serif'; c.fillText(this.page === 'alignment' ? 'GUÍA' : 'PLANO', WIDTH - 133, 43);
     // Minimal DOM fixtures do not implement paths; production canvas always
     // does. Measurements and accessible state remain available independently.
@@ -110,7 +142,7 @@ export default class VehicleDockingMonitor {
     const ruler = .5 * scale; c.strokeStyle = '#bdd2d9'; c.beginPath(); c.moveTo(area.x + 12, area.y + area.h - 38); c.lineTo(area.x + 12 + ruler, area.y + area.h - 38); c.stroke(); c.fillStyle = '#bdd2d9'; c.font = '14px sans-serif'; c.fillText('0.5 m', area.x + 12, area.y + area.h - 43);
   }
   paintGuide(c) {
-    const rows = ['1 · Alinea ambas horquillas con las entradas del pallet.', '2 · Ajusta altura e inclinación; avanza lentamente.', '3 · Detente: verde confirma la validación real.', '4 · Tomar / Depositar conserva identidad y contenido.', 'Escritorio: C cambia Cabina / Seguimiento / Horquillas.', 'RV: el visor conserva su seguimiento; usa los mandos.'];
+    const rows = ['1 · Alinea ambas horquillas con las entradas del pallet.', '2 · Ajusta altura e inclinación; avanza lentamente.', '3 · Detente: verde confirma la validación real.', '4 · Tomar / Depositar conserva identidad y contenido.', 'C: cámara auxiliar · Cambiar lado ajusta la perspectiva.', 'RV: pulsa la imagen para cambiar lado; el visor no se mueve.'];
     c.font = '22px sans-serif'; c.fillStyle = '#d8edf4'; rows.forEach((row, index) => this.text(c, row, 25, 100 + index * 47, WIDTH - 50));
     c.fillStyle = '#f1c66c'; c.font = '18px sans-serif'; c.fillText('Amarillo: ajustar · Rojo: revisar impedimento · Verde: operación disponible', 25, 407);
   }
@@ -121,12 +153,16 @@ export default class VehicleDockingMonitor {
     while (line && c.measureText(line).width > width) line = line.slice(0, -2); c.fillText(line, x, y + index * lineHeight);
   }
   unmount() {
+    this.forkCamera.unmount();
     const input = this.ctx.raycontrol;
     if (input && this.stateName) { if (input.deactivateState) input.deactivateState(this.stateName); if (input.removeState) input.removeState(this.stateName); else if (input.states && input.states[this.stateName] === this.state) delete input.states[this.stateName]; }
     if (this.plane) { if (this.plane.parent) this.plane.parent.remove(this.plane); this.plane.geometry.dispose(); this.plane.material.dispose(); }
     if (this.texture) this.texture.dispose(); if (this.canvas && this.click) this.canvas.removeEventListener('click', this.click);
+    if (this.cameraButton) this.cameraButton.removeEventListener('click', this.cameraClick); if (this.sideButton) this.sideButton.removeEventListener('click', this.sideClick);
+    if (this.cameraModeButton) this.cameraModeButton.removeEventListener('click', this.cameraModeClick);
     if (this.element) { ['pointerdown', 'mousedown', 'mouseup'].forEach(type => this.element.removeEventListener(type, this.stopEvent)); this.element.remove(); }
+    this.body = this.feed = this.feedViewport = this.cameraButton = this.sideButton = this.cameraModeButton = null; this.cameraSupported = false;
     this.plane = this.texture = this.element = this.canvas = this.context = this.state = this.stateName = this.snapshot = null;
   }
-  dispose() { this.unmount(); }
+  dispose() { this.unmount(); this.forkCamera.dispose(); }
 }

@@ -8,6 +8,7 @@ const source = read('src/editor/ProjectAccessView.js').replace(/^import .*;\r?\n
 const View = new Function('compileBlankProject', 'publicScenes', source)(() => { throw new Error('Static visits never build editable projects.'); }, publicScenes);
 const payload = id => JSON.parse(read('assets/public-scenes/' + id + '.json'));
 const generatedCatalog = JSON.parse(read('assets/public-scenes/catalog.json'));
+const expectedInventory = require('./validate-public-scenes').inventory();
 const calls = [], applications = [];
 const editor = {staticPublic: true, editorEnabled: true, roomId: 'hall', serverCapabilities: {},
   ctx: {renderer: {domElement: {style: {}}}}, document: {rooms: new Map(), studio: {}},
@@ -28,7 +29,7 @@ async function run() {
   };
   try {
     assert.equal(view.enabled, true); assert.equal(view.canEdit(), false, 'Even a direct editor URL stays read-only without its server.');
-    const catalog = await view.publicCatalog(); assert.equal(catalog.scenes.length, 30); assert.equal(calls.length, 1, 'Only catalog metadata is fetched; no unselected scene document is requested.');
+    const catalog = await view.publicCatalog(); assert.equal(catalog.scenes.length, expectedInventory.includedCount); assert.equal(calls.length, 1, 'Only catalog metadata is fetched; no unselected scene document is requested.');
     for (const scene of catalog.scenes) {
       const result = payload(scene.id); assert.deepEqual(result.project, publicScenes.project(result.project.document, scene), 'Public artifacts are bounded safe projections of included recipes.');
       assert.deepEqual(Object.keys(result.project.document.rooms), [scene.roomId]);
@@ -65,14 +66,14 @@ async function run() {
     fixture.editor.staticPublic = true; fixture.editor.accessView = new View(fixture.editor);
     fixture.editor.projectClient.request = () => { throw new Error('XR static gallery must not call the API.'); };
     fixture.menu.setVR(true); fixture.menu.tick(.016); fixture.menu.navigate('scenes');
-    await fixture.menu.loadList('scenes'); assert.equal(fixture.menu.items.length, 30);
+    await fixture.menu.loadList('scenes'); assert.equal(fixture.menu.items.length, expectedInventory.includedCount);
     await fixture.menu.chooseItem(fixture.menu.items[1]); assert.equal(fixture.applications[0].project.publicSceneId, 'inspection-sorting');
     fixture.menu.open('account'); fixture.menu.tick(.016);
     assert(!fixture.menu.regions.some(region => region.key.startsWith('field:')), 'Static XR never invites password input for an unavailable account service.');
     fixture.menu.fields.password = 'temporary-test-value'; await fixture.menu.authenticate();
     assert.equal(fixture.menu.fields.password, ''); assert.equal(fixture.writes.length, 0); assert.match(fixture.menu.error, /requieren el servidor/);
     fixture.menu.dispose();
-    console.log('Static public viewer:30 bounded included projections, metadata-only lazy catalog, Pages subdirectory URLs, no account/private API or imports, read-only access, desktop selection and immersive gallery/account state passed.');
+    console.log('Static public viewer:' + expectedInventory.includedCount + ' bounded included projections, metadata-only lazy catalog, Pages subdirectory URLs, no account/private API or imports, read-only access, desktop selection and immersive gallery/account state passed.');
   } finally { global.fetch = previousFetch; global.document = previousDocument; global.window = previousWindow; }
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });
