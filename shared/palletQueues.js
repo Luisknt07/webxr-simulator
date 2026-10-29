@@ -1,12 +1,14 @@
 /* Standalone pallet stock geometry shared by authoring, rendering and flow. */
 'use strict';
 const pallets = require('./palletTypes.js');
+const racks = require('./warehouseRacks.js');
 
 function number(value, fallback, minimum, maximum, integer = false) {
   const result = typeof value === 'number' && Number.isFinite(value) ? value : fallback;
   return Math.max(minimum, Math.min(maximum, integer ? Math.floor(result) : result));
 }
 function settings(value = {}) {
+  if (racks.isRack(value)) return racks.normalize(value);
   const base = pallets.dimensions(value), width = number(base.width, 1.2, 0.4, 4), depth = number(base.depth, 1.05, 0.4, 4);
   const fit = value.layoutMode === 'fit';
   const columns = number(value.columns, 4, 1, 8, true), rows = number(value.rows, 3, 1, 8, true), layers = number(value.layers, 4, 1, fit ? 5 : 8, true);
@@ -16,11 +18,13 @@ function settings(value = {}) {
   return Object.assign({}, value, {width, depth, columns, rows, layers, palletCapacity, acceptsPallets, capacity, palletHeight: base.height});
 }
 function bayCapacity(config, index) {
+  if (racks.isRack(config)) return index >= 0 && index < racks.normalize(config).capacity ? 1 : 0;
   if (config.acceptsPallets) return index < config.capacity ? 1 : 0;
   if (config.layoutMode !== 'fit') return Math.max(0, Math.min(config.columns * config.rows * config.layers, config.capacity - index * config.columns * config.rows * config.layers));
   return Math.floor(config.capacity / config.palletCapacity) + (index < config.capacity % config.palletCapacity ? 1 : 0);
 }
 function layout(value = {}) {
+  if (racks.isRack(value)) return racks.layout(value);
   const config = settings(value), bayColumns = config.palletCapacity === 1 ? 1 : 2, bayRows = Math.ceil(config.palletCapacity / bayColumns);
   // A tall stored load must leave room for the next load's leading half to
   // reach the transfer port. Legacy short-carton grids keep their old ports.
@@ -49,4 +53,4 @@ function layout(value = {}) {
     pallet: {width: config.width, depth: config.depth, columns: config.columns, rows: config.rows, layers: config.layers, capacity: config.capacity, top: -1 + config.palletHeight, floor: -1}};
 }
 
-module.exports = {settings, layout, bayCapacity, pallets};
+module.exports = {settings, layout, bayCapacity, pallets, racks};

@@ -199,6 +199,7 @@ export default class SimulationPanel {
         const writable = object.writable.find(field => field.key === key);
         if (writable) {
           const input = node('input'); input.type = writable.type === 'boolean' ? 'checkbox' : 'number'; input.step = '0.05';
+          if (['rackSelectedSlot', 'rackOpenAisle'].includes(key)) input.step = '1';
           if (writable.min !== undefined) input.min = writable.min;
           if (writable.max !== undefined) input.max = writable.max;
           input.setAttribute('aria-label', object.name + ' · ' + key);
@@ -226,7 +227,12 @@ export default class SimulationPanel {
       }
       if (object && (object.types || [object.type]).includes('palletQueue')) {
         const actions = node('div', 'sim-actions');
-        [['start', 'Aceptar productos'], ['stop', 'Detener almacén'], ['pause', 'Pausa / continuar'], ['dispatch', 'Despachar caja superior']].forEach(([command, label]) => {
+        const rack = object.variables && object.variables.rackSystem;
+        const commands = [['start', 'Aceptar productos'], ['stop', 'Detener almacén'], ['pause', 'Pausa / continuar'], ['dispatch', rack ? 'Despachar carga accesible' : 'Despachar caja superior']];
+        if (rack) commands.push(['requestRetrieval', 'Solicitar posición'], ['resetEmergency', 'Rearmar mecanismo']);
+        if (rack === 'mobile') commands.push(['openAisle', 'Abrir pasillo solicitado']);
+        if (rack === 'push-back') commands.push(['prepareRackInput', 'Preparar entrada de carga']);
+        commands.forEach(([command, label]) => {
           const control = button(label, () => {
             try {
               if (this.editor.simulation.command(object.id, command) === false) this.editor.toast('El almacén espera una carga accesible y un destino conectado, alineado y disponible.');

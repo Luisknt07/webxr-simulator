@@ -152,7 +152,7 @@ function descriptorValue(value) {
     if (!PREFABS.includes(value.prefab)) throw new Error('Plantilla industrial no compatible.');
     const descriptor = {prefab: value.prefab};
     if (value.variant !== undefined) {
-const variants = value.prefab === 'vehicle' ? behaviorSchema.vehicles.variants : value.prefab === 'product' ? behaviorSchema.productEquipment.variants : value.prefab === 'robot' ? behaviorSchema.robots.variants : value.prefab === 'conveyor' ? behaviorSchema.conveyorLayout.presetVariants : value.prefab === 'source' ? ['queue'] : value.prefab === 'processor' ? ['combiner', 'separator'] : value.prefab === 'control' ? ['start', 'stop', 'emergency', 'pause', 'powerOn', 'powerOff', 'speedUp', 'speedDown', 'insertBox', 'resetEmergency', 'generate', 'dispatch', 'clearQueue', 'operator'] : [];
+const variants = value.prefab === 'vehicle' ? behaviorSchema.vehicles.variants : value.prefab === 'product' ? behaviorSchema.productEquipment.variants : value.prefab === 'robot' ? behaviorSchema.robots.variants : value.prefab === 'conveyor' ? behaviorSchema.conveyorLayout.presetVariants : value.prefab === 'palletQueue' ? behaviorSchema.warehouseRacks.SYSTEMS.map(system => system.id) : value.prefab === 'source' ? ['queue'] : value.prefab === 'processor' ? ['combiner', 'separator'] : value.prefab === 'control' ? ['start', 'stop', 'emergency', 'pause', 'powerOn', 'powerOff', 'speedUp', 'speedDown', 'insertBox', 'resetEmergency', 'generate', 'dispatch', 'clearQueue', 'operator'] : [];
       if (!variants.includes(value.variant)) throw new Error('Variante de equipo no compatible.');
       descriptor.variant = value.variant;
     }
@@ -346,6 +346,11 @@ export default class SceneDocument {
     const config = this.getBehaviors(object).find(component => component.type === object.userData.editorPrefabKey);
     if (!config || config.type === 'product' && !config.variant) return;
     const entry = this.additions.get(object.userData.editorId);
+    if (entry && config.type === 'palletQueue') {
+      if (behaviorSchema.warehouseRacks.isRack(config)) {entry.descriptor.variant = config.rackSystem; object.userData.editorPrefabVariant = content.userData.editorPrefabVariant = config.rackSystem;}
+      else {delete entry.descriptor.variant; delete object.userData.editorPrefabVariant; delete content.userData.editorPrefabVariant;}
+      object.userData.editorDescriptor = clone(entry.descriptor);
+    }
     if (entry && ['robot', 'vehicle', 'product'].includes(config.type)) {
       entry.descriptor.variant = config.variant;
       object.userData.editorDescriptor = clone(entry.descriptor);
@@ -368,6 +373,7 @@ export default class SceneDocument {
       config.type === 'source' ? ['generationMode', 'productType', 'width', 'height', 'depth', 'color', 'catalog', 'loadMode', 'palletColumns', 'palletRows', 'palletLayers', 'palletType', 'palletMaterial', 'palletPacking', 'palletWidth', 'palletDepth', 'withPanel'] :
       ['layout', 'surface', 'length', 'width', 'radius', 'curveAngle', 'axis', 'junctionMode', 'branchSide', 'role', 'withSensors', 'withPanel', 'withPallet', 'outputId', 'branchId', 'equipmentId', 'equipmentVersion', 'drive', 'mechanism', 'rise', 'rollerPitch', 'zoneLength', 'cleats', 'mergeAngle'];
     if (config.type === 'conveyor') keys.push('supportHeight');
+    if (config.type === 'palletQueue') keys.push(...behaviorSchema.warehouseRacks.FIELDS.map(field => field.key));
     const signature = JSON.stringify(keys.map(key => config[key]));
     if (this.conveyorSignatures.get(content) === signature) { if (entry) this._syncConveyorActors(entry, config); return; }
     const replacement = this.visuals.get(object.userData.editorId);

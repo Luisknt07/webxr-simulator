@@ -128,7 +128,7 @@ export default class ConveyorAssembly {
     const tangent = new THREE.Vector3(port.tx, Number.isFinite(port.ty) ? port.ty : 0, port.tz).applyMatrix3(matrix);
     const normal = new THREE.Vector3(0, 1, 0).applyMatrix3(matrix);
     const cross = new THREE.Vector3(-port.tz, 0, port.tx).applyMatrix3(matrix);
-    const localWidth = config.type === 'palletQueue' ? conveyorLayout.palletQueueLayout(config).width :
+    const localWidth = Number.isFinite(port.width) ? port.width : config.type === 'palletQueue' ? conveyorLayout.palletQueueLayout(config).width :
       config.type === 'source' ? conveyorLayout.sourceLayout(config).width :
       config.type === 'processor' ? conveyorLayout.processorLayout(config).width : config.width;
     const width = localWidth * cross.length();

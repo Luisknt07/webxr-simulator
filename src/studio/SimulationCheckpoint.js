@@ -150,6 +150,7 @@ function sourceVisual(product) {
 export function captureSimulation(runtime, options = {}) {
   if (!runtime.roomId || !runtime.records.size) throw new Error('Inicia la simulación antes de guardar una sesión.');
   if (runtime.held.size && options.allowHeld !== true) throw new Error('Suelta las cargas antes de guardar la sesión.');
+  if (runtime.palletQueueRuntime && runtime.palletQueueRuntime.captureRackPose) runtime.records.forEach(record => {if (record.components.palletQueue && record.components.palletQueue.rack) runtime.palletQueueRuntime.captureRackPose(record);});
   const registry = objectRegistry(runtime), allProducts = Array.from(runtime.products.values());
   runtime.processorRuntime.archive.forEach(product => { if (!allProducts.includes(product)) allProducts.push(product); });
   if (allProducts.length > 500) throw new Error('La sesión supera el límite de 500 cargas, incluidas las originales archivadas.');
@@ -298,6 +299,10 @@ export function restoreSimulation(runtime, saved, options = {}) {
     // and scale first (gripper span depends on both), then rebuild the rig pose
     // before applying any product transform relative to its restored tool.
     runtime.records.forEach(record => {
+      if (record.components.palletQueue && record.components.palletQueue.rack) {
+        if (!runtime.palletQueueRuntime || !runtime.palletQueueRuntime.restoreRackPose) error('la versión del almacén no admite restaurar su mecanismo.');
+        runtime.palletQueueRuntime.restoreRackPose(record);
+      }
       const robot = record.components.robot;
       if (robot) {
         if (robot.entry && (!robot.entry.product || robot.entry.product.robotOwnerId !== record.id || !Array.isArray(robot.queue) || !robot.queue.includes(robot.entry))) error('el robot perdió la propiedad de su carga.');

@@ -8,6 +8,7 @@ const machineAudio = require('./machineAudio.js');
 const productSources = require('./productSources.js');
 const processors = require('./processors.js');
 const palletQueues = require('./palletQueues.js');
+const warehouseRacks = require('./warehouseRacks.js');
 const conveyorRouting = require('./conveyorRouting.js');
 const robots = require('./robots.js');
 const vehicles = require('./vehicles.js');
@@ -239,6 +240,13 @@ const definitions = [
   ]}
 ];
 definitions.push({type: 'robot', label: 'Robot · manipulación y logística', fields: robots.fields()});
+definitions.find(value => value.type === 'palletQueue').fields.push(...warehouseRacks.FIELDS);
+definitions.find(value => value.type === 'palletQueue').fields.find(field => field.key === 'palletCapacity').max = 128;
+definitions.find(value => value.type === 'control').fields.find(field => field.key === 'variable').options.push(...['rackSelectedSlot', 'rackOpenAisle', 'rackMechanismSpeed'].map(value => ({value, label: value})));
+definitions.find(value => value.type === 'control').fields.find(field => field.key === 'command').options.push(...[
+  ['requestRetrieval', 'Estantería · solicitar posición'], ['openAisle', 'Estantería · abrir pasillo'], ['prepareRackInput', 'Estantería · preparar entrada Push-Back']
+].map(([value, label]) => ({value, label})));
+definitions.find(value => value.type === 'control').fields.find(field => field.key === 'value').max = 127;
 definitions.push({type: 'vehicle', label: 'Vehículo industrial · conducción y carga', fields: vehicles.fields()});
 const productDefinition = definitions.find(item => item.type === 'product');
 const productOptionalFields = productEquipment.fields().filter(field => !productDefinition.fields.some(item => item.key === field.key));
@@ -273,6 +281,7 @@ function defaultBehavior(type) {
   if (type === 'machineAudio' || type === 'audioZone') return machineAudio.normalize(type, {type});
   const result = {type, enabled: true};
   definition.fields.forEach(field => { result[field.key] = field.default; });
+  if (type === 'palletQueue') warehouseRacks.FIELDS.forEach(field => delete result[field.key]);
   if (type === 'product') productOptionalFields.forEach(field => delete result[field.key]);
   return result;
 }
@@ -356,11 +365,17 @@ function normalizeBehaviors(list) {
     }
     if (value.type === 'palletQueue') {
       objectReference(result.outputId, true);
+      if (warehouseRacks.isRack(result)) {
+        Object.assign(result, warehouseRacks.normalize(result));
+      } else {
+      warehouseRacks.FIELDS.forEach(field => delete result[field.key]);
+      if (result.palletCapacity > 4) throw new Error('El almacén a piso admite hasta cuatro posiciones de pallet.');
       ['capacity', 'columns', 'rows', 'layers', 'palletCapacity'].forEach(key => { if (!Number.isInteger(result[key])) throw new Error('El valor de ' + key + ' debe ser un entero.'); });
       if (result.layoutMode === 'fit' && result.layers > 5) throw new Error('El empaque por dimensiones admite hasta 5 niveles.');
       if (result.layoutMode !== 'fit' && result.capacity > 128) throw new Error('La capacidad de cuadricula admite hasta 128 cargas.');
       if (result.capacity > (result.acceptsPallets ? result.palletCapacity : result.layoutMode === 'fit' ? 500 : result.columns * result.rows * result.layers * result.palletCapacity)) throw new Error('La capacidad supera las posiciones disponibles en las estibas.');
       if (result.palletType !== 'custom') { const base = productSources.pallets.dimensions(result); result.width = base.width; result.depth = base.depth; }
+      }
     }
     if (value.type === 'news') assetReference(result.url, false);
     if (value.type === 'sensor' || value.type === 'product') objectReference(result.sourceId, true);
@@ -408,4 +423,4 @@ function normalizeBehaviors(list) {
 }
 
 const simulationTypes = ['motion', 'conveyor', 'source', 'processor', 'palletQueue', 'robot', 'vehicle', 'sensor', 'product', 'automation', 'analytics', 'control'];
-module.exports = {definitions, definitionFor, defaultBehavior, normalizeBehaviors, assetReference, simulationTypes, conveyorLayout, conveyorEquipment: conveyorLayout.equipment, productSources, processors, palletQueues, conveyorRouting, robots, vehicles, productEquipment, vehicleEquipment: require('./vehicle-equipment.js'), robotEquipment: require('./robot-equipment.js'), robotKinematics: require('./robot-kinematics.js'), machineAudio, industrialFloor: require('./industrialFloor.js'), productionAnalytics: require('./productionAnalytics.js'), studio: require('./studio-document.js')};
+module.exports = {definitions, definitionFor, defaultBehavior, normalizeBehaviors, assetReference, simulationTypes, conveyorLayout, conveyorEquipment: conveyorLayout.equipment, productSources, processors, palletQueues, warehouseRacks, warehouseRackVisual: require('./warehouseRackVisual.js'), conveyorRouting, robots, vehicles, productEquipment, vehicleEquipment: require('./vehicle-equipment.js'), robotEquipment: require('./robot-equipment.js'), robotKinematics: require('./robot-kinematics.js'), machineAudio, industrialFloor: require('./industrialFloor.js'), productionAnalytics: require('./productionAnalytics.js'), studio: require('./studio-document.js')};

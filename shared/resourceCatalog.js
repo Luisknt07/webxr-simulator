@@ -8,6 +8,7 @@ const robotEquipment = require('./robot-equipment');
 const vehicleEquipment = require('./vehicle-equipment');
 const productEquipment = require('./product-equipment');
 const sceneResources = require('./scene-resources');
+const warehouseRacks = require('./warehouseRacks');
 const VERSION = 1;
 const STATUS = {functional: 'Funcional', visual: 'Solo visual', development: 'En desarrollo'};
 const FOLDERS = [
@@ -20,6 +21,7 @@ const CATEGORIES = [
     ['conveyors', 'Transportadores'], ['storage', 'Almacenamiento'], ['machines', 'Máquinas'],
     ['vehicles', 'Robots y vehículos'], ['workstations', 'Puestos de trabajo'], ['control', 'Control e instrumentación']
   ]},
+  {id: 'racks', name: 'Estanterías de almacén', children: [['palletized', 'Paletización y cargas largas'], ['picking', 'Picking y pasillos elevados'], ['automated', 'Almacenamiento automático']]},
   {id: 'environment', name: 'Entorno', children: []},
   {id: 'signage', name: 'Señalización', children: []},
   {id: 'interface', name: 'Interfaz', children: []},
@@ -102,15 +104,24 @@ function productResources() {
     interaction: ['Ratón y teclado', 'Mandos WebXR', 'Equipos compatibles'], tags: ['producto', 'carga', definition.preset.productType], synonyms: [definition.id, 'producto', 'carga', definition.preset.productType], reason: ''
   }));
 }
+function rackResources() {
+  return warehouseRacks.SYSTEMS.map(system => prefab(system.id === 'selective' ? 'storage.rack' : system.id === 'vertical-lift' ? 'storage.automatic' : 'rack.' + system.id,
+    system.label, system.category, system.description, 'palletQueue', system.id, {
+      category: 'racks', kind: 'equipment', family: system.mechanism, variant: system.id,
+      components: ['Estructura y apoyos', 'Ubicaciones independientes', 'Panel de mando', 'Inventario y conexiones'],
+      parameters: ['Módulos', 'Niveles', 'Posiciones a fondo', 'Dimensiones y holguras', 'Carga por posición y nivel', 'Referencia por calle', 'Salida y mecanismo'],
+      ports: ['Entrada de cargas', 'Salida de cargas'], tags: ['almacén', 'estantería', 'rack', system.category, system.policy, system.acceptedLoad],
+      synonyms: [system.id, system.acceptedLoad === 'pallet' ? 'pallets estibas montacargas' : 'cajas bandejas picking', 'almacenamiento configurable']
+    }));
+}
 const RESOURCES = [
   ...conveyorResources(),
   ...robotResources(),
   ...vehicleResources(),
   prefab('storage.queue', 'Acumulador FIFO', 'storage', 'Cola temporal con capacidad limitada, recepción de equipos y despacho manual o automático. Sin generación automática al insertarla.', 'source', 'queue', {ports: ['Entrada', 'Salida'], components: ['Superficie de carga', 'Soportes', 'Panel HMI'], parameters: ['Capacidad', 'Modo de despacho', 'Conexiones']}),
   prefab('storage.pallet', 'Almacén con estibas', 'storage', 'Almacenamiento temporal independiente con apilado visible, capacidad, retirada de la carga superior y despacho automático o manual.', 'palletQueue', undefined, {ports: ['Entrada', 'Salida'], components: ['Estiba', 'Cargas apiladas', 'Panel HMI'], parameters: ['Filas', 'Columnas', 'Capas', 'Capacidad', 'Conexiones'], synonyms: ['pallet queue', 'estibas', 'suelo', 'almacén']}),
-  resource('storage.rack', 'Estantería', 'industrial', 'Almacenamiento en niveles con acceso a ubicaciones.', {subcategory: 'storage'}),
+  ...rackResources(),
   resource('storage.dispenser', 'Dispensador de pallets', 'industrial', 'Separación y entrega controlada de estibas vacías.', {subcategory: 'storage'}),
-  resource('storage.automatic', 'Almacén automático', 'industrial', 'Ubicación y recuperación automática de cargas.', {subcategory: 'storage'}),
   prefab('source.generator', 'Generador de productos', '', 'Función lógica Source con catálogo de hasta ocho tipos, dimensiones y calidad, generación individual o en pallets, cola limitada y conexiones de flujo. Su representación de trabajo no es una estación de alimentación industrial certificada.', 'source', undefined, {category: 'simulationtools', kind: 'simulationtool', ports: ['Entrada', 'Salida'], components: ['Representación de cola', 'Generación lógica', 'Panel HMI'], parameters: ['Catálogo', 'Intervalo', 'Límite', 'Capacidad', 'Tamaño', 'Calidad', 'Conexiones'], synonyms: ['source', 'generador', 'productos', 'origen']}),
   prefab('processor.process', 'Máquina de proceso', 'machines', 'Modelo didáctico de proceso por tiempos. Setup, capacidad paralela, operario, bloqueo y utilización independientes por instancia.', 'processor', undefined, {ports: ['Entrada', 'Salida'], components: ['Cámara de proceso', 'Soportes', 'Panel HMI'], parameters: ['Tiempo de proceso', 'Setup', 'Capacidad', 'Operario', 'Conexiones'], synonyms: ['processor', 'proceso', 'maquina']}),
   prefab('processor.combine', 'Combinador', 'machines', 'Agrupa varias cargas en una salida conservando unidades y procedencia. No representa un robot o mecanismo físico de ensamble.', 'processor', 'combiner', {ports: ['Entrada', 'Salida'], components: ['Cámara de proceso', 'Panel HMI'], parameters: ['Entradas por ciclo', 'Tiempo', 'Setup', 'Capacidad'], synonyms: ['combiner', 'ensamble', 'combinar']}),
@@ -224,4 +235,4 @@ function folderContains(folderId, resourceFolderId, folders) {
 
 module.exports = {VERSION, STATUS, FOLDERS, CATEGORIES, CONVEYOR_FAMILIES, ROBOT_FAMILIES: robotEquipment.FAMILIES, VEHICLE_FAMILIES: vehicleEquipment.families,
   MOBILITY_FAMILIES: robotEquipment.FAMILIES.concat(vehicleEquipment.families), PRODUCT_TYPES: productEquipment.PRODUCT_TYPES,
-  RESOURCES, conveyorResources, robotResources, vehicleResources, productResources, assetResource, projectResources, normalizeOrganization, foldersFor, applyOrganization, matches, folderContains, defaultFolder, sceneResources};
+  RESOURCES, conveyorResources, robotResources, vehicleResources, productResources, rackResources, assetResource, projectResources, normalizeOrganization, foldersFor, applyOrganization, matches, folderContains, defaultFolder, sceneResources};

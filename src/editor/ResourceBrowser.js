@@ -265,7 +265,7 @@ export default class ResourceBrowser {
     let filtered = this.resources.filter(resource => {
       if (this.tab === 'library' && resource.origin !== 'library' || this.tab === 'project' && resource.origin !== 'project' || this.tab === 'favorites' && !favoriteIds.has(resource.id)) return false;
       if (this.tab === 'project' && this.state.scope === 'scene' && !catalog.sceneResources.includes(this.sceneScope, resource)) return false;
-      if (this.state.kind !== 'all' && (this.state.kind === 'equipment' ? resource.category !== 'industrial' : resource.kind !== this.state.kind && (!resource.asset || resource.asset.kind !== this.state.kind))) return false;
+      if (this.state.kind !== 'all' && (this.state.kind === 'equipment' ? resource.kind !== 'equipment' && resource.category !== 'industrial' : resource.kind !== this.state.kind && (!resource.asset || resource.asset.kind !== this.state.kind))) return false;
       if (this.state.status !== 'all' && resource.status !== this.state.status) return false;
       if (this.state.folder) {
         if (this.tab === 'project') { if (!catalog.folderContains(this.state.folder, resource.folderId, folders)) return false; }
@@ -374,7 +374,7 @@ export default class ResourceBrowser {
     const familySummary = resource.subcategory === 'conveyors' && resource.family && this.tab === 'library' && !this.state.query.trim() && this.state.folder.split('/').length < 3;
     const family = familySummary && (catalog.CONVEYOR_FAMILIES || []).find(item => item.id === resource.family);
     if (family) choose.querySelector('strong').textContent = family.name;
-    const detail = familySummary ? this.resources.filter(item => item.family === resource.family && item.subcategory === 'conveyors').length + ' variantes disponibles' : resource.asset ? TYPE_NAMES[resource.asset.kind] || 'Archivo' : resource.category === 'industrial' ? 'Equipo configurable' : TYPE_NAMES[resource.kind] || 'Recurso';
+    const detail = familySummary ? this.resources.filter(item => item.family === resource.family && item.subcategory === 'conveyors').length + ' variantes disponibles' : resource.asset ? TYPE_NAMES[resource.asset.kind] || 'Archivo' : resource.kind === 'equipment' ? 'Equipo configurable' : TYPE_NAMES[resource.kind] || 'Recurso';
     choose.appendChild(node('span', 'studio-resource-type', detail + (resource.asset ? ' · ' + size(resource.asset.size) : '')));
     const badge = node('span', 'studio-resource-status studio-resource-status--' + resource.status, catalog.STATUS[resource.status] || resource.status); choose.appendChild(badge);
     const description = node('span', 'studio-resource-description', resource.description); choose.appendChild(description);

@@ -43,6 +43,7 @@ export const industrialPrefabs = [
 behaviorSchema.robots.VARIANTS.forEach(definition => industrialPrefabs.push({id: 'robot.' + definition.id, prefab: 'robot', variant: definition.id, label: definition.name, description: 'Robot paramétrico con ejes móviles, herramienta y flujo de productos configurable.'}));
 behaviorSchema.vehicles.VARIANTS.forEach(definition => industrialPrefabs.push({id: 'vehicle.' + definition.id, prefab: 'vehicle', variant: definition.id, label: definition.name, description: 'Vehículo configurable con conducción, mecanismo de carga y capacidad propia.'}));
 behaviorSchema.productEquipment.VARIANTS.forEach(definition => industrialPrefabs.push({id: 'product.' + definition.id, prefab: 'product', variant: definition.id, label: definition.name, description: definition.description}));
+behaviorSchema.warehouseRacks.SYSTEMS.forEach(definition => industrialPrefabs.push({id: 'rack.' + definition.id, prefab: 'palletQueue', variant: definition.id, label: 'Estantería · ' + definition.label, description: definition.description}));
 
 const kinds = ['conveyor', 'sensor', 'plc', 'control', 'product', 'source', 'processor', 'palletQueue', 'robot'];
 // Rendering-only LOD eligibility follows the original part semantics. A batch
@@ -709,9 +710,48 @@ function palletQueuePanel() {
   return panel;
 }
 
+function refreshRackPanel(root, config) {
+  const panel = root.children[1], definition = behaviorSchema.warehouseRacks.definition(config), key = definition ? definition.id : 'floor';
+  if (!definition && !panel.userData.warehouseRackCaption || panel.userData.warehouseRackCaption === key) return;
+  panel.userData.warehouseRackCaption = key;
+  const heading = panel.children.find(child => child.name === 'Identificación Pallet Queue');
+  if (heading) {panel.remove(heading); panel.add(label('Identificación Pallet Queue', definition ? 'ESTANTERÍA / ALMACÉN' : 'PALLET QUEUE / ESTIBA', .54, .036, [0, .698, .073])); disposeDetached([heading], root);}
+  const dispatch = panel.children.find(child => child.userData.editorPrefabVariant === 'dispatch');
+  if (!dispatch) return;
+  const action = definition && definition.mechanism === 'mobile' ? 'openAisle' : definition && definition.mechanism === 'push-back' ? 'prepareRackInput' : 'dispatch';
+  ['editorDefaultBehaviors', 'editorBehaviors'].forEach(field => {if (dispatch.userData[field]) dispatch.userData[field] = dispatch.userData[field].map(c => c.type === 'control' ? Object.assign({}, c, {mode: 'command', command: action, value: action === 'dispatch' ? 1 : -1}) : c);});
+  const old = dispatch.children.find(child => child.name === 'Rótulo del control');
+  if (old) {const caption = label('Rótulo del control', action === 'openAisle' ? 'PASILLO' : action === 'prepareRackInput' ? 'PREPARAR' : definition && ['lift', 'miniload'].includes(definition.mechanism) ? 'SOLICITAR' : 'DESPACHAR', .22, .037, old.position.toArray()); dispatch.remove(old); dispatch.add(caption); disposeDetached([old], root);}
+}
+
+function refreshWarehouseRackGeometry(root, config) {
+  const rackSchema = behaviorSchema.warehouseRacks, visual = behaviorSchema.warehouseRackVisual, normalized = rackSchema.normalize(config), layout = rackSchema.layout(normalized);
+  const key = 'rack:' + JSON.stringify(rackSchema.FIELDS.map(field => normalized[field.key]).concat([normalized.withPanel]));
+  if (root.userData.industrialPalletQueueDimensions === key) return false;
+  const holder = root.children[0], content = visual.createVisual(THREE, normalized, layout), removed = holder.children.slice();
+  removed.forEach(child => holder.remove(child)); holder.position.set(0, 0, 0); holder.name = 'Estructura de estantería'; holder.add(content);
+  Object.defineProperty(root.userData, 'warehouseRackRig', {value: content.userData.warehouseRackRig, configurable: true, writable: true, enumerable: false});
+  root.userData.warehouseRackSystem = normalized.rackSystem;
+  root.userData.industrialPalletQueueDimensions = key;
+  const panel = root.children[1], panelPosition = [-layout.length / 2 - .45, .05, layout.frontZ + .6];
+  panel.visible = normalized.withPanel !== false; panel.position.fromArray(panelPosition);
+  refreshRackPanel(root, normalized);
+  root.userData.industrialPalletQueue = Object.assign({}, layout, {layout, floor: -1, top: layout.palletTop, palletWidth: normalized.width, palletDepth: normalized.depth, capacity: normalized.capacity, panelPosition});
+  disposeDetached(removed, root); root.updateMatrixWorld(true); return true;
+}
+
 export function refreshPalletQueueGeometry(root, value) {
   if (!root || root.userData.editorPrefabKey !== 'palletQueue') return false;
   const config = behaviorSchema.palletQueues.settings(Object.assign(defaultBehavior('palletQueue'), value || {})), layout = conveyorLayout.palletQueueLayout(config);
+  if (behaviorSchema.warehouseRacks.isRack(config)) return refreshWarehouseRackGeometry(root, config);
+  if (root.userData.warehouseRackSystem) {
+    const holder = root.children[0], removed = holder.children.slice(); removed.forEach(child => holder.remove(child));
+    const wood = pallet(config); wood.name = 'Tablas y herrajes de la estiba'; delete wood.userData.industrialPallet;
+    wood.updateWorldMatrix(true, true); const size = new THREE.Box3().setFromObject(wood).getSize(new THREE.Vector3()); wood.userData.industrialPalletWoodSize = [size.x, size.z]; holder.add(wood);
+    delete root.userData.warehouseRackRig; delete root.userData.warehouseRackSystem; delete root.userData.industrialPalletQueueDimensions;
+    disposeDetached(removed, root);
+    refreshRackPanel(root, config);
+  }
   if (root.children[1]) root.children[1].visible = config.withPanel !== false;
   const fields = ['width', 'depth', 'columns', 'rows', 'layers', 'capacity', 'palletCapacity', 'acceptsPallets', 'palletType', 'palletMaterial', 'layoutMode'], key = JSON.stringify(fields.map(field => config[field]));
   if (root.userData.industrialPalletQueueDimensions === key) return false;
@@ -762,7 +802,9 @@ export function refreshPalletQueueGeometry(root, value) {
 
 function palletQueueEquipment(value) {
   const config = Object.assign(defaultBehavior('palletQueue'), value || {});
-  const root = component(new THREE.Group(), 'palletQueue', [config, defaultBehavior('analytics')]); root.name = 'Pallet Queue / almacén con estibas';
+  if (behaviorSchema.warehouseRacks.isRack(config)) Object.assign(config, behaviorSchema.warehouseRacks.normalize(config));
+  const root = component(new THREE.Group(), 'palletQueue', [config, defaultBehavior('analytics')]); root.name = behaviorSchema.warehouseRacks.isRack(config) ? behaviorSchema.warehouseRacks.definition(config).label : 'Pallet Queue / almacén con estibas';
+  if (behaviorSchema.warehouseRacks.isRack(config)) root.userData.editorPrefabVariant = config.rackSystem;
   root.userData.editorPalletQueueTop = 0;
   const holder = new THREE.Group(); holder.name = 'Estiba de almacenamiento';
   const wood = pallet(); wood.name = 'Tablas y herrajes de la estiba'; delete wood.userData.industrialPallet;
@@ -1806,8 +1848,8 @@ export function createIndustrialPrefab(kind, variant, value) {
   }
   if (kind === 'product' && variant) return require('./ProductPrefabs.js').createProduct(variant, value);
   if (kind === 'palletQueue') {
-    if (variant !== undefined) throw new Error('Variante de almacén con estibas no compatible.');
-    return palletQueueEquipment(value);
+    if (variant !== undefined && !behaviorSchema.warehouseRacks.definition(variant)) throw new Error('Variante de almacén con estibas no compatible.');
+    return palletQueueEquipment(variant ? Object.assign({}, behaviorSchema.warehouseRacks.defaults(variant), value || {}, {rackSystem: variant}) : value);
   }
   if (kind === 'processor') {
     if (variant !== undefined && !['combiner', 'separator'].includes(variant)) throw new Error('Variante de proceso no compatible.');
