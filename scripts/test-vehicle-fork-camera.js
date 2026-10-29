@@ -181,5 +181,36 @@ const beforeTurn = vrFeed.stats.frames, oldRotation = vr.camera.quaternion.clone
 for (let i = 0; i < 10; i++) vr.driving.docking.renderBefore(vr.scene, .2); assert.equal(vrFeed.stats.frames, beforeTurn, 'Offscreen XR displays do not render the world.'); vr.camera.quaternion.copy(oldRotation); vr.camera.updateMatrixWorld(true); updateBoth(vr);
 vr.session.visibilityState = 'hidden'; assert(!vr.driving.docking.renderBefore(vr.scene, .2)); assert(!vrFeed.target && !vrFeed.mirrorTarget); vr.session.visibilityState = 'visible'; updateBoth(vr);
 vr.driving.dispose(); assert(!vrFeed.target && !vrFeed.mirrorTarget); assert.equal(vr.active.size, 0); vr.runtime.stop();
+
+// Headset frames arrive much faster than the shared camera budget. Frustum
+// probes may consider an uninitialized surface, but the world must never draw
+// its white fallback material on a skipped 90 Hz frame.
+const cold = mounted(true), coldFeed = cold.feed;
+coldFeed.visibleFeeds = () => ['front', 'mirror'];
+function firstFrontWithoutBlankMirror() {
+  const beforeFrames = coldFeed.stats.frames;
+  assert(coldFeed.renderBefore(cold.scene, .2));
+  assert(coldFeed.target && !coldFeed.mirrorTarget);
+  assert(coldFeed.plane.visible && !coldFeed.mirrorPlane.visible);
+  const frames = coldFeed.stats.frames;
+  assert.equal(frames, beforeFrames + 1, 'Initialization still renders only one world pass.');
+  assert(!coldFeed.renderBefore(cold.scene, 1 / 90));
+  assert.equal(coldFeed.stats.frames, frames, 'A 90 Hz frame keeps the shared render budget.');
+  assert(!coldFeed.mirrorPlane.visible && !coldFeed.mirrorPlane.material.map, 'A throttled frame cannot reveal an uninitialized mirror.');
+  const visibleFeeds = coldFeed.visibleFeeds; coldFeed.visibleFeeds = () => [];
+  assert(!coldFeed.renderBefore(cold.scene, 1 / 90));
+  assert(!coldFeed.mirrorPlane.visible, 'The hidden-frustum return also preserves display readiness.');
+  coldFeed.visibleFeeds = visibleFeeds;
+  assert(coldFeed.renderBefore(cold.scene, .2));
+  assert(coldFeed.mirrorTarget && coldFeed.mirrorPlane.visible);
+  assert.equal(coldFeed.mirrorPlane.material.map, coldFeed.mirrorTarget.texture);
+}
+firstFrontWithoutBlankMirror();
+cold.ctx.graphics.getLimits = () => ({tier: 'economy'});
+firstFrontWithoutBlankMirror();
+assert.equal(coldFeed.target.width, 256);
+coldFeed.onLost(); assert(!coldFeed.target && !coldFeed.mirrorTarget);
+coldFeed.onRestored(); firstFrontWithoutBlankMirror();
+cold.driving.dispose(); cold.runtime.stop();
 publicThreeWheelOptics();
 console.log('Vehicle cameras: real frontal pocket/shaft visibility, emerging tips, mirrored rear view, shared world-pass/GPU budget, desktop/XR visibility, renderer/head restoration, lifecycle and custody passed.');

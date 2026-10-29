@@ -59,10 +59,14 @@ async function run() {
   assert.equal(auth.status, 201);
   await navigate('/editor');
   assert.equal(await evaluate("document.querySelector('#scene-editor').hidden"), false);
+  const originalHall = await evaluate("({room:context.editor.roomId,config:context.editor.entities.environment.getConfig(),skyVisible:!!context.editor.entities.environment.sky?.visible,background:context.editor.hooks.renderScene.background?.getHexString()||null})");
+  assert.equal(originalHall.room, 'hall');
   console.log('Chrome QA: crear y volver a abrir niveles');
   await evaluate("context.editor.shell.newButton.click()");
-  await until(() => evaluate("Boolean(document.querySelector('[role=dialog] input[aria-label=\"Nombre del nivel\"]'))"), 'Crear nivel debe abrir el formulario dentro del editor.');
-  await evaluate("(()=>{const input=document.querySelector('[role=dialog] input[aria-label=\"Nombre del nivel\"]');input.value='Nivel QA nuevo';input.closest('form').requestSubmit()})()");
+  await until(() => evaluate("Boolean(document.querySelector('dialog.ed-scene-create[open] input[type=text]'))"), 'Crear nivel debe abrir el selector de inicio dentro del editor.');
+  const creation = await evaluate("(()=>{const dialog=document.querySelector('dialog.ed-scene-create[open]'),input=dialog.querySelector('input[type=text]');return {title:dialog.getAttribute('aria-label'),labels:[...input.labels].map(label=>label.textContent),choice:dialog.querySelector('[aria-pressed=true] strong')?.textContent}})()");
+  assert.equal(creation.title, 'Crear escenario'); assert.deepEqual(creation.labels, ['Nombre del escenario']); assert.equal(creation.choice, 'Vacío', 'A new empty scene retains the real creation choice dialog.');
+  await evaluate("(()=>{const input=document.querySelector('dialog.ed-scene-create[open] input[type=text]');input.value='Nivel QA nuevo';input.closest('form').requestSubmit()})()");
   await until(() => evaluate("context.editor.roomId==='sound' && !context.editor.creatingScene"), 'El nuevo nivel no terminó de crearse.');
   assert.equal(await evaluate("context.editor.roomId"), 'sound');
   assert(await evaluate("context.editor.document.studio.scenes.some(n=>n.id==='sound'&&n.name==='Nivel QA nuevo')"));
@@ -79,7 +83,7 @@ async function run() {
   assert(skyPixels.blue > 1000, 'A real WebGL camera render contains the blue sky instead of a black void.');
   assert.equal(skyPixels.gl, 0);
   await evaluate("context.editor.shell.openScenes()");
-  assert.equal(await evaluate("[...context.editor.resourceBrowser.cards.keys()].filter(id=>id.startsWith('scene:')).length"), 10, 'Se muestran todos los niveles incluidos y personalizados.');
+  assert.deepEqual(await evaluate("[...context.editor.resourceBrowser.cards.keys()].filter(id=>id.startsWith('scene:')).sort()"), ['scene:hall', 'scene:sound'], 'El proyecto muestra sus dos escenarios declarados sin exponer las otras salas internas.');
   await screenshot('editor-levels');
   console.log('Chrome QA: archivos usados en cada nivel y acceso a todo el proyecto');
   const sceneFiles = await evaluate("(async()=>{const e=context.editor,files=[];for(const [name,color] of [['qa-sound.png','#3155bc'],['qa-hall.png','#c85d21'],['qa-unused.png','#477947']]){const canvas=document.createElement('canvas');canvas.width=canvas.height=8;const ctx=canvas.getContext('2d');ctx.fillStyle=color;ctx.fillRect(0,0,8,8);files.push(new File([await new Promise(resolve=>canvas.toBlob(resolve,'image/png'))],name,{type:'image/png'}))}const imported=await e.importFiles(files);await e.document.addAsset('sound',{importId:imported[0].importId});e.entries=await e.library.getCatalog();e.renderAssets();const b=e.resourceBrowser;b.openTab('project');Object.assign(b.state,{folder:'',kind:'image',query:'',status:'all'});b.refresh();return imported.map(n=>({id:'asset:'+n.importId,importId:n.importId}))})()");
@@ -90,9 +94,9 @@ async function run() {
   assert.deepEqual((await evaluate("[...context.editor.resourceBrowser.cards.keys()]")).sort(), sceneFiles.map(n=>n.id).sort(), 'Todo el proyecto retains access to files from other levels and unused imports.');
   await evaluate("context.editor.hooks.gotoRoom(0)");
   assert.equal(await evaluate("context.editor.roomId"), 'hall');
-  await until(() => evaluate("context.editor.entities.environment.getConfig()===null"), 'The included hall did not restore its native environment.');
-  assert.equal(await evaluate("context.editor.entities.environment.getConfig()"), null, 'Returning to an unchanged included level restores its native environment.');
-  assert.equal(await evaluate("Boolean(context.editor.entities.environment.sky?.parent)"), false, 'A previous level\'s custom sky does not leak into the included hall.');
+  await until(() => evaluate("JSON.stringify(context.editor.entities.environment.getConfig())===" + JSON.stringify(JSON.stringify(originalHall.config))), 'The original hall environment was not restored.');
+  const restoredHall = await evaluate("({room:context.editor.roomId,config:context.editor.entities.environment.getConfig(),skyVisible:!!context.editor.entities.environment.sky?.visible,background:context.editor.hooks.renderScene.background?.getHexString()||null})");
+  assert.deepEqual(restoredHall, originalHall, 'Returning restores the exact original hall environment, sky and background without leaking the new scene.');
   assert.equal(await evaluate("context.editor.resourceBrowser.state.scope"), 'scene', 'Opening another level restores the current-scene file scope.');
   await evaluate("(async()=>{const e=context.editor;await e.document.addAsset('hall',{importId:" + JSON.stringify(sceneFiles[1].importId) + "});e.renderAssets()})()");
   assert.deepEqual(await evaluate("[...context.editor.resourceBrowser.cards.keys()]"), [sceneFiles[1].id], 'The hall lists its own file and hides files belonging only to sound.');
@@ -183,7 +187,7 @@ async function run() {
   await evaluate("context.studio.leaveRoom()");
   assert.equal(await evaluate("context.studio.room"), null);
   console.log('Chrome QA: enlaces públicos explícitos aislados del proyecto más reciente y borradores locales');
-  const publicProjects = await evaluate("(async()=>{const e=context.editor,current=await e.projectClient.getProject(e.currentProject.id),base=JSON.parse(JSON.stringify(current.document));base.studio.startRoomId='sound';const older=await e.projectClient.createProject('Proyecto público A · anterior',base);await new Promise(resolve=>setTimeout(resolve,30));const recentDoc=JSON.parse(JSON.stringify(base));recentDoc.studio.startRoomId='hall';const recent=await e.projectClient.createProject('Proyecto público B · más reciente',recentDoc);localStorage.setItem('hello-webxr-active-project',recent.id);localStorage.setItem('hello-webxr-editor-v1','private-local-draft-sentinel');return {older:older.id,recent:recent.id,storage:{pointer:localStorage.getItem('hello-webxr-active-project'),draft:localStorage.getItem('hello-webxr-editor-v1')}}})()");
+  const publicProjects = await evaluate("(async()=>{const e=context.editor,current=await e.projectClient.getProject(e.currentProject.id),base=JSON.parse(JSON.stringify(current.document));base.studio.startRoomId='sound';const older=await e.projectClient.createProject('Proyecto público A · anterior',base);await new Promise(resolve=>setTimeout(resolve,30));const recentDoc=JSON.parse(JSON.stringify(base));recentDoc.studio.startRoomId='hall';const recent=await e.projectClient.createProject('Proyecto público B · más reciente',recentDoc);localStorage.setItem('hello-webxr-active-project',recent.id);localStorage.setItem('hello-webxr-editor-v1','private-local-draft-sentinel');return {older:older.id,recent:recent.id,storage:{pointer:localStorage.getItem('hello-webxr-active-project'),draft:localStorage.getItem('hello-webxr-editor-v1')},privateObjectIds:Object.values(base.rooms).flatMap(room=>(room.additions||[]).map(object=>object.id)),privateWidgetIds:(base.studio.widgets||[]).map(widget=>widget.id)}})()");
   assert.equal(await evaluate("context.editor.projectClient.listProjects().then(projects=>projects[0].id)"), publicProjects.recent);
   const writesBeforePublic = projectWrites.length;
   const checkPublic = async (route, expectedId, expectedRoom) => {
@@ -198,9 +202,15 @@ async function run() {
   await screenshot('public-explicit-project');
   await checkPublic('/?project=' + publicProjects.older + '&room=hall', publicProjects.older, 'hall');
   await navigate('/?project=missing-public-project&room=hall');
-  assert.equal(await evaluate('context.editor.currentProject'), null, 'An invalid explicit public ID must not fall back to the recent project.');
-  assert.equal(await evaluate('context.editor.active'), false);
-  assert.equal(await evaluate('new URL(location.href).searchParams.get("project")'), 'missing-public-project');
+  const fallback = await evaluate("(async()=>{const e=context.editor,document=await e.document.serialize();return {project:e.currentProject,room:e.roomId,entries:e.getSceneEntries().map(scene=>scene.id),active:e.active,enabled:e.editorEnabled,canEdit:e.canEditDocument(),url:location.href,status:e.status.textContent,imports:document.imports,additionIds:Object.values(document.rooms).flatMap(room=>(room.additions||[]).map(object=>object.id)),widgetIds:(document.studio.widgets||[]).map(widget=>widget.id)}})()");
+  assert.equal(fallback.project.id, 'public-original-hall', 'A missing private project falls back only to the public original hall.');
+  assert.equal(fallback.project.publicSceneId, 'original-hall'); assert.deepEqual(fallback.project.access, {role:'public',canEdit:false,canShare:false});
+  assert.deepEqual(fallback.project.allowedRoomIds, ['hall']); assert.deepEqual(fallback.entries, ['hall']); assert.equal(fallback.room, 'hall');
+  assert.equal(fallback.active, false); assert.equal(fallback.enabled, false); assert.equal(fallback.canEdit, false);
+  assert.deepEqual(fallback.imports, [], 'The safe public fallback contains no imports from private projects.');
+  assert.deepEqual(fallback.additionIds.filter(id=>publicProjects.privateObjectIds.includes(id)), []); assert.deepEqual(fallback.widgetIds.filter(id=>publicProjects.privateWidgetIds.includes(id)), []);
+  assert.equal(new URL(fallback.url).searchParams.get('scene'), 'original-hall'); assert.equal(new URL(fallback.url).searchParams.get('project'), null);
+  fs.writeFileSync(path.join(artifacts, 'browser-invalid-project-public-fallback.json'), JSON.stringify(fallback, null, 2));
   assert.equal(await evaluate('localStorage.getItem("hello-webxr-editor-v1")'), publicProjects.storage.draft);
   assert.equal(await evaluate('localStorage.getItem("hello-webxr-active-project")'), publicProjects.storage.pointer);
   assert.equal(projectWrites.length, writesBeforePublic, 'Public navigation performs no project, revision or authoring-draft writes.');

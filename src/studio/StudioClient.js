@@ -111,53 +111,83 @@ export class StudioRoomConnection {
     this.active = true;
     this.room = room;
     this.sequence = room.stateSequence;
+    this.failures = 0;
+    this.pending = Promise.resolve();
+    const generation = this.generation, current = () => this.isCurrent(generation, room.id);
     // Replay only actions newer than the checkpoint. A late join must not skip
     // actions accepted after the host's last confirmed snapshot.
-    const initial = Promise.resolve(this.onRoom(room)).then(() => room.events.length ? this.onEvents(room.events, room) : undefined)
-      .then(() => { this.sequence = room.sequence; });
+    const initial = (async () => {
+      await this.onRoom(room);
+      if (!current()) return false;
+      if (room.events.length) await this.onEvents(room.events, room);
+      if (!current()) return false;
+      this.sequence = room.sequence;
+      return true;
+    })();
     initial.catch(() => {});
-    const generation = this.generation;
     const tick = async () => {
-      if (!this.active || generation !== this.generation) return;
+      if (!current()) return;
       try {
-        await initial;
+        if (!await initial || !current()) return;
         let update = await this.client.getRoom(room.id, this.sequence);
-        if (!this.active || generation !== this.generation) return;
-        if (update.revision !== this.room.revision && !update.state) update = await this.client.getRoom(room.id, 0);
-        if (!this.active || generation !== this.generation) return;
+        if (!current()) return;
+        if (update.revision < this.room.revision || update.revision !== this.room.revision && !update.state) update = await this.client.getRoom(room.id, 0);
+        if (!current()) return;
+        // A poll dispatched before save() may contain an older checkpoint.
+        // Retry without applying or acknowledging it if another save won again.
+        const fresh = () => {
+          if (update.revision < this.room.revision) throw Object.assign(new Error('La respuesta de sala quedó desactualizada.'), {code: 'room_stale_response'});
+        };
+        fresh();
         const events = update.events.filter(event => event.sequence > (update.needsSnapshot ? update.stateSequence : this.sequence));
         // Apply before acknowledging the cursor. A failed application retries
         // the same events; consumers should make event handling idempotent.
         if (update.needsSnapshot) await this.onRoom(update);
+        if (!current()) return;
+        fresh();
         if (events.length) await this.onEvents(events, update);
+        if (!current()) return;
+        fresh();
         this.room = update;
         if (!update.needsSnapshot) await this.onRoom(update);
+        if (!current()) return;
         this.sequence = update.sequence;
         if (this.getPose) {
           const pose = this.getPose();
+          if (!current()) return;
           if (pose) await this.client.roomPose(room.id, pose);
+          if (!current()) return;
         }
         this.failures = 0;
       } catch (error) {
+        if (!current()) return;
         this.failures = Math.min(5, (this.failures || 0) + 1);
-        if (this.active && generation === this.generation) this.onError(error);
+        this.onError(error);
+        if (!current()) return;
         if (error.status === 401 || error.status === 403 || error.status === 404 || error.code === 'session_changed') this.stop();
         // A reset cursor must recover the durable checkpoint on next poll.
         if (error.code === 'room_cursor_invalid') this.sequence = 0;
       }
-      if (this.active && generation === this.generation) this.timer = setTimeout(tick, this.failures ? Math.min(3000, this.interval * Math.pow(2, this.failures)) : this.interval);
+      if (current()) this.timer = setTimeout(tick, this.failures ? Math.min(3000, this.interval * Math.pow(2, this.failures)) : this.interval);
     };
-    this.timer = setTimeout(tick, 0);
+    if (current()) this.timer = setTimeout(tick, 0);
     return this;
+  }
+
+  isCurrent(generation, roomId) { return this.active && generation === this.generation && this.room && this.room.id === roomId; }
+  assertCurrent(generation, roomId) {
+    if (!this.isCurrent(generation, roomId)) throw Object.assign(new Error('La conexión de sala cambió.'), {code: 'room_connection_changed'});
   }
 
   action(action) {
     if (!this.active || !this.room) return Promise.reject(new Error('No hay una sala conectada.'));
     const roomId = this.room.id;
     const generation = this.generation;
-    const request = this.pending.catch(() => {}).then(() => {
-      if (!this.active || generation !== this.generation) throw new Error('La conexión de sala cambió.');
-      return this.client.roomAction(roomId, action);
+    const request = this.pending.catch(() => {}).then(async () => {
+      this.assertCurrent(generation, roomId);
+      const result = await this.client.roomAction(roomId, action);
+      this.assertCurrent(generation, roomId);
+      return result;
     });
     this.pending = request;
     return request;
@@ -165,8 +195,10 @@ export class StudioRoomConnection {
 
   async save(state) {
     if (!this.active || !this.room) throw new Error('No hay una sala conectada.');
-    const result = await this.client.saveRoom(this.room.id, state, this.room.revision, this.sequence);
-    this.room.revision = result.revision;
+    const generation = this.generation, roomId = this.room.id;
+    const result = await this.client.saveRoom(roomId, state, this.room.revision, this.sequence);
+    this.assertCurrent(generation, roomId);
+    this.room.revision = Math.max(this.room.revision, result.revision);
     return result;
   }
 

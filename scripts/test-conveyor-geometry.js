@@ -27,7 +27,7 @@ function assertTop(root, point, expected = 0) {
 }
 
 assert.deepStrictEqual(conveyorPresets.map(item => item.id), layout.presetVariants);
-assert.equal(industrialPrefabs.length, 10 + conveyorPresets.length + behaviorSchema.robots.VARIANTS.length + behaviorSchema.vehicles.VARIANTS.length + behaviorSchema.productEquipment.VARIANTS.length);
+assert.equal(industrialPrefabs.length, 10 + conveyorPresets.length + behaviorSchema.robots.VARIANTS.length + behaviorSchema.vehicles.VARIANTS.length + behaviorSchema.productEquipment.VARIANTS.length + behaviorSchema.warehouseRacks.SYSTEMS.length);
 // These are the preserved legacy recipes. Versioned catalogue equipment has
 // its own mechanism, admission and physical-model validation in the equipment
 // catalogue tests, rather than inheriting the old start/middle power shortcut.

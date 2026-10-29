@@ -1,20 +1,21 @@
 'use strict';
-// Production station, RayControl and ECS systems. Only audio, image loading and
-// canvas drawing are adapted; no tracked headset is claimed by this test.
+// Production station, RayControl, ECS and r112 PositionalAudio. Only WebAudio
+// nodes, loader scheduling, images and canvas drawing use controlled adapters.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const baseThree = require('three');
 const {World, System, TagComponent} = require('ecsy');
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8').replace(/^import .*$/gm, '').replace(/export default /g, '').replace(/export /g, '');
-class Audio extends baseThree.Group {
-  setLoop(value) { this.loop = value; return this; }
-  setBuffer(value) { this.buffer = value; return this; }
-  play() { this.isPlaying = true; }
-  stop() { this.isPlaying = false; }
-  disconnect() { this.disconnected = true; }
+const audioNodes=[], pendingAudio=[];let deferAudio=false;
+const parameter=()=>({value:0,setTargetAtTime(value){this.value=value;}});
+function audioNode(kind){const node={kind,connections:new Set(),disconnects:0,stops:0,connect(other){this.connections.add(other);},disconnect(other){this.disconnects++;if(other)this.connections.delete(other);else this.connections.clear();},start(){},stop(){this.stops++;},setPosition(){},setOrientation(){},playbackRate:parameter(),detune:parameter()};audioNodes.push(node);return node;}
+const audioContext={currentTime:0,createGain:()=>audioNode('gain'),createPanner:()=>audioNode('panner'),createBufferSource:()=>audioNode('source')},listenerInput=audioNode('listener');
+class Audio extends baseThree.PositionalAudio {
+  setBuffer(value) {this.bufferAssignments=(this.bufferAssignments||0)+1;return super.setBuffer(value);}
+  disconnect() {super.disconnect();this.disconnected=true;return this;}
 }
-const THREE = Object.assign({}, baseThree, {PositionalAudio: Audio, AudioLoader: class { load(url, done) { done({url}); } }});
+const THREE = Object.assign({}, baseThree, {PositionalAudio: Audio, AudioLoader: class { load(url, done, progress, error) {const job={url,done,error};if(deferAudio)pendingAudio.push(job);else done({url});} }});
 const componentNames = ['Area', 'AreaReactor', 'AreaInside', 'AreaExiting', 'AreaEntering', 'AreaChecker', 'Object3D', 'BoundingBox', 'ParentObject3D', 'DebugHelper'];
 const components = new Function('THREE', 'TagComponent', read('src/components/index.js') + '\nreturn {' + componentNames.join(',') + '};')(THREE, TagComponent);
 const {nativeBehavior, declareNativeBehaviors} = new Function('THREE', read('src/editor/NativeBehaviorAdapters.js') + '\nreturn {nativeBehavior,declareNativeBehaviors};')(THREE);
@@ -38,7 +39,7 @@ const sprayModel = new THREE.Group();
 for (const name of ['spraycan', 'spraycolor']) { const mesh = new THREE.Mesh(new THREE.BoxBufferGeometry(.08, .15, .08), new THREE.MeshBasicMaterial()); mesh.name = name; sprayModel.add(mesh); }
 const originalCan = sprayModel.getObjectByName('spraycan'), geometry = Array.from(originalCan.geometry.attributes.position.array);
 const beamModel = new THREE.Group(), beam = new THREE.Mesh(new THREE.BoxBufferGeometry(.001, .001, 1), new THREE.MeshBasicMaterial()); beam.name = 'beam'; beamModel.add(beam);
-const ctx = {scene, world, room: 0, vrMode: false, audioListener: new THREE.Group(), shaders: {basic_vert: '', beam_frag: ''}, assets: {
+const ctx = {scene, world, room: 0, vrMode: false, audioListener: {context:audioContext,getInput:()=>listenerInput,timeDelta:.016}, shaders: {basic_vert: '', beam_frag: ''}, assets: {
   spray_model: {scene: sprayModel}, spray_tex: new THREE.Texture(), lightmap_tex: new THREE.Texture(), teleport_model: {scene: beamModel}, beam_tex: new THREE.Texture()
 }};
 ctx.raycontrol = new RayControl(ctx, 'right');
@@ -49,6 +50,15 @@ function connect(handedness, desktop = false) {
   const model = new THREE.Group(); model.name = 'Scene'; controller.add(model); scene.add(controller);
   return ctx.raycontrol.addController(controller, {handedness});
 }
+// Real r112 PositionalAudio has no source until play(), even after setBuffer().
+// A delayed loader must not turn native controller removal into an exception.
+deferAudio=true;
+const pending=connect('right'), pendingSound=pending.controller.getObjectByName('spraySound'),pendingLoad=pendingAudio.shift();
+assert.equal(pendingSound.source,undefined);assert.equal(pendingSound.buffer,null);
+assert.doesNotThrow(()=>ctx.raycontrol.removeController(pending.controller),'Disconnect before audio loading/playback must release the native controller.');
+assert.equal(pendingSound.parent,null);assert.equal(pendingSound.panner.connections.size,0);assert.equal(pendingSound.gain.connections.size,0);
+pendingLoad.done({id:'late-detached-buffer'});assert.equal(pendingSound.buffer,null,'A late load cannot repopulate a detached sound.');assert.equal(pendingSound.bufferAssignments||0,0);
+deferAudio=false;
 const desktop = connect('right', true), right = connect('right'), left = connect('left');
 function tick() { scene.updateMatrixWorld(true); world.execute(.016, 1); }
 const can = data => data.controller.getObjectByName('spray');
@@ -81,4 +91,34 @@ assert(can(desktop).visible && !reconnected.controller.getObjectByName('ColorWhe
 for (const data of ctx.raycontrol.controllers.slice()) ctx.raycontrol.removeController(data.controller);
 tick(); assert.equal(world.getSystem(AreaCheckerSystem).queries.checkers.results.length, 0, 'Disconnect removes the native per-controller area checkers.');
 assert.equal(ctx.raycontrol.controllers.length, 0);
-console.log('Native graffiti XR: independent desktop/tracked tools, unchanged source geometry, real ECS input-mode changes, hand preference, color wheel, disconnect/reconnect cleanup and desktop restoration passed.');
+
+const ready=connect('right'),readySound=ready.controller.getObjectByName('spraySound');
+assert(readySound.buffer);assert.equal(readySound.source,undefined,'Loading a buffer must not fabricate an Audio source.');
+assert.doesNotThrow(()=>ctx.raycontrol.removeController(ready.controller));assert.equal(readySound.panner.connections.size,0);assert.equal(readySound.gain.connections.size,0);
+
+// Reusing the same Group must isolate the old decoder and old ECS callbacks
+// from the new input source, even when completions arrive in reverse order.
+ctx.vrMode=true;deferAudio=true;
+const first=connect('right');tick();const firstSound=first.controller.getObjectByName('spraySound'),firstLoad=pendingAudio.shift();
+const firstChecker=world.getSystem(AreaCheckerSystem).queries.checkers.results.find(entity=>entity.getComponent(components.Object3D).value===first.controller),firstReactor=firstChecker.getComponent(components.AreaReactor),oldEnter=firstReactor.onEntering,oldExit=firstReactor.onExiting;
+ctx.raycontrol.removeController(first.controller);tick();
+const second=ctx.raycontrol.addController(first.controller,{handedness:'right'}),secondSound=second.controller.getObjectByName('spraySound'),secondLoad=pendingAudio.shift();tick();
+assert.notEqual(firstSound,secondSound);assert.equal(second.controller.children.filter(object=>object.name==='spraySound').length,1);
+const newCan=can(second),newRay={position:second.raycasterContext.position.clone(),quaternion:second.raycasterContext.quaternion.clone()};secondLoad.done({id:'current-buffer'});firstLoad.done({id:'stale-buffer'});
+assert.equal(secondSound.buffer.id,'current-buffer');assert.equal(firstSound.buffer,null);assert.equal(firstSound.bufferAssignments||0,0);
+oldEnter(firstChecker);oldExit(firstChecker);ctx.raycontrol.dispatchEvent('controllerDisconnected',first);
+assert.equal(can(second),newCan);assert.equal(newCan.parent,second.controller);assert(newCan.visible);assert(second.raycasterContext.position.equals(newRay.position)&&second.raycasterContext.quaternion.equals(newRay.quaternion));assert.equal(second.controller.getObjectByName('spraySound'),secondSound,'A stale disconnect event cannot remove the replacement binding.');
+ctx.raycontrol.states.graffiti.onSelectStart({uv:new THREE.Vector2(.2,.2),distance:.2},second.controller);assert(secondSound.isPlaying);tick();
+const playingSource=secondSound.source;assert(playingSource&&playingSource.connections.has(secondSound.panner));
+ctx.raycontrol.removeController(second.controller);ctx.raycontrol.removeController(second.controller);tick();
+assert.equal(playingSource.stops,1);assert.equal(playingSource.disconnects,1);assert.equal(playingSource.onended,null);assert.equal(secondSound.source,null);assert.equal(secondSound.buffer,null);
+assert.equal(secondSound.panner.connections.size,0);assert.equal(secondSound.gain.connections.size,0);assert.equal(secondSound.panner.disconnects,1);assert.equal(secondSound.gain.disconnects,1);
+ctx.raycontrol.states.graffiti.onSelectEnd({});
+
+const beforeSwap=connect('right'),beforeSwapSound=beforeSwap.controller.getObjectByName('spraySound'),beforeSwapLoad=pendingAudio.shift(),secondary=connect('left');tick();
+ctx.raycontrol.changeHandedness('left');tick();const afterSwapSound=secondary.controller.getObjectByName('spraySound'),afterSwapLoad=pendingAudio.shift();
+beforeSwapLoad.done({id:'obsolete-preference'});afterSwapLoad.done({id:'preferred-left'});assert.equal(beforeSwapSound.buffer,null);assert.equal(afterSwapSound.buffer.id,'preferred-left');assert(!afterSwapSound.isPlaying,'Async decoding never restarts a sound by itself.');
+for(const data of ctx.raycontrol.controllers.slice())ctx.raycontrol.removeController(data.controller);tick();
+assert.equal(world.getSystem(AreaCheckerSystem).queries.checkers.results.length,0);assert.equal(ctx.raycontrol.controllers.length,0);
+assert(audioNodes.filter(node=>['source','panner','gain'].includes(node.kind)).every(node=>node.connections.size===0),'Every owned audio graph is released, including voices that never played.');
+console.log('Native graffiti XR: real r112 PositionalAudio, pending/loaded/playing detach, late decode, reversed completion, stale disconnect/ECS callbacks, preference races, exact source/panner/gain release and native controller reconnection passed.');

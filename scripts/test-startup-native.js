@@ -44,7 +44,7 @@ const modules = new Map(), commonModules = new Map();
 // Shared CommonJS validators must run in the same JS realm as native config
 // literals so their strict plain-object checks match browser execution.
 function commonModule(file) {
-  file = path.resolve(file);
+  file = require.resolve(path.resolve(file));
   if (commonModules.has(file)) return commonModules.get(file).exports;
   const module = {exports: {}}; commonModules.set(file, module);
   const factory = new vm.Script('(function(require,module,exports){' + fs.readFileSync(file, 'utf8') + '\n})', {filename: file}).runInContext(context);

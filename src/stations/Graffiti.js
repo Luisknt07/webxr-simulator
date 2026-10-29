@@ -62,9 +62,13 @@ export function setup(ctx, hall) {
     const sound = new THREE.PositionalAudio(ctx.audioListener);
     sound.setLoop(true);
     sound.name = 'spraySound';
+    binding.sound = sound;
     controller.add(sound);
     const audioLoader = new THREE.AudioLoader();
     audioLoader.load('assets/ogg/spray.ogg', buffer => {
+      // Decoding can finish after disconnect, hand preference changes or reuse
+      // of the same target-ray Group for another XR input source.
+      if (binding.detached || bindings.get(controller) !== binding) return;
       sound.setBuffer(buffer);
     });
 
@@ -96,12 +100,27 @@ export function setup(ctx, hall) {
   }
 
   function detachController(controllerData) {
-    const binding = bindings.get(controllerData.controller); if (!binding) return;
+    const binding = bindings.get(controllerData.controller); if (!binding || binding.data !== controllerData) return;
     bindings.delete(controllerData.controller);
     binding.reactor.onExiting(binding.checker);
     binding.detached = true;
     binding.checker.remove();
-    if (binding.sound) { if (binding.sound.isPlaying) binding.sound.stop(); controllerData.controller.remove(binding.sound); if (binding.sound.disconnect) binding.sound.disconnect(); }
+    if (lastController === controllerData.controller) lastController = null;
+    if (binding.sound) {
+      const sound = binding.sound;
+      // r112 creates source only in play(); disconnect() assumes it exists.
+      // Panner/gain are connected in the constructor and also need releasing
+      // when loading never completed or the sound was never played.
+      if (sound.source) {
+        if (sound.isPlaying) sound.stop();
+        sound.disconnect();
+        sound.source.onended = null;
+      }
+      if (sound.panner) sound.panner.disconnect();
+      if (sound.gain) sound.gain.disconnect();
+      sound.source = null; sound.buffer = null;
+      controllerData.controller.remove(sound);
+    }
     if (binding.spray) {
       controllerData.controller.remove(binding.spray);
       ['spraycan', 'spraycolor'].forEach(name => binding.spray.getObjectByName(name).material.dispose());
@@ -111,7 +130,8 @@ export function setup(ctx, hall) {
   }
 
   function attachController(controllerData) {
-    detachController(controllerData);
+    const previous = bindings.get(controllerData.controller);
+    if (previous) detachController(previous.data);
     const binding = {data: controllerData, inside: false};
     bindings.set(controllerData.controller, binding);
     const checker = ctx.world.createEntity(); binding.checker = checker;

@@ -98,6 +98,12 @@ function cellPlacement(document, edge, occupied, inverse, productSize, floors, a
   const floorY = new THREE.Vector3(0, -(sourceConfig.type === 'conveyor' ? sourceConfig.supportHeight || 1 : 1), 0).applyMatrix4(localMatrix(inverse, edge.source.object)).y;
   const targets = picks.concat(places), approachHeight = .18, high = Math.max(...picks.map(point => point.y)) + approachHeight;
   const paths = targets.concat(targets.map(point => point.clone().setY(Math.max(point.y + approachHeight, high))));
+  // The downward tool keeps its jaw axis in the robot's local Z direction.
+  // Align local X with the real belt, so jaws close across its width rather
+  // than into the next retained carton at an adjacent conveyor handoff.
+  const transport = edge.source.config.type === 'conveyor' ? edge.source : edge.target.config.type === 'conveyor' ? edge.target : null;
+  const flow = transport ? new THREE.Vector3(1, 0, 0).transformDirection(localMatrix(inverse, transport.object)).setY(0).normalize() : direction;
+  const toolRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.atan2(-flow.z, flow.x));
   const candidates = new Map();
   // Floor raycasts, obstacle checks and world/local transforms are independent
   // of arm reach. Prepare them once instead of repeating that work per tier.
@@ -106,15 +112,21 @@ function cellPlacement(document, edge, occupied, inverse, productSize, floors, a
     for (const side of [1, -1]) for (const offset of [.9, 1.1, 1.3, 1.5, 1.65, 1.85]) for (const along of [0, -.4, .4, -.8, .8]) {
       const position = center.clone().addScaledVector(normal, side * offset).addScaledVector(direction, along).setY(floorY), base = new THREE.Box3(new THREE.Vector3(position.x - .40, floorY + .025, position.z - .40), new THREE.Vector3(position.x + .40, floorY + baseHeight + .06, position.z + .40));
       if (occupied.some(row => row.box.intersectsBox(base)) || !allowExpansion && !baseSupported(position, base, floors, inverse)) continue;
-      const yaw = Math.atan2(-(center.z - position.z), center.x - position.x), rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw), local = new THREE.Matrix4().getInverse(new THREE.Matrix4().compose(position, rotation, new THREE.Vector3(1, 1, 1)));
+      const rotation = toolRotation.clone(), local = new THREE.Matrix4().getInverse(new THREE.Matrix4().compose(position, rotation, new THREE.Vector3(1, 1, 1)));
       const localPaths = paths.map(point => point.clone().applyMatrix4(local));
       // Downward contact tooling adds .20 m between the wrist and the TCP.
       const minimumReach = Math.max(...localPaths.map(point => Math.hypot(point.x, point.y + .20 - baseHeight, point.z)));
       values.push({position, rotation, base, localPaths, minimumReach});
     }
   }
-  for (const reach of [1.6, 1.8, 2, 2.2, 2.4, 2.6, 2.8, 3.2]) for (const baseHeight of [.45, .65]) {
-    const viable = candidates.get(baseHeight).filter(value => value.minimumReach <= reach + 1e-7); if (!viable.length) continue;
+  const reachUses = edge.target.config.type === 'palletQueue' ? [.90, 1] : [.90];
+  for (const reachUse of reachUses) for (const reach of [1.6, 1.8, 2, 2.2, 2.4, 2.6, 2.8, 3.2]) for (const baseHeight of [.65, .45]) {
+    // A TCP barely inside the reach sphere leaves the forearm almost straight
+    // across a wide carried crate. Keep elbow/shoulder clearance in reserve,
+    // for crossings, with the working-height pedestal preferred. Pallet cells
+    // also test every outer bay/stack extremum; if needed, preserve their full
+    // reachable envelope inside the 3.2 m limit after trying the reserve.
+    const viable = candidates.get(baseHeight).filter(value => value.minimumReach <= reach * reachUse + 1e-7); if (!viable.length) continue;
     const config = Object.assign({}, schema.robots.defaults('articulated-general'), {payloadKg: Math.max(12, Math.ceil(productSize.mass * 1.25)), running: true, mode: 'automatic', withPanel: false, speed: 1.2, cycleTime: 2.4, processTime: 0, setupTime: .2, maxProductWidth: Math.max(.6, productSize.width), maxProductDepth: Math.max(.6, productSize.depth), maxProductHeight: Math.max(.6, productSize.height), wear: .25}, authored || {}, {reach, baseHeight, approachHeight});
     // Fold into a compact, metric ready pose. Never scale a home height by
     // reach: that made a 5.5 m retrofit raise its gripper above four metres.

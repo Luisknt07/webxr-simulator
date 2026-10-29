@@ -44,15 +44,55 @@ function guardContinuousCandidate(before, candidate) {
 }
 function verifyContinuousManifest(manifest, document) {
   assert.equal(manifest.scenarios.length, 3); const allVariants = new Set(), allFields = new Set(), allModes = new Set(), allTypes = new Set(), palletUnits = new Set();
+  const baseLines = [
+    ['attribute-sorting','pallet-logistics','manual-loading-table','manual-manual-station'],
+    ['packing-units','multilevel-mixed','pallet-logistics','manual-loading-table','manual-manual-station'],
+    ['transfer-l','sorting','merge','elevator','pallets','assembly','rectangle','gravity','manual-l']
+  ];
+  const machineTypes = ['source','conveyor','processor','palletQueue','robot','vehicle'];
   manifest.scenarios.forEach((scene, index) => {
-    assert.equal(scene.roomId, ROOMS[index]); assert.equal(scene.kind, ['sorting','packing','lab'][index]); assert.equal(scene.continuous, true); assert.equal(scene.lines.length, [4,5,9][index]);
-    const rows = new Map(document.rooms[scene.roomId].additions.map(row => [row.id, row])), config = id => { const row = rows.get(id); assert(row, 'Manifest object is missing: ' + id); return row.behaviors.find(value => ['source','conveyor','processor','palletQueue'].includes(value.type)); };
+    assert.equal(scene.roomId, ROOMS[index]); assert.equal(scene.kind, ['sorting','packing','lab'][index]); assert.equal(scene.continuous, true);
+    // Accept the reviewed legacy recipe or that exact recipe plus its one
+    // supported manual-forklift expedition. Extra/duplicate/replaced lines fail.
+    const expedition = scene.lines.some(line => line.id === 'robotics-expedition');
+    assert.deepEqual(scene.lines.map(line => line.id), baseLines[index].concat(expedition ? ['robotics-expedition'] : []), 'Unexpected continuous recipe lines.');
+    const rows = new Map(document.rooms[scene.roomId].additions.map(row => [row.id, row]));
+    const row = id => { const value = rows.get(id); assert(value, 'Manifest object is missing: ' + id); return value; };
+    const config = id => row(id).behaviors.find(value => machineTypes.includes(value.type));
     scene.lines.forEach(line => {
+      const forkliftLine = line.id === 'robotics-expedition', manualAnnex = line.id.startsWith('manual-') && index !== 2;
+      assert.equal(line.mode, forkliftLine || manualAnnex ? 'manual' : 'automatic');
+      assert(Array.isArray(line.memberIds) && line.memberIds.length, 'Every manifest line needs explicit memberIds.');
+      assert.equal(new Set(line.memberIds).size, line.memberIds.length, 'Line members may not repeat.');
       assert(line.sourceIds.length && line.receiverIds.length && line.memberIds.includes(line.controllerId));
-      const members = line.memberIds.map(config); assert.equal(members.filter(value => value.withPanel).length, 1); assert(config(line.controllerId).withPanel);
+      line.sourceIds.concat(line.receiverIds).forEach(id => assert(line.memberIds.includes(id), 'Sources and receivers must belong to their line.'));
+      const members = line.memberIds.map(id => {
+        const value = config(id);
+        assert(value || forkliftLine && row(id).behaviors.some(value => value.type === 'info'), 'Unsupported manifest member: ' + id);
+        return value;
+      }).filter(Boolean);
+      assert.equal(members.filter(value => value.withPanel).length, 1); assert(config(line.controllerId).withPanel);
       const monitor = rows.get(line.monitorId)?.behaviors.find(value => value.type === 'lineMonitor'); assert(monitor && monitor.targetId === line.controllerId && monitor.scope === 'line');
-      line.sourceIds.forEach(id => { const value = config(id); assert.equal(value.type, 'source'); if (line.mode === 'manual') { assert(!value.autoGenerate); assert.equal(value.initialCount, 0); } else { assert(value.autoGenerate); assert.equal(value.totalLimit, 0, 'Every automatic Source is truly unlimited.'); } (JSON.parse(value.catalog || '[]')).forEach(spec => { allTypes.add(spec.type); if (value.loadMode === 'pallet') palletUnits.add(schema.productSources.unitsFor(value, spec)); }); });
-      line.receiverIds.forEach(id => { const value = config(id); assert.equal(value.type, 'palletQueue'); if (line.mode === 'manual') return; assert.equal(value.layoutMode, 'fit'); assert.equal(value.layers, 5); assert.equal(value.palletCapacity, 4); assert(value.autoRelease && value.autoReleasePressure); assert.equal(value.releasePolicy, 'stockFull'); });
+      line.sourceIds.forEach(id => { const value = config(id); assert.equal(value.type, 'source'); if (manualAnnex) { assert(!value.autoGenerate); assert.equal(value.initialCount, 0); } else { assert(value.autoGenerate); assert.equal(value.totalLimit, 0, 'Every automatic Source is truly unlimited.'); } (JSON.parse(value.catalog || '[]')).forEach(spec => { allTypes.add(spec.type); if (value.loadMode === 'pallet') palletUnits.add(schema.productSources.unitsFor(value, spec)); }); });
+      line.receiverIds.forEach(id => { const value = config(id); assert.equal(value.type, 'palletQueue'); if (manualAnnex || forkliftLine) return; assert.equal(value.layoutMode, 'fit'); assert.equal(value.layers, 5); assert.equal(value.palletCapacity, 4); assert(value.autoRelease && value.autoReleasePressure); assert.equal(value.releasePolicy, 'stockFull'); });
+      line.memberIds.filter(id => config(id)?.type === 'robot').forEach(id => {
+        const value = config(id);
+        assert(!value.withPanel); assert(line.memberIds.includes(value.sourceId) && line.memberIds.includes(value.outputId), 'Robot transfers stay inside their line.');
+        assert.equal(config(value.sourceId).outputId, id, 'The robot must replace a real upstream connection.');
+      });
+      if (forkliftLine) {
+        assert.equal(line.memberIds.length, 5, 'Expedition requires its four machines and guide.');
+        assert.deepEqual(members.map(value => value.type).sort(), ['conveyor','palletQueue','source','vehicle']);
+        assert.equal(line.sourceIds.length, 1); assert.equal(line.receiverIds.length, 1);
+        const source = config(line.sourceIds[0]), pickup = config(line.controllerId), stock = config(line.receiverIds[0]), vehicle = members.find(value => value.type === 'vehicle');
+        assert.equal(source.loadMode, 'pallet'); assert.equal(source.outputId, line.controllerId); assert.equal(source.delivery, 'automatic');
+        const catalogue = JSON.parse(source.catalog); assert(catalogue.length); catalogue.forEach(spec => { assert.equal(spec.type, 'box'); assert.equal(schema.productSources.unitsFor(source, spec), 12, 'Expedition preserves twelve real units per pallet.'); });
+        assert.equal(pickup.type, 'conveyor'); assert.equal(pickup.equipmentId, 'conveyor.pallet-chain'); assert.equal(pickup.outputId, ''); assert.equal(pickup.maxPackages, 1); assert(pickup.withSensors);
+        const automation = row(line.controllerId).behaviors.find(value => value.type === 'automation');
+        assert(automation && JSON.parse(automation.rules).some(rule => rule.sourceId === line.controllerId && rule.variable === 'transferBlocked' && rule.operator === 'eq' && rule.value === true && rule.targetId === line.controllerId && rule.targetVariable === 'running' && rule.set === false && rule.edge === 'rising'), 'Expedition pickup requires its actual blocked-output stop interlock.');
+        assert.equal(vehicle.mode, 'manual'); assert(schema.vehicles.supports(vehicle).forks); assert.equal(vehicle.sourceId, line.controllerId); assert.equal(vehicle.outputId, line.receiverIds[0]);
+        assert(stock.acceptsPallets); assert.equal(stock.delivery, 'manual'); assert.equal(stock.autoRelease, false); assert.equal(stock.palletCapacity, 2); assert.equal(stock.columns * stock.rows * stock.layers, 1);
+      } else assert(!members.some(value => value.type === 'vehicle'), 'Forklifts belong only to the explicit expedition line.');
       members.filter(value => value.type === 'conveyor').forEach(value => { allVariants.add(value.equipmentId); if (['rules','percentage','alternate'].includes(value.routing)) allModes.add(value.routing); if (value.routing === 'rules') JSON.parse(value.routingRules).forEach(rule => allFields.add(rule.field)); });
     });
   });

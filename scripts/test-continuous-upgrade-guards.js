@@ -45,6 +45,25 @@ async function run(){
   const original=validateDocument(await command.document.serialize(),value=>value),history=command.document.undoStack.length,refreshed=await command.tools.refreshCediExamples({continuous:true,includeLab:true});
   assert.equal(command.document.studio.startRoomId,'hall','The real refresh command preserves the selected project start room even when the Lab builder selects sound internally.');
   const refreshedSafe=guardContinuousCandidate(original,await command.document.serialize());verifyContinuousManifest(refreshed,refreshedSafe.document);assert.equal(command.document.undoStack.length,history+1);
+  const rejectManifest=(mutate,pattern)=>{const changed=clone(refreshed);mutate(changed);assert.throws(()=>verifyContinuousManifest(changed,refreshedSafe.document),pattern);};
+  rejectManifest(value=>value.scenarios[0].lines.push(clone(value.scenarios[0].lines[0])),/recipe lines/);
+  rejectManifest(value=>value.scenarios[0].lines[0].id='unknown-line',/recipe lines/);
+  rejectManifest(value=>value.scenarios[0].lines.splice(0,1),/recipe lines/);
+  rejectManifest(value=>{delete value.scenarios[2].lines.find(line=>line.id==='robotics-expedition').memberIds;},/explicit memberIds/);
+  rejectManifest(value=>{const line=value.scenarios[2].lines.find(line=>line.id==='robotics-expedition');line.memberIds.pop();},/four machines and guide/);
+  const rejectConfiguration=(sceneIndex,lineId,type,mutate,pattern)=>{const changed=clone(refreshedSafe.document),scene=refreshed.scenarios[sceneIndex],line=scene.lines.find(value=>value.id===lineId),row=changed.rooms[scene.roomId].additions.find(row=>line.memberIds.includes(row.id)&&row.behaviors.some(value=>value.type===type));assert(row);mutate(row.behaviors.find(value=>value.type===type),row);assert.throws(()=>verifyContinuousManifest(refreshed,changed),pattern);};
+  // Manual transport still has an automatic unlimited pallet Source; its
+  // physical custody chain and stop interlock cannot use manual-annex exemptions.
+  refreshed.scenarios.forEach(scene=>{const line=scene.lines.find(value=>value.id==='robotics-expedition');assert(line&&line.memberIds.length===5);assert(line.sourceIds.every(id=>line.memberIds.includes(id))&&line.receiverIds.every(id=>line.memberIds.includes(id)));});
+  rejectConfiguration(2,'robotics-expedition','source',value=>{value.totalLimit=4;},/unlimited/);
+  rejectConfiguration(2,'robotics-expedition','source',value=>{value.palletLayers=1;},/twelve real units/);
+  rejectConfiguration(0,'robotics-expedition','source',value=>{value.outputId='';});
+  rejectConfiguration(0,'robotics-expedition','conveyor',(value,row)=>{row.behaviors=row.behaviors.filter(value=>value.type!=='automation');},/stop interlock/);
+  rejectConfiguration(1,'robotics-expedition','vehicle',value=>{value.sourceId='missing';});
+  rejectConfiguration(1,'robotics-expedition','vehicle',value=>{value.mode='automatic';});
+  rejectConfiguration(1,'robotics-expedition','palletQueue',value=>{value.autoRelease=true;});
+  rejectConfiguration(0,'manual-loading-table','source',value=>{value.autoGenerate=true;});
+  rejectConfiguration(0,'attribute-sorting','robot',value=>{value.outputId='missing';},/inside their line/);
   command.document.undo();assert.deepEqual(await command.document.serialize(),original,'One undo restores all three old levels and their global settings.');releaseGeometry(command);
   releaseGeometry(f);console.log('Continuous upgrade guards: exactly three named rooms, seven literal protected rooms, scoped metadata, fixed labels/start/imports and bounded quaternion-only repair passed without database writes.');
 }

@@ -416,7 +416,7 @@ export default class StudioExperience {
   async leaveRoom() { if (this.sharedGrabs) this.sharedGrabs.detach(); if (this.presentation) this.presentation.clear(); await this.connection.leave(); this.room = null; this.roomRevision = 0; this.pendingRoomState = null; this.editor.simulationPaused = false; this.avatars.forEach(avatar => { if (avatar.parent) avatar.parent.remove(avatar); avatar.userData.dispose(); }); this.avatars.clear(); }
   pose() { if (!this.room) return null; const camera = this.ctx.camera; camera.updateWorldMatrix(true, false); return {position: camera.getWorldPosition(new THREE.Vector3()).toArray(), quaternion: camera.getWorldQuaternion(new THREE.Quaternion()).toArray()}; }
   async receiveRoom(room) {
-    if (!this.room) return;
+    if (!this.room || this.room.id !== room.id) return;
     const needsState = room.state && room.revision !== this.roomRevision;
     if (needsState && this.room.role !== 'host') { if (this.sharedGrabs && this.sharedGrabs.holding) this.pendingRoomState = room.state; else this.applyRemoteState(room.state); }
     this.roomRevision = room.revision; this.room = room; this.roomError = null;
@@ -441,10 +441,14 @@ export default class StudioExperience {
     this.editor.simulationPaused = true;
   }
   async applyEvents(events, roomUpdate) {
+    const applied = this.appliedEvents, roomId = roomUpdate && roomUpdate.id || this.room && this.room.id;
+    const current = () => this.room && this.room.id === roomId && this.appliedEvents === applied;
     for (const event of events) {
+      if (!current()) return;
       if (this.appliedEvents.has(event.sequence)) continue;
       const payload = event.payload;
       if (this.sharedGrabs) await this.sharedGrabs.applyEvent(event, roomUpdate);
+      if (!current()) return;
       if (event.type === 'action' && payload && this.room.role === 'host') {
         this.applyingNetwork = true;
         try { if (payload.type === 'control') this.rawCommand(payload.objectId, payload.action, payload.value, payload.scope); else if (payload.type === 'simulation') { if (payload.action === 'reset') { if (this.sharedGrabs) this.sharedGrabs.detach(); this.editor.startRuntime(); } this.editor.simulationPaused = payload.action === 'pause'; } }

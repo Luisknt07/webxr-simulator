@@ -143,10 +143,18 @@ export default class VehicleForkCamera {
     const ray = this.ctx.raycontrol, values = [this.plane, this.mirrorPlane, this.ctx.cameraRig, ray && ray.raycasterContext, this.driving.worldPanel && this.driving.worldPanel.plane, this.driving.docking && this.driving.docking.plane]; if (this.mountOptions.hiddenObjects) values.push(...this.mountOptions.hiddenObjects());
     const seen = new Set(); this.hidden = []; for (const node of values) if (node && !seen.has(node)) { seen.add(node); this.hidden.push([node, node.visible]); node.visible = false; }
   }
+  syncScreenVisibility() {
+    const active = !!this.ctx.vrMode && this.active();
+    if (this.plane) this.plane.visible = !!(active && this.target);
+    if (this.mirrorPlane) this.mirrorPlane.visible = !!(active && this.mirrorTarget);
+  }
   renderBefore(scene, delta = 0) {
     if (!this.active()) { this.release(this.failed ? 'unavailable' : this.enabled ? 'inactive' : 'disabled'); return false; }
     [this.plane, this.mirrorPlane].filter(Boolean).forEach(plane => { plane.visible = !!this.ctx.vrMode; }); const profile = this.profile(); this.elapsed += Math.max(0, finite(delta) ? delta : 0);
-    const visible = this.visibleFeeds(); if (!visible.length) { this.stats.status = 'hidden'; return false; } if (this.rendered.size && this.elapsed < 1 / profile.fps) return false;
+    // Visibility probes need both candidate surfaces even before their first
+    // image exists. Restore display visibility before every early return so a
+    // 90 Hz headset never draws the uninitialized white mirror between passes.
+    const visible = this.visibleFeeds(); this.syncScreenVisibility(); if (!visible.length) { this.stats.status = 'hidden'; return false; } if (this.rendered.size && this.elapsed < 1 / profile.fps) return false;
     const renderer = this.renderer, gl = renderer.getContext && renderer.getContext(); if (gl && gl.isContextLost && gl.isContextLost()) { this.release('context-lost'); return false; }
     const schedule = ['front', 'front', 'mirror'], missing = visible.find(value => !this.rendered.has(value)); let name = missing || schedule[this.nextFeed++ % schedule.length]; if (!visible.includes(name)) name = visible[0];
     const saved = this.saveState(), started = typeof performance === 'undefined' ? Date.now() : performance.now();
@@ -157,7 +165,7 @@ export default class VehicleForkCamera {
     } catch (_) { this.stats.failures++; this.failed = true; this.release('unavailable'); this.elapsed = 0; return false; }
     finally {
       if (this.hidden) { this.hidden.forEach(([node, visible]) => { node.visible = visible; }); this.hidden = null; } this.restoreState(saved);
-      if (this.plane) this.plane.visible = !!(this.target && this.ctx.vrMode && this.active()); if (this.mirrorPlane) this.mirrorPlane.visible = !!(this.mirrorTarget && this.ctx.vrMode && this.active());
+      this.syncScreenVisibility();
       this.stats.lastRenderMs = (typeof performance === 'undefined' ? Date.now() : performance.now()) - started;
     }
   }

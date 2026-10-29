@@ -11,6 +11,7 @@ Object.assign(PHASES, {'stow-input': 'Retrayendo brazo para viajar', 'stow-outpu
 function visible(object) { for (let node = object; node; node = node.parent) if (!node.visible) return false; return true; }
 function vector(point) { return Array.isArray(point) ? new THREE.Vector3().fromArray(point) : new THREE.Vector3(point.x, point.y, point.z); }
 function smooth(t) { return t * t * (3 - 2 * t); }
+function rotationAngle(a, b) { return 2 * Math.acos(THREE.Math.clamp(Math.abs(a.dot(b)), 0, 1)); }
 
 // A cached local box remains oriented with its real rigid mesh. The separating
 // axes also work for the scaled product roots used by imported loads.
@@ -72,6 +73,7 @@ export default class RobotRuntime {
   mobile(robot) { return MOBILE.has(robot.config.family); }
   mobileArm(robot) { return robot.config.family === 'mobileManipulator'; }
   cartesianArm(robot) { return ['articulated', 'palletizer', 'mobileManipulator'].includes(robot.config.family); }
+  orientedArm(robot) { return this.cartesianArm(robot) || robot.config.family === 'scara'; }
   sorter(robot) { return robot.config.family === 'mobileSorter'; }
   outputId(robot) { return robot.activeOutputId || robot.config.outputId; }
   inSitu(robot) { return robot.config.operation === 'process' && robot.config.tool === 'process'; }
@@ -80,8 +82,11 @@ export default class RobotRuntime {
   applyPose(record, pose, options = {}) {
     const r = record.components.robot, product = r.entry && r.entry.product || r.candidate && r.candidate.product;
     if (options.preserveGrip) return updateRobotPose(r.visualRoot, pose);
-    pose.open = r.entry ? 0 : 1;
-    if (product) {
+    const clearOfReleasedLoad = !Number.isFinite(r.releaseTopY) || vector(pose.tcp).applyMatrix4(record.object.matrixWorld).y > r.releaseTopY + .015;
+    pose.open = r.entry ? 0 : clearOfReleasedLoad ? 1 : .15;
+    if (r.entry && r.gripQuaternion && Number.isFinite(r.gripSpan)) {
+      pose.gripSpan = r.gripSpan; r.lastGripSpan = pose.gripSpan;
+    } else if (product) {
       const size = product.bounds.getSize(new THREE.Vector3()).multiply(product.scale), productRotation = r.entry && r.loadQuaternion || product.object.getWorldQuaternion(new THREE.Quaternion());
       const toolRotation = r.visualRoot.getWorldQuaternion(new THREE.Quaternion()).multiply(new THREE.Quaternion().fromArray(pose.quaternion));
       const jawAxis = new THREE.Vector3(0, 0, 1).applyQuaternion(toolRotation);
@@ -97,6 +102,28 @@ export default class RobotRuntime {
   restorePose(record, pose) {
     const r = record.components.robot; r.pose = robotKinematics.validatePose(r.config, pose);
     return this.applyPose(record, r.pose, {preserveGrip: true});
+  }
+
+  ensureGrip(record) {
+    const r = record.components.robot, tool = this.tool(record);
+    if (!r.entry || !tool || !this.orientedArm(r)) return;
+    if (!r.gripQuaternion) {
+      // Older checkpoints stored a world load quaternion only. Derive the
+      // relative grasp from the already restored real pose, without a jump.
+      record.object.updateWorldMatrix(true, true);
+      const product = r.entry.product;
+      r.loadQuaternion = product.object.getWorldQuaternion(new THREE.Quaternion());
+      r.gripQuaternion = tool.getWorldQuaternion(new THREE.Quaternion()).inverse().multiply(r.loadQuaternion);
+      r.gripSpan = Number.isFinite(r.pose.gripSpan) ? r.pose.gripSpan : r.lastGripSpan;
+    }
+  }
+
+  destinationQuaternion(record, matrix) {
+    const r = record.components.robot; this.ensureGrip(record);
+    if (!r.entry || !r.gripQuaternion || !this.orientedArm(r)) return null;
+    const point = new THREE.Vector3(), quaternion = new THREE.Quaternion(), scale = new THREE.Vector3(); matrix.decompose(point, quaternion, scale);
+    record.object.updateWorldMatrix(true, false);
+    return record.object.getWorldQuaternion(new THREE.Quaternion()).inverse().multiply(quaternion).multiply(r.gripQuaternion.clone().inverse()).toArray();
   }
 
   variables(record) {
@@ -239,6 +266,9 @@ export default class RobotRuntime {
     r.pickSource = source;
     delete product.robotReservedBy; product.robotOwnerId = record.id; product.object.userData.robotOwnerId = record.id; product.processorLocked = true; product.processorOwnerId = record.id;
     r.loadQuaternion = product.object.getWorldQuaternion(new THREE.Quaternion());
+    r.gripQuaternion = null; r.gripSpan = r.pose.gripSpan;
+    r.releaseTopY = null;
+    this.ensureGrip(record);
     Object.defineProperty(product.object, 'industrialHeld', {value: true, configurable: true, writable: true, enumerable: false});
     const tool = this.tool(record); if (tool) { const matrix = product.object.matrixWorld.clone(); tool.add(product.object); runtime.setProductMatrix(product, matrix); }
     runtime.sourceRuntime.entries.add(entry); runtime.invalidateCollision(product.object);
@@ -257,9 +287,13 @@ export default class RobotRuntime {
     }
     // The selected pallet cell can change while the arm travels. Reposition to
     // the current valid cell before committing; never teleport between stacks.
-    if ((!this.mobile(r) || this.mobileArm(r)) && this.worldContact(product).distanceTo(this.worldContact(product, destination.matrix)) > r.config.positionTolerance) {
+    const desiredRotation = new THREE.Quaternion(); destination.matrix.decompose(new THREE.Vector3(), desiredRotation, new THREE.Vector3());
+    const orientationChanged = this.orientedArm(r) && rotationAngle(product.object.getWorldQuaternion(new THREE.Quaternion()), desiredRotation) > .02;
+    if ((!this.mobile(r) || this.mobileArm(r)) && (this.worldContact(product).distanceTo(this.worldContact(product, destination.matrix)) > r.config.positionTolerance || orientationChanged)) {
       if (!this.reachable(record, this.worldContact(product, destination.matrix))) return this.fault(record, 'Destino fuera del alcance configurado.');
-      r.destination = destination; this.moveTo(record, this.local(record, this.worldContact(product, destination.matrix)), 'place'); return false;
+      r.destination = destination; r.placePoint = this.local(record, this.worldContact(product, destination.matrix)); r.destinationToolQuaternion = this.destinationQuaternion(record, destination.matrix);
+      const above = r.placePoint.clone(); above.y += r.config.approachHeight;
+      this.moveTo(record, above, 'carry', r.destinationToolQuaternion); return false;
     }
     product.robotOwnerId = ''; delete product.object.userData.robotOwnerId; product.processorLocked = false; product.processorOwnerId = '';
     runtime.restoreProductCollision(product);
@@ -274,29 +308,44 @@ export default class RobotRuntime {
       r.blocked = true; return false;
     }
     if (target.components.conveyor) entry.ownerId = '';
+    r.releaseTopY = this.orientedArm(r) && r.config.tool === 'gripper' ? product.bounds.clone().applyMatrix4(destination.matrix).max.y : null;
     r.completed++; r.deliveredUnits += entry.units; r.entry = null; r.queue = []; r.blocked = false;
     runtime.event(record.id, 'robot-delivered', 'Carga entregada a ' + (target.object.name || target.id) + '.');
     return true;
   }
 
-  moveTo(record, localTarget, phase) {
+  moveTo(record, localTarget, phase, toolQuaternion) {
     const r = record.components.robot;
     const home = robotKinematics.homePose(r.config), returning = ['return', 'stow-output'].includes(phase) && vector(home.tcp).distanceTo(localTarget) < EPSILON;
-    const pose = robotKinematics.inverse(r.config, returning ? {position: localTarget.toArray(), quaternion: home.quaternion} : localTarget, r.pose.joints);
+    let desired = toolQuaternion;
+    if (!desired && returning) desired = home.quaternion;
+    if (!desired && this.orientedArm(r) && r.entry && phase === 'place') desired = r.destinationToolQuaternion;
+    if (!desired && this.orientedArm(r) && r.entry && ['lift', 'stow-input'].includes(phase)) desired = r.pose.quaternion;
+    const pose = robotKinematics.inverse(r.config, desired ? {position: localTarget.toArray(), quaternion: desired} : localTarget, r.pose.joints);
     if (pose.reached === false || pose.error > r.config.positionTolerance) return this.fault(record, 'Trayectoria fuera del alcance o de los límites de articulación.');
     r.from = vector(r.pose.tcp); r.to = vector(pose.tcp); r.fromJoints = r.pose.joints.slice(); r.toJoints = pose.joints.slice(); r.phase = phase; r.phaseElapsed = 0;
     r.cartesianPath = null;
-    let distance = r.from.distanceTo(r.to);
+    r.cartesianOrientations = null;
+    let distance = r.from.distanceTo(r.to), angularDuration = this.orientedArm(r) ? rotationAngle(new THREE.Quaternion().fromArray(r.pose.quaternion), new THREE.Quaternion().fromArray(pose.quaternion)) : 0;
     if (this.cartesianArm(r) || r.config.family === 'scara' && this.runtime.ctx.collisionWorld) {
-      const points = [r.from.clone()];
+      const points = [r.from.clone()], orientations = [r.pose.quaternion.slice()];
       if (['approach', 'carry', 'return', 'stow-output'].includes(phase) && Math.hypot(r.to.x - r.from.x, r.to.z - r.from.z) > .01) {
         const clearance = this.travelClearance(record, r.from, r.to, phase);
         points.push(new THREE.Vector3(r.from.x, clearance, r.from.z), new THREE.Vector3(r.to.x, clearance, r.to.z));
+        // Rotate only during the high crossing. Keep the original grasp while
+        // withdrawing, and reach the final orientation before descending.
+        orientations.push(r.pose.quaternion.slice(), pose.quaternion.slice());
       }
-      points.push(r.to.clone());
-      r.cartesianPath = points.filter((point, index) => !index || point.distanceTo(points[index - 1]) > EPSILON).map(point => point.toArray());
+      points.push(r.to.clone()); orientations.push(pose.quaternion.slice());
+      r.cartesianPath = []; r.cartesianOrientations = [];
+      points.forEach((point, index) => {
+        const previous = r.cartesianPath.length - 1;
+        if (previous >= 0 && point.distanceTo(vector(r.cartesianPath[previous])) <= EPSILON && rotationAngle(new THREE.Quaternion().fromArray(orientations[index]), new THREE.Quaternion().fromArray(r.cartesianOrientations[previous])) <= EPSILON) return;
+        r.cartesianPath.push(point.toArray()); r.cartesianOrientations.push(orientations[index]);
+      });
       r.fromQuaternion = r.pose.quaternion.slice(); r.toQuaternion = pose.quaternion.slice();
-      distance = r.cartesianPath.reduce((sum, point, index, all) => sum + (index ? vector(point).distanceTo(vector(all[index - 1])) : 0), 0);
+      const segments = this.pathSegments(r); distance = segments.reduce((sum, segment) => sum + segment.length, 0);
+      angularDuration = Math.max(angularDuration, ...segments.map(segment => segment.angle * distance / segment.length));
       // Check a bounded path before moving; insufficient clearance cannot
       // silently fall back to a direct dive into the load.
       let seed = r.pose.joints;
@@ -306,7 +355,8 @@ export default class RobotRuntime {
         seed = next.joints;
       }
     }
-    r.duration = Math.max(.12, r.config.cycleTime / 6, distance / r.speed);
+    // At the fixed 60 Hz step the smooth angular rate stays below 1.5 rad/s.
+    r.duration = Math.max(.12, r.config.cycleTime / 6, distance / r.speed, angularDuration);
     return true;
   }
 
@@ -331,24 +381,35 @@ export default class RobotRuntime {
     return clearance;
   }
 
+  pathSegments(robot) {
+    return robot.cartesianPath.slice(1).map((point, index) => {
+      const distance = vector(point).distanceTo(vector(robot.cartesianPath[index])), orientations = robot.cartesianOrientations;
+      const angle = orientations ? rotationAngle(new THREE.Quaternion().fromArray(orientations[index]), new THREE.Quaternion().fromArray(orientations[index + 1])) : 0;
+      return {angle, length: Math.max(EPSILON, distance, angle * .25)};
+    });
+  }
+
   pathPose(record, fraction, seed) {
     const r = record.components.robot, points = r.cartesianPath;
-    const lengths = points.slice(1).map((point, i) => vector(point).distanceTo(vector(points[i]))), total = lengths.reduce((a, b) => a + b, 0);
-    let remaining = Math.max(0, Math.min(1, fraction)) * total, point = vector(points[points.length - 1]);
+    const lengths = this.pathSegments(r).map(segment => segment.length), total = lengths.reduce((a, b) => a + b, 0);
+    let remaining = Math.max(0, Math.min(1, fraction)) * total, point = vector(points[points.length - 1]), segment = 0, progress = fraction;
     for (let i = 0; i < lengths.length; i++) {
-      if (remaining <= lengths[i] || i === lengths.length - 1) { point = vector(points[i]).lerp(vector(points[i + 1]), Math.min(1, remaining / Math.max(EPSILON, lengths[i]))); break; }
+      if (remaining <= lengths[i] || i === lengths.length - 1) { segment = i; progress = Math.min(1, remaining / lengths[i]); point = vector(points[i]).lerp(vector(points[i + 1]), progress); break; }
       remaining -= lengths[i];
     }
-    const quaternion = new THREE.Quaternion().fromArray(r.fromQuaternion).slerp(new THREE.Quaternion().fromArray(r.toQuaternion), fraction);
+    const orientation = r.cartesianOrientations;
+    const quaternion = orientation && orientation.length > 1 ? new THREE.Quaternion().fromArray(orientation[segment]).slerp(new THREE.Quaternion().fromArray(orientation[segment + 1]), progress) : new THREE.Quaternion().fromArray(r.fromQuaternion).slerp(new THREE.Quaternion().fromArray(r.toQuaternion), fraction);
     return robotKinematics.inverse(r.config, {position: point.toArray(), quaternion: quaternion.toArray()}, seed || r.pose.joints);
   }
 
   carriedMatrix(record) {
     const r = record.components.robot; if (!r.entry) return true;
+    this.ensureGrip(record);
     const product = r.entry.product, tool = this.tool(record); record.object.updateWorldMatrix(true, true);
     const contact = tool ? tool.getWorldPosition(new THREE.Vector3()) : vector(r.pose.tcp).applyMatrix4(record.object.matrixWorld);
-    const localContact = this.contactPoint(product, r).multiply(product.scale).applyQuaternion(r.loadQuaternion);
-    return new THREE.Matrix4().compose(contact.sub(localContact), r.loadQuaternion, product.scale);
+    const rotation = r.gripQuaternion ? tool.getWorldQuaternion(new THREE.Quaternion()).multiply(r.gripQuaternion) : r.loadQuaternion;
+    const localContact = this.contactPoint(product, r).multiply(product.scale).applyQuaternion(rotation);
+    return new THREE.Matrix4().compose(contact.sub(localContact), rotation, product.scale);
   }
 
   carryPose(record) {
@@ -430,16 +491,17 @@ export default class RobotRuntime {
   placeCarried(record, matrix) {
     const r = record.components.robot, product = r.entry && r.entry.product; if (!product) return true;
     const world = this.runtime.ctx.collisionWorld, next = product.bounds.clone().applyMatrix4(matrix);
-    if (world && product.item && product.item.box && product.item.box.getCenter(new THREE.Vector3()).distanceTo(next.getCenter(new THREE.Vector3())) > .00001) {
+    if (world && product.item && product.item.box && (r.gripQuaternion || product.item.box.getCenter(new THREE.Vector3()).distanceTo(next.getCenter(new THREE.Vector3())) > .00001)) {
       const options = this.runtime.packageCollisionOptions(record, product.item);
       options.ignore.push(product.object);
       if (r.pickSource) options.ignore.push(r.pickSource.object);
       const output = this.runtime.records.get(this.outputId(r)); if (output) options.ignore.push(output.object);
       const movement = next.getCenter(new THREE.Vector3()).sub(product.item.box.getCenter(new THREE.Vector3()));
-      const sweep = world.sweepBox && world.sweepBox(product.item.box, movement, options);
+      const sweep = world.sweepBox && movement.lengthSq() > EPSILON * EPSILON && world.sweepBox(product.item.box, movement, options);
       if (sweep && sweep.blocked || world.testBox(next, options)) { r.blocked = true; return false; }
     }
     this.runtime.setProductMatrix(product, matrix);
+    if (r.gripQuaternion) product.object.getWorldQuaternion(r.loadQuaternion);
     if (product.item) { product.item.box.copy(product.bounds).applyMatrix4(matrix); product.item.previous.copy(product.item.box); product.item.swept.copy(product.item.box); }
     return true;
   }
@@ -535,6 +597,7 @@ export default class RobotRuntime {
 
   advance(record, delta) {
     const r = record.components.robot;
+    this.ensureGrip(record);
     if (r.phase === 'idle') { if (r.config.mode !== 'manual' || r.requested) this.begin(record); return; }
     if (r.phase === 'drive-input' || r.phase === 'drive-output' || r.phase === 'drive-home') {
       if (!this.navigate(record, delta)) return;
@@ -569,6 +632,7 @@ export default class RobotRuntime {
       if (pose.reached === false || pose.error > r.config.positionTolerance) { r.phaseElapsed = previousElapsed; return this.fault(record, 'La trayectoria cartesiana sale del alcance configurado.'); }
       r.pose = pose; this.applyPose(record, pose);
       if (!this.armClear(record, r.entry && this.carriedMatrix(record)) || !this.carryPose(record)) { r.pose = previousPose; r.phaseElapsed = previousElapsed; this.applyPose(record, previousPose); return; }
+      if (!r.entry && Number.isFinite(r.releaseTopY) && vector(r.pose.tcp).applyMatrix4(record.object.matrixWorld).y > r.releaseTopY + .015) r.releaseTopY = null;
       r.blocked = false;
     }
     if (!complete) return;
@@ -601,8 +665,9 @@ export default class RobotRuntime {
       if (!destination) { r.phase = 'wait-output'; r.blocked = true; return; }
       const point = this.local(record, this.worldContact(r.entry.product, destination.matrix)); r.destination = destination;
       if (!this.reachable(record, point.clone().applyMatrix4(record.object.matrixWorld))) return this.fault(record, 'Destino fuera del alcance configurado.');
-      r.placePoint = point; const above = point.clone(); above.y = Math.max(above.y + r.config.approachHeight, r.approachPoint ? r.approachPoint.y : -Infinity);
-      r.blocked = false; this.moveTo(record, !this.cartesianArm(r) && !this.reachable(record, above.clone().applyMatrix4(record.object.matrixWorld)) ? point : above, 'carry');
+      r.placePoint = point; r.destinationToolQuaternion = this.destinationQuaternion(record, destination.matrix);
+      const above = point.clone(); above.y = Math.max(above.y + r.config.approachHeight, r.approachPoint ? r.approachPoint.y : -Infinity);
+      r.blocked = false; this.moveTo(record, !this.cartesianArm(r) && !this.reachable(record, above.clone().applyMatrix4(record.object.matrixWorld)) ? point : above, 'carry', r.destinationToolQuaternion);
     } else if (r.phase === 'carry') {
       if (r.config.operation === 'process' && r.config.processTime > 0) { r.phase = 'process'; r.phaseElapsed = 0; r.duration = r.config.processTime; }
       else this.moveTo(record, r.placePoint, 'place');
@@ -631,8 +696,8 @@ export default class RobotRuntime {
     if (!destination) { r.phase = 'mobile-wait-output'; r.blocked = true; return; }
     const point = this.local(record, this.worldContact(r.entry.product, destination.matrix));
     if (!this.reachable(record, point.clone().applyMatrix4(record.object.matrixWorld))) return this.fault(record, 'Atraque de entrega fuera del alcance del brazo móvil.');
-    r.destination = destination; r.placePoint = point; const above = point.clone(); above.y += r.config.approachHeight;
-    r.blocked = false; this.moveTo(record, above, 'carry');
+    r.destination = destination; r.placePoint = point; r.destinationToolQuaternion = this.destinationQuaternion(record, destination.matrix); const above = point.clone(); above.y += r.config.approachHeight;
+    r.blocked = false; this.moveTo(record, above, 'carry', r.destinationToolQuaternion);
   }
 
   sorterLoad(record) {
