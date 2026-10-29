@@ -38,7 +38,7 @@ function robotNetwork(document, roomId, definition, scene, options = {}) {
     const source = add('source', 'Source · tres formatos / recogida robótica', undefined, {autoGenerate: true, running: true, delivery: 'manual', initialCount: 1, capacity: 16, totalLimit: continuous ? 0 : 6, interval: 4, generationMode: 'sequence', catalog: JSON.stringify(catalogue), withPanel: false}, [.45, 1, 1]);
     const robot = add('robot', sorting ? 'SCARA · alimentación del clasificador' : 'Articulado · recogida y entrega', sorting ? 'scara' : 'articulated-general', Object.assign({}, schema.robots.defaults(sorting ? 'scara' : 'articulated-general'), {
       sourceId: source.userData.editorId, running: true, mode: 'automatic', withPanel: true, reach: sorting ? 1.1 : 1.6,
-      baseHeight: sorting ? 1.6 : .45, height: sorting ? .5 : 1.4, payloadKg: sorting ? 5 : 8, speed: 1.2, cycleTime: 2.4, processTime: 0, setupTime: .5,
+      baseHeight: sorting ? 1.8 : .65, height: sorting ? .5 : 1.4, payloadKg: sorting ? 5 : 8, speed: 1.2, cycleTime: 2.4, processTime: 0, setupTime: .5,
       approachHeight: .12, requireKnownMass: true, wear: .2}), [0, 0, 0]);
     patch(document, source, {outputId: robot.userData.editorId});
     const conveyor = add('conveyor', sorting ? 'Clasificador · defecto a ramal' : 'Banda · expedición de producto', sorting ? 'distributor' : 'belt', {
@@ -149,6 +149,13 @@ function compactVrStudy(document, roomId, definition, scene, options) {
       running: true, mode: 'automatic', withPanel: false, sourceId: source.userData.editorId, reach: 3.2, payloadKg: 80,
       tool: 'vacuum', acceptedTypes: 'pallets', requireKnownMass: true, maxProductWidth: 1.3, maxProductDepth: 1.1, maxProductHeight: 1,
       baseHeight: .45, speed: .8, cycleTime: 4, processTime: 0, setupTime: .4, approachHeight: .18}, [0, 0, 0]);
+    // The catalogue home scales its horizontal offset with arm reach. At 3.2m
+    // that puts the wrist inside a loaded pallet at the adjoining chain input.
+    // Author a metric folded waiting pose beside the base, retaining the full
+    // configured reach and the same forward/inverse kinematic chain.
+    const robotConfig = machine(document, robot), ready = schema.robotKinematics.inverse(robotConfig, {x: .35, y: robotConfig.baseHeight + .65, z: 0});
+    if (!ready.reached) throw new Error('La postura de espera de la célula de RV queda fuera del alcance.');
+    patch(document, robot, {jointLimitsJson: JSON.stringify(schema.robots.getJointDefinitions(robotConfig).map((joint, index) => ({id: joint.id, min: joint.min, max: joint.max, home: ready.joints[index]})))});
     patch(document, source, {outputId: robot.userData.editorId});
     const turn = definition.compactVR === 'turn', one = definition.compactVR === 'dispatch';
     const entry = add('conveyor', turn ? 'RV · mesa de giro a 90°' : 'RV · banda de recepción', turn ? 'pallet-turntable' : 'pallet-chain', {

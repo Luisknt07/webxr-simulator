@@ -30,10 +30,10 @@ function configuration(value) {
   if (!value || typeof value !== 'object') return robots.normalize({});
   // Geometry/runtime hold stable config objects during a cycle. Invalidate on
   // every mechanical field edit while avoiding full schema parsing per frame.
-  const signature = [value.variant, value.family, value.reach, value.length, value.width, value.height, value.baseHeight, value.maxProductDepth, value.jointLimitsJson].join('|');
+  const signature = [value.variant, value.family, value.tool, value.reach, value.length, value.width, value.height, value.baseHeight, value.maxProductDepth, value.jointLimitsJson].join('|');
   const cached = prepared.get(value); if (cached && cached.signature === signature) return cached.config;
   const config = robots.normalize(value); prepared.set(value, {signature, config});
-  prepared.set(config, {signature: [config.variant, config.family, config.reach, config.length, config.width, config.height, config.baseHeight, config.maxProductDepth, config.jointLimitsJson].join('|'), config});
+  prepared.set(config, {signature: [config.variant, config.family, config.tool, config.reach, config.length, config.width, config.height, config.baseHeight, config.maxProductDepth, config.jointLimitsJson].join('|'), config});
   return config;
 }
 
@@ -49,6 +49,15 @@ function getDimensions(value) {
     toolLength: ['amr', 'agv', 'shuttle', 'mobileSorter'].includes(c.family) ? 0 : .20};
 }
 function jointDefinitions(value) { return robots.getJointDefinitions(configuration(value)); }
+// The parallel gripper grips the sides below the top of a carton. Its real
+// 55 mm pads end at the TCP and the actuator remains at least 95 mm behind
+// it. A 40 mm insertion gives side contact while keeping the body above the
+// top; short loads use at most half their height. This does not change FK,
+// flange reach, vacuum contact or bottom-support tools.
+function getToolContactDepth(value, height) {
+  const c = configuration(value), size = Number(height);
+  return c.tool === 'gripper' && Number.isFinite(size) && size > 0 ? Math.min(.04, size * .5) : 0;
+}
 function clampJoints(value, joints) {
   return jointDefinitions(value).map((definition, index) => clamp(Number.isFinite(Number(joints && joints[index])) ? Number(joints[index]) : Number(definition.home) || 0, definition.min, definition.max));
 }
@@ -259,4 +268,4 @@ function validatePose(value, pose) {
   return Object.assign({}, pose, derived);
 }
 
-module.exports = {getDimensions, jointDefinitions, clampJoints, forward, inverse, homePose, validatePose};
+module.exports = {getDimensions, getToolContactDepth, jointDefinitions, clampJoints, forward, inverse, homePose, validatePose};

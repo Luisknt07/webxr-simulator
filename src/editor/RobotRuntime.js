@@ -12,9 +12,25 @@ function visible(object) { for (let node = object; node; node = node.parent) if 
 function vector(point) { return Array.isArray(point) ? new THREE.Vector3().fromArray(point) : new THREE.Vector3(point.x, point.y, point.z); }
 function smooth(t) { return t * t * (3 - 2 * t); }
 
+// A cached local box remains oriented with its real rigid mesh. The separating
+// axes also work for the scaled product roots used by imported loads.
+function orientedBox(bounds, matrix, inset = 0) {
+  const center = bounds.getCenter(new THREE.Vector3()).applyMatrix4(matrix), half = bounds.getSize(new THREE.Vector3()).multiplyScalar(.5);
+  const e = matrix.elements, edges = [new THREE.Vector3(e[0], e[1], e[2]), new THREE.Vector3(e[4], e[5], e[6]), new THREE.Vector3(e[8], e[9], e[10])];
+  edges.forEach((edge, i) => { const length = edge.length(); edge.multiplyScalar(Math.max(0, half.getComponent(i) - inset / Math.max(length, EPSILON))); });
+  return {center, edges, box: bounds.clone().applyMatrix4(matrix)};
+}
+function overlapsOriented(a, b) {
+  if (!a.box.intersectsBox(b.box)) return false;
+  const difference = b.center.clone().sub(a.center), axes = [];
+  [a.edges, b.edges].forEach(edges => { for (let i = 0; i < 3; i++) axes.push(new THREE.Vector3().crossVectors(edges[i], edges[(i + 1) % 3])); });
+  a.edges.forEach(x => b.edges.forEach(y => axes.push(new THREE.Vector3().crossVectors(x, y))));
+  return axes.every(axis => axis.lengthSq() < 1e-18 || Math.abs(difference.dot(axis)) < a.edges.concat(b.edges).reduce((sum, edge) => sum + Math.abs(edge.dot(axis)), 0) - 1e-10);
+}
+
 /** Bounded kinematic teaching cell. This is not a safety PLC, SLAM or dynamics solver. */
 export default class RobotRuntime {
-  constructor(runtime) { this.runtime = runtime; this.processGates = new Map(); }
+  constructor(runtime) { this.runtime = runtime; this.processGates = new Map(); this.loadGeometry = new WeakMap(); }
 
   prepare() {
     this.processGates.clear();
@@ -55,6 +71,7 @@ export default class RobotRuntime {
   operational(robot) { return robot.enabled && robot.powered && robot.running && !robot.paused && !robot.emergency && !robot.fault; }
   mobile(robot) { return MOBILE.has(robot.config.family); }
   mobileArm(robot) { return robot.config.family === 'mobileManipulator'; }
+  cartesianArm(robot) { return ['articulated', 'palletizer', 'mobileManipulator'].includes(robot.config.family); }
   sorter(robot) { return robot.config.family === 'mobileSorter'; }
   outputId(robot) { return robot.activeOutputId || robot.config.outputId; }
   inSitu(robot) { return robot.config.operation === 'process' && robot.config.tool === 'process'; }
@@ -65,14 +82,15 @@ export default class RobotRuntime {
     if (options.preserveGrip) return updateRobotPose(r.visualRoot, pose);
     pose.open = r.entry ? 0 : 1;
     if (product) {
-      const size = product.bounds.getSize(new THREE.Vector3()).multiply(product.scale), productRotation = r.loadQuaternion || product.object.getWorldQuaternion(new THREE.Quaternion());
+      const size = product.bounds.getSize(new THREE.Vector3()).multiply(product.scale), productRotation = r.entry && r.loadQuaternion || product.object.getWorldQuaternion(new THREE.Quaternion());
       const toolRotation = r.visualRoot.getWorldQuaternion(new THREE.Quaternion()).multiply(new THREE.Quaternion().fromArray(pose.quaternion));
       const jawAxis = new THREE.Vector3(0, 0, 1).applyQuaternion(toolRotation);
       pose.gripSpan = ['x', 'y', 'z'].reduce((sum, axis) => {
         const direction = new THREE.Vector3(); direction[axis] = 1; direction.applyQuaternion(productRotation);
         return sum + Math.abs(jawAxis.dot(direction)) * Math.abs(size[axis]);
       }, 0);
-    }
+      r.lastGripSpan = pose.gripSpan;
+    } else if (Number.isFinite(r.lastGripSpan)) pose.gripSpan = r.lastGripSpan;
     return updateRobotPose(r.visualRoot, pose);
   }
 
@@ -93,7 +111,7 @@ export default class RobotRuntime {
       blockedSeconds: r.blockedSeconds, downSeconds: r.downSeconds, distance: r.distance,
       utilization: r.elapsed ? r.busySeconds / r.elapsed * 100 : 0,
       activeOutputId: this.outputId(r), sorterMode: this.sorter(r) ? r.config.sorterMode : '',
-      joints: JSON.stringify(r.pose.joints || []), tcpX: r.pose.tcp.x, tcpY: r.pose.tcp.y, tcpZ: r.pose.tcp.z};
+      clearanceObstacle: r.clearanceObstacle || '', joints: JSON.stringify(r.pose.joints || []), tcpX: r.pose.tcp.x, tcpY: r.pose.tcp.y, tcpZ: r.pose.tcp.z};
   }
 
   command(record, action, value) {
@@ -164,9 +182,15 @@ export default class RobotRuntime {
   worldContact(product, matrix, record) {
     product.object.updateWorldMatrix(true, true);
     record = record || this.runtime.records.get(product.robotOwnerId);
-    const robot = record && record.components.robot, supported = robot && ['platform', 'fork'].includes(robot.config.tool);
-    const bounds = product.bounds, top = new THREE.Vector3((bounds.min.x + bounds.max.x) / 2, supported ? bounds.min.y : bounds.max.y, (bounds.min.z + bounds.max.z) / 2);
-    return top.applyMatrix4(matrix || product.object.matrixWorld);
+    return this.contactPoint(product, record && record.components.robot).applyMatrix4(matrix || product.object.matrixWorld);
+  }
+
+  contactPoint(product, robot) {
+    const bounds = product.bounds, supported = robot && ['platform', 'fork'].includes(robot.config.tool), scaleY = Math.max(EPSILON, Math.abs(product.scale.y));
+    // The rubber jaws need to straddle the upper sides. Vacuum lips still meet
+    // the top plane, and forks/platforms retain the existing underside contact.
+    const depth = robot && robotKinematics.getToolContactDepth ? robotKinematics.getToolContactDepth(robot.config, (bounds.max.y - bounds.min.y) * scaleY) / scaleY : 0;
+    return new THREE.Vector3((bounds.min.x + bounds.max.x) / 2, supported ? bounds.min.y : bounds.max.y - depth, (bounds.min.z + bounds.max.z) / 2);
   }
 
   local(record, world) { record.object.updateWorldMatrix(true, false); return world.clone().applyMatrix4(new THREE.Matrix4().getInverse(record.object.matrixWorld)); }
@@ -257,21 +281,150 @@ export default class RobotRuntime {
 
   moveTo(record, localTarget, phase) {
     const r = record.components.robot;
-    const pose = robotKinematics.inverse(r.config, localTarget, r.pose.joints);
+    const home = robotKinematics.homePose(r.config), returning = ['return', 'stow-output'].includes(phase) && vector(home.tcp).distanceTo(localTarget) < EPSILON;
+    const pose = robotKinematics.inverse(r.config, returning ? {position: localTarget.toArray(), quaternion: home.quaternion} : localTarget, r.pose.joints);
     if (pose.reached === false || pose.error > r.config.positionTolerance) return this.fault(record, 'Trayectoria fuera del alcance o de los límites de articulación.');
     r.from = vector(r.pose.tcp); r.to = vector(pose.tcp); r.fromJoints = r.pose.joints.slice(); r.toJoints = pose.joints.slice(); r.phase = phase; r.phaseElapsed = 0;
-    r.duration = Math.max(.12, r.config.cycleTime / 6, r.from.distanceTo(r.to) / r.speed);
+    r.cartesianPath = null;
+    let distance = r.from.distanceTo(r.to);
+    if (this.cartesianArm(r) || r.config.family === 'scara' && this.runtime.ctx.collisionWorld) {
+      const points = [r.from.clone()];
+      if (['approach', 'carry', 'return', 'stow-output'].includes(phase) && Math.hypot(r.to.x - r.from.x, r.to.z - r.from.z) > .01) {
+        const clearance = this.travelClearance(record, r.from, r.to, phase);
+        points.push(new THREE.Vector3(r.from.x, clearance, r.from.z), new THREE.Vector3(r.to.x, clearance, r.to.z));
+      }
+      points.push(r.to.clone());
+      r.cartesianPath = points.filter((point, index) => !index || point.distanceTo(points[index - 1]) > EPSILON).map(point => point.toArray());
+      r.fromQuaternion = r.pose.quaternion.slice(); r.toQuaternion = pose.quaternion.slice();
+      distance = r.cartesianPath.reduce((sum, point, index, all) => sum + (index ? vector(point).distanceTo(vector(all[index - 1])) : 0), 0);
+      // Check a bounded path before moving; insufficient clearance cannot
+      // silently fall back to a direct dive into the load.
+      let seed = r.pose.joints;
+      for (let index = 1; index <= 24; index++) {
+        const next = this.pathPose(record, index / 24, seed);
+        if (!next || next.reached === false || next.error > r.config.positionTolerance) return this.fault(record, 'Retirada o aproximación sin despeje dentro del alcance configurado.');
+        seed = next.joints;
+      }
+    }
+    r.duration = Math.max(.12, r.config.cycleTime / 6, distance / r.speed);
     return true;
+  }
+
+  travelClearance(record, from, to, phase) {
+    const r = record.components.robot, product = r.entry && r.entry.product;
+    let clearance = Math.max(from.y, to.y) + (['return', 'stow-output'].includes(phase) ? r.config.approachHeight : 0);
+    if (r.config.family === 'scara') {
+      const maximum = r.config.baseHeight - robotKinematics.getDimensions(r.config).toolLength - robotSchema.getJointDefinitions(r.config)[2].min;
+      clearance = Math.min(clearance, maximum);
+    }
+    const margin = .06, heldHeight = product ? (this.contactPoint(product, r).y - product.bounds.min.y) * Math.abs(product.scale.y) : 0;
+    const size = product && product.bounds.getSize(new THREE.Vector3()).multiply(product.scale), radius = size ? Math.max(size.x, size.z) / 2 + .06 : .12;
+    record.object.updateWorldMatrix(true, false);
+    const inverse = new THREE.Matrix4().getInverse(record.object.matrixWorld);
+    this.runtime.products.forEach(other => {
+      if (other === product || !visible(other.object)) return;
+      other.object.updateWorldMatrix(true, false);
+      const box = other.bounds.clone().applyMatrix4(other.object.matrixWorld).applyMatrix4(inverse);
+      if (box.max.x < Math.min(from.x, to.x) - radius || box.min.x > Math.max(from.x, to.x) + radius || box.max.z < Math.min(from.z, to.z) - radius || box.min.z > Math.max(from.z, to.z) + radius) return;
+      clearance = Math.max(clearance, box.max.y + heldHeight + margin);
+    });
+    return clearance;
+  }
+
+  pathPose(record, fraction, seed) {
+    const r = record.components.robot, points = r.cartesianPath;
+    const lengths = points.slice(1).map((point, i) => vector(point).distanceTo(vector(points[i]))), total = lengths.reduce((a, b) => a + b, 0);
+    let remaining = Math.max(0, Math.min(1, fraction)) * total, point = vector(points[points.length - 1]);
+    for (let i = 0; i < lengths.length; i++) {
+      if (remaining <= lengths[i] || i === lengths.length - 1) { point = vector(points[i]).lerp(vector(points[i + 1]), Math.min(1, remaining / Math.max(EPSILON, lengths[i]))); break; }
+      remaining -= lengths[i];
+    }
+    const quaternion = new THREE.Quaternion().fromArray(r.fromQuaternion).slerp(new THREE.Quaternion().fromArray(r.toQuaternion), fraction);
+    return robotKinematics.inverse(r.config, {position: point.toArray(), quaternion: quaternion.toArray()}, seed || r.pose.joints);
+  }
+
+  carriedMatrix(record) {
+    const r = record.components.robot; if (!r.entry) return true;
+    const product = r.entry.product, tool = this.tool(record); record.object.updateWorldMatrix(true, true);
+    const contact = tool ? tool.getWorldPosition(new THREE.Vector3()) : vector(r.pose.tcp).applyMatrix4(record.object.matrixWorld);
+    const localContact = this.contactPoint(product, r).multiply(product.scale).applyQuaternion(r.loadQuaternion);
+    return new THREE.Matrix4().compose(contact.sub(localContact), r.loadQuaternion, product.scale);
   }
 
   carryPose(record) {
     const r = record.components.robot; if (!r.entry) return true;
-    const product = r.entry.product, tool = this.tool(record); record.object.updateWorldMatrix(true, true);
-    const contact = tool ? tool.getWorldPosition(new THREE.Vector3()) : vector(r.pose.tcp).applyMatrix4(record.object.matrixWorld);
-    const supported = ['platform', 'fork'].includes(r.config.tool);
-    const localTop = new THREE.Vector3((product.bounds.min.x + product.bounds.max.x) / 2, supported ? product.bounds.min.y : product.bounds.max.y, (product.bounds.min.z + product.bounds.max.z) / 2).multiply(product.scale).applyQuaternion(r.loadQuaternion);
-    const matrix = new THREE.Matrix4().compose(contact.sub(localTop), r.loadQuaternion, product.scale);
-    return this.placeCarried(record, matrix);
+    return this.placeCarried(record, this.carriedMatrix(record));
+  }
+
+  loadParts(product) {
+    if (this.loadGeometry.has(product.object)) return this.loadGeometry.get(product.object);
+    product.object.updateWorldMatrix(true, true);
+    const inverse = new THREE.Matrix4().getInverse(product.object.matrixWorld), parts = [];
+    product.object.traverse(object => {
+      if (!object.isMesh || !object.geometry || !visible(object) || object.userData.industrialCosmeticDetail) return;
+      if (!object.geometry.boundingBox) object.geometry.computeBoundingBox();
+      const bounds = object.geometry.boundingBox;
+      if (!bounds || bounds.isEmpty() || bounds.getSize(new THREE.Vector3()).toArray().some(value => value < .001)) return;
+      parts.push({bounds: bounds.clone(), matrix: new THREE.Matrix4().multiplyMatrices(inverse, object.matrixWorld)});
+    });
+    const bounded = parts.length && parts.length <= 96 ? parts : [{bounds: product.bounds.clone(), matrix: new THREE.Matrix4()}];
+    this.loadGeometry.set(product.object, bounded); return bounded;
+  }
+
+  bodyIntersectsPart(body, part, matrix) {
+    // Profiled castings have empty corners inside their OBB. Refine only a
+    // nearby pair against its real triangles before stopping the motion.
+    const geometry = body.object.geometry, positions = geometry.attributes.position, indices = geometry.index;
+    if (!positions) return true;
+    const relative = new THREE.Matrix4().multiplyMatrices(new THREE.Matrix4().getInverse(matrix), body.object.matrixWorld);
+    const scale = new THREE.Vector3().setFromMatrixScale(matrix), bounds = part.bounds.clone();
+    ['x', 'y', 'z'].forEach(axis => { const inset = Math.min((bounds.max[axis] - bounds.min[axis]) * .1, .003 / Math.max(EPSILON, Math.abs(scale[axis]))); bounds.min[axis] += inset; bounds.max[axis] -= inset; });
+    const triangle = new THREE.Triangle(), count = indices ? indices.count : positions.count;
+    for (let i = 0; i < count; i += 3) {
+      triangle.a.fromBufferAttribute(positions, indices ? indices.getX(i) : i).applyMatrix4(relative);
+      triangle.b.fromBufferAttribute(positions, indices ? indices.getX(i + 1) : i + 1).applyMatrix4(relative);
+      triangle.c.fromBufferAttribute(positions, indices ? indices.getX(i + 2) : i + 2).applyMatrix4(relative);
+      if (bounds.intersectsTriangle(triangle)) return true;
+    }
+    // A small carton can be wholly inside a closed casting without crossing
+    // its surface. An odd ray parity catches that containment case as well.
+    const origin = bounds.getCenter(new THREE.Vector3()).applyMatrix4(new THREE.Matrix4().getInverse(relative));
+    if (!body.bounds.containsPoint(origin)) return false;
+    const ray = new THREE.Ray(origin, new THREE.Vector3(1, .173, .317).normalize()), hits = new Set(), hit = new THREE.Vector3();
+    for (let i = 0; i < count; i += 3) {
+      triangle.a.fromBufferAttribute(positions, indices ? indices.getX(i) : i);
+      triangle.b.fromBufferAttribute(positions, indices ? indices.getX(i + 1) : i + 1);
+      triangle.c.fromBufferAttribute(positions, indices ? indices.getX(i + 2) : i + 2);
+      if (ray.intersectTriangle(triangle.a, triangle.b, triangle.c, false, hit)) hits.add(Math.round(hit.distanceTo(origin) * 1e6));
+    }
+    return hits.size % 2 === 1;
+  }
+
+  armClear(record, heldMatrix) {
+    // The arm's own rigid bodies supplement the existing payload/environment
+    // sweep. Product mesh bounds are cached once; no per-frame vertex scan.
+    if (!this.runtime.ctx.collisionWorld) return true;
+    const r = record.components.robot, rig = r.visualRoot.userData.robotRig;
+    if (!rig || !rig.collisionBodies || !['articulated', 'palletizer', 'mobileManipulator', 'scara', 'delta', 'cartesian', 'cylindrical', 'polar'].includes(r.config.family)) return true;
+    record.object.updateWorldMatrix(true, true);
+    const bodies = rig.collisionBodies.filter(body => visible(body.object)).map(body => ({body, shape: orientedBox(body.bounds, body.object.matrixWorld)}));
+    const broad = new THREE.Box3(); bodies.forEach(value => broad.union(value.shape.box));
+    for (const product of this.runtime.products.values()) {
+      if (!visible(product.object)) continue;
+      const own = r.entry && r.entry.product === product;
+      product.object.updateWorldMatrix(true, false);
+      const matrix = own && heldMatrix || product.object.matrixWorld, box = product.bounds.clone().applyMatrix4(matrix);
+      if (!broad.intersectsBox(box)) continue;
+      const contacted = own || r.candidate && r.candidate.product === product || r.processingProduct === product;
+      const near = bodies.filter(value => (value.body.role !== 'contact' || !contacted) && value.shape.box.intersectsBox(box));
+      for (const part of this.loadParts(product)) {
+        const partMatrix = new THREE.Matrix4().multiplyMatrices(matrix, part.matrix), shape = orientedBox(part.bounds, partMatrix, .003);
+        for (const value of near) if (overlapsOriented(value.shape, shape) && this.bodyIntersectsPart(value.body, part, partMatrix)) {
+          r.blocked = true; r.clearanceObstacle = product.object.name || product.id || 'carga'; r.clearanceBody = value.body.object.name; return false;
+        }
+      }
+    }
+    r.clearanceObstacle = ''; r.clearanceBody = ''; return true;
   }
 
   placeCarried(record, matrix) {
@@ -355,6 +508,7 @@ export default class RobotRuntime {
 
   begin(record) {
     const r = record.components.robot, c = this.candidate(record); if (!c) return;
+    if (!this.armClear(record)) return this.fault(record, 'La postura actual del brazo invade una carga; libera el espacio o corrige el origen antes de iniciar.');
     if (this.mobile(r) && r.batteryPercent <= 0) return this.fault(record, 'Batería agotada · recarga o reinicia la práctica.');
     const metadata = this.runtime.productMetadata(c.product);
     // An in-situ nozzle carries its tool, not the mass of the stationary part.
@@ -371,7 +525,9 @@ export default class RobotRuntime {
     if (this.mobile(r)) { this.navigation(record, this.dock(record, c.source, true), 'drive-input'); return; }
     r.pickPoint = this.local(record, point);
     const above = r.pickPoint.clone(); above.y += r.config.approachHeight;
-    r.approachPoint = this.reachable(record, above.clone().applyMatrix4(record.object.matrixWorld)) ? above : r.pickPoint;
+    const clearApproach = this.reachable(record, above.clone().applyMatrix4(record.object.matrixWorld));
+    if (!clearApproach && this.cartesianArm(r)) return this.fault(record, 'No hay altura de aproximación libre dentro del alcance configurado.');
+    r.approachPoint = clearApproach ? above : r.pickPoint;
     if (!r.started && r.config.setupTime > 0) { r.phase = 'setup'; r.phaseElapsed = 0; r.duration = r.config.setupTime; }
     else this.moveTo(record, r.approachPoint, 'approach');
     r.started = true;
@@ -409,9 +565,10 @@ export default class RobotRuntime {
     const complete = r.phaseElapsed + EPSILON >= r.duration;
     if (['approach', 'pick', 'lift', 'carry', 'place', 'return', 'engage', 'retract', 'stow-input', 'stow-output'].includes(r.phase)) {
       const fraction = smooth(Math.min(1, r.phaseElapsed / r.duration));
-      const pose = robotKinematics.forward(r.config, r.fromJoints.map((value, index) => value + (r.toJoints[index] - value) * fraction));
+      const pose = r.cartesianPath ? this.pathPose(record, fraction) : robotKinematics.forward(r.config, r.fromJoints.map((value, index) => value + (r.toJoints[index] - value) * fraction));
+      if (pose.reached === false || pose.error > r.config.positionTolerance) { r.phaseElapsed = previousElapsed; return this.fault(record, 'La trayectoria cartesiana sale del alcance configurado.'); }
       r.pose = pose; this.applyPose(record, pose);
-      if (!this.carryPose(record)) { r.pose = previousPose; r.phaseElapsed = previousElapsed; this.applyPose(record, previousPose); return; }
+      if (!this.armClear(record, r.entry && this.carriedMatrix(record)) || !this.carryPose(record)) { r.pose = previousPose; r.phaseElapsed = previousElapsed; this.applyPose(record, previousPose); return; }
       r.blocked = false;
     }
     if (!complete) return;
@@ -445,7 +602,7 @@ export default class RobotRuntime {
       const point = this.local(record, this.worldContact(r.entry.product, destination.matrix)); r.destination = destination;
       if (!this.reachable(record, point.clone().applyMatrix4(record.object.matrixWorld))) return this.fault(record, 'Destino fuera del alcance configurado.');
       r.placePoint = point; const above = point.clone(); above.y = Math.max(above.y + r.config.approachHeight, r.approachPoint ? r.approachPoint.y : -Infinity);
-      r.blocked = false; this.moveTo(record, this.reachable(record, above.clone().applyMatrix4(record.object.matrixWorld)) ? above : point, 'carry');
+      r.blocked = false; this.moveTo(record, !this.cartesianArm(r) && !this.reachable(record, above.clone().applyMatrix4(record.object.matrixWorld)) ? point : above, 'carry');
     } else if (r.phase === 'carry') {
       if (r.config.operation === 'process' && r.config.processTime > 0) { r.phase = 'process'; r.phaseElapsed = 0; r.duration = r.config.processTime; }
       else this.moveTo(record, r.placePoint, 'place');
@@ -462,7 +619,8 @@ export default class RobotRuntime {
     const point = this.worldContact(r.candidate.product, null, record);
     if (!this.reachable(record, point)) return this.fault(record, 'Atraque de recogida fuera del alcance del brazo móvil.');
     r.pickPoint = this.local(record, point); const above = r.pickPoint.clone(); above.y += r.config.approachHeight;
-    r.approachPoint = this.reachable(record, above.clone().applyMatrix4(record.object.matrixWorld)) ? above : r.pickPoint;
+    if (!this.reachable(record, above.clone().applyMatrix4(record.object.matrixWorld))) return this.fault(record, 'No hay altura de aproximación libre dentro del alcance configurado.');
+    r.approachPoint = above;
     if (!r.started && r.config.setupTime > 0) { r.phase = 'setup'; r.phaseElapsed = 0; r.duration = r.config.setupTime; }
     else this.moveTo(record, r.approachPoint, 'approach');
     r.started = true;
@@ -474,7 +632,7 @@ export default class RobotRuntime {
     const point = this.local(record, this.worldContact(r.entry.product, destination.matrix));
     if (!this.reachable(record, point.clone().applyMatrix4(record.object.matrixWorld))) return this.fault(record, 'Atraque de entrega fuera del alcance del brazo móvil.');
     r.destination = destination; r.placePoint = point; const above = point.clone(); above.y += r.config.approachHeight;
-    r.blocked = false; this.moveTo(record, this.reachable(record, above.clone().applyMatrix4(record.object.matrixWorld)) ? above : point, 'carry');
+    r.blocked = false; this.moveTo(record, above, 'carry');
   }
 
   sorterLoad(record) {

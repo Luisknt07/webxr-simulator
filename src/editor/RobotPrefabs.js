@@ -305,13 +305,15 @@ function link(b, parent, length, thickness, name, distal = false) {
 }
 
 function tool(b, parent, rig) {
-  // The local +X axis is the tool approach axis; the mathematical TCP and the
-  // visible finger/ventosa contact plane are exactly x=0.
+  // The local +X axis is the tool approach axis. Vacuum lips and finger tips
+  // end at TCP x=0; the parallel gripper grips with side pads behind its tips.
   const assembly = group(parent, 'Efector final · ' + b.config.tool, [kinematics.getDimensions(b.config).toolLength, 0, 0]); rig.toolAssembly = assembly;
+  assembly.userData.robotToolAssembly = true;
+  const contact = (mesh, kind) => {mesh.userData.robotContactSurface = kind; rig.toolContactSurfaces.push(mesh); return mesh;};
   rig.tool = group(assembly, 'TCP · punto de contacto'); rig.tool.userData.robotToolAnchor = true;
   if (b.config.tool === 'platform') {
     const long = Math.min(b.config.length * .78, 1.3), wide = Math.min(b.config.width * .82, 1.1);
-    b.box('Cubierta antideslizante de transferencia', [.045, long, wide], 'rubber', assembly, [.026, 0, 0], true);
+    contact(b.box('Cubierta antideslizante de transferencia', [.045, long, wide], 'rubber', assembly, [.026, 0, 0], true), 'support');
     b.bolts(assembly, [-1, 1].flatMap(y => [-1, 1].map(z => [.003, y * long * .4, z * wide * .4])), .011, 'x');
   } else if (b.config.tool === 'fork') {
     // Tool +X points down in a transport posture. Both horizontal tines have
@@ -319,7 +321,7 @@ function tool(b, parent, rig) {
     b.box('Portahorquillas', [.34, .075, .55], 'tool', assembly, [.14, -.28, 0], true);
     for (const z of [-.18, .18]) {
       b.box('Talón de horquilla', [.24, .07, .065], 'metal', assembly, [.12, -.24, z]);
-      b.box('Horquilla mecanizada', [.035, .62, .065], 'metal', assembly, [.0175, .02, z], true);
+      contact(b.box('Horquilla mecanizada', [.035, .62, .065], 'metal', assembly, [.0175, .02, z], true), 'support');
     }
   } else if (b.config.tool === 'vacuum') {
     // The adapter meets the ISO flange, collector and suction stems; no
@@ -329,12 +331,12 @@ function tool(b, parent, rig) {
     for (const y of [-.08, .08]) for (const z of [-.08, .08]) {
       b.cylinder('Vástago de ventosa', .012, .07, 'metal', assembly, [-.075, y, z], [0, 0, Math.PI / 2]);
       const bellows = [[0, -.04], [.019, -.04], [.025, -.034], [.02, -.028], [.029, -.022], [.023, -.016], [.034, -.008], [.034, 0], [.027, 0], [.012, -.026]];
-      b.mesh('Fuelle de ventosa', b.geometry('lathe', [bellows]), 'rubber', assembly, [0, y, z], [0, 0, -Math.PI / 2]);
+      contact(b.mesh('Fuelle de ventosa', b.geometry('lathe', [bellows]), 'rubber', assembly, [0, y, z], [0, 0, -Math.PI / 2]), 'vacuum');
     }
     b.cable(assembly, [[-.17, .13, 0], [-.24, .17, .05], [-.24, -.02, .09]], .008, 'Tubo neumático de vacío');
   } else if (b.config.tool === 'process') {
     b.cylinder('Carcasa de husillo / proceso', .055, .17, 'tool', assembly, [-.13, 0, 0], [0, 0, Math.PI / 2]);
-    b.cylinder('Boquilla de proceso', .012, .045, 'metal', assembly, [-.0225, 0, 0], [0, 0, Math.PI / 2], .004);
+    contact(b.cylinder('Boquilla de proceso', .012, .045, 'metal', assembly, [-.0225, 0, 0], [0, 0, Math.PI / 2], .004), 'process');
     b.cable(assembly, [[-.19, .045, 0], [-.27, .12, 0], [-.32, .02, 0]], .012);
   } else {
     b.box('Actuador de pinza paralela', [.11, .16, .16], 'tool', assembly, [-.15, 0, 0], true);
@@ -343,7 +345,7 @@ function tool(b, parent, rig) {
       const finger = group(assembly, 'Mordaza ' + (sign < 0 ? 'izquierda' : 'derecha'), [0, 0, sign * .065]);
       finger.userData.robotFingerSign = sign;
       b.box('Dedo de agarre mecanizado', [.12, .045, .026], 'metal', finger, [-.06, 0, 0], true);
-      b.box('Superficie de contacto', [.055, .044, .012], 'rubber', finger, [-.028, 0, -sign * .015]);
+      contact(b.box('Superficie de contacto', [.055, .044, .012], 'rubber', finger, [-.028, 0, -sign * .015]), 'jaw');
       return finger;
     });
   }
@@ -556,6 +558,26 @@ function expose(root, rig) {
   RIG.set(root, rig);
   Object.defineProperty(root.userData, 'robotRig', {value: rig, configurable: true, enumerable: false});
 }
+function collisionBodies(rig) {
+  // Cache rigid-part bounds once, in the actual mesh's coordinates. Long
+  // diagonal links keep an oriented envelope rather than a large world AABB
+  // full of empty corners. Moving jaws, rail scales and parallel rods retain
+  // their own transforms. Runtime can broadphase these small cached bounds
+  // and narrowphase `meshes` only when necessary; no new renderable is added.
+  const bodies = [], groups = new Map(), boundaries = new Set([rig.visual, ...rig.joints, rig.toolAssembly, ...rig.fingers].filter(Boolean));
+  rig.visual.traverse(object => {
+    if (!object.isMesh || !object.geometry || object.userData.industrialCosmeticDetail) return;
+    if (!object.geometry.boundingBox) object.geometry.computeBoundingBox();
+    const bounds = object.geometry.boundingBox;
+    if (!bounds || bounds.isEmpty()) return;
+    let parent = object, owner = rig.visual, inTool = false;
+    while (parent && parent !== rig.visual) {if (parent === rig.toolAssembly) inTool = true; if (owner === rig.visual && boundaries.has(parent)) owner = parent; parent = parent.parent;}
+    const body = {object, bounds: bounds.clone(), meshes: [object], role: object.userData.robotContactSurface ? 'contact' : inTool ? 'tool' : 'link', owner};
+    bodies.push(body); if (!groups.has(owner)) groups.set(owner, []); groups.get(owner).push(body);
+  });
+  rig.collisionBodies = bodies;
+  rig.collisionGroups = Array.from(groups, ([object, bodies]) => ({object, bodies}));
+}
 function disposeVisual(visual) {
   const geometries = new Set(), materials = new Set(), textures = new Set();
   visual.traverse(node => {
@@ -578,7 +600,7 @@ export function refreshRobotGeometry(root, value = {}, options = {}) {
   if (prior) { root.remove(prior); disposeVisual(prior); }
   const visual = new THREE.Group(); visual.name = 'Robot · conjunto mecánico'; visual.userData.robotVisual = true;
   root.add(visual); root.children.splice(root.children.indexOf(visual), 1); root.children.unshift(visual);
-  const rig = {visual, config, joints: [], tool: null, fingers: []}, b = builder(config), d = kinematics.getDimensions(config);
+  const rig = {visual, config, joints: [], tool: null, fingers: [], toolContactSurfaces: []}, b = builder(config), d = kinematics.getDimensions(config);
   if (config.family === 'articulated' || config.family === 'palletizer') articulated(b, rig, d);
   else if (config.family === 'mobileManipulator') { mobile(b, rig, d); articulated(b, rig, d); }
   else if (config.family === 'cylindrical' || config.family === 'polar') radialRobot(b, rig, d);
@@ -605,7 +627,7 @@ export function refreshRobotGeometry(root, value = {}, options = {}) {
   }
   visual.userData.robotParametricDesign = {filletRadius: config.filletRadius, chamferSize: config.chamferSize, mountingHoles: config.mountingHoles, detail: config.detail};
   root.userData.robotGeometryVersion = 2; root.userData.robotFamily = config.family; root.userData.editorPrefabVariant = config.variant;
-  expose(root, rig); updateRobotPose(root, kinematics.homePose(config));
+  expose(root, rig); updateRobotPose(root, kinematics.homePose(config)); collisionBodies(rig);
   return root;
 }
 

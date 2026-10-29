@@ -4,10 +4,10 @@
   "recipeVersion": 2,
   "width": 480,
   "height": 320,
-  "bundleSha256": "b287ca811c4c6a5ad5b27e366bd8d2958b3e5d17208e85a5a945cccfe6b8a8d1",
+  "bundleSha256": "ebb8e4b70d59f64fef8744956851bdd6cf97237eb84be8a27083e0c21d96e315",
   "catalogSha256": "a3570cfa0c03def9daad68f189ff90ae4b3fbb5dd639d271d053a92b3e2bce59",
   "complete": true,
-  "bytes": 3291419,
+  "bytes": 3292642,
   "scenes": [
     {
       "id": "l-transfer",
@@ -59,15 +59,15 @@
       "recipeVersion": 2,
       "width": 480,
       "height": 320,
-      "bytes": 32398,
-      "sha256": "ad40514fba77fbe9d123a95658ef7e8b52236e8fac08e0b6774dcffc043ef1ba",
-      "bundleSha256": "b287ca811c4c6a5ad5b27e366bd8d2958b3e5d17208e85a5a945cccfe6b8a8d1",
-      "sceneSha256": "5e9da83a4b0a3865082eac6f20a96d1addbcad347a3bbc3c23ab55a69eef304c",
+      "bytes": 32776,
+      "sha256": "d59599420d62ac7cecd1f603c2e658a6cefee31faf703421e39be13dbe3d4460",
+      "bundleSha256": "ebb8e4b70d59f64fef8744956851bdd6cf97237eb84be8a27083e0c21d96e315",
+      "sceneSha256": "b7d7cf9e02feb42c16c2a2cfef01eb7f56614f583b502029202daeb28d25d04e",
       "quality": {
         "width": 480,
         "height": 320,
-        "mean": 46.05121527777777,
-        "variance": 491.85472653235774,
+        "mean": 46.108506944444436,
+        "variance": 500.44077253930254,
         "min": 40,
         "max": 211.33333333333334
       }
@@ -80,15 +80,15 @@
       "recipeVersion": 2,
       "width": 480,
       "height": 320,
-      "bytes": 31841,
-      "sha256": "69c421d08ba294f7d2d83dfcb7a2550d73e607e71b3ad82f2ced5ad9ce3f5f53",
-      "bundleSha256": "b287ca811c4c6a5ad5b27e366bd8d2958b3e5d17208e85a5a945cccfe6b8a8d1",
-      "sceneSha256": "bbea5302a250731ecce175a1a31522562a6296b0f8bd3e63f736942692726ed9",
+      "bytes": 31856,
+      "sha256": "2246a59afc3f35a10d7475556ed3f8e4a76b14156941f4de8bfd44389d26f760",
+      "bundleSha256": "ebb8e4b70d59f64fef8744956851bdd6cf97237eb84be8a27083e0c21d96e315",
+      "sceneSha256": "afab5abd9fd491429e88e97740ebc0bf470088e4c8abd3d9e911ca2cc504a92e",
       "quality": {
         "width": 480,
         "height": 320,
-        "mean": 44.60720486111112,
-        "variance": 318.2101506362717,
+        "mean": 44.65755208333334,
+        "variance": 328.0417282669621,
         "min": 40,
         "max": 189.33333333333334
       }
@@ -101,15 +101,15 @@
       "recipeVersion": 2,
       "width": 480,
       "height": 320,
-      "bytes": 32259,
-      "sha256": "7e83d7c161682d97a9ab92631aa850b9946421b5f738c6f1676049fb5ed1528a",
-      "bundleSha256": "b287ca811c4c6a5ad5b27e366bd8d2958b3e5d17208e85a5a945cccfe6b8a8d1",
-      "sceneSha256": "9d8eb2fabfa2e1d83a8a1cbd40601b7e2fb820c6bcce70dbc6e1dcd51dcc2baa",
+      "bytes": 32413,
+      "sha256": "5d554032df4017f988e9b6c787788320130e7dd3672947974cbb38c130c17c8f",
+      "bundleSha256": "ebb8e4b70d59f64fef8744956851bdd6cf97237eb84be8a27083e0c21d96e315",
+      "sceneSha256": "4b3e0e73d7785c16d2cefb2e4a8b9f41e1aef3b1f762c43c1262f36310e9c212",
       "quality": {
         "width": 480,
         "height": 320,
-        "mean": 47.24392361111112,
-        "variance": 648.864691086756,
+        "mean": 47.20312500000002,
+        "variance": 655.4384856047436,
         "min": 40,
         "max": 224
       }
@@ -185,15 +185,15 @@
       "recipeVersion": 2,
       "width": 480,
       "height": 320,
-      "bytes": 33300,
-      "sha256": "d736573d6c42c2f0d302d80e414adfd83256039cbcf446fcb2719866521a05d0",
-      "bundleSha256": "29442861e36336c560906edded89938a95dae7bee9bf88745a7a0c7a2c47d739",
-      "sceneSha256": "a6136b971c446ea96d0521920864d2fb43ec43f06ef1aa5e90f59d939f30b11a",
+      "bytes": 33757,
+      "sha256": "3f043d435886927be10822c40009e4e10c9b24049b2cc3ca8998620e0a0a1329",
+      "bundleSha256": "ebb8e4b70d59f64fef8744956851bdd6cf97237eb84be8a27083e0c21d96e315",
+      "sceneSha256": "cc3782afec48a02362257057a2a2bed89b08e263856ff0e2f0b4ba7fdb438463",
       "quality": {
         "width": 480,
         "height": 320,
-        "mean": 50.99175347222225,
-        "variance": 1202.5894863929257,
+        "mean": 51.00954861111112,
+        "variance": 1195.2669805832852,
         "min": 40,
         "max": 214
       }
@@ -206,17 +206,17 @@
       "recipeVersion": 2,
       "width": 480,
       "height": 320,
-      "bytes": 35834,
-      "sha256": "d6f8137ed6d5a0792384c997d92a741254dcdad6bd5c90817c50a38a92fbfb9a",
-      "bundleSha256": "29442861e36336c560906edded89938a95dae7bee9bf88745a7a0c7a2c47d739",
-      "sceneSha256": "7f862c88e7d585b4e16ab94f4d687c34ca6a23bf2143ed6d85898af7d618c997",
+      "bytes": 36053,
+      "sha256": "c15ee6d0e96790da6251de4cf969b18fbcf3c312a2c705dd057f5c6780013899",
+      "bundleSha256": "ebb8e4b70d59f64fef8744956851bdd6cf97237eb84be8a27083e0c21d96e315",
+      "sceneSha256": "46995e30ac2c6356a3b968a96af05a5d0322d639651311fa9ed3997a94759b20",
       "quality": {
         "width": 480,
         "height": 320,
-        "mean": 50.731770833333314,
-        "variance": 1243.0764906141526,
+        "mean": 50.896701388888864,
+        "variance": 1260.1907182858354,
         "min": 40,
-        "max": 242.66666666666666
+        "max": 243.66666666666666
       }
     },
     {
