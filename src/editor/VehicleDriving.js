@@ -46,6 +46,32 @@ export default class VehicleDriving {
       ctx.studioMenuOpen || ctx.roomTransition || ctx.xrEntryPending || ctx.xrExitPending || this.document && this.document.hidden ||
       studio && studio.drawer && !studio.drawer.hidden || ctx.vrMode && (!session || session.visibilityState && session.visibilityState !== 'visible' || ctx.raycontrol && ctx.raycontrol.enabled === false);
   }
+  panelSelectable(controller) {
+    // A ray emitted by a hand on the physical wheel/lever must not capture its
+    // trigger and cancel the grasp. Keep the other hand available for buttons.
+    const cab = this.cab, hand = controller && cab && cab.hands.get(controller);
+    const data = hand && hand.data || controller && this.ctx.raycontrol && this.ctx.raycontrol.controllers && this.ctx.raycontrol.controllers.find(value => value.controller === controller);
+    if (!hand && !data) return true;
+    if (hand && (hand.control || hand.hover || cab.owns(hand.source))) return false;
+    const pose = hand ? cab.pose(hand) : data.grip && data.grip.visible !== false ? data.grip : data.controller;
+    if (!pose) return false;
+    const point = pose.getWorldPosition(new THREE.Vector3());
+    return !cab.controls.some(control => {cab.frame(control); return cab.distance(control, point) <= Math.max(.16, control.descriptor.grabDistance || .105);});
+  }
+  placeCabPanel(plane, position) {
+    plane.position.fromArray(position);
+    plane.quaternion.setFromRotationMatrix(new THREE.Matrix4().lookAt(new THREE.Vector3(), plane.position, UP));
+  }
+  cabPanelLayout() {
+    const rig = this.visualRoot && this.visualRoot.userData.vehicleRig, cab = rig && rig.cabDimensions;
+    // Look past the side of the actual front pillar, with room for half the
+    // widest menu. This keeps the forward road and the physical controls free
+    // instead of putting a taller floating dashboard through the roof bars.
+    const pillarAngle = cab ? Math.atan2(cab.x, cab.z - rig.driverSeat.position.z) : Math.atan2(.5, .78);
+    const angle = Math.min(70 * Math.PI / 180, pillarAngle + 24 * Math.PI / 180), radius = 1.25;
+    const x = Math.sin(angle) * radius, z = Math.cos(angle) * radius;
+    return {controls: [-x, .20, z], alignment: [-x, -.34, z], front: {position: [x, .08, z], width: .68, height: .3825}, mirror: {position: [x, .405, z], width: .36, height: .2025}};
+  }
   nearest() {
     if (!this.ctx.camera || !this.simulation.running) return null;
     const point = this.ctx.camera.getWorldPosition(new THREE.Vector3()); let best = null, distance = 5;
@@ -344,11 +370,11 @@ export default class VehicleDriving {
     const canvas = this.document.createElement('canvas'); canvas.width = 1024; canvas.height = 640; const context = canvas.getContext && canvas.getContext('2d'); if (!context) return;
     const texture = new THREE.CanvasTexture(canvas); texture.encoding = THREE.sRGBEncoding; texture.generateMipmaps = false; texture.minFilter = THREE.LinearFilter;
     const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(.82, .512), new THREE.MeshBasicMaterial({map: texture}));
-    plane.name = 'Consola de conducción'; plane.rotation.y = Math.PI; plane.rotation.x = .22; plane.userData.editorRuntimeHelper = true;
+    plane.name = 'Consola de conducción'; plane.userData.editorRuntimeHelper = true;
     plane.visible = !!this.ctx.vrMode; this.seat.add(plane); this.worldPanel = {plane, context, texture, actions: [], regions: [], signature: ''};
     const name = this.simulation.statePrefix + 'vehicle-driving-panel', state = {colliderMesh: plane, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
-      isSelectable: () => !!this.id && !!this.ctx.vrMode && plane.visible && !this.blocked(),
-      onSelectStart: hit => { if (!state.isSelectable() || !hit || !hit.uv) return; const x = hit.uv.x * 1024, y = (1 - hit.uv.y) * 640;
+      isSelectable: (hit, controller) => !!this.id && !!this.ctx.vrMode && plane.visible && !this.blocked() && this.panelSelectable(controller),
+      onSelectStart: (hit, controller) => { if (!state.isSelectable(hit, controller) || !hit || !hit.uv) return; const x = hit.uv.x * 1024, y = (1 - hit.uv.y) * 640;
         const region = this.worldPanel.regions.find(value => x >= value.x && x < value.x + value.w && y >= value.y && y < value.y + value.h); if (region) this.command(region.action);
       }};
     const input = this.ctx.raycontrol; if (input) { input.addState(name, state); input.activateState(name); this.worldState = {name, state}; }
@@ -359,7 +385,7 @@ export default class VehicleDriving {
     const v = this.state(record), next = this.nextStep || {}, full = this.worldPage === 'controls';
     const signature = [v.actualSpeed, v.lift, v.loadKg, v.parkingBrake, v.powered, v.running, v.paused, v.emergency, next.stage, next.instruction, next.reason, next.action, this.mode, this.xrControlMode, this.worldPage, this.operatorIntent, this.docking.visible, this.docking.cameraEnabled].map(value => typeof value === 'number' ? value.toFixed(1) : value).join('|');
     if (panel.signature === signature) return; panel.signature = signature;
-    panel.plane.scale.setScalar(full ? 1 : .68); panel.plane.position.set(-.12, full ? -.30 : -.49, full ? .80 : .61);
+    panel.plane.scale.setScalar(full ? 1 : .68); this.placeCabPanel(panel.plane, this.cabPanelLayout().controls);
     const c = panel.context, text = (value, x, y, width, size = 25, lines = 2) => {
       c.font = size + 'px sans-serif'; const words = String(value || '').split(/\s+/); let line = '', row = 0;
       words.forEach(word => { const candidate = line ? line + ' ' + word : word; if (line && (c.measureText ? c.measureText(candidate).width : candidate.length * size * .54) > width) { if (row < lines) c.fillText(line, x, y + row * (size + 6)); row++; line = word; } else line = candidate; });

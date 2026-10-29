@@ -473,10 +473,13 @@ body.editor-mode { overflow: hidden; }
 @media (max-width: 1050px) { .vehicle-driving-actions, .vehicle-control-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); } .vehicle-driving-header { flex-wrap: wrap; } .vehicle-driving-summary, .vehicle-driving-metrics { justify-content: flex-start; } }
 @media (max-width: 560px) { .vehicle-driving-hud { bottom: 8px; width: calc(100vw - 16px); max-height: 43vh; padding: 10px; border-radius: 10px; } .vehicle-driving-name { font-size: 12px; } .vehicle-driving-header { gap: 6px; margin-bottom: 7px; } .vehicle-driving-summary, .vehicle-driving-metrics { font-size: 10px; gap: 4px 9px; } .vehicle-next-step { grid-template-columns: minmax(0, 1fr); gap: 3px; padding: 7px 9px; margin-bottom: 8px; } .vehicle-next-step-text { font-size: 11px; } .vehicle-driving-actions, .vehicle-control-groups, .vehicle-driving-help .vehicle-control-groups { grid-template-columns: minmax(0, 1fr); gap: 7px; } .vehicle-driving-hud button { min-height: 40px; font-size: 12px; } .vehicle-driving-help ul { grid-template-columns: minmax(0, 1fr); } }
 .vehicle-docking-monitor { position: fixed; z-index: 31; top: 82px; right: 12px; width: min(430px, 43vw); padding: 5px; box-sizing: border-box; border: 1px solid #526c77; border-radius: 10px; color: #d9edf4; background: transparent; font: 12px/1.4 system-ui, sans-serif; }
-.vehicle-docking-monitor[data-camera="on"] { width: min(840px, calc(100vw - 24px)); }
+.vehicle-docking-monitor[data-camera="on"] { width: min(820px, calc(100vw - 24px), calc((100vh - 300px) * 16 / 9)); min-width: min(300px, calc(100vw - 24px)); }
+.vehicle-docking-monitor[data-camera="on"][data-plan="open"] { width: min(1188px, calc(100vw - 24px), calc((100vh - 520px) * 16 / 9 + 368px)); }
 .vehicle-docking-monitor[hidden] { display: none; }
 .vehicle-docking-body { display: grid; grid-template-columns: minmax(0, 1fr); align-items: end; gap: 8px; }
-.vehicle-docking-monitor[data-camera="on"] .vehicle-docking-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.vehicle-docking-monitor[data-camera="on"][data-plan="open"] .vehicle-docking-body { grid-template-columns: minmax(0, 1fr) 360px; }
+.vehicle-docking-plan { min-width: 0; background: #0b1d28; border-radius: 5px; }
+.vehicle-docking-plan[hidden], .vehicle-rear-camera[hidden] { display: none; }
 .vehicle-docking-monitor canvas { display: block; width: 100%; height: auto; cursor: pointer; border-radius: 5px; }
 .vehicle-fork-camera { min-width: 0; }
 .vehicle-fork-camera[hidden] { display: none; }
@@ -487,9 +490,16 @@ body.editor-mode { overflow: hidden; }
 /* The auxiliary GPU image is drawn in the existing world canvas underneath
    this opening. Keep every ancestor transparent: an opaque card hides it. */
 .vehicle-fork-camera-viewport { width: 100%; aspect-ratio: 16 / 9; background: transparent; pointer-events: none; }
+.vehicle-camera-views { position: relative; }
+.vehicle-rear-camera { position: absolute; top: 8px; right: 8px; width: 30%; max-width: 220px; box-sizing: border-box; overflow: hidden; border: 1px solid #a1c7cf; border-radius: 5px; background: transparent; pointer-events: none; }
+.vehicle-rear-camera-label { display: block; padding: 2px 6px; color: #e6f5fa; background: #102631; font: 600 10px/1.5 system-ui, sans-serif; letter-spacing: .06em; }
+.vehicle-rear-camera-viewport { width: 100%; aspect-ratio: 16 / 9; background: transparent; }
 .vehicle-docking-monitor .vehicle-docking-summary { margin: 6px 0 0; padding: 7px 9px; background: rgba(11, 29, 40, .97); border-radius: 5px; }
 .vehicle-docking-monitor[data-state="ready"] { border-color: #71e6b3; }
 .vehicle-docking-monitor[data-state="near"] { border-color: #f1c66c; }
 .vehicle-docking-monitor[data-state="blocked"] { border-color: #ff8f93; }
-@media (max-width: 720px) { .vehicle-docking-monitor { top: 76px; right: 8px; width: min(340px, 68vw); font-size: 11px; } .vehicle-docking-monitor[data-camera="on"] { width: calc(100vw - 16px); } .vehicle-fork-camera-header { flex-wrap: wrap; } .vehicle-fork-camera-header button { padding: 4px 6px; } }
+@media (min-width: 1240px) { body:has(.vehicle-docking-monitor[data-camera="on"][data-plan="closed"]:not([hidden])) .vehicle-driving-hud { left: 12px; right: auto; transform: none; width: min(620px, calc(100vw - 860px)); } }
+@media (max-width: 1239px) { .vehicle-docking-monitor[data-camera="on"] { width: min(700px, calc(100vw - 24px), calc((100vh - 520px) * 16 / 9)); } }
+@media (max-width: 720px) { .vehicle-docking-monitor { top: 76px; right: 8px; width: min(340px, 68vw); font-size: 11px; } .vehicle-docking-monitor[data-camera="on"], .vehicle-docking-monitor[data-camera="on"][data-plan="open"] { width: min(calc(100vw - 16px), calc((100vh - 280px) * 16 / 9)); min-width: min(280px, calc(100vw - 16px)); } .vehicle-docking-monitor[data-camera="on"][data-plan="open"] .vehicle-docking-body { grid-template-columns: minmax(0, 1fr); } .vehicle-fork-camera-header { flex-wrap: wrap; } .vehicle-fork-camera-header button { padding: 4px 6px; } .vehicle-rear-camera { top: 5px; right: 5px; width: 32%; } .vehicle-rear-camera-label { padding: 1px 4px; font-size: 9px; } }
+@media (max-width: 720px) { .vehicle-docking-monitor[data-camera="on"][data-plan="open"] .vehicle-camera-views { display: none; } }
 @media (pointer: coarse) { .vehicle-driving-pads { display: grid; } .vehicle-driving-hud button { min-height: 42px; } }

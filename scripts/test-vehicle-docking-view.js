@@ -25,7 +25,8 @@ assert(desktop.camera.matrixWorld.equals(cabinWorld)); assert(desktop.camera.mat
 for (const pose of [{lift: 0, tilt: 0}, {lift: .72, tilt: .04}, {lift: 2.7, tilt: -.08, sideShift: .08}]) {
   assert(desktop.api.applyPose(desktop.record, Object.assign({}, desktop.v.pose, pose), false)); desktop.driving.follow();
   desktop.driving.docking.update(true); const feed = desktop.driving.docking.forkCamera, framing = feed.frame(desktop.driving.docking.snapshot), eye = feed.camera.getWorldPosition(new THREE.Vector3()), target = framing.aim.clone();
-  const eyeLocal = eye.clone().applyMatrix4(new THREE.Matrix4().getInverse(rig.forks.matrixWorld)); assert(eyeLocal.x < -desktop.config.width/2-.3, 'The inspection camera is laterally outside the body, rather than inside a loaded carton.');
+  const eyeLocal = eye.clone().applyMatrix4(new THREE.Matrix4().getInverse(rig.forks.matrixWorld)); near(eyeLocal.x, 0); near(eyeLocal.y, .025); near(eyeLocal.z, -.02);
+  const frontalDirection = feed.camera.getWorldDirection(new THREE.Vector3()).transformDirection(new THREE.Matrix4().getInverse(rig.forks.matrixWorld)); near(frontalDirection.x, 0); assert(frontalDirection.y <= 0 && frontalDirection.y >= -Math.sin(15 * Math.PI / 180) - 1e-7); assert(frontalDirection.z >= Math.cos(15 * Math.PI / 180) - 1e-7);
   near(feed.camera.getWorldDirection(new THREE.Vector3()).dot(target.sub(eye).normalize()), 1);
   assert(desktop.camera.quaternion.equals(new THREE.Quaternion()));
   assert(desktop.camera.getWorldPosition(new THREE.Vector3()).distanceTo(rig.driverSeat.getWorldPosition(new THREE.Vector3())) < 1e-7, 'The cab camera stays at the seat while auxiliary framing follows the real tines.');
@@ -98,13 +99,14 @@ for (const carried of [false, true]) {
     const cargoBox = inspectedProduct.bounds.clone().applyMatrix4(inspectedProduct.object.matrixWorld).expandByScalar(.025);
     assert(!cargoBox.containsPoint(eye), 'A full24-box pallet never encloses the inspection camera.');
     const inBody = eye.clone().applyMatrix4(new THREE.Matrix4().getInverse(inspection.object.matrixWorld));
-    assert(Math.abs(inBody.x) > inspection.config.width/2+.3, 'The exterior inspection camera does not occupy the chassis or operator seat.');
+    near(eye.clone().applyMatrix4(new THREE.Matrix4().getInverse(inspection.api.rig(inspection.record).forks.matrixWorld)).x, 0);
+    assert(inBody.z > inspection.config.length / 2 + inspection.config.forkLength, 'The opposite frontal tips camera remains beyond the fork tips and outside the chassis.');
     assert(eye.y >= inspection.v.originWorld.y + .06, 'Low fork viewing remains above the actual ground plane.');
     const screen = new THREE.Vector3(0, -inspection.config.forkThickness*.25, .05).applyMatrix4(inspection.api.rig(inspection.record).forks.matrixWorld).project(inspectionFeed.camera);
     assert(Math.abs(screen.x) < .95 && Math.abs(screen.y) < .95, 'The entry end of the tines remains inside the auxiliary viewport.');
     near(inspection.camera.getWorldPosition(new THREE.Vector3()).distanceTo(inspection.api.rig(inspection.record).driverSeat.getWorldPosition(new THREE.Vector3())), 0);
-    // This is an orthographic front-entry feed. Check rays produced by that
-    // camera to the exposed tips; the loaded pallet legitimately hides heels.
+    // The opposite perspective lens sees actual emerging tips; the loaded
+    // pallet legitimately hides their heels, without any x-ray rendering.
     const forks = inspection.api.rig(inspection.record).forks;
     for (const side of [-1, 1]) {
       const point = new THREE.Vector3(side * inspection.config.forkSpread / 2, -inspection.config.forkThickness * .20, inspection.config.forkLength - .012).applyMatrix4(forks.matrixWorld);
@@ -125,7 +127,11 @@ inspection.driving.dispose(); inspection.runtime.stop();
 const vr = setup(true), trackingQ = vr.camera.quaternion.clone(), trackingP = vr.camera.position.clone(); assert(vr.driving.mount(vr.record.id));
 const vrMonitor = vr.driving.docking, rigPose = vr.cameraRig.matrixWorld.clone(); assert(vrMonitor.element.hidden); assert(vrMonitor.plane.visible); assert.equal(vrMonitor.state.controller, 'both'); assert(vrMonitor.state.isSelectable()); assert(vr.driving.worldPanel.regions.length <= 6); assert(vr.driving.worldPanel.actions.some(([action]) => action === 'controls'));
 vrMonitor.state.onSelectStart({uv: new THREE.Vector2(680 / 768, 1 - 30 / 432)}); assert.equal(vrMonitor.page, 'guide');
-const leftEdge = vr.driving.worldPanel.plane.position.x - .82 * vr.driving.worldPanel.plane.scale.x / 2, monitorRightEdge = vrMonitor.plane.position.x + .66 * vrMonitor.plane.scale.x / 2; assert(monitorRightEdge < leftEdge - .03, 'The auxiliary screen does not cover the compact physical-cab menu.');
+vr.driving.seat.updateWorldMatrix(true, true);
+const seatInverse = new THREE.Matrix4().getInverse(vr.driving.seat.matrixWorld), panelBounds = plane => {plane.geometry.computeBoundingBox(); return plane.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(seatInverse, plane.matrixWorld));};
+const menuBounds = panelBounds(vr.driving.worldPanel.plane), alignmentBounds = panelBounds(vrMonitor.plane);
+assert(alignmentBounds.max.y < menuBounds.min.y - .03, 'The alignment screen stays below the compact menu in a separate lateral column.');
+assert(menuBounds.max.x < -.4 && alignmentBounds.max.x < -.4, 'Both helpers leave the forward road and the physical wheel visible.');
 for (let i = 0; i < 4; i++) { vr.driving.command('view'); vr.driving.follow(); }
 assert.equal(vr.driving.viewIndex, 0); assert(vr.camera.quaternion.equals(trackingQ)); assert(vr.camera.position.equals(trackingP)); assert(vr.cameraRig.matrixWorld.equals(rigPose));
 const beforeVRFeed = vrMonitor.cameraEnabled; vr.driving.command('forkCamera'); assert.equal(vrMonitor.cameraEnabled, !beforeVRFeed); vr.driving.command('forkCamera'); assert.equal(vrMonitor.cameraEnabled, beforeVRFeed); assert(vr.cameraRig.matrixWorld.equals(rigPose)); assert(vr.camera.quaternion.equals(trackingQ)); assert(vr.camera.position.equals(trackingP));

@@ -20,8 +20,8 @@ const ACTIONS = Object.freeze([
   command('uncouple', 'Desenganchar remolque', 'KeyI', 'Shift+I', 'Botón Desenganchar del panel', 'cargo', true, 'hitch'),
   command('horn', 'Bocina', 'KeyH', 'H', 'Pulsador de bocina'),
   command('lights', 'Luces', 'KeyN', 'N', 'Interruptor de luces'),
-  command('forkCamera', 'Cámara de horquillas', 'KeyC', 'C', 'Botón Cámara del monitor de alineación', 'view', false, 'forks'),
-  command('forkCameraMode', 'Vista entrada / puntas', 'KeyC', 'Shift+C', 'Botón Entrada / Puntas del monitor', 'view', true, 'forks'),
+  command('forkCamera', 'Cámara frontal y retrovisor', 'KeyC', 'C', 'Botón Cámara del monitor de alineación', 'view', false, 'forks'),
+  command('forkCameraMode', 'Vista frontal / puntas', 'KeyC', 'Shift+C', 'Botón Frontal / Puntas del monitor', 'view', true, 'forks'),
   command('forkCameraSide', 'Lado de la cámara auxiliar', 'KeyN', 'Shift+N', 'Botón Lado del monitor de alineación', 'view', true, 'forks'),
   command('view', 'Vista cabina / seguimiento', 'KeyM', 'M', 'Vista del puesto de conducción', 'view'),
   command('mode', 'Modo hidráulico', 'KeyM', 'Shift+M', 'Botón Modo hidráulico para los sticks alternativos', 'movement', true, 'hydraulics'),
@@ -65,7 +65,7 @@ function controls(action, xr, features) {
 
 export default class VehicleControlGuide {
   static get actions() { return ACTIONS; }
-  static definitions(features = {}, config = {}) { return ACTIONS.filter(value => supported(value, features, config)); }
+  static definitions(features = {}, config = {}) { return ACTIONS.filter(value => value.action !== 'forkCameraSide' && supported(value, features, config)); }
   static shortcut(event = {}) {
     const target = event.target || {};
     if (event.ctrlKey || event.altKey || event.metaKey || event.repeat || event.isComposing || target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || '')) return null;
