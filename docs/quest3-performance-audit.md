@@ -16,13 +16,13 @@ Los escenarios pequeños de estación manual, Combiner/Separator, gravedad y man
 ## Validación reproducible
 
 ```text
-node scripts/test-surface-pixel-recipes.js
+node tests/legacy/test-surface-pixel-recipes.js
 npm run test:graphics
 npm run test:webxr-ai
-node scripts/test-surface-materials.js
-node scripts/test-material-parts-integration.js
-node scripts/test-industrial-photographic.js
-node scripts/qa-large-scene-performance.js --label quest-audit --scenes l-transfer,lab-assembly,lab-gravity,robot-handling-line,manual-station,industrial-lab-complete,cedi-sorting-robotics,forklift-training
+node tests/legacy/test-surface-materials.js
+node tests/legacy/test-material-parts-integration.js
+node tests/legacy/test-industrial-photographic.js
+node tooling/qa/qa-large-scene-performance.js --label quest-audit --scenes l-transfer,lab-assembly,lab-gravity,robot-handling-line,manual-station,industrial-lab-complete,cedi-sorting-robotics,forklift-training
 ```
 
 La prueba de recetas compara 168 mapas generados byte a byte y verifica las transformaciones UV y parámetros del sampler. Las pruebas del espejo verifican que Quest sin captura no crea recursos ni ejecuta llamadas al renderizador para el espejo, y que activar/desactivar captura adquiere y libera sus recursos.

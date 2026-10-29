@@ -1,0 +1,22 @@
+{
+  "format": "smarttwin.publication",
+  "version": 1,
+  "application": "core-empty",
+  "revision": "7f14390787545096bc9057e550fc71c7407f02e2",
+  "bundleSha256": "ae5f3520dab566573464641dca3ae4a701022779d24842a298f04d2f40f6766a",
+  "scenes": [],
+  "files": [
+    {
+      "path": "core-empty.js",
+      "sha256": "ae5f3520dab566573464641dca3ae4a701022779d24842a298f04d2f40f6766a"
+    },
+    {
+      "path": "core.css",
+      "sha256": "66c505786e86e8eb73210c1c0ec7ef048ed8a1183abaae3922554a5a9f63f1fc"
+    },
+    {
+      "path": "index.html",
+      "sha256": "523648f7ccd64612cfa4a22588459004b580ec7c2d4f282923b4f31fe02e7b19"
+    }
+  ]
+}

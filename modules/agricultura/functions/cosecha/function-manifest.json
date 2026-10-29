@@ -1,0 +1,45 @@
+{
+  "format": "smarttwin.function",
+  "schemaVersion": 1,
+  "id": "agriculture.harvest",
+  "version": "1.0.0",
+  "coreApi": "^1.0.0",
+  "requires": [
+    {
+      "id": "logistics.storage",
+      "version": "^1.0.0"
+    }
+  ],
+  "capabilities": [],
+  "uses": [
+    {
+      "id": "world.inventory",
+      "version": "^1.0.0"
+    }
+  ],
+  "provides": [],
+  "exported": true,
+  "stateVersion": 1,
+  "metadata": {
+    "title": "Registro de cosecha",
+    "packageRoot": "functions/cosecha",
+    "manifestExport": "harvestManifest",
+    "entry": "index.js",
+    "schema": "schema.js",
+    "ui": "ui.js",
+    "server": "server.js",
+    "assets": [],
+    "tests": [
+      "contract.test.mjs"
+    ],
+    "files": [
+      "index.js",
+      "manifest.js",
+      "schema.js",
+      "ui.js",
+      "server.js",
+      "contract.test.mjs"
+    ]
+  },
+  "entry": "index.js"
+}

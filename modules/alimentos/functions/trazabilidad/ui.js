@@ -1,0 +1,1 @@
+export const traceabilityPanel = Object.freeze({kind: 'form', title: 'Trazabilidad', fields: ['id', 'sku', 'batch', 'expires', 'locationId', 'quantity', 'massKg'], actions: ['register-lot', 'trace']});

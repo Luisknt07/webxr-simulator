@@ -20,6 +20,6 @@ Las coincidencias cercanas se contrastan con triángulos y contención antes de 
 
 - `npm run test:robot-clearance` comprueba geometría, contacto, posturas y movimiento.
 - `npm run test:robots` incluye las comprobaciones anteriores junto con las pruebas existentes de robots.
-- `node scripts/qa-robot-grasp-clearance-browser.js --expected-bundle-sha256 <SHA256> --all --cycles 6 --label corrected` revisa el bundle compilado en Chrome con una cuenta y base de datos temporales. Cubre el primer pallet de los tres escenarios compactos de RV y los seis productos de las líneas de manipulación y SCARA. El pallet de RV espera después la recogida manual con montacargas.
+- `node tooling/qa/qa-robot-grasp-clearance-browser.js --expected-bundle-sha256 <SHA256> --all --cycles 6 --label corrected` revisa el bundle compilado en Chrome con una cuenta y base de datos temporales. Cubre el primer pallet de los tres escenarios compactos de RV y los seis productos de las líneas de manipulación y SCARA. El pallet de RV espera después la recogida manual con montacargas.
 
 El análisis de navegador compara los triángulos del robot con el interior de cada cartón real del pallet, dejando una tolerancia de contacto de 5 mm. Inspecciona cada paso de simulación de 1/60 s de los ciclos revisados, además de capturar las fases de aproximación, recogida, elevación, traslado, depósito y espera. La revisión visual y geométrica de escritorio no mide los FPS de un Quest 3 físico.

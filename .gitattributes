@@ -1,0 +1,9 @@
+# Source text follows the checkout's configured line endings.
+* text=auto
+
+# Publication hashes refer to exact bytes, on Windows and on Linux.
+artifacts/** binary
+
+# Pinned upstream assets and their integrity tests also require exact bytes.
+packages/tools/ai/assets/** -text -whitespace
+packages/render-three/vendor/** -text -whitespace

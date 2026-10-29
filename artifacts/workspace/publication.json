@@ -1,0 +1,1352 @@
+{
+  "format": "smarttwin.publication",
+  "version": 1,
+  "application": "workspace",
+  "revision": "7f14390787545096bc9057e550fc71c7407f02e2",
+  "bundleSha256": "3e6928608bfa9adf37fecbf6036fa19fb594d68512c6787cc9dcb6e95ca8fd5b",
+  "scenes": [
+    "advanced-packing",
+    "advanced-pallets",
+    "advanced-rework",
+    "cedi-packing",
+    "cedi-packing-robotics",
+    "cedi-sorting",
+    "cedi-sorting-robotics",
+    "forklift-training",
+    "industrial-lab-complete",
+    "inspection-sorting",
+    "l-transfer",
+    "lab-assembly",
+    "lab-elevator",
+    "lab-gravity",
+    "lab-manual-l",
+    "lab-merge",
+    "lab-pallets",
+    "lab-rectangle",
+    "manual-station",
+    "original-hall",
+    "original-panorama1",
+    "original-panorama2",
+    "original-panorama3",
+    "original-panorama4",
+    "original-panorama5",
+    "original-panoramastereo",
+    "original-photogrammetry",
+    "original-sound",
+    "original-vertigo",
+    "robot-handling-line",
+    "robot-scara-sorting",
+    "vr-robot-dispatch",
+    "vr-robot-transfer",
+    "vr-robot-turn"
+  ],
+  "files": [
+    {
+      "path": "1.bundle.js",
+      "sha256": "44b1b8976de090009864a0e0d0186cfaad927014699085ee89cbb173ef18a59a"
+    },
+    {
+      "path": "apps/core-empty/core.css",
+      "sha256": "66c505786e86e8eb73210c1c0ec7ef048ed8a1183abaae3922554a5a9f63f1fc"
+    },
+    {
+      "path": "apps/project-viewer/viewer.css",
+      "sha256": "810f1127f1dcbb86cd9367f0e1c8666c3908c67aea7b43c8f126ae5865a00b63"
+    },
+    {
+      "path": "apps/public-viewer/viewer.css",
+      "sha256": "c0afffd11d8e830e1fd849b69af5a05e43f3312b34cc332bf3883cf965260007"
+    },
+    {
+      "path": "apps/workspace/studio/admin-workspace.css",
+      "sha256": "d84b15f67a3c186686ffeb0d5e77f844db16f5b0c799a3a39c8525fac8cc9e60"
+    },
+    {
+      "path": "apps/workspace/studio/studio.css",
+      "sha256": "b76cf651f79bf34b2b115e44f4772f45538d32bd185fb790b57e9a417ad04d51"
+    },
+    {
+      "path": "bundle.js",
+      "sha256": "3e6928608bfa9adf37fecbf6036fa19fb594d68512c6787cc9dcb6e95ca8fd5b"
+    },
+    {
+      "path": "cad-worker.js",
+      "sha256": "f82a0bbb232773f5432769e0d6507444139ab28340dc7416b4e035bbb8ce69dc"
+    },
+    {
+      "path": "collision-worker.js",
+      "sha256": "85574d4efe07fbb87ce1ce6e1ae14b349024addf288100e4dd95ac76cfe352da"
+    },
+    {
+      "path": "index.html",
+      "sha256": "c18c88263e543f4d31ed1d63cda30334ce34af578e24bb3fac8d9cb97ad8fbda"
+    },
+    {
+      "path": "mesh-optimizer-worker.js",
+      "sha256": "d8a06b39f7520a52df392037642c121f61e72a3e1b94f321074e681e861b96af"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/blender/angel.blend",
+      "sha256": "0d3d709de653e09a36a477d86829e8a0522ce9bb5bf20d703afa6402556b7378"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/blender/door.blend",
+      "sha256": "44ca18980f55d2f8105631d868121ef8443d517fbaca0cb6583ed38773928dc8"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/blender/generic_controller.blend",
+      "sha256": "0a8a6339f3d0649fb02c633cf581de23841ed605b130d7904a433c53cd2464f7"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/blender/hall.blend",
+      "sha256": "90aa64eee5362ddd644905e2adc08948eef205880d8944f1696687f5bba25338"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/blender/hall_empty.blend",
+      "sha256": "3be87c4a34980fee1bd5f2997d06a67479c8af30310d79bf1ac809633d128e6d"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/blender/hall_for_hubs.blend",
+      "sha256": "cbed16f4c718d21efe748361b48f938bb91b195f921f3e5cea91cd447f822096"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/blender/sound.blend",
+      "sha256": "20080cdca6bac25105813ca84f31a69f1a1fd41402de85043a0ea7aaa97bd31d"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/blender/spray.blend",
+      "sha256": "85c469a931341b952c091de479d942554635bb2fe80960cf334fc28fd3a57696"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/blender/teleport.blend",
+      "sha256": "1303fc0fd6679eac5f2d368b3b854123119cbaa7dc1afaaa1d0a676c43a2e540"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/blender/vertigo.blend",
+      "sha256": "d340c82680028c66be32d186d4478db6c277c4f1fed992939daa2d86168e284a"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/ai-industrial-concrete-v1-1024.jpg",
+      "sha256": "e299338ba1475b020de7def2330d30820462e17f23fc9a23953ae4d273ba9ac8"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/ai-industrial-concrete-v1-256.jpg",
+      "sha256": "ab4a6a02eaa635e86e63c8948fa11bcba33f90e36dbfb77a9c87c6c3e64e3d98"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/ai-industrial-concrete-v1-512.jpg",
+      "sha256": "d619cfdf0e271c358421b1953710ad5138ab405549286ba03acc41dd35d00ee4"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/LICENSE.txt",
+      "sha256": "210f69d7dd9a70bcf6bc3a7eeb2a863d5c0601495b390a541df5ce01d8d26c4b"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/cardboard-color-1024.jpg",
+      "sha256": "09729a31448c32c8206be1bb1346ac05a312b07b5ae810e485d63cf2d13f0237"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/cardboard-color-256.jpg",
+      "sha256": "dec0e2c4ec1643e6e8fcf334460274f16d3bbd314d8e32a7311cd5f82d4d73bc"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/cardboard-color-512.jpg",
+      "sha256": "495a9b2586984dde3a6e5e40d7dd3056ca4990150558cf316a6352d6f233b2a8"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/cardboard-neutral-1024.jpg",
+      "sha256": "04841acd86dff3a897ae397e0ca146f96359cc534549f947bed0347312735f1c"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/cardboard-neutral-256.jpg",
+      "sha256": "3e1edf05a392aee2c091d5729000aae9970573dbe7cc68713b7e86e9c19240f0"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/cardboard-neutral-512.jpg",
+      "sha256": "14a3b49e99b0be8f997195d0657c9b30c71ee0aeb5a4b0ed177b851e9c8cb9a0"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/cardboard-normal-1024.jpg",
+      "sha256": "3d89d964154466249507289348ca96bc1ba1d54e0a33fcf5a57f0497caa37074"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/cardboard-normal-256.jpg",
+      "sha256": "3295bbbe0e680ff6b8a221333583730fdaf6f2af6c78bcd8ed3fc30d42ace4b7"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/cardboard-normal-512.jpg",
+      "sha256": "fd3f060d5166e07ba37dc54d5849aecbaa73a2f830170f288b2124f05fd12619"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/cardboard-roughness-1024.jpg",
+      "sha256": "bba35035cf2d8e0f72a74f628b5908536e79b9feac4b725ed8f390b4067e7a5a"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/cardboard-roughness-256.jpg",
+      "sha256": "8e2c935d54d70a0575c71145bb02ede2ca806d0e399196ad98e5105655514d60"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/cardboard-roughness-512.jpg",
+      "sha256": "da029e4e6b645fdbac312c3c953bcf46f58e517a93e5af45bc707ecd0132e609"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/concrete-color-1024.jpg",
+      "sha256": "654dd696ff931fedf65d47864725bc386a87071f105d9777e59d61a9e7578a64"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/concrete-color-256.jpg",
+      "sha256": "dfe0877cf79b890f5726a5b33f824cdb6555cc5428d98383b3aa3e590da75a5e"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/concrete-color-512.jpg",
+      "sha256": "1b616743cc91201bd811d897653bd81099f87bcdc043513e566d98ff4975083c"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/concrete-neutral-1024.jpg",
+      "sha256": "ca2851d10b141ab9e32d17b07386895c42527d0f1ddc1ab143f6215df1553bdc"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/concrete-neutral-256.jpg",
+      "sha256": "4dc48efb6e8902c742270e522acc0ea2137b327db0ca200ad06cd9e6ad7b46bb"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/concrete-neutral-512.jpg",
+      "sha256": "f4686f9840fd16cefb0e04758d7c2f31005a83b065aefd19d6790685bc0ac9bc"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/concrete-normal-1024.jpg",
+      "sha256": "2ec558c6c5a7ac200f13319fa9f2388c7777ddb7db7919108904ca890ad34847"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/concrete-normal-256.jpg",
+      "sha256": "5f2bf402c2bf120a05be2c04b4ecc06d1135427af554f1ab36d7f18aae3749b6"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/concrete-normal-512.jpg",
+      "sha256": "8ec2d79be0ab37e32892c31d6474dabedd5cd8cefe24951b874642ef1d401556"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/concrete-roughness-1024.jpg",
+      "sha256": "43bf8525cd3cf9696ef579426b8869f9bbbfbd6b40ab8ced62b23afe89c7c3e9"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/concrete-roughness-256.jpg",
+      "sha256": "f22abe823dd5e3b67bd79fd30fe23854730e498c72ef1e0de053b5210d8c5cc9"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/concrete-roughness-512.jpg",
+      "sha256": "f9ba5d203970151e9180b4ec7e08ca6e05005b9509ded2cce89111eb9c511eb0"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/manifest.json",
+      "sha256": "7f5b9b87627ee9df3e38eccd17478c81777ba8ec538a70d0b3b9c716f79a9d4d"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/paint-color-1024.jpg",
+      "sha256": "25c2b119375948306e5e22c39420ee076cc93f79610762ddce7d74337c43f21f"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/paint-color-256.jpg",
+      "sha256": "3a564b8b1a5fdd0cdce1b74a01d0ceb696307f6364a5d9410069e32027daf88f"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/paint-color-512.jpg",
+      "sha256": "96c39981fd3343535f9a333c42e66704b51b8740b6ea03f30e38c5e92d2ed64b"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/paint-neutral-1024.jpg",
+      "sha256": "7fe83c63d66b9951bc247abd3b2cb1c4d14352ad8612f66a20c55adbce24a45e"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/paint-neutral-256.jpg",
+      "sha256": "b1e61a8a2ba6f1487c7ff3d377c1543ef8e9a221fcfb4c2b2642ac00dc7b8373"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/paint-neutral-512.jpg",
+      "sha256": "6862fd3d713656a29699ca2a524d67320aec858c6961cf4f6c91fdfe66311e15"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/paint-normal-1024.jpg",
+      "sha256": "1a72776f37d348787a4df40c10f5eb1e120363013cf3384ab4b5d8416afd1a50"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/paint-normal-256.jpg",
+      "sha256": "c9827958c5793468185c3a10a2160dd9f5d028c00939f2f7ce74aa5fd1dd823c"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/paint-normal-512.jpg",
+      "sha256": "04a1355e355d1345e67b842382fae12bf421ef6618454635b9393d4ef6d486ef"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/paint-roughness-1024.jpg",
+      "sha256": "f4875ad0b33b5fda5139f94f6771c5f43354c78fdc7161aa66ffeb90fdcf0d6a"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/paint-roughness-256.jpg",
+      "sha256": "1eac8c1ce1958691338a735fe23c973fe9bbcbdb0ca89e15f78cb81d4cea1114"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/paint-roughness-512.jpg",
+      "sha256": "448842cd37c567b998a955374323313e7572e677c00aeffee0a47996be34ca76"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/rubber-color-1024.jpg",
+      "sha256": "07118ac2374b4648e5a414516ab8679e0cd18a2880be41dd8acb113a6889e6f1"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/rubber-color-256.jpg",
+      "sha256": "1992bd4ef6c61da6cac5a1c540d2439c778546c1bb6cb4a7f4141b641a6578fb"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/rubber-color-512.jpg",
+      "sha256": "3eefd167b6775a88e5c4b2b530e5e8e531f1ba3f518b10703ede2e1e34eeac1c"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/rubber-neutral-1024.jpg",
+      "sha256": "3fe02db520153bcfeefc0e38d79fd75bc269ee3e0def1def142e050c7a17e395"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/rubber-neutral-256.jpg",
+      "sha256": "0c32141cc1ca0cacaac2348b39e53f54897aab0b56385371df04e04a8226b0dd"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/rubber-neutral-512.jpg",
+      "sha256": "2a19f645210ba6772f2982c48e59475e809e305a2ae0089ddcb03ef201c8c3ae"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/rubber-normal-1024.jpg",
+      "sha256": "6235789050148fa2e112d6251dfea4cc4c7301e4e1c5430e786af1a5eaa9e4e0"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/rubber-normal-256.jpg",
+      "sha256": "afb650c5b1e337b904ed0d1bdff3577e1d96abee39f21aa61a3ca301e6b8d43b"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/rubber-normal-512.jpg",
+      "sha256": "2fcd3bc4fe1e171a889c805033d184a87fe3fbb1215a107e3128caf97148d5f8"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/rubber-roughness-1024.jpg",
+      "sha256": "8d0993e5a7582033988aff5dd635aac03ab9fa0bd5f46d13b5a5dbb217892ff1"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/rubber-roughness-256.jpg",
+      "sha256": "761646fb4f54893089809c5d9d9b48c33cd58b262c7c3c040f6ba803b7d9ce27"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/rubber-roughness-512.jpg",
+      "sha256": "aed796ac5ac1597b4991848fbc6cc78e0f9d56290b88b05609be075144aa8caa"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/steel-color-1024.jpg",
+      "sha256": "6da745ad77d35f3b75e338debe7d3c493ffceaa6773847dd323852c049799545"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/steel-color-256.jpg",
+      "sha256": "5edcc2d4e12e125700eb441b127bc2ea2e84b3e4c98325226e6fdd0a02c43049"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/steel-color-512.jpg",
+      "sha256": "99935fe3eb8cf45c497e45c8badc3e14356706177116238201ec6ab330a2be04"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/steel-neutral-1024.jpg",
+      "sha256": "c7a137a8a583e5270bfd971920cba5de091ff911936fc3b1a7238fb9abe2b279"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/steel-neutral-256.jpg",
+      "sha256": "f9b22c9af407809a6b8a7975dfec5173cf46455dd69dd1f92f48fc9776f340d9"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/steel-neutral-512.jpg",
+      "sha256": "426d2a776f030a75266a4c408509426e260e4082c4abc69fbab5f187fc4795d9"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/steel-normal-1024.jpg",
+      "sha256": "ea43efe2c3eb5a1d0787d9967573cb9658f7da79dcc0e7563b840fd93b4eb3df"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/steel-normal-256.jpg",
+      "sha256": "2ae5160826f4d6ea8f1fe8b567d0a3c18ca14c3760188ffe99ca50195b757698"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/steel-normal-512.jpg",
+      "sha256": "52b2d9962bcc94eb093467ba659eebf7c169c2f4f9a53f814a519fc979690f83"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/steel-roughness-1024.jpg",
+      "sha256": "ce2eb10508682ad10b0c9bd50a480dd41519d2a2f916b18ea9b1fb272cea1086"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/steel-roughness-256.jpg",
+      "sha256": "b9f9667b076f229e599074dc581e2fa3033cef4e73f338b44d5063f58ed5d9bd"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/steel-roughness-512.jpg",
+      "sha256": "9fac5a788291f6fadf82d642b3d80d2933aead22fb818cfd04e342b175962104"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/vinyl-color-1024.jpg",
+      "sha256": "4c1382713bbed6bff546bfeb431c522d3a74eb8fb2152a589fef4c4a5f6f38fa"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/vinyl-color-256.jpg",
+      "sha256": "abd963e6239ed1b4b4fd6753fd7aedfc01a71581e6e24a15e70e851e7bca2555"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/vinyl-color-512.jpg",
+      "sha256": "5c0bb00e140313a80f04944303f8b736d271a45142c29a2e16165e000ce4cd51"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/vinyl-neutral-1024.jpg",
+      "sha256": "7de122ee961b4d3f7c10e55731ff110ef52cf0d06a2bb05d03e9870691c0325d"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/vinyl-neutral-256.jpg",
+      "sha256": "6c5ebf9e0b936455b2054e2853838f479d5df5cf8fa7e5967abb98206197d144"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/vinyl-neutral-512.jpg",
+      "sha256": "7121fd026d401082a1160239624f4a4f562e21430941a86bde71f53259425c36"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/vinyl-normal-1024.jpg",
+      "sha256": "68176d501d41d47b9d787149de9c28caa6019826d248d70dd69b45eb11530035"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/vinyl-normal-256.jpg",
+      "sha256": "63b60afb9c322f6bef6e90a67458d19e90f274eb742d41c2ba225eb2f6b273da"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/vinyl-normal-512.jpg",
+      "sha256": "3dce6558093c14f408e04d80cf13ea415e91293ebcd0ee9a3b4d2c25a98621b0"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/vinyl-roughness-1024.jpg",
+      "sha256": "5e78a3a1f38475e8cd5c783aea3b17a56e72d27cf5672445bd569bdb490af444"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/vinyl-roughness-256.jpg",
+      "sha256": "40163345c94725e12a3c22515e06e69330d5dd0e1e536ea6833b7cf2bdf3f84e"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/vinyl-roughness-512.jpg",
+      "sha256": "a448c59cbe169a933a1091c2179b2cce7968a6f429ace3d19ef2f53a7f69b90e"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/wood-color-1024.jpg",
+      "sha256": "7947dc76f36490c3a2e1465c039529ccd20bea2532617ff863a83639f6e8146f"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/wood-color-256.jpg",
+      "sha256": "8dcba2922a1ec89b5cbf8b934e7cd3ea1916d775e89f7e041c164e46d825b384"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/wood-color-512.jpg",
+      "sha256": "dce4d8056ae6fa470550133c9d8284a2acb271cdf41f2c07a1693e977632b1c3"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/wood-neutral-1024.jpg",
+      "sha256": "005967a6e198a8df6578740376d6fe9546698fd535cd1f04990f39e7ed06c689"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/wood-neutral-256.jpg",
+      "sha256": "b22f135dc4e16d8e868391bd32324ce99d516c042d05256ab4dd82d30241e9ca"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/wood-neutral-512.jpg",
+      "sha256": "34d8dec35b50e5aa4c3f29920b9310806378b0757ffcf3d925172fd18936e3f7"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/wood-normal-1024.jpg",
+      "sha256": "686fb594469c3ce36f4ab04be2d1c94fb871ac0da79ee40b2e0d633a60837e32"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/wood-normal-256.jpg",
+      "sha256": "8c22ab3124e4bb513596d6f312671000ffcbad6bc6624f3ab6b8ba79c5db834d"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/wood-normal-512.jpg",
+      "sha256": "382ae4849c2cdf1eac3a3c2119372a4081ab3c6c2f5010cab3ec1c30c890d097"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/wood-roughness-1024.jpg",
+      "sha256": "19514c17490bf4bd7d1b0d32b34fc1ccb5f28f73ba6979c22fd17e728b093134"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/wood-roughness-256.jpg",
+      "sha256": "824add1386a43f0866149126f3e37e023936d89e2dd5e6f3853424c54166c659"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/materials/pbr/wood-roughness-512.jpg",
+      "sha256": "5c0a2afa9aacac8a6ef293a3e800206eb2e6d10f3536487d4c5f55708f96253d"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/recipes/README.md",
+      "sha256": "f279a8ea17a010693e903870f246fafb6656f7475642c8359f88efab28211e99"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/recipes/ai-industrial-concrete-v1-master.png",
+      "sha256": "963721029914f472402975da743c78c0240b554f9b4335d45b7e5fd2b8bf7921"
+    },
+    {
+      "path": "modules/logistica-industrial/functions/bandas/runtime/conveyor-viewer.css",
+      "sha256": "df6d7f0b1790371c11e706695ef934dd6fd8ef0e59eb028922631d4043eb4371"
+    },
+    {
+      "path": "modules/turismo/assets/angel.basis",
+      "sha256": "a619e654ea8c8e3adb4e5f8d228457922dfba8c3860a4397d58a62629616d931"
+    },
+    {
+      "path": "modules/turismo/assets/angel.min.glb",
+      "sha256": "3eb681f3176a48a134caeed2891bb4be3b293650abc650f92e2b2caeb213799a"
+    },
+    {
+      "path": "modules/turismo/assets/ballfx.basis",
+      "sha256": "8b8a748e74abbbb6d27d27ebcd82f0ad38a58339f614193d04eb5d3f5193688e"
+    },
+    {
+      "path": "modules/turismo/assets/beamfx.png",
+      "sha256": "06503e4960720c02663432cb9ce4358b9994f908b31e04cbbbdd73ac3f502d8a"
+    },
+    {
+      "path": "modules/turismo/assets/checkboard.basis",
+      "sha256": "6ab7dca72f28cff47247e6d3b3ac9c178c850c04484ca50d3baebaeee50560bb"
+    },
+    {
+      "path": "modules/turismo/assets/clouds.basis",
+      "sha256": "3658704860830d6d7dd7fb7602c8a8b8d0d010862bed731925656a023d2e37fb"
+    },
+    {
+      "path": "modules/turismo/assets/controller.basis",
+      "sha256": "c8b01bc1a96f724b98c7121f6a13f1f6b9feb7d6d339478932dbbf181b67ca6f"
+    },
+    {
+      "path": "modules/turismo/assets/doorfx.basis",
+      "sha256": "adf31942e70b2ca7f2d960f9146568713cf97ab9626928bd630043a94870457a"
+    },
+    {
+      "path": "modules/turismo/assets/flare.jpg",
+      "sha256": "ec89f95f83dd76e35f78b3a6b493657e2e4c4e5d7c7cc578fe8f08bef964b9bf"
+    },
+    {
+      "path": "modules/turismo/assets/foxr.png",
+      "sha256": "d06b69774b0127fc0098291ef415bcea62c190441a4c63ee4771184dde36d3e0"
+    },
+    {
+      "path": "modules/turismo/assets/generic_controller.glb",
+      "sha256": "818d6337f77172e938f91a5808639cb53d656ceb3e591c6b375220130a7b169b"
+    },
+    {
+      "path": "modules/turismo/assets/glow.basis",
+      "sha256": "25f776e3cad0956a37bc1b68dde6f05142ba43ed339a3608128959ef248d7d40"
+    },
+    {
+      "path": "modules/turismo/assets/grid.png",
+      "sha256": "48fd62ee884d07d1c145ceaeef18c37f3ec7685e977be3f9e85710da7247dd94"
+    },
+    {
+      "path": "modules/turismo/assets/haldezollern.basis",
+      "sha256": "44ee1112012f9a264b35c9fe32b0d2bb983283741a66496f88fab750fb7d7605"
+    },
+    {
+      "path": "modules/turismo/assets/haldezollern_small.basis",
+      "sha256": "f8b8f9c2b0446553ec555bdf45663eb1f7d74e37a12566b1234e3f70d99829ce"
+    },
+    {
+      "path": "modules/turismo/assets/hall.glb",
+      "sha256": "3da91a25ad594795578b2689400ce92b976b6516649823b8fe9dd6082c9597a3"
+    },
+    {
+      "path": "modules/turismo/assets/hall_variants/hall_empty.glb",
+      "sha256": "6015b860cbe8fc2cf777bc3a20bc1ce69a2f639b84aa9b3de2c0039dc6a29e40"
+    },
+    {
+      "path": "modules/turismo/assets/lakebyllesby.basis",
+      "sha256": "5094a15e20109e352df5fdadaf56550661c9ad5b2af6dcfd9f9cea3b83f4a05c"
+    },
+    {
+      "path": "modules/turismo/assets/lakebyllesby_small.basis",
+      "sha256": "7de6dddca249e496f527741041cb9c21723ba84af98a66b47775fe25a3812207"
+    },
+    {
+      "path": "modules/turismo/assets/lightmap.jpg",
+      "sha256": "77078e91d961998bd27a926c5a947b382960425c95dd108e0ffd1cfbbb88f007"
+    },
+    {
+      "path": "modules/turismo/assets/loadingbg.jpg",
+      "sha256": "5e46088803c48dee1ceba600e58de55c2a6b3f874c662ffaf3651affcdc959e2"
+    },
+    {
+      "path": "modules/turismo/assets/mozillamr.basis",
+      "sha256": "75e3e47be35abd001e816932dfadb0681128e1d15de69d956805dbb996b3f30c"
+    },
+    {
+      "path": "modules/turismo/assets/newsticker.jpg",
+      "sha256": "f5474840f06eea04f8213e701aede98be8174ada3626b9cb3f3c5eb34865718c"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/bells.ogg",
+      "sha256": "679fc34db7e778e7aaa3ed5b877d6fe10a069ea53c0d84507f83b8b146d4cba2"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/birds.ogg",
+      "sha256": "6dfd6d696084d68bf1b212ef70e882def93731c2379c6695b82a7f643316f6a5"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/chopin.ogg",
+      "sha256": "81e0f22c23985b57deb5d8bb9ce57fb273e3ac206d433bc9245ad21234fc801e"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/cowbell.ogg",
+      "sha256": "1ed6fca373db22ecd6fe3e5e9e5f74f9290750397c397e7a566d79604ce1581b"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/forest.ogg",
+      "sha256": "82a3c7acda88d8b29dc21f45a86d70db26f359b30ca57c72ff204d6a7186f361"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/guiro.ogg",
+      "sha256": "ea987b4859f1ebd9046cb7a2db947d1ee55894950cdf37c8c6bc8f1a5ddc655a"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/horn.ogg",
+      "sha256": "b013a28f16e89df7b0caf749b720643056d97fb2ec93eaf587e5287cb4012531"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/mandolin.ogg",
+      "sha256": "c1d797f7385a4ea34ac2a30d8bac6e402e581e71591fd321b1c99fc686ac9293"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/motorhorn.ogg",
+      "sha256": "e343ad22bf21ed7816f61b02e30dc5598aafb3316262cddedf621ccafdc7ae6c"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/spray.ogg",
+      "sha256": "dbd9372eb4c5b714c30dc90b8d18679df2031b8a3b886e89ea81572072f22a4c"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/squeaker.ogg",
+      "sha256": "c8ae9b2025aeef9e9a9eb16be2b95a39d812b2f9cab8ee63045860976bd81c3a"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/surdo.ogg",
+      "sha256": "43b08c96e2e17d9d273122189de29956ea2d287697bbcb0c0faea3b99dd456f2"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/teleport_a.ogg",
+      "sha256": "aaa17fee5eb19b90b8d2bd43ef7a68805d94c9a045e26eea84c6cf5183ceb512"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/teleport_b.ogg",
+      "sha256": "1a7304635e169231175d8c7038d93f400f13fc763aa2fb4860a535396161f5e3"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/train.ogg",
+      "sha256": "4f08f3ba27c4175e6ed4d37831d339fab0573e156bbe6a7b6de8537f9f197988"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/trumpet.ogg",
+      "sha256": "041bb3d9a216d5573de47f59a8525844976acc886da7cdf091d2ec2c93b2bb70"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/whistle.ogg",
+      "sha256": "4ed738ce6a3fcb787844f9c75dece99821f12d03279743af67bf8a7b486c22aa"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/wind.ogg",
+      "sha256": "e79de9fb7ee9dec65b35f8df860a9fae4df1de59de3b1451c6f7a76ae7eb68fe"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/xylophone1.ogg",
+      "sha256": "d0127cbe7bcc9f96695527671153a4ab137c3df95096d25554cecba75e5e35a1"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/xylophone10.ogg",
+      "sha256": "a502d8f7001aff2b5a4d8d75ead7c03756d56026b76a965cef403705ed11d922"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/xylophone11.ogg",
+      "sha256": "de864d24f46a235a5002215071111d038b21b19ac8f88cff137f7db8e6cb50aa"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/xylophone12.ogg",
+      "sha256": "8813ed3ea0ef880e95a3ee802d14785a9558dcd10a028459feb05a86b8489e31"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/xylophone13.ogg",
+      "sha256": "44cebebd57b835a7f37eb0d4e4dedbb21d98ab63ec6f15cae49eb389017a924a"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/xylophone2.ogg",
+      "sha256": "cd173979289b789638274cf8346e5457e65f039d8ce2e86ad05df986af2b96ac"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/xylophone3.ogg",
+      "sha256": "67670baab448944d2cbcf67aa3445d63f17d508f4e0f0cc31860712955415205"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/xylophone4.ogg",
+      "sha256": "e0056e4708a24548f948794039891459c0ef54d5378308a3ae490de8b0762480"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/xylophone5.ogg",
+      "sha256": "de2fced927b035b043f7933bb563dee5c6553de3f98a7c0793d29d1aebfda1e4"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/xylophone6.ogg",
+      "sha256": "d350df5a0f6ea7f660411f726080c6beb162319452c7942b26dd6c307c358a13"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/xylophone7.ogg",
+      "sha256": "adc832d43b0c71559763a0351139803001a58533b8bb906c95afe01953b3bcee"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/xylophone8.ogg",
+      "sha256": "4fb37b585d32011eca013fdf9c073b9de7d76cff4a2bdbaf8a3aa625086a3253"
+    },
+    {
+      "path": "modules/turismo/assets/ogg/xylophone9.ogg",
+      "sha256": "b65e0acaf469d3f3da78e0cf84ba5af72926ebfa4b4dfc61e9d8861be6cd28e6"
+    },
+    {
+      "path": "modules/turismo/assets/paintings/bosch.basis",
+      "sha256": "6f20456d82c70465e0cfe1ff9380003f05f0c877248762a7a9ea50ed2df1e726"
+    },
+    {
+      "path": "modules/turismo/assets/paintings/degas.basis",
+      "sha256": "cbb7c911d56b2f384a280ea403c57d32dabde8e0ca7ec1b5109038da2c9c4af5"
+    },
+    {
+      "path": "modules/turismo/assets/paintings/rembrandt.basis",
+      "sha256": "425ca2483559f0890734fee7a6f613582477303ac5067e98ee5949553ac33b0e"
+    },
+    {
+      "path": "modules/turismo/assets/paintings/seurat.basis",
+      "sha256": "642da0a6f0752a466707d4923cfe19ee9661d69f2aa1fb6698e215b26e4660dd"
+    },
+    {
+      "path": "modules/turismo/assets/paintings/sorolla.basis",
+      "sha256": "a26a454d1e78754c5c3e4b96a894491c46f559158f36069906f910310f377f16"
+    },
+    {
+      "path": "modules/turismo/assets/panel.basis",
+      "sha256": "6b4026f2ef777e062ac9b1db1d184329db4e7f2448bfbad12a8dd901d5d890a0"
+    },
+    {
+      "path": "modules/turismo/assets/pg_bg.jpg",
+      "sha256": "9e195b908623323f8a3e5199504cad04cbe70d3e12bf7b27eb3336b7dc07b4f4"
+    },
+    {
+      "path": "modules/turismo/assets/pg_door_lm.jpg",
+      "sha256": "dc334ef48d6595a4354b4abaaa1dbd71986322b79219d14c8a44195cee5631b3"
+    },
+    {
+      "path": "modules/turismo/assets/pg_floor_lm.jpg",
+      "sha256": "ca36ce80c2f6144e082ffce82e888515970e1c91101e07f93ec8adc591ce6e2b"
+    },
+    {
+      "path": "modules/turismo/assets/sky.png",
+      "sha256": "f8999027e72c6decab724703f802d7a63142fb61208313cbb03068927070ecf8"
+    },
+    {
+      "path": "modules/turismo/assets/smart-twin-cover.jpg",
+      "sha256": "3b3030941686baf54ec87537701806eac2df5803522ab292ac5ff9b76837d796"
+    },
+    {
+      "path": "modules/turismo/assets/sound.glb",
+      "sha256": "9b215b1ad8bbb3e91119e80c02b766684794209df5756078ea9042a00e88acca"
+    },
+    {
+      "path": "modules/turismo/assets/sound_door.glb",
+      "sha256": "e81ab5f831a80a40fa5a651702210616165a45ef21bfe76e9e6ac75b3c96acc2"
+    },
+    {
+      "path": "modules/turismo/assets/sound_door_lm.jpg",
+      "sha256": "bbe236da400cbf69cc58063f9056b91720644fbc901d2999049340bc838c7a8d"
+    },
+    {
+      "path": "modules/turismo/assets/sound_shadow.png",
+      "sha256": "4e93dd826f2e59df6b52e997f26606cc3400daa0fdd6b5105b3f8acae865fb4d"
+    },
+    {
+      "path": "modules/turismo/assets/spray.basis",
+      "sha256": "c3e59022e6483df285fb00a08c36f19bad5458a6acddce70d61a853054062dfa"
+    },
+    {
+      "path": "modules/turismo/assets/spray.glb",
+      "sha256": "39678f7cbf2fc0b9ff6adcc870605eae4ce50cd1b61743e9beec7621cb58c898"
+    },
+    {
+      "path": "modules/turismo/assets/spray_brush.png",
+      "sha256": "dc9c9e75a4bd7366b91ffc9b5b178893a4809e93f181cb1e0e87466e584e274f"
+    },
+    {
+      "path": "modules/turismo/assets/sshot.jpg",
+      "sha256": "08c27353f12236b48d66c2a14746b8bdf6e2949cdd31a8319fd429a2754c2f94"
+    },
+    {
+      "path": "modules/turismo/assets/stereopanoL.basis",
+      "sha256": "1e9b1d4914ebd0ee689eb038af59b6c46f94317c20118c81c9a3162bb853199f"
+    },
+    {
+      "path": "modules/turismo/assets/stereopanoR.basis",
+      "sha256": "19e20bfa1ef9ef0746d91387f60db298ec222de65d85be73be1cf2a3ec4301e1"
+    },
+    {
+      "path": "modules/turismo/assets/stereopano_small.basis",
+      "sha256": "d2e992e89dd8769f34c5ff9256843155deb473802c42fa01f25f004fae4d0b9b"
+    },
+    {
+      "path": "modules/turismo/assets/teleport.glb",
+      "sha256": "9b987f8ecf1862e12e352b64df9a102b5b84d9838edd3377552c40bf70bc702f"
+    },
+    {
+      "path": "modules/turismo/assets/thuringen.basis",
+      "sha256": "f197516290519b574d876eeb742d094c5837cd4fe8d73c6cb5dc78dd441cecc1"
+    },
+    {
+      "path": "modules/turismo/assets/thuringen_small.basis",
+      "sha256": "a6ce4dbcc193c3cd15079d14c7cc3b4111a409989377fc2232f62d8dac596950"
+    },
+    {
+      "path": "modules/turismo/assets/tigerturtle.basis",
+      "sha256": "5cea513f291806eec3cd73a7f0904a794df57a673273c29df2bea6657d7cae7b"
+    },
+    {
+      "path": "modules/turismo/assets/tigerturtle_small.basis",
+      "sha256": "efd4f0c4233ce1ca255d208044189f0d5834bd97693e3afadf80baaa1743bb59"
+    },
+    {
+      "path": "modules/turismo/assets/travertine2.basis",
+      "sha256": "12650b2e2c5de96e1766dc20a9ce58c52222fa882bb68047db2f3b906ff3512b"
+    },
+    {
+      "path": "modules/turismo/assets/tweets.json",
+      "sha256": "0a21f676f7d0c489932bac932ac3376d097fbb24bedcd77a1df224b5a90d09c2"
+    },
+    {
+      "path": "modules/turismo/assets/vertigo.glb",
+      "sha256": "14942f8efdb24dca45d35182a7bb2b9a3362bfde1abcb083d8113896dcf02c96"
+    },
+    {
+      "path": "modules/turismo/assets/vertigo_door_lm.jpg",
+      "sha256": "89cdfca4b7167326dd5d21b0f47d9b3dedad2aa8027474794f5789ed3d3f17d1"
+    },
+    {
+      "path": "modules/turismo/assets/vertigo_lm.basis",
+      "sha256": "78e0855d012434a534acb3a87805786dba12154d6f3c49bb7cb2c7775b6f3540"
+    },
+    {
+      "path": "modules/turismo/assets/zapporthorn.basis",
+      "sha256": "68423bac76838cdf7fa57ca8da7b54274b6e450b009a70eb65c994bc7b71529a"
+    },
+    {
+      "path": "modules/turismo/assets/zapporthorn_small.basis",
+      "sha256": "19f88ad3fca0aee8fbf136cebed07dfabeaf69264f6b407d2b86fdbf6775a385"
+    },
+    {
+      "path": "modules/turismo/assets/zoomicon.png",
+      "sha256": "95772b9ee433abcd9352e32098680bbed1124dcad0bfdfac87ab466560ffea48"
+    },
+    {
+      "path": "packages/render-three/src/StartupStatus.js",
+      "sha256": "a3c4f233977377c9261754b3f2f083dcebe7a34b1cec4f55079cc679c72b77bb"
+    },
+    {
+      "path": "packages/render-three/src/graphics-settings.css",
+      "sha256": "964ebc1e31a48c42b04a183e3a78cb7b5e12a2be15e8f45a43484672638bf159"
+    },
+    {
+      "path": "packages/render-three/src/mobile-navigation.css",
+      "sha256": "548ee7e98a034ddae3db888ac7b81c626017541ff6e89a68fe65d94493438740"
+    },
+    {
+      "path": "packages/render-three/vendor/basis_transcoder.js",
+      "sha256": "007e3ea8f951df013cca31581fb2f6e33a6f1c9e75f48d2c03027f327514bb77"
+    },
+    {
+      "path": "packages/render-three/vendor/basis_transcoder.wasm",
+      "sha256": "a9d487771e8c5cd1986db4fd599b9d2bb84234f940f6611baa4bd79b1f7bf523"
+    },
+    {
+      "path": "packages/render-three/vendor/draco_decoder.js",
+      "sha256": "471c141c37c6bca5e4b227586a5254f7b7ef9a75a5ce88fcc3e75728c6eee2d4"
+    },
+    {
+      "path": "packages/render-three/vendor/draco_decoder.wasm",
+      "sha256": "2a498944346c44cb3d083ceb36603df6bac00de17985bc684bfbf7523a1a7ad0"
+    },
+    {
+      "path": "packages/render-three/vendor/draco_wasm_wrapper.js",
+      "sha256": "42ca4ddac3f2e646bac2e693ac27c5e6bf9081766c7258ea68aa01d2b77319cc"
+    },
+    {
+      "path": "packages/tools/ai/assets/README.md",
+      "sha256": "5493d7711cffe96d6e88df5ef1be33dae02eb88146e144d9421baf6096782605"
+    },
+    {
+      "path": "packages/tools/ai/assets/models/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "packages/tools/ai/assets/models/conversion.json",
+      "sha256": "a7492f88927a7952824e90c040a6d816a5d7760ce3b42419ffa5e60646efdac7"
+    },
+    {
+      "path": "packages/tools/ai/assets/models/super-resolution-10.onnx",
+      "sha256": "85f36ff88cc504a24af5e0602148bc56a8aa09a58eca8c0da2756f3e8186035e"
+    },
+    {
+      "path": "packages/tools/ai/assets/models/super-resolution-espcn-x3-dynamic.onnx",
+      "sha256": "f2645a31409ac2487242e1d8c42e627c3651dd1f6605f55bd0ca1754535ce62f"
+    },
+    {
+      "path": "packages/tools/ai/assets/native-texture-ai-worker.js",
+      "sha256": "564ae867adc79cec5c8b76611d9f4c8cfd457c4854a8c3b51216330d0fe5b0aa"
+    },
+    {
+      "path": "packages/tools/ai/assets/onnxruntime-1.30.0/LICENSE",
+      "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+    },
+    {
+      "path": "packages/tools/ai/assets/onnxruntime-1.30.0/ThirdPartyNotices.txt",
+      "sha256": "143764b952fdb1a7c69ce653bfba74a7744d6a8a573bfb73e235fba356c83de3"
+    },
+    {
+      "path": "packages/tools/ai/assets/onnxruntime-1.30.0/ort-wasm-simd-threaded.mjs",
+      "sha256": "e13f7f94fc51b4ca72b12faeb1ee95f4ace6dfbc8939bc718aabdc0a27c4299b"
+    },
+    {
+      "path": "packages/tools/ai/assets/onnxruntime-1.30.0/ort-wasm-simd-threaded.wasm",
+      "sha256": "3398c10d07d229bd91b364548e130e0e51a8e5704b88c7c083ebbeb78842dee2"
+    },
+    {
+      "path": "packages/tools/ai/assets/onnxruntime-1.30.0/ort.wasm.min.js",
+      "sha256": "faece07e84faa9001f5104bbe4e5c70861d06cb2376a0dea1fa0ad33a67adc81"
+    },
+    {
+      "path": "packages/tools/ai/assets/provenance.json",
+      "sha256": "605cec4aa401dbebf71da6ddc8d73191eeb19f6e1af8b3942b3146adffaccefd"
+    },
+    {
+      "path": "packages/tools/cad/src/cad-workbench.css",
+      "sha256": "495a95753d8445d6caec19239026f34bab3b06dd7d6b95744ded982af929ad6b"
+    },
+    {
+      "path": "packages/tools/editor/assets/catalog.json",
+      "sha256": "42cf31c1d9d9f22ccc0bba4f880bb560c68e83b9c95e1673d1cd5dcfc14f4dea"
+    },
+    {
+      "path": "packages/tools/editor/assets/previews/blend_0f68dad69a763090.png",
+      "sha256": "db402b5904a28e781baf5d669d950fb9d87f599a24a82c007f152d633cee5c70"
+    },
+    {
+      "path": "packages/tools/editor/assets/previews/blend_1d3be0ac5950a2ca.png",
+      "sha256": "32c9bfdfbd07aaa1315edbcbe1d07091616b699dad92d0df33bd756196c405dc"
+    },
+    {
+      "path": "packages/tools/editor/assets/previews/blend_24ce73cdbdd40c1b.png",
+      "sha256": "212a67d42d981f7f999a4f2aa6f09edcf2d583a4eabee548753923c4d7859a96"
+    },
+    {
+      "path": "packages/tools/editor/assets/previews/blend_3165e296d1364bd6.png",
+      "sha256": "43ec381aa6fef06795d076e7f39a6a65dc238a48e5b5a7ed1ad5551f8bd3243a"
+    },
+    {
+      "path": "packages/tools/editor/assets/previews/blend_678d56bd884b2336.png",
+      "sha256": "7b97fdfae2abdf6914d7f7a2ca7a5f12c9b67fb5925d1bf65c3258ec19262f12"
+    },
+    {
+      "path": "packages/tools/editor/assets/previews/blend_8d561ef1931d2c7d.png",
+      "sha256": "bd46c21dd76ca1f03f5c1c290b26b35362545f1123b17027e16ded4bed442b8c"
+    },
+    {
+      "path": "packages/tools/editor/assets/previews/blend_97df70b7d87d7ee2.png",
+      "sha256": "fba419347c3540fde6b5b62eddad2665d04a248867e51cb875289fe0cd107725"
+    },
+    {
+      "path": "packages/tools/editor/assets/previews/blend_bad8dfe13c30b4f8.png",
+      "sha256": "bb130dfb7479de30e10edc2b3ce91aca39edfbfeeaaf68d46d69aa4defce0481"
+    },
+    {
+      "path": "packages/tools/editor/assets/previews/blend_d694914043b60c47.png",
+      "sha256": "c2cd263eeef417ef20ca3eeb7be08458b37f3d6773bb2f556ca025eb3c807cb3"
+    },
+    {
+      "path": "packages/tools/editor/assets/previews/blend_f34efa5676ead937.png",
+      "sha256": "d0b596eaa3b93b227297d9654c17fadfd168250a4fab9d38a79cd080ae9632b5"
+    },
+    {
+      "path": "packages/tools/editor/src/editor.css",
+      "sha256": "e6654b1c5369f039e2a71227e7e4d2ce4346abb48c223e8bc1df449b2ad91b37"
+    },
+    {
+      "path": "packages/tools/editor/src/floor-plan-editor.css",
+      "sha256": "50f145fe475ed7a84e97ed416b7de1a54a98fad72c992752e018002ab74a181f"
+    },
+    {
+      "path": "packages/tools/editor/src/projects.css",
+      "sha256": "8c0d57e3d21eb7981f21415a488365e1ee04597e19fa53cbe2247fc2e8146de9"
+    },
+    {
+      "path": "packages/tools/editor/src/resources.css",
+      "sha256": "df7efabcfd25a0b6db0a9a188b8639f7af3a7f3bab7dd62d73f6de85c1cb609c"
+    },
+    {
+      "path": "packages/tools/editor/src/scene-guide.css",
+      "sha256": "23782082025b3e28c6a76b18561fe6505dd35896e1761afd55944917821f84cf"
+    },
+    {
+      "path": "packages/tools/editor/src/scene-workspace.css",
+      "sha256": "71e787b3b01b111c2d7c02c091be05405897d46b812cbfe6118f2c5251907c47"
+    },
+    {
+      "path": "packages/tools/editor/src/workspace-layout.css",
+      "sha256": "a4e1bc53385fa7fe968d530995fce4622f29d2a80d72abdd467f6fe90c92d19f"
+    },
+    {
+      "path": "projects/smarttwin/branding/apple-touch-icon-114x114.png",
+      "sha256": "2c5aa1e5565676d44ac1687268164e4d94e0947df575e7b768c49ba3ee0188a1"
+    },
+    {
+      "path": "projects/smarttwin/branding/apple-touch-icon-120x120.png",
+      "sha256": "e98fd9625fbb7af7f20ba139bac6ebf92477fbd29406c1026be3538787e9eb1b"
+    },
+    {
+      "path": "projects/smarttwin/branding/apple-touch-icon-144x144.png",
+      "sha256": "8252a8091cc43ec80ad7ea6a6dcd2cfa9c554c8927939436d739117e1706b012"
+    },
+    {
+      "path": "projects/smarttwin/branding/apple-touch-icon-152x152.png",
+      "sha256": "6aaa5dc2551d2f175fea00f49f20e179e57cdaf6e506ca0e96b2bebf4ac705c8"
+    },
+    {
+      "path": "projects/smarttwin/branding/apple-touch-icon-57x57.png",
+      "sha256": "12da214438476676e0dec1bc9e3a2e54857cfaf3410af25fb72cab7656559b8b"
+    },
+    {
+      "path": "projects/smarttwin/branding/apple-touch-icon-72x72.png",
+      "sha256": "3427b3c663448157a08fd9f241c33b3ad853a785a39e19a3dd52f3cef668b3ce"
+    },
+    {
+      "path": "projects/smarttwin/branding/big_thumbnail.jpg",
+      "sha256": "1b50232dcc78d2ab627eaae4dfdf6e9aff3ef22ff20803967bf401b752fa51d9"
+    },
+    {
+      "path": "projects/smarttwin/branding/favicon-16x16.png",
+      "sha256": "82a898f3f5e5fbd23a98561c3dd6603c7bf1281817e449ec824059eb981d2aed"
+    },
+    {
+      "path": "projects/smarttwin/branding/favicon-32x32.png",
+      "sha256": "118e6ad1711ce8164deee8903d53363e4e3c7495c60cf117420244c38a7bc7b7"
+    },
+    {
+      "path": "projects/smarttwin/branding/favicon.ico",
+      "sha256": "d25cc811ca6d7a2ee0317591b98ae0a2e70bc1a0d59f32c2bb677a853be07216"
+    },
+    {
+      "path": "projects/smarttwin/branding/mstile-144x144.png",
+      "sha256": "8252a8091cc43ec80ad7ea6a6dcd2cfa9c554c8927939436d739117e1706b012"
+    },
+    {
+      "path": "projects/smarttwin/branding/smart-twin-mark.svg",
+      "sha256": "258a10eb7c355cd9dcc72b6c755ffcb3408873d467a2f37699764bdb8721021b"
+    },
+    {
+      "path": "projects/smarttwin/previews/advanced-packing.png",
+      "sha256": "b0f65e69d527d461724f50062d67e6a663eb1bdf177f9c71ca098952051709f5"
+    },
+    {
+      "path": "projects/smarttwin/previews/advanced-pallets.png",
+      "sha256": "e099e152fba455cd1e7ea8240a7428ed47b864048c4451c9750d8c93547a2fca"
+    },
+    {
+      "path": "projects/smarttwin/previews/advanced-rework.png",
+      "sha256": "db7662c7fce27ce9b603376f9292bd3d4764068c0b845c8b9641f7d696b01c4b"
+    },
+    {
+      "path": "projects/smarttwin/previews/cedi-packing-robotics.png",
+      "sha256": "0b190976f15b95a280392e8b9695e4456b7c4fa86d2d304124a6de767a4e2b59"
+    },
+    {
+      "path": "projects/smarttwin/previews/cedi-packing.png",
+      "sha256": "0b190976f15b95a280392e8b9695e4456b7c4fa86d2d304124a6de767a4e2b59"
+    },
+    {
+      "path": "projects/smarttwin/previews/cedi-sorting-robotics.png",
+      "sha256": "a38526b82f80fbdc6233e8615fabb7bbef3998a87fa34467ebb96bfe46fd24f4"
+    },
+    {
+      "path": "projects/smarttwin/previews/cedi-sorting.png",
+      "sha256": "a38526b82f80fbdc6233e8615fabb7bbef3998a87fa34467ebb96bfe46fd24f4"
+    },
+    {
+      "path": "projects/smarttwin/previews/forklift-training.png",
+      "sha256": "f7085a4298c4d3b2e394a80b2bee6295da4201cb26e4c15940eb29c1fb22b187"
+    },
+    {
+      "path": "projects/smarttwin/previews/industrial-lab-complete.png",
+      "sha256": "bf89b3bf6c9865cb25ab0442f33675fa54b5c7e6230d9991ee1ab7d94471f1fc"
+    },
+    {
+      "path": "projects/smarttwin/previews/inspection-sorting.png",
+      "sha256": "1efca608bb16b896d9cf7ab0bd4dc97afd433b1e17472e42dca5037a4de49bcc"
+    },
+    {
+      "path": "projects/smarttwin/previews/l-transfer.png",
+      "sha256": "b62a77e6d4becee060b2f924dafbf95aea97b66ca9518711c460916815ba98dd"
+    },
+    {
+      "path": "projects/smarttwin/previews/lab-assembly.png",
+      "sha256": "62795e267575cace5c346ab3e53c010306bd92604688e01600b8314357cb1408"
+    },
+    {
+      "path": "projects/smarttwin/previews/lab-elevator.png",
+      "sha256": "dafd3ddf0b198c1819a030201923aa48ba6736a3946e1418dfd95a542ced421b"
+    },
+    {
+      "path": "projects/smarttwin/previews/lab-gravity.png",
+      "sha256": "c2c50def0c012bac23be1546f4219afd70a2a00835d1b56ae16cdc76d5787ad0"
+    },
+    {
+      "path": "projects/smarttwin/previews/lab-manual-l.png",
+      "sha256": "72429a9b2c906fee79e42578a22bf05929f56ee0774a98efe89a4e319858f3b2"
+    },
+    {
+      "path": "projects/smarttwin/previews/lab-merge.png",
+      "sha256": "938e8ce0dae2712a722abee054acab16dec6291ddf3ccc4fbc578fb51b79dfba"
+    },
+    {
+      "path": "projects/smarttwin/previews/lab-pallets.png",
+      "sha256": "b95941e6a5d998e14b33d83af6601555e5b1eb8ed44c09441079a22f3fc47097"
+    },
+    {
+      "path": "projects/smarttwin/previews/lab-rectangle.png",
+      "sha256": "b578c36b922691bc900ed64d2d7e92d481963befd7a4dcf88dce0c6a17c9914e"
+    },
+    {
+      "path": "projects/smarttwin/previews/manifest.json",
+      "sha256": "10ded2b556c645c5d62b6ecb4977bde98c2b318a25ed0a8028381a1ff772f498"
+    },
+    {
+      "path": "projects/smarttwin/previews/manual-station.png",
+      "sha256": "7dac0604c37a3b8adf78c927ab291114f891fa7557a42b197777484f09cdb437"
+    },
+    {
+      "path": "projects/smarttwin/previews/original-hall.png",
+      "sha256": "a5f2f8e47660b814adbe94dc17e3ac532b5a64fdda88e069fbb28e35c5399bc5"
+    },
+    {
+      "path": "projects/smarttwin/previews/original-panorama1.png",
+      "sha256": "6ad5ad81d3dd9183bce4e0416caf72cc93c41341a734ccab0e5abbdb3a1d2d1a"
+    },
+    {
+      "path": "projects/smarttwin/previews/original-panorama2.png",
+      "sha256": "72d1d04441cb0bff7fbcef6814c52cbcaa6b26feeca7d18dc05e004e9d7f13d9"
+    },
+    {
+      "path": "projects/smarttwin/previews/original-panorama3.png",
+      "sha256": "8addfe88f885c6456036b3d5c78977b01316c237cf984364ecbfb8c51418b38f"
+    },
+    {
+      "path": "projects/smarttwin/previews/original-panorama4.png",
+      "sha256": "d8b8e636b24682e800e6c2899abb8ca5acd47f118a1cbed9e14e51227a183e97"
+    },
+    {
+      "path": "projects/smarttwin/previews/original-panorama5.png",
+      "sha256": "96d1dfc135f3afc7563dec01d7808c831d14088b550bdb4fe2209f2cbd5cfeef"
+    },
+    {
+      "path": "projects/smarttwin/previews/original-panoramastereo.png",
+      "sha256": "27ce27d4da0bfa5f5f7f4eb1e2f859029560f8bf80c845504e2cf781a3b95be2"
+    },
+    {
+      "path": "projects/smarttwin/previews/original-photogrammetry.png",
+      "sha256": "cad6ae76a1d3244f73330cd927c0b4e326b37465c5c64c72fa43aaeac0317b8a"
+    },
+    {
+      "path": "projects/smarttwin/previews/original-sound.png",
+      "sha256": "f900213a8642edfc9850a00ad733599274ae882ce4a33a04533e6aa5b0559a31"
+    },
+    {
+      "path": "projects/smarttwin/previews/original-vertigo.png",
+      "sha256": "9fc1437392806fe9f27cbd92f75d3f8ff6b2791cd5d8ef9d8e1b8831e1693bb0"
+    },
+    {
+      "path": "projects/smarttwin/previews/robot-handling-line.png",
+      "sha256": "3f043d435886927be10822c40009e4e10c9b24049b2cc3ca8998620e0a0a1329"
+    },
+    {
+      "path": "projects/smarttwin/previews/robot-scara-sorting.png",
+      "sha256": "c15ee6d0e96790da6251de4cf969b18fbcf3c312a2c705dd057f5c6780013899"
+    },
+    {
+      "path": "projects/smarttwin/previews/vr-robot-dispatch.png",
+      "sha256": "d59599420d62ac7cecd1f603c2e658a6cefee31faf703421e39be13dbe3d4460"
+    },
+    {
+      "path": "projects/smarttwin/previews/vr-robot-transfer.png",
+      "sha256": "2246a59afc3f35a10d7475556ed3f8e4a76b14156941f4de8bfd44389d26f760"
+    },
+    {
+      "path": "projects/smarttwin/previews/vr-robot-turn.png",
+      "sha256": "5d554032df4017f988e9b6c787788320130e7dd3672947974cbb38c130c17c8f"
+    },
+    {
+      "path": "projects/smarttwin/scenes/advanced-packing.json",
+      "sha256": "9a6a3e081249a74b77f7d0dc7f36d05a327b7100a5f1929d87c90c88a50f7929"
+    },
+    {
+      "path": "projects/smarttwin/scenes/advanced-pallets.json",
+      "sha256": "346eee131d4242ccb73d32e3a15c2c583c8d2b2d1eeb1e48d003978c33af945d"
+    },
+    {
+      "path": "projects/smarttwin/scenes/advanced-rework.json",
+      "sha256": "693fc676fe0892739d7af1d8ac447e046a3db4021c5509391f3ec36775bca468"
+    },
+    {
+      "path": "projects/smarttwin/scenes/catalog.json",
+      "sha256": "a3570cfa0c03def9daad68f189ff90ae4b3fbb5dd639d271d053a92b3e2bce59"
+    },
+    {
+      "path": "projects/smarttwin/scenes/cedi-packing-robotics.json",
+      "sha256": "8dcbf06538fc3447b1a6d1ce646fef4ce11300d47e79495a1a057d3a952fccc9"
+    },
+    {
+      "path": "projects/smarttwin/scenes/cedi-packing.json",
+      "sha256": "7a5869da77c865ab54d440fe2d6f2e7cdfad93ac82a683e970392a4407bf7469"
+    },
+    {
+      "path": "projects/smarttwin/scenes/cedi-sorting-robotics.json",
+      "sha256": "3e6ab3c661110b5a35a822e24ca08b20443d46911e5cc3d57c2f9fd6b9576d11"
+    },
+    {
+      "path": "projects/smarttwin/scenes/cedi-sorting.json",
+      "sha256": "df47a9d7d872c5d5dc0154512f15469e4e77ef0eadd5e768b4ea324e8efd0512"
+    },
+    {
+      "path": "projects/smarttwin/scenes/forklift-training.json",
+      "sha256": "09657aec28d504f0ca5d9ce0d5b83c9b565cfab7b5560675beec8ded950d7703"
+    },
+    {
+      "path": "projects/smarttwin/scenes/industrial-lab-complete.json",
+      "sha256": "188b2c3aa3b70e51c45b3a3a96fcbe76099f3ee11da09e1cd807f30e198f6498"
+    },
+    {
+      "path": "projects/smarttwin/scenes/inspection-sorting.json",
+      "sha256": "0ed5e8a86b554c6f114bc2d1f95b796ca685484047c8395d68c2d75e2dacd388"
+    },
+    {
+      "path": "projects/smarttwin/scenes/l-transfer.json",
+      "sha256": "1a2169c65bc2ea9ea7bae5112f52a22c460a28d3fce0de711dc2bf6945fdc2c0"
+    },
+    {
+      "path": "projects/smarttwin/scenes/lab-assembly.json",
+      "sha256": "1aa7a4316df864df1ec28bae680f42c6a8ef7df3f6d0335e4baf4d9a997a4061"
+    },
+    {
+      "path": "projects/smarttwin/scenes/lab-elevator.json",
+      "sha256": "11bc43ece91abdadb38e5609afc51de7dc720e1e909a84e34fdafe7972a3ff30"
+    },
+    {
+      "path": "projects/smarttwin/scenes/lab-gravity.json",
+      "sha256": "f9346aa1be9b5716f9f5f803570382c18a7ad15185244dee42a63083ab588800"
+    },
+    {
+      "path": "projects/smarttwin/scenes/lab-manual-l.json",
+      "sha256": "f6d5c9644212a167fdf3341a63ccf52aa9fdb0c25ca49c3e92aa82b35ceb332f"
+    },
+    {
+      "path": "projects/smarttwin/scenes/lab-merge.json",
+      "sha256": "3fdb41328f38bf0ed0779400c0bbacf32cbe29eef647a7c3d77a011caf760b10"
+    },
+    {
+      "path": "projects/smarttwin/scenes/lab-pallets.json",
+      "sha256": "47bf5782b23cdde18414a674080b51a85fdd11f8ff163bfcbf144ae5e0da8a5a"
+    },
+    {
+      "path": "projects/smarttwin/scenes/lab-rectangle.json",
+      "sha256": "82916e52f07d6f90367ca5ef48d1c082d5415fe5fabecea2d26b3a41c224aedf"
+    },
+    {
+      "path": "projects/smarttwin/scenes/manual-station.json",
+      "sha256": "c200758f64c6cbaa6d124cc4ba391d2c54839f98ca5035fdd93fe11f3a59a71e"
+    },
+    {
+      "path": "projects/smarttwin/scenes/original-hall.json",
+      "sha256": "1641cf3927e830656538bfe1b56b889dc59719d488b49661a37ac8f067a228d8"
+    },
+    {
+      "path": "projects/smarttwin/scenes/original-panorama1.json",
+      "sha256": "d0cafb6b28b1bd136b11fc5eac5c7c2f09298c0e3c3af0f8e5895aa7fd211121"
+    },
+    {
+      "path": "projects/smarttwin/scenes/original-panorama2.json",
+      "sha256": "bb4181b44ad4d3dda47b2159672207a152b299a6fee2a401d06cfdb7800c64cf"
+    },
+    {
+      "path": "projects/smarttwin/scenes/original-panorama3.json",
+      "sha256": "febf838715de06bfab3ac172e0dad395d817de06b7b0171b84b701a36179af44"
+    },
+    {
+      "path": "projects/smarttwin/scenes/original-panorama4.json",
+      "sha256": "d6510ae39cd0d8d71cedc013687e85419102b4b9ddfd5de2386b45368dcf0356"
+    },
+    {
+      "path": "projects/smarttwin/scenes/original-panorama5.json",
+      "sha256": "01473b99e3c6a8e70bf634e2649fa29ad8c1278c7f63925c6b1b6f9d17ef2e3c"
+    },
+    {
+      "path": "projects/smarttwin/scenes/original-panoramastereo.json",
+      "sha256": "7148cefc881c832977b941fe3c59067128b25de0d858fbed235b29e5e8de5443"
+    },
+    {
+      "path": "projects/smarttwin/scenes/original-photogrammetry.json",
+      "sha256": "26a0225d0ae0e795d5cb0ff6c8c9b48c036556fa925be14df14a947f4942a3af"
+    },
+    {
+      "path": "projects/smarttwin/scenes/original-sound.json",
+      "sha256": "ccb134045690c20838b8e22ff9086cc0390c2c01549e26a5a674f0a20054ad7a"
+    },
+    {
+      "path": "projects/smarttwin/scenes/original-vertigo.json",
+      "sha256": "1ff4947a749f30e95054c6ffc94e800757eb9393b730742c04548e09d9f35c6a"
+    },
+    {
+      "path": "projects/smarttwin/scenes/robot-handling-line.json",
+      "sha256": "cc3782afec48a02362257057a2a2bed89b08e263856ff0e2f0b4ba7fdb438463"
+    },
+    {
+      "path": "projects/smarttwin/scenes/robot-scara-sorting.json",
+      "sha256": "46995e30ac2c6356a3b968a96af05a5d0322d639651311fa9ed3997a94759b20"
+    },
+    {
+      "path": "projects/smarttwin/scenes/vr-robot-dispatch.json",
+      "sha256": "b7d7cf9e02feb42c16c2a2cfef01eb7f56614f583b502029202daeb28d25d04e"
+    },
+    {
+      "path": "projects/smarttwin/scenes/vr-robot-transfer.json",
+      "sha256": "afab5abd9fd491429e88e97740ebc0bf470088e4c8abd3d9e911ca2cc504a92e"
+    },
+    {
+      "path": "projects/smarttwin/scenes/vr-robot-turn.json",
+      "sha256": "4b3e0e73d7785c16d2cefb2e4a8b9f41e1aef3b1f762c43c1262f36310e9c212"
+    }
+  ],
+  "compilation": {
+    "compiler": "workspace",
+    "hash": "0c4563acf3a449b7f56f",
+    "statsSha256": "b338e1364f3ddcfa6f4a53f95c51f6f0854e626e5b52c7f4469c8ead435c1295",
+    "assets": [
+      {
+        "path": "1.bundle.js",
+        "size": 7227
+      },
+      {
+        "path": "bundle.js",
+        "size": 3203755
+      }
+    ]
+  }
+}

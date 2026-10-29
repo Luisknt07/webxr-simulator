@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base href="/workspace/">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="apple-touch-icon-precomposed" sizes="57x57" href="projects/smarttwin/branding/apple-touch-icon-57x57.png" />
+  <link rel="apple-touch-icon-precomposed" sizes="114x114" href="projects/smarttwin/branding/apple-touch-icon-114x114.png" />
+  <link rel="apple-touch-icon-precomposed" sizes="72x72" href="projects/smarttwin/branding/apple-touch-icon-72x72.png" />
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="projects/smarttwin/branding/apple-touch-icon-144x144.png" />
+  <link rel="apple-touch-icon-precomposed" sizes="120x120" href="projects/smarttwin/branding/apple-touch-icon-120x120.png" />
+  <link rel="apple-touch-icon-precomposed" sizes="152x152" href="projects/smarttwin/branding/apple-touch-icon-152x152.png" />
+  <link rel="icon" type="image/svg+xml" href="projects/smarttwin/branding/smart-twin-mark.svg" />
+  <meta name="application-name" content="SMART-TWIN Simulator"/>
+  <meta name="theme-color" content="#0c1b28">
+  <meta name="msapplication-TileColor" content="#0c1b28" />
+  <meta name="msapplication-TileImage" content="./res/mstile-144x144.png" />
+
+  <!-- Search Engine -->
+  <meta name="description" content="Diseña, simula y explora procesos industriales, automatización y gemelos digitales en la web y en realidad virtual.">
+  <meta name="image" content="modules/turismo/assets/smart-twin-cover.jpg">
+  <!-- Schema.org for Google -->
+  <meta itemprop="name" content="SMART-TWIN Simulator">
+  <meta itemprop="description" content="Simulación industrial, automatización y gemelos digitales en la web y en realidad virtual.">
+  <meta itemprop="image" content="modules/turismo/assets/smart-twin-cover.jpg">
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="SMART-TWIN Simulator">
+  <meta name="twitter:description" content="Diseña, simula y explora tu industria.">
+  <meta name="twitter:image:src" content="modules/turismo/assets/smart-twin-cover.jpg">
+  <!-- Open Graph general (Facebook, Pinterest & Google+) -->
+  <meta property="og:title" content="SMART-TWIN Simulator">
+  <meta property="og:description" content="Simulación industrial, automatización y gemelos digitales en la web y en realidad virtual.">
+  <meta property="og:image" content="modules/turismo/assets/smart-twin-cover.jpg">
+  <meta property="og:image:alt" content="Línea de producción industrial con transportadores, productos y robots.">
+  <meta property="og:url" content="https://luisknt07.github.io/webxr-simulator/">
+  <meta property="og:site_name" content="SMART-TWIN Simulator">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:type" content="website">
+
+  <title>SMART-TWIN Simulator · Simulación industrial</title>
+  <link rel="preload" as="image" href="modules/turismo/assets/smart-twin-cover.jpg" fetchpriority="high">
+  <link rel="stylesheet" href="packages/tools/editor/src/editor.css">
+  <link rel="stylesheet" href="packages/tools/editor/src/projects.css">
+  <link rel="stylesheet" href="packages/tools/editor/src/resources.css">
+  <link rel="stylesheet" href="modules/logistica-industrial/functions/bandas/runtime/conveyor-viewer.css">
+  <link rel="stylesheet" href="apps/workspace/studio/studio.css">
+  <link rel="stylesheet" href="packages/render-three/src/graphics-settings.css">
+  <link rel="stylesheet" href="packages/render-three/src/mobile-navigation.css">
+  <link rel="stylesheet" href="packages/tools/editor/src/scene-workspace.css">
+  <link rel="stylesheet" href="packages/tools/editor/src/workspace-layout.css">
+  <link rel="stylesheet" href="packages/tools/editor/src/scene-guide.css">
+  <link rel="stylesheet" href="apps/workspace/studio/admin-workspace.css">
+  <link rel="stylesheet" href="packages/tools/cad/src/cad-workbench.css">
+  <link rel="stylesheet" href="packages/tools/editor/src/floor-plan-editor.css">
+
+  <style>
+
+@font-face{
+    font-family: 'Zilla Slab';
+    src: url('https://code.cdn.mozilla.net/fonts/woff/ZillaSlab-SemiBold.woff');
+    src: url('https://code.cdn.mozilla.net/fonts/woff2/ZillaSlab-SemiBold.woff2') format('woff2'),
+         url('https://code.cdn.mozilla.net/fonts/woff/ZillaSlab-SemiBold.woff') format('woff'),
+         url('https://code.cdn.mozilla.net/fonts/otf/ZillaSlab(-SemiBold).otf') format('opentype'),
+         url('https://code.cdn.mozilla.net/fonts/ttf/ZillaSlab-SemiBold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+}
+
+body{
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Zilla Slab', sans-serif;
+}
+header {
+  position: absolute;
+  width: calc(100vw - 1rem);
+  margin-top: 1rem;
+  text-align: right;
+}
+footer {
+  position: absolute;
+  bottom: 0;
+  width: 100vw;
+  margin-bottom: 1rem;
+  text-align: right;
+}
+#mrlogo {
+  margin: 0.3rem 1.5rem;
+  width: 200px;
+}
+header a {
+  text-decoration: none;
+  color: #000;
+  margin-left: 0.8rem;
+  vertical-align: top;
+}
+header a path{
+  fill: #000;
+}
+header a:hover {
+  color: #059;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+}
+header a:hover path, #mrlogo:hover path.mrlogobg{
+  fill: #059;
+}
+#handedness a{
+  margin-left: 0.3rem;
+}
+.activehand {
+  background: #000;
+  color: #fff;
+  padding: 3px 12px;
+  border-radius: 5px;
+  pointer-events: none;
+}
+
+@media (max-width: 580px) {
+  #mrlogo{
+    display: none;
+  }
+}
+
+#loading {
+  z-index: 9999;
+  position: fixed;
+  inset: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: auto;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-end;
+  padding: clamp(28px, 5vw, 80px);
+  color: #f2f8fc;
+  font-family: "Segoe UI", Arial, sans-serif;
+  background: #0c1b28 url(modules/turismo/assets/smart-twin-cover.jpg) center 52% / cover no-repeat;
+  isolation: isolate;
+}
+#loading::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, #071827b8, #07182713 75%), linear-gradient(0deg, #061522ed, #08182700 72%); pointer-events: none; }
+#loading .loading-wordmark { position: absolute; top: clamp(25px, 4vw, 55px); left: clamp(28px, 5vw, 80px); display: flex; align-items: center; gap: 12px; color: #fff; font-size: 16px; letter-spacing: .08em; }
+#loading .loading-symbol { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #b5fff278; border-radius: 11px; color: #8af4db; background: #0a253170; font-size: 29px; }
+#loading .loading-content { width: min(640px, 100%); position: relative; padding-top: 90px; }
+#loading .loading-eyebrow { margin: 0 0 16px; color: #9ee9de; font-size: 11px; font-weight: 600; letter-spacing: .2em; }
+#loading h1 { margin: 0; color: #fff; font-size: clamp(42px, 6.2vw, 88px); font-weight: 700; line-height: .98; letter-spacing: -.045em; text-shadow: 0 3px 25px #06152230; }
+#loading h1 span { display: block; margin-top: 8px; color: #8af4db; font-weight: 400; font-size: .68em; letter-spacing: -.025em; }
+#loading .loading-tagline { margin: 22px 0 30px; color: #dce6ed; font-size: clamp(15px, 1.6vw, 20px); line-height: 1.5; }
+#loading .loading-status { display: flex; align-items: center; gap: 14px; max-width: 520px; min-height: 66px; padding: 12px 18px; box-sizing: border-box; border: 1px solid #a2c9d332; border-radius: 12px; background: #0b2334d9; }
+#loading .loading-status svg { flex: none; width: 32px; height: 32px; transform: rotate(-90deg); }
+#loading #loading-message { margin: 0; color: #e3eef5; font: 13px/1.6 "Segoe UI", Arial, sans-serif; overflow-wrap: anywhere; }
+#loading .loading-caption { margin: 20px 0 0; color: #b2c8d4; font-size: 10px; letter-spacing: .18em; }
+#loading #loading-error { max-width: min(660px, calc(100vw - 56px)); max-height: 25vh; overflow: auto; margin: 16px 0; padding: 16px; border: 1px solid #bd6d70; border-radius: 9px; background: #371e2df2; color: #ffdade; font: 12px/1.6 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; box-sizing: border-box; }
+#loading #loading-retry { margin-top: 16px; padding: 11px 20px; border: 1px solid #8af4db; border-radius: 7px; background: #8af4db; color: #092331; font: 600 14px "Segoe UI", Arial, sans-serif; cursor: pointer; }
+#loading.loading-failed h1 { font-size: clamp(28px, 5vw, 54px); }
+#loading.loading-failed .loading-status svg { display: none; }
+@media(max-width:600px) { #loading { padding: 28px; background-position: 64% center; } #loading::before { background: linear-gradient(0deg, #061522f5 3%, #0615229c 48%, #07182712 85%); } #loading .loading-eyebrow { font-size: 9px; letter-spacing: .15em; } #loading .loading-tagline { margin: 19px 0 24px; } #loading .loading-caption { font-size: 9px; line-height: 1.7; letter-spacing: .12em; } }
+@media(max-height:550px) { #loading { padding: 24px 36px; } #loading .loading-wordmark { top: 20px; left: 36px; font-size: 12px; } #loading .loading-symbol { width: 28px; height: 28px; font-size: 22px; } #loading .loading-content { padding-top: 65px; } #loading .loading-eyebrow { margin-bottom: 10px; } #loading h1 { font-size: 42px; } #loading .loading-tagline { margin: 12px 0; font-size: 14px; } #loading .loading-caption { margin-top: 12px; } #loading .loading-status { min-height: 52px; padding: 8px 14px; } }
+
+.hidden {
+  display: none;
+}
+
+#no-webxr {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 20px;
+  text-align: center;
+}
+
+#no-webxr:not(.hidden) ~ header {
+  top: 58px;
+  margin-top: 0;
+}
+
+#no-webxr a {
+  color: #000;
+}
+
+#keyboard-help {
+  position: fixed;
+  z-index: 2;
+  bottom: 1rem;
+  left: 1rem;
+  padding: 0.5rem 0.75rem;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.65);
+  border-radius: 4px;
+  font: 14px sans-serif;
+  pointer-events: none;
+}
+
+#desktop-reticle {
+  position: fixed;
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 3px #000;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+#desktop-reticle.hovering {
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35);
+}
+
+body.vr-mode #desktop-reticle {
+  display: none;
+}
+
+  </style>
+
+  <script src="packages/render-three/src/StartupStatus.js"></script>
+  <script src="bundle.js" defer></script>
+
+  <script type="text/javascript">
+    function aclick(ev) {
+      ev.stopPropagation();
+    }
+
+    function setHandedness(link, hand) {
+      var currentURL = new URL(window.location);
+      currentURL.searchParams.set('handedness', hand);
+      link.href = currentURL.href;
+    }
+  </script>
+</head>
+<body>
+
+<div id="loading">
+  <div class="loading-wordmark" aria-hidden="true"><span class="loading-symbol">◇</span><strong>SMART-TWIN</strong></div>
+  <div class="loading-content">
+    <p class="loading-eyebrow">SIMULACIÓN INDUSTRIAL · WEBXR</p>
+    <h1 id="loading-title">SMART-TWIN <span>Simulator</span></h1>
+    <p class="loading-tagline">Diseña, simula y explora tu industria.</p>
+    <div class="loading-status">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="45" stroke="#ffffff25" stroke-width="6" fill="none"/>
+        <path stroke="#8af4db" stroke-width="6" stroke-linecap="round" fill="none" d="M 50 5 a 45 45 0 1 0 0.0001 0" stroke-dasharray="282 282" stroke-dashoffset="282" id="progressbar"/>
+      </svg>
+      <p id="loading-message" role="status">Cargando la experiencia…</p>
+    </div>
+    <pre id="loading-error" role="alert" hidden></pre>
+    <button id="loading-retry" type="button" hidden>Volver a intentar</button>
+    <p class="loading-caption">GEMELOS DIGITALES &nbsp; / &nbsp; AUTOMATIZACIÓN &nbsp; / &nbsp; REALIDAD VIRTUAL</p>
+  </div>
+</div>
+
+<div id="no-webxr" class="hidden">
+  VR no disponible en este dispositivo. Puedes explorar con teclado y ratón.
+</div>
+
+<div id="keyboard-help">
+  Move: WASD / arrows · Aim with the center reticle · Left click: interact/spray or take/drop a product box · Wheel: bring a held box closer/farther · Right click a xylophone stick to grab or release
+</div>
+<div id="desktop-reticle" aria-hidden="true"></div>
+
+
+<div id="handedness" hidden aria-hidden="true"><span id="lefthand"></span><span id="righthand"></span></div>
+
+
+
+
+</body>
+</html>

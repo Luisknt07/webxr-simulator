@@ -5,7 +5,7 @@
   "method": "Counts from the real createIndustrialPrefab factory with the default registry configuration, including hidden reserved hardware. Meshes are not measured GPU draw calls.",
   "scope": "Geometry and mesh budget only. No browser FPS, frame timing, GPU memory or physical headset result is asserted.",
   "range": "Default variants; extreme user dimensions can increase geometry and mesh counts. Versioned accumulators reject more than 32 zones.",
-  "regenerate": "node scripts/test-conveyor-equipment-models.js --write-metrics",
+  "regenerate": "node tests/legacy/test-conveyor-equipment-models.js --write-metrics",
   "maximum": {
     "meshes": 132,
     "triangles": 15124

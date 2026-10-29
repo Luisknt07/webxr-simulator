@@ -33,7 +33,7 @@ La guía de cabina y sus modalidades RV se encuentran en [vehicle-cab-controls.m
 
 `npm run test:vr-compact` comprueba el límite finito, las conexiones, la validez del documento y el recorrido físico: robot → banda(s) → recogida con uñas reales → maniobras conducidas → depósito. Conserva la misma carga y verifica cuatro unidades y 33 kg en la entrega.
 
-`node scripts/qa-compact-vr-browser.js` prueba la aplicación compilada en un servidor HTTPS temporal con el identificador de navegador de Quest. Comprueba las tres cargas de escenario, el filtro inicial y el acceso a los 34 ejemplos. No modifica cuentas ni proyectos guardados.
+`node tooling/qa/qa-compact-vr-browser.js` prueba la aplicación compilada en un servidor HTTPS temporal con el identificador de navegador de Quest. Comprueba las tres cargas de escenario, el filtro inicial y el acceso a los 34 ejemplos. No modifica cuentas ni proyectos guardados.
 
 La aplicación compilada se midió en Chrome de escritorio con GPU por software, lienzo de 960 × 640 y política equilibrada fija:
 

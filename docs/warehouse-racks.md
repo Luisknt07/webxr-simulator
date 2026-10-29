@@ -46,7 +46,7 @@ Las sesiones guardadas conservan las mismas entradas, unidades y cargas, incluye
 
 Se verificaron transferencias reales **Source → rack por gravedad → banda**, tanto de pallets como de cajas; **Source → robot → estantería → segundo robot → receptor**; y recogida/retorno conducidos de un mismo pallet de cuatro cajas y 33 kg mediante montacargas, uñas reales y vigas del rack.
 
-`node scripts/qa-warehouse-rack-browser.js --expected <SHA256-del-bundle>` prueba el navegador compilado con cuenta/base de datos temporales. Comprueba categoría, inspector, copia, guardado y reapertura, y genera capturas de los 14 modelos sin cargarlos simultáneamente en un almacén grande. Las capturas no son una prueba de FPS en Quest.
+`node tooling/qa/qa-warehouse-rack-browser.js --expected <SHA256-del-bundle>` prueba el navegador compilado con cuenta/base de datos temporales. Comprueba categoría, inspector, copia, guardado y reapertura, y genera capturas de los 14 modelos sin cargarlos simultáneamente en un almacén grande. Las capturas no son una prueba de FPS en Quest.
 
 La estructura específica se agrupa en lotes de materiales: normalmente 4–8 mallas, hasta 16 en bases móviles, además del HMI. Las posiciones vacías no añaden mercancía. El comportamiento es una simulación cinemática de almacenamiento, sin cálculo estructural ni resolución de fuerzas de contacto; las capacidades son límites configurables de la simulación.
 

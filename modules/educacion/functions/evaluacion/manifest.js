@@ -1,0 +1,2 @@
+export const assessmentManifest = Object.freeze({id: 'education.assessment', version: '1.0.0', stateVersion: 1,
+  metadata: {title: 'Evaluación', packageRoot: 'functions/evaluacion', manifestExport: 'assessmentManifest', entry: 'index.js', schema: 'schema.js', server: 'server.js', migration: 'migrations.js', ui: 'ui.js', assets: [], tests: ['contract.test.mjs'], files: ['index.js', 'manifest.js', 'schema.js', 'server.js', 'migrations.js', 'ui.js', 'contract.test.mjs']}});

@@ -1,0 +1,1 @@
+export const inventoryPanel = Object.freeze({kind: 'table', title: 'Almacenamiento', description: 'Inventario lógico: ubicaciones, capacidad y reservas de traslado.', columns: ['id', 'sku', 'quantity', 'massKg', 'locationId'], actions: ['transaction', 'snapshot', 'trace']});

@@ -20,6 +20,6 @@ No se actualiza una pantalla que queda fuera de la vista del visor o un área de
 
 - `npm run test:vehicle-vision`: encuadre frontal y de puntas, retrovisor, estados del renderer, propiedad de recursos y separación de paneles/mandos.
 - `npm run test:vehicles`: pruebas de vehículos, conducción, manejo físico de cargas y las comprobaciones anteriores.
-- `node scripts/qa-vehicle-front-mirror-browser.js --expected-bundle-sha256 <SHA256> --label corrected`: Chrome con una cuenta y base de datos temporales; revisa aproximación, inserción parcial y toma válida, ambas imágenes reales, recursos y recuperación del contexto. La revisión de paneles usa XR emulado y no constituye una prueba física en Quest 3.
+- `node tooling/qa/qa-vehicle-front-mirror-browser.js --expected-bundle-sha256 <SHA256> --label corrected`: Chrome con una cuenta y base de datos temporales; revisa aproximación, inserción parcial y toma válida, ambas imágenes reales, recursos y recuperación del contexto. La revisión de paneles usa XR emulado y no constituye una prueba física en Quest 3.
 
 La auditoría posterior corrigió el bloqueo CEDI y añadió pruebas de orientación de la carga, retirada de pinzas y funcionamiento de las células. También corrigió el plano blanco transitorio de las cámaras RV y la desconexión del audio de los mandos. Véase [auditoría del 29 de octubre de 2026](audit-2026-10-29.md) para las comprobaciones y pendientes.

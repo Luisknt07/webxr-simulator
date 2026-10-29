@@ -77,7 +77,7 @@ Una pieza puede quedar independiente o vincularse al chasis, cabina o carro de h
 
 ## Materiales y etiquetas de los equipos
 
-Los materiales de la biblioteca industrial usan mapas de normales, rugosidad y microdesgaste procedentes de siete materiales CC0 de ambientCG y Poly Haven. Las 84 imágenes preparadas (tres tamaños y cuatro canales por material) ocupan 7,07 MiB en disco. El manifiesto `assets/materials/pbr/manifest.json` conserva autores, origen, licencia y hashes. Las copias locales funcionan sin consultar servicios externos; `scripts/import-industrial-pbr.js` permite regenerarlas a partir de las fuentes oficiales.
+Los materiales de la biblioteca industrial usan mapas de normales, rugosidad y microdesgaste procedentes de siete materiales CC0 de ambientCG y Poly Haven. Las 84 imágenes preparadas (tres tamaños y cuatro canales por material) ocupan 7,07 MiB en disco. El manifiesto `modules/logistica-industrial/assets/materials/pbr/manifest.json` conserva autores, origen, licencia y hashes. Las copias locales funcionan sin consultar servicios externos; `tooling/assets/import-industrial-pbr.js` permite regenerarlas a partir de las fuentes oficiales.
 
 Los valores por defecto se comparten entre las piezas del nivel activo; los acabados personalizados del inspector conservan prioridad. Los mapas de color usan sRGB y los mapas de normales/rugosidad usan espacio lineal. El gestor elige 256, 512 o 1024 píxeles según el perfil gráfico y limita RV a 512. Los siete conjuntos completos representarían aproximadamente 7 / 28 / 112 MiB de texturas GPU con mipmaps, respectivamente; sólo se solicitan los acabados utilizados. El cambio de nivel libera los propietarios GPU y conserva una imagen prestada mientras otro material todavía la necesita.
 

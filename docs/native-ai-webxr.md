@@ -32,7 +32,7 @@ Esta vista pertenece al mismo navegador. No transmite automáticamente la sesió
 
 `npm.cmd run test:webxr-ai` cubre el botón, espejo, inferencia local y aplicación del resultado. También se mantienen las pruebas de gráficos, controles y funciones nativas. Las auditorías de Chrome usan perfiles temporales y no guardan proyectos:
 
-- `scripts/qa-xr-mirror-browser.js` verifica píxeles de un framebuffer estéreo sintético: el canvas contiene sólo el ojo elegido en paisaje y retrato, sin errores GL ni cambios de estado o autoría.
-- `scripts/qa-native-texture-ai-browser.js` verifica inferencia neuronal real con los archivos locales y su integración visual.
+- `tooling/qa/qa-xr-mirror-browser.js` verifica píxeles de un framebuffer estéreo sintético: el canvas contiene sólo el ojo elegido en paisaje y retrato, sin errores GL ni cambios de estado o autoría.
+- `tooling/qa/qa-native-texture-ai-browser.js` verifica inferencia neuronal real con los archivos locales y su integración visual.
 
 La comprobación de Chrome y los adaptadores XR no sustituyen una prueba de rendimiento con un Quest 3 físico. Para ella se deben medir FPS, tiempo de fotograma y estabilidad térmica con los niveles reales, siguiendo las [herramientas y recomendaciones oficiales de Meta](https://developers.meta.com/vr/documentation/web/webxr-perf/).

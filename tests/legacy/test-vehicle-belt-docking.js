@@ -1,0 +1,30 @@
+const __layout = require("../../tooling/layout.cjs");
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),THREE=require('three');
+const {setup}=require('./test-vehicle-storage.js'),{Runtime}=require('./test-robot-runtime.js'),VehicleRuntime=require('../support/load-vehicle-runtime.js')(THREE);
+const {getGeometryTree}=require('../support/load-geometry-acceleration.js')(THREE),World=new Function('THREE','getGeometryTree',fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-vehicle-belt-docking.js"),'../src/lib/CollisionWorld.js')),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export default class CollisionWorld','return class CollisionWorld'))(THREE,getGeometryTree);
+const doc=setup(),root=doc.getRoot('hall'),scene=new THREE.Scene();scene.add(root);
+const truck=doc.addPrefab('hall','vehicle','forklift-electric-4w'),belt=doc.addPrefab('hall','conveyor','pallet-chain'),pallet=doc.addPrefab('hall','product','pallet-loaded');
+doc.setBehaviors(belt,doc.getBehaviors(belt).map(c=>c.type==='conveyor'?Object.assign({},c,{axis:'z',length:3,width:1.3,clearance:3,autoSpawn:false,withPanel:false}):c));
+doc.setTransform(belt,{position:[0,1,4]});doc.setTransform(truck,{position:[0,0,8],rotation:[0,180,0]});doc.setTransform(pallet,{position:[5,0,8]});
+doc.setBehaviors(truck,doc.getBehaviors(truck).map(c=>c.type==='vehicle'?Object.assign({},c,{forkSpread:.312,parkingBrake:false,sourceId:belt.userData.editorId}):c));
+const floor=new THREE.Mesh(new THREE.BoxBufferGeometry(30,.05,30),new THREE.MeshBasicMaterial());floor.position.y=-.025;root.add(floor);
+const ctx={scene,editor:{active:false},raycontrol:{states:{},addState(name,state){this.states[name]=state;},activateState(){},deactivateState(){}}};
+const runtime=new Runtime(ctx,doc);runtime.vehicleRuntime=new VehicleRuntime(runtime);scene.updateMatrixWorld(true);runtime.start('hall');ctx.collisionWorld=new World(ctx,doc);ctx.collisionWorld.setRoom('hall');
+const record=runtime.records.get(truck.userData.editorId),v=record.components.vehicle,api=runtime.vehicleRuntime,receiver=runtime.records.get(belt.userData.editorId),conveyor=receiver.components.conveyor,product=runtime.products.get(pallet),offset=conveyor.config.length/2-.30;
+runtime.setProductMatrix(product,runtime.packageMatrix(receiver,conveyor,offset,{bounds:product.bounds,scale:product.scale,route:'main',lateral:0}));assert(runtime.captureProduct(product,{record:receiver,belt:conveyor,offset,lateral:0,route:'main'}));
+const dock=api.pickupDock(record,{yaw:Math.PI,targetId:receiver.id},product);assert(dock);truck.position.copy(dock.position);truck.quaternion.setFromAxisAngle(new THREE.Vector3(0,1,0),dock.yaw);truck.updateMatrix();scene.updateMatrixWorld(true);assert(api.applyPose(record,Object.assign({},v.pose,{lift:dock.toolY-v.originWorld.y-v.config.forkBaseHeight}),false));ctx.collisionWorld.invalidate(truck);
+conveyor.actualSpeed=.2;assert(!api.getDockingState(record).ready);assert(!api.pickup(record),'A pallet cannot be taken from a still moving chain.');conveyor.actualSpeed=0;
+const ready=api.getDockingState(record);assert(ready.ready,ready.reason);const population=runtime.products.size;assert(api.pickup(record),v.warning);const entry=v.entry;
+assert.equal(entry.product,product);assert.equal(conveyor.packages.length,0);assert.equal(conveyor.exitCount,1);assert.equal(conveyor.exitUnits,24);assert.equal(runtime.packageCount,0);assert.equal(runtime.products.size,population);
+const heldMatrix=product.object.matrixWorld.clone(),back=api.getDockingState(record);assert(back.ready,back.reason);assert.equal(back.destination.kind,'belt');
+// A last-moment physical obstruction after the preview must not rewrite the
+// retained item's route/slot/offset/state before the receiving collision test.
+product.item.offset=.21;product.item.palletSlot=7;product.item.mechanismElapsed=.37;
+const previousItem=Object.assign({},product.item),previousBox=product.item.box.clone(),populationBefore=runtime.sourceRuntime.entries.size,capture=runtime.captureProduct.bind(runtime);let blocker;
+runtime.captureProduct=(load,candidate,ignored)=>{assert.equal(ignored.length,1);assert.equal(ignored[0],api.rig(record).forks);blocker=new THREE.Mesh(new THREE.BoxBufferGeometry(.10,.10,.10),new THREE.MeshBasicMaterial());blocker.position.copy(load.bounds.clone().applyMatrix4(load.object.matrixWorld).getCenter(new THREE.Vector3()));root.add(blocker);ctx.collisionWorld.invalidate(blocker);return capture(load,candidate,ignored);};
+assert(!api.release(record),'A real final obstruction refuses the handoff after preview.');assert.equal(v.entry,entry);assert.equal(product.vehicleOwnerId,record.id);assert.equal(runtime.sourceRuntime.entries.size,populationBefore);assert.equal(conveyor.packages.length,0);assert(product.item.box.equals(previousBox));for(const key of ['route','offset','palletOwnerId','palletSlot','mechanismStage','mechanismElapsed','gravityVelocity','beltId','exited'])assert.equal(product.item[key],previousItem[key],key+' remains untouched on failed capture.');
+root.remove(blocker);ctx.collisionWorld.invalidate(blocker);runtime.captureProduct=capture;assert(api.getDockingState(record).ready);assert(api.release(record),v.warning);
+assert.equal(v.entry,null);assert.equal(conveyor.packages.length,1);assert.equal(conveyor.packages[0].product,product);assert.equal(product.sourceEntry,entry);assert.equal(runtime.productMetadata(product).mass,145);assert.equal(runtime.productMetadata(product).units,24);assert.equal(runtime.products.size,population);product.object.matrixWorld.elements.forEach((value,i)=>assert(Math.abs(value-heldMatrix.elements[i])<1e-6,'Returning to a real chain retains full-pallet orientation/pose.'));
+runtime.stop();assert.equal(runtime.products.size,0);
+console.log('Vehicle/belt docking: actual SceneDocument chain chassis, endwise two-slot entry, moving-chain interlock, same145kg24-unit pallet pickup/return, stable heading and complete ownership cleanup passed.');

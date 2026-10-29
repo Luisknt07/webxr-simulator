@@ -1,0 +1,13 @@
+CC0 1.0 Universal: https://creativecommons.org/publicdomain/zero/1.0/
+
+Offline materials from ambientCG and Poly Haven. Source URLs, authors and hashes are recorded in manifest.json.
+https://docs.ambientcg.com/license/
+https://polyhaven.com/license
+
+Acero cepillado y rayado — ambientCG / Lennart Demes — https://ambientcg.com/a/Metal032
+Pintura industrial con microdesgaste — ambientCG / Lennart Demes — https://ambientcg.com/a/PaintedMetal012
+Cartón kraft — ambientCG / Lennart Demes — https://ambientcg.com/a/Cardboard004
+Madera industrial envejecida — Amal Kumar — https://polyhaven.com/a/wood_planks
+Caucho granulado — Charlotte Baglioni — https://polyhaven.com/a/rubberized_track
+Tapicería y vinilo con grano — Rob Tuytel — https://polyhaven.com/a/fabric_leather_01
+Hormigón con poros y desgaste — eye-candy.xyz — https://polyhaven.com/a/concrete_floor

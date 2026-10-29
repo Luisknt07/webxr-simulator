@@ -1,0 +1,53 @@
+const __layout = require("../../tooling/layout.cjs");
+'use strict';
+// Real controller events, RayControl, animated button caps and CollisionWorld
+// on each new CEDI network. A physical headset is not claimed by this harness.
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), THREE = require('three');
+const schema = require('../../modules/logistica-industrial/contracts/behaviors');
+const source = file => fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-cedi-xr.js"), '..', file)), 'utf8').replace(/^import .*$/gm, '').replace(/export default /g, '').replace(/^export /gm, '');
+const fixture = fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-cedi-xr.js"), 'test-industrial-xr.js')), 'utf8');
+const h = new Function('require', '__dirname', fixture.slice(0, fixture.indexOf('async function run()')) + '\nreturn {setup,advance,press,aim,away,select};')(require, __dirname);
+const Assembly = new Function('THREE', 'conveyorLayout', source("modules/logistica-industrial/functions/bandas/runtime/ConveyorAssembly.js") + '\nreturn ConveyorAssembly;')(THREE, schema.conveyorLayout);
+const build = new Function('THREE', 'ConveyorAssembly', require('../support/load-industrial-continuous')() + source("modules/logistica-industrial/scenarios/IndustrialCediScenarios.js") + '\nreturn buildIndustrialCediScenario;')(THREE, Assembly);
+const id = object => object.userData.editorId;
+async function scenario(kind) {
+  const f = h.setup(); [f.head, f.tail, f.unrelated, ...f.cartons].forEach(object => f.document.remove(object));
+  const graph = build(f.document, 'hall', {kind, scene: f.scene}); f.head = graph.controllers[0];
+  f.scene.updateMatrixWorld(true); f.ctx.collisionWorld.invalidate();
+  const authored = JSON.stringify(await f.document.serialize());
+  f.runtime.start('hall'); h.advance(f);
+  const members = graph.lines[0].memberIds.map(id => f.runtime.records.get(id)).filter(record => f.runtime.machineComponent(record));
+  const unrelated = graph.lines[1].memberIds.map(id => f.runtime.records.get(id)).filter(record => f.runtime.machineComponent(record));
+  const unrelatedPower = unrelated.map(record => record.variables.powered);
+  assert.equal(f.runtime.getPanelSnapshot(id(f.head), 'line').memberIds.length, members.length);
+  h.press(f, 'pause', f.left); assert(members.every(record => record.variables.paused), 'The left tracked ray pauses every member of the CEDI network.');
+  h.press(f, 'start', f.right); assert(members.every(record => !record.variables.paused && record.variables.running));
+  h.press(f, 'powerOff', f.right); assert(members.every(record => !record.variables.running && record.variables.powered === false));
+  assert.deepEqual(unrelated.map(record => record.variables.powered), unrelatedPower, 'A network PLC cannot switch off a separate production line.');
+  h.press(f, 'powerOn', f.left); assert(members.every(record => !record.variables.running && record.variables.powered === true));
+  h.press(f, 'start', f.right);
+  h.press(f, 'emergency', f.left); assert(members.every(record => record.variables.emergency && !record.variables.running));
+  h.press(f, 'emergency', f.right); assert(members.every(record => !record.variables.emergency && !record.variables.running));
+  h.press(f, 'start', f.left); h.press(f, 'stop', f.right); assert(members.every(record => !record.variables.running));
+  const sourceRecord = f.runtime.records.get(id(graph.sources[0])), sourceState = sourceRecord.components.source;
+  if (!sourceState.queue.length) f.runtime.command(sourceRecord.id, 'generate');
+  f.runtime.sourceRuntime.materialize(sourceRecord);
+  const product = sourceState.queue[0] && sourceState.queue[0].product;
+  assert(product, 'The stopped Source exposes a real load for manual handling.');
+  const hand = kind === 'sorting' ? f.left : f.right, center = product.bounds.getCenter(new THREE.Vector3()).applyMatrix4(product.object.matrixWorld);
+  h.aim(f, hand, center); h.select(f, hand, 'squeezestart'); h.advance(f);
+  assert(product.heldBy === hand, 'A real tracked squeeze acquires the actual generated CEDI product.');
+  assert.equal(product.holdInput, 'squeeze'); assert.equal(product.sourceEntry.ownerId, '');
+  const basis = [0, 1, 2, 4, 5, 6, 8, 9, 10].map(index => product.holdMatrix.elements[index]);
+  hand.rotation.set(.45, -.2, .3); h.advance(f);
+  basis.forEach((value, index) => assert(Math.abs(product.object.matrixWorld.elements[[0, 1, 2, 4, 5, 6, 8, 9, 10][index]] - value) < 1e-7, 'Tilting a tracked hand cannot tilt the held box.'));
+  h.select(f, hand, 'selectstart'); h.select(f, hand, 'selectend'); h.advance(f);
+  assert(product.heldBy === hand, 'Trigger events cannot accidentally drop a grip-held CEDI load.');
+  hand.dispatchEvent({type: 'disconnected', data: f.sources.get(hand)}); h.advance(f);
+  assert.equal(product.heldBy, null); assert.equal(f.runtime.held.size, 0);
+  f.visuals.dispose(); f.runtime.stop(); assert.equal(f.runtime.productGripInputs.size, 0);
+  assert.equal(JSON.stringify(await f.document.serialize()), authored, 'Network controls and hand interactions never mutate the authored level.');
+  assert.deepEqual(f.native, {starts: 0, ends: 0, backgroundStarts: 0, backgroundEnds: 0});
+  console.log('CEDI XR:', kind, '— bilateral real panel rays/cap motion, whole-network switches, squeeze orientation and disconnect cleanup passed.');
+}
+(async () => { for (const kind of ['sorting', 'packing']) await scenario(kind); })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -1,0 +1,49 @@
+{
+  "format": "smarttwin.sector",
+  "schemaVersion": 1,
+  "id": "sector.tourism",
+  "version": "1.0.0",
+  "coreApi": "^1.0.0",
+  "metadata": {
+    "title": "Turismo",
+    "folder": "turismo"
+  },
+  "imports": [],
+  "functions": [
+    {
+      "id": "tourism.routes",
+      "version": "1.0.0",
+      "coreApi": "^1.0.0",
+      "requires": [],
+      "capabilities": [],
+      "uses": [],
+      "provides": [],
+      "exported": true,
+      "stateVersion": 1,
+      "metadata": {
+        "title": "Recorridos",
+        "packageRoot": "functions/recorridos",
+        "manifestExport": "routesManifest",
+        "entry": "index.js",
+        "schema": "schema.js",
+        "server": "server.js",
+        "migration": "migrations.js",
+        "ui": "ui.js",
+        "assets": [],
+        "tests": [
+          "contract.test.mjs"
+        ],
+        "files": [
+          "index.js",
+          "manifest.js",
+          "schema.js",
+          "server.js",
+          "migrations.js",
+          "ui.js",
+          "contract.test.mjs"
+        ]
+      },
+      "entry": "functions/recorridos/index.js"
+    }
+  ]
+}

@@ -2,11 +2,11 @@
 
 ## Empezar
 
-Ejecuta `npm.cmd start` con Node.js 24 o posterior. Abre `https://localhost:8080` para explorar y `https://localhost:8080/editor` para editar. No se necesita un servicio adicional de base de datos.
+Usa Node.js 24 o posterior. Configura primero el propietario con `npm.cmd run admin:init -- bootstrap --username administrador`. Para desarrollo ejecuta `npm.cmd run dev` y abre `http://localhost:8081/login`; el editor está en `/editor`. Para usar el visor o desplegar a otros equipos, configura HTTPS y ejecuta `npm.cmd start`. No se necesita un servicio adicional de base de datos. Consulta la [configuración vigente](../apps/api/README.md).
 
 La experiencia muestra la identidad de Studio, la cuenta, la disponibilidad de VR y el menú. Mi espacio permanece cerrado al explorar. Controles abre ayuda en español. Los textos informativos originales tienen valores predeterminados en español; los textos personalizados guardados no se reemplazan.
 
-La primera cuenta registrada administra este servidor y puede crear proyectos. Las cuentas siguientes exploran y participan; la propietaria autoriza el editor desde **Menú → Permisos de cuentas**. Hasta registrar la primera cuenta se conserva el acceso local de edición anterior. Las contraseñas tienen un mínimo de doce caracteres; no hay recuperación por correo configurada. El perfil guarda un avatar 3D paramétrico separado de la imagen de perfil.
+El propietario se configura mediante la CLI local; el registro remoto no puede reclamar una instalación vacía. La política de registro e invitaciones y los permisos se administran desde el servidor. El editor exige sesión incluso antes de crear cuentas. Las contraseñas tienen un mínimo de doce caracteres; no hay recuperación por correo configurada. El perfil guarda un avatar 3D paramétrico separado de la imagen de perfil.
 
 ## Editor
 
@@ -149,11 +149,11 @@ Pendientes concretos: módulos industriales marcados En desarrollo; robots y alm
 
 | Área | Archivos |
 | --- | --- |
-| Editor y compatibilidad | `src/editor/SceneEditor.js`, `EditorShell.js`, `SceneDocument.js`, `editor.css`, `shared/studio-document.js`, `server/validation.js`. |
-| Biblioteca y proyecto | `shared/resourceCatalog.js`, `src/editor/ResourceBrowser.js`, `resources.css`, `src/studio/ResourceOperations.js`. |
-| Experiencia y aprendizaje | `src/studio/StudioExperience.js`, `StudioTools.js`, `EducationRuntime.js`, `Avatar.js`, `SceneEntities.js`, `studio.css`; `src/index.js`, `index.html`, `src/lib/VRButton.js`, `src/stations/InfoPanelsData.js`. |
-| Cuentas, guardado y salas | `server/studio-service.js`, `server/api.js`, `src/studio/StudioClient.js`, `SimulationCheckpoint.js`, `SharedGrabs.js`, `RemotePresentation.js`, `src/editor/ProjectClient.js`. |
-| Confirmación de clasificación | `src/editor/SimulationRuntime.js`. |
+| Editor y compatibilidad | `packages/tools/editor/src/SceneEditor.js`, `EditorShell.js`, `SceneDocument.js`, `editor.css`, `packages/project-model/shared/studio-document.js`, `apps/api/server/validation.js`. |
+| Biblioteca y proyecto | `modules/logistica-industrial/contracts/resourceCatalog.js`, `packages/tools/editor/src/ResourceBrowser.js`, `resources.css`, `apps/workspace/studio/ResourceOperations.js`. |
+| Experiencia y aprendizaje | `apps/workspace/studio/StudioExperience.js`, `StudioTools.js`, `EducationRuntime.js`, `Avatar.js`, `SceneEntities.js`, `studio.css`; `apps/workspace/src/index.js`, `apps/workspace/index.html`, `packages/render-three/src/VRButton.js`, `modules/turismo/functions/museo/stations/InfoPanelsData.js`. |
+| Cuentas, guardado y salas | `apps/api/server/studio-service.js`, `apps/api/server/api.js`, `apps/workspace/studio/StudioClient.js`, `SimulationCheckpoint.js`, `SharedGrabs.js`, `RemotePresentation.js`, `packages/tools/editor/src/ProjectClient.js`. |
+| Confirmación de clasificación | `modules/logistica-industrial/functions/flujo-materiales/runtime/SimulationRuntime.js`. |
 | Validación | Nuevos `scripts/test-studio-*`, `test-editor-shell.js`, `test-resource-*`, `test-education-runtime.js`, `test-scene-entities.js`, `test-shared-grabs.js`, `test-simulation-checkpoint.js`, `test-remote-presentation.js`; adaptadores de pruebas existentes y `package.json`. |
 
 La descripción técnica de servicios y protocolos está en [studio-service.md](studio-service.md).

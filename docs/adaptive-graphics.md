@@ -37,10 +37,10 @@ El panel muestra FPS, resolución, perfil efectivo y una **estimación** de byte
 Ejecutar `npm.cmd run test:graphics` valida política, pérdidas de contexto, límites XR, memoria, LOD, texturas preparadas, controles y UI. `npm.cmd test` incluye además las regresiones de simulación y VR. Las auditorías opcionales de navegador son:
 
 ```text
-node scripts/qa-adaptive-graphics-browser.js
-node scripts/qa-prepared-material-browser.js
-node scripts/qa-adaptive-mobile-browser.js
-node scripts/qa-context-recovery-browser.js
+node tooling/qa/qa-adaptive-graphics-browser.js
+node tooling/qa/qa-prepared-material-browser.js
+node tooling/qa/qa-adaptive-mobile-browser.js
+node tooling/qa/qa-context-recovery-browser.js
 ```
 
 Estas auditorías usan Chrome temporal y no guardan proyectos. En una cámara fija del laboratorio, Ahorro omitió 132 dibujos y 12.408 triángulos decorativos frente al detalle completo; volver a Cinemática restauró ambos. Cambiar la textura de 1024 a 256 liberó aproximadamente 5 MiB de memoria gráfica estimada. Son comparaciones de esa escena, no promesas de FPS ni mediciones de un móvil o visor físico.

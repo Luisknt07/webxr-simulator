@@ -1,0 +1,15 @@
+# IA de texturas integrada
+
+Estos archivos se sirven desde el propio aplicativo. No hay CDN, API de inferencia, cuenta externa ni instalación adicional para el visitante.
+
+El modelo `models/super-resolution-10.onnx` es el modelo entrenado ESPCN de ONNX Model Zoo, con aumento de resolución ×3 en luminancia. Origen oficial: [ONNX Model Zoo](https://github.com/onnx/models/tree/main/validated/vision/super_resolution/sub_pixel_cnn_2016), distribuido por [onnxmodelzoo en Hugging Face](https://huggingface.co/onnxmodelzoo/super-resolution-10), revisión `395472c4b6b92f788357237983d83fd913cfe7e3`. Licencia Apache 2.0 incluida en `models/LICENSE`. Los pesos se entrenaron con BSD300; no se entrenó un modelo nuevo en este proyecto.
+
+La exportación original fija 224 × 224 y dos tamaños de PixelShuffle, aunque su README menciona entrada dinámica. `models/super-resolution-espcn-x3-dynamic.onnx` es una modificación del grafo realizada por HELLO Studio: declara ejes espaciales dinámicos y sustituye las dos operaciones Reshape y su Transpose por DepthToSpace con bloque tres, equivalente para su único canal de salida. Conserva literalmente los ocho tensores aprendidos. El archivo incluye un aviso de modificación. `tooling/assets/prepare-native-ai-model.js` reproduce la conversión sin Python; `models/conversion.json` registra los hashes de ambos modelos y de todos los tensores.
+
+`onnxruntime-1.30.0` contiene sólo el bundle WASM, su cargador y su binario, extraídos del paquete oficial `onnxruntime-web@1.30.0`. La licencia MIT y `ThirdPartyNotices.txt` se incluyen. El SHA-512 del archivo de distribución se contrastó con la integridad publicada en npm; el SHA-256 de los pesos coincide con los metadatos LFS oficiales. `provenance.json` registra tamaños, hashes y orígenes.
+
+El worker prepara luminancia Y normalizada, ejecuta las cuatro convoluciones aprendidas y reconstruye RGB con crominancia interpolada. El modo repetible añade cinco píxeles de contexto circular por lado —el modelo tiene campo receptivo de once píxeles— y recorta quince píxeles por lado tras el aumento ×3. Así evita que el relleno negro de las convoluciones aparezca en los bordes de una textura repetida.
+
+La inferencia usa WASM con un hilo en un worker temporal. El proceso se termina al completar, cancelar, alcanzar el tiempo máximo, ocultar la pestaña o entrar en VR. El resultado se reutiliza como imagen ordinaria; no se ejecuta la red por fotograma ni por ojo. Se limita la entrada neuronal a 256 píxeles por eje, incluido su contexto, y se estima el coste de activaciones antes de comenzar. Esta estimación no mide toda la memoria del navegador. El runtime suma unos 13,65 MiB y los pesos 240.078 bytes; se descargan sólo al solicitar la mejora.
+
+El modelo puede reconstruir detalles plausibles de imágenes pequeñas, pero no recupera información exacta perdida, no genera modelos 3D y no garantiza mejorar toda textura. La mejora conserva el original como alternativa y debe evaluarse visualmente. Para Quest 3 se prepara fuera de la sesión inmersiva y se reutiliza el resultado durante WebXR.

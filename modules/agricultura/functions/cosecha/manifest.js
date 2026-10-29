@@ -1,0 +1,2 @@
+export const harvestManifest = Object.freeze({id: 'agriculture.harvest', version: '1.0.0', requires: [{id: 'logistics.storage', version: '^1.0.0'}], uses: [{id: 'world.inventory', version: '^1.0.0'}],
+  metadata: {title: 'Registro de cosecha', packageRoot: 'functions/cosecha', manifestExport: 'harvestManifest', entry: 'index.js', schema: 'schema.js', ui: 'ui.js', server: 'server.js', assets: [], tests: ['contract.test.mjs'], files: ['index.js', 'manifest.js', 'schema.js', 'ui.js', 'server.js', 'contract.test.mjs']}});

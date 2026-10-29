@@ -61,6 +61,19 @@ typings/
 
 # dotenv environment variables file
 .env
+.env.*
+!.env.example
+*.key
+*.p12
+*.pfx
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.dump
+/backups/
+/dist/
+/artifacts/projects/
 
 # next.js build output
 .next

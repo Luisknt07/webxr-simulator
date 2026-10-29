@@ -37,6 +37,6 @@ Solo durante la presentación en un visor autónomo, una cámara con plano cerca
 - Acceso con ambos mandos al botón inmersivo de nitidez, sin escritura del perfil del usuario.
 - Recorrido físico robot → bandas → horquillas → bahía en la variante compacta con giro y la señalización nueva.
 
-`npm run test:floor-plan` ejecuta las pruebas del editor de piso y colocación. `node scripts/qa-floor-plan-browser.js` utiliza la aplicación compilada, Chrome y una cuenta/base de datos temporales para comprobar la ventana, los textos, construcción sobre pintura, guardado y ajustes de nitidez.
+`npm run test:floor-plan` ejecuta las pruebas del editor de piso y colocación. `node tooling/qa/qa-floor-plan-browser.js` utiliza la aplicación compilada, Chrome y una cuenta/base de datos temporales para comprobar la ventana, los textos, construcción sobre pintura, guardado y ajustes de nitidez.
 
 La nitidez percibida, los FPS y la estabilidad prolongada requieren comprobar el Quest 3 físico. La revisión se aplica al repositorio local; no publica automáticamente en GitHub Pages.

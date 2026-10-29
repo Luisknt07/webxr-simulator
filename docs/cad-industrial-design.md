@@ -47,4 +47,4 @@ Para una futura capa BRep, OpenCascade.js sí ofrece un port del kernel OpenCasc
 
 ## Verificación
 
-`scripts/test-cad-modeling.js` conserva la prueba de las 131 operaciones y sus límites. `scripts/test-cad-advanced.js` comprueba volumen, superficies cerradas y orientación, huecos, marcos continuos, lofts rotados/escalados, taladros laterales y normales que preservan aristas. `test-cad-document.js` y `test-vehicle-cad-collisions.js` cubren guardado, copia, anclajes y colisiones. La validación visual se hace con el bundle compilado y el Web Worker real en Chrome sobre datos temporales.
+`tests/legacy/test-cad-modeling.js` conserva la prueba de las 131 operaciones y sus límites. `tests/legacy/test-cad-advanced.js` comprueba volumen, superficies cerradas y orientación, huecos, marcos continuos, lofts rotados/escalados, taladros laterales y normales que preservan aristas. `test-cad-document.js` y `test-vehicle-cad-collisions.js` cubren guardado, copia, anclajes y colisiones. La validación visual se hace con el bundle compilado y el Web Worker real en Chrome sobre datos temporales.

@@ -1,0 +1,8 @@
+{
+  "format": "smarttwin.project",
+  "version": 1,
+  "worldId": "world.smarttwin",
+  "modules": [{"id": "sector.logistics-industrial", "version": "1.0.0", "functions": ["logistics.storage"]}],
+  "entities": [],
+  "description": "Composición SDK de inventario lógico. El editor industrial completo usa apps/workspace y su adaptador de compatibilidad; no se inicia mediante este documento."
+}

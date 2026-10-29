@@ -1,0 +1,56 @@
+{
+  "format": "smarttwin.sector",
+  "schemaVersion": 1,
+  "id": "sector.logistics-industrial",
+  "version": "1.0.0",
+  "coreApi": "^1.0.0",
+  "metadata": {
+    "title": "Logística industrial",
+    "folder": "logistica-industrial"
+  },
+  "imports": [],
+  "functions": [
+    {
+      "id": "logistics.storage",
+      "version": "1.0.0",
+      "coreApi": "^1.0.0",
+      "requires": [],
+      "capabilities": [],
+      "uses": [],
+      "provides": [
+        {
+          "id": "world.inventory",
+          "version": "1.0.0"
+        }
+      ],
+      "exported": true,
+      "stateVersion": 1,
+      "metadata": {
+        "title": "Almacenamiento",
+        "mode": "logical-inventory",
+        "packageRoot": "functions/almacenamiento",
+        "manifestExport": "storageManifest",
+        "entry": "index.js",
+        "schema": "schema.js",
+        "server": "server.js",
+        "migration": "migrations.js",
+        "ui": "ui.js",
+        "assets": [],
+        "tests": [
+          "contract.test.mjs"
+        ],
+        "files": [
+          "index.js",
+          "manifest.js",
+          "service.js",
+          "schema.js",
+          "server.js",
+          "migrations.js",
+          "ui.js",
+          "contract.test.mjs"
+        ]
+      },
+      "entry": "functions/almacenamiento/index.js"
+    }
+  ]
+}

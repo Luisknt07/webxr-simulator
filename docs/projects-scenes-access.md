@@ -4,7 +4,7 @@ El servidor mantiene los proyectos en SQLite y los archivos binarios en el direc
 
 ## Primer acceso y migración
 
-- En una instalación sin cuentas, la primera cuenta registrada es el superadministrador. Conviene crearla en el entorno local antes de exponer el servidor a otros usuarios.
+- En una instalación sin cuentas, configura el superadministrador con `npm.cmd run admin:init -- bootstrap --username administrador`. El perfil de producción rechaza el registro remoto hasta completar este paso; no habilita edición anónima. Consulta [la guía del servidor](../apps/api/README.md).
 - En una instalación con cuentas anteriores, se conserva como superadministrador la cuenta local original. Las nuevas cuentas normales reciben permiso de creador; una invitación puede asignar permiso de explorador (`viewer`).
 - Los proyectos anteriores sin propietario permanecen intactos y accesibles únicamente al superadministrador. La migración no los asigna automáticamente a una persona ni borra sus revisiones o archivos.
 - Las cuentas existentes reciben un período inicial de gracia de 30 días para la política de inactividad.
@@ -96,4 +96,4 @@ Esta guía **no es un LLM conversacional de propósito general**. Las instruccio
 | `/api/studio/admin/*` | Superadministrador. |
 | `GET /api/studio/classroom` | Grupos y evaluaciones de la cuenta actual. |
 
-Verificación reproducible: `node scripts/test-project-access.js`, `node scripts/test-project-access-view.js`, `node scripts/test-project-save-identity.js`, `node scripts/test-studio-administration.js`, `node scripts/test-project-client.js`, `node scripts/test-sqlite-storage.js` y `node scripts/test-studio-service.js`.
+Verificación reproducible: `node tests/legacy/test-project-access.js`, `node tests/legacy/test-project-access-view.js`, `node tests/legacy/test-project-save-identity.js`, `node tests/legacy/test-studio-administration.js`, `node tests/legacy/test-project-client.js`, `node tests/legacy/test-sqlite-storage.js` y `node tests/legacy/test-studio-service.js`.

@@ -1,0 +1,2 @@
+export const traceabilityManifest = Object.freeze({id: 'food.traceability', version: '1.0.0', requires: [{id: 'logistics.storage', version: '^1.0.0'}], uses: [{id: 'world.inventory', version: '^1.0.0'}],
+  metadata: {title: 'Trazabilidad de lotes', packageRoot: 'functions/trazabilidad', manifestExport: 'traceabilityManifest', entry: 'index.js', schema: 'schema.js', server: 'server.js', ui: 'ui.js', assets: [], tests: ['contract.test.mjs'], files: ['index.js', 'manifest.js', 'schema.js', 'server.js', 'ui.js', 'contract.test.mjs']}});

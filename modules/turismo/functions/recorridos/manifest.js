@@ -1,0 +1,2 @@
+export const routesManifest = Object.freeze({id: 'tourism.routes', version: '1.0.0', stateVersion: 1,
+  metadata: {title: 'Recorridos', packageRoot: 'functions/recorridos', manifestExport: 'routesManifest', entry: 'index.js', schema: 'schema.js', server: 'server.js', migration: 'migrations.js', ui: 'ui.js', assets: [], tests: ['contract.test.mjs'], files: ['index.js', 'manifest.js', 'schema.js', 'server.js', 'migrations.js', 'ui.js', 'contract.test.mjs']}});

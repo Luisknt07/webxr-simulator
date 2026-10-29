@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#10252b">
+  <meta name="description" content="Explora una demostración compacta de SmartTwin: robot, banda transportadora y montacargas en un mismo proceso.">
+  <title>SmartTwin · Demostración interactiva</title>
+  <link rel="stylesheet" href="viewer.css">
+  <script src="config.js"></script>
+  <script defer src="viewer.js"></script>
+</head>
+<body>
+  <main id="viewer" aria-label="Simulación 3D de robot, banda y montacargas"></main>
+  <header class="viewer-header">
+    <a class="viewer-brand" href="./" aria-label="SmartTwin, inicio"><span class="brand-mark" aria-hidden="true">S<span>t</span></span><span>SmartTwin<small>Laboratorio de sistemas conectados</small></span></a>
+    <a id="workspace-link" class="workspace-link" href="#workspace-access">Acceder al espacio <span aria-hidden="true">↗</span></a>
+  </header>
+  <section class="lesson-intro" aria-labelledby="lesson-title">
+    <p class="eyebrow"><span></span> DEMOSTRACIÓN INTERACTIVA · WEBXR</p>
+    <h1 id="lesson-title">Un proceso.<br>Tres sistemas conectados.</h1>
+    <p class="lesson-description">Sigue el mismo pallet desde la recogida robótica hasta su entrega con el montacargas.</p>
+    <div class="lesson-tags"><span>Robot</span><span>Banda</span><span>Montacargas</span></div>
+    <details class="viewer-help"><summary>Cómo explorar</summary><p>Arrastra la escena para mirar. Camina con W A S D o las flechas. En móvil, usa los mandos táctiles. Selecciona «Conducir» para operar el montacargas.</p><p>En RV: stick izquierdo para caminar, derecho para girar. Apunta y pulsa el gatillo para seleccionar; usa el agarre lateral en los mandos de cabina.</p></details>
+  </section>
+  <div id="reticle" class="viewer-reticle" aria-hidden="true"></div>
+  <div id="viewer-notice" class="viewer-notice" role="status" aria-live="polite"></div>
+  <section class="lesson-footer" aria-label="Controles y avance de la demostración">
+    <ol class="lesson-stages"><li data-stage="robot"><span>01</span><div>Recogida<small>El robot coloca el pallet</small></div></li><li data-stage="belt"><span>02</span><div>Transporte<small>La banda espera la recogida</small></div></li><li data-stage="vehicle"><span>03</span><div>Entrega<small>Conduce hasta la bahía</small></div></li></ol>
+    <div class="viewer-actions"><button id="overview" type="button">Vista general</button><button id="drive" class="primary" type="button">Conducir</button><button id="pause" type="button" aria-pressed="false">Pausar</button><button id="restart" type="button" aria-label="Reiniciar demostración">↺ <span>Reiniciar</span></button><span id="xr-action"></span></div>
+    <p id="demo-progress" class="demo-progress" aria-live="polite">Preparando los sistemas…</p>
+  </section>
+  <section id="loading" class="loading-screen" aria-labelledby="loading-title"><div class="loading-card"><span class="loading-spinner" aria-hidden="true"></span><p class="eyebrow">SMARTTWIN</p><h2 id="loading-title">Preparando la demostración</h2><p id="loading-detail">Cargando un único escenario compacto.</p><button id="retry" type="button" hidden>Volver a intentar</button></div></section>
+  <noscript>Activa JavaScript para explorar la demostración 3D.</noscript>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # Biblioteca de transportadores
 
-La biblioteca usa los modelos procedurales, Three.js r112, el documento de escenas, la simulación y WebXR del proyecto. No requiere Python. La definición compartida en `shared/conveyor-equipment.js` vincula identidad, versión, variante, parámetros, componentes, productos admitidos, acciones y ficha educativa. Las geometrías y las miniaturas proceden de las fábricas reales del proyecto.
+La biblioteca usa los modelos procedurales, Three.js r112, el documento de escenas, la simulación y WebXR del proyecto. No requiere Python. La definición compartida en `modules/logistica-industrial/functions/bandas/schema/conveyor-equipment.js` vincula identidad, versión, variante, parámetros, componentes, productos admitidos, acciones y ficha educativa. Las geometrías y las miniaturas proceden de las fábricas reales del proyecto.
 
 ## Elegir e insertar equipos
 

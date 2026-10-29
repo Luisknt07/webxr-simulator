@@ -28,16 +28,12 @@ jobs:
           package-manager-cache: false
       - name: Configure Pages
         uses: actions/configure-pages@v5
-      # Production bundles are versioned after local build/browser validation.
-      # Packaging needs no npm dependencies, database, account or private token.
-      # Publish the exact projections reviewed alongside these bundles. Their
-      # local generator uses Three.js and is deliberately not run in packaging.
-      - name: Validate versioned public scene projections
-        run: node scripts/validate-public-scenes.js
-      - name: Verify publication boundaries
-        run: node scripts/test-pages-package.js
-      - name: Prepare static viewer artifact
-        run: node scripts/prepare-pages-site.js
+      # Deploy only the isolated public application. Workspace, API, source,
+      # private catalogs and other sector resources never enter this artifact.
+      - name: Verify selected public viewer and resource hashes
+        run: node tooling/deploy/verify-public.cjs
+      - name: Prepare bounded public artifact
+        run: node tooling/deploy/prepare-pages.cjs
       - name: Upload static viewer
         uses: actions/upload-pages-artifact@v4
         with:

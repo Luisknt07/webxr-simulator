@@ -1,41 +1,35 @@
-# Publicación pública
+# Publicación y aplicaciones privadas
 
-GitHub Pages sirve la aplicación estática desde `/webxr-simulator/`. La base relativa de `index.html` mantiene scripts, estilos, modelos y texturas dentro de esa carpeta; `.nojekyll` conserva los recursos publicados.
+GitHub Pages recibe exclusivamente `artifacts/public-viewer`. Incluye HTML, CSS, configuración pública, un bundle compilado, el catálogo de un elemento y la proyección `vr-robot-dispatch`. No recibe el editor, las otras 33 escenas, sectores adicionales, API, SQLite, archivos de usuarios ni mapas de fuentes.
 
-La vista previa temporal permite explorar **todos los ejemplos incluidos sin iniciar sesión**: las plantillas industriales actuales, el laboratorio completo y diez experiencias originales. El catálogo publica sus cantidades `templateCount`, `originalCount`, `laboratoryCount` e `includedCount`, calculadas desde las recetas disponibles; añadir una práctica no exige modificar un límite fijo. Incluye los CEDI con células robóticas y expedición, y la práctica de montacargas cuando está registrada en las plantillas. `node scripts/generate-public-scenes.js`, ejecutado en `prebuild` y `prestart`, construye sus proyecciones desde las fábricas de producción y los modelos incluidos; no consulta SQLite, cuentas ni proyectos guardados. Cada archivo contiene una sola sala, sin importaciones privadas ni cambios privados sobre modelos nativos. El navegador solicita el catálogo y después sólo el escenario elegido, conservando simulación y WebXR.
+El servidor privado se despliega por separado. `apps/api/index.cjs` sirve el mismo visor público y protege `/editor`, `/workspace/`, sus recursos y las APIs con sesión. Consulta [la configuración del servidor](../apps/api/README.md). Una publicación estática no puede autenticar ni almacenar proyectos privados por sí sola.
 
-Los portales de una experiencia original pueden abrir otra original durante esta vista previa: se solicita su proyección independiente y se sustituye la anterior, sin ampliar el permiso de la sala actual. Una URL explícita `?room=photogrammetry` resuelve la experiencia original de esa sala; `?scene=...` conserva prioridad. Los proyectos privados y las plantillas no usan este acceso entre portales.
-
-En el visor, **Menú → Escenarios** abre una biblioteca modal con categorías, búsqueda, dificultad, modo e imágenes. Ofrece explorar los ejemplos autorizados y continuar con el actual; no expone creación, copia, edición ni proyectos privados. Las imágenes son PNG estáticos preparados desde las fábricas y mundos reales, con carga diferida; abrir o filtrar el catálogo no construye escenarios ni contextos WebGL. Escape y el botón de cierre devuelven el foco y liberan sus escuchas e imágenes.
-
-`scripts/generate-scene-thumbnails.js` prepara las miniaturas fuera de la experiencia usando una base temporal y el bundle revisado. `scripts/validate-scene-thumbnails.js` comprueba cobertura, dimensiones, hashes, procedencia y un límite de 8 MiB para toda la galería. El manifiesto conserva los hashes de origen, incluso si después cambia un detalle de ejecución sin cambiar la imagen. El artefacto de Pages incluye esas imágenes en `assets/scene-thumbnails`.
-
-La política predeterminada está en `shared/public-scenes.js`, `POLICY.previewAllExamples`. En el servidor, Administración → Escenas públicas → «Vista previa temporal de todos los ejemplos incluidos» permite desactivarla o reactivarla inmediatamente. La selección pública original de dos salas se conserva intacta; el cambio nunca publica proyectos privados. Las proyecciones estáticas adicionales también quedan bloqueadas para visitantes cuando se vuelve al modo restringido del servidor.
-
-Para volver a dos ejemplos en **GitHub Pages**, cambia `POLICY.previewAllExamples` a `false` antes de compilar y desplegar. Una generación puntual restringida también se puede hacer después del build con `node scripts/generate-public-scenes.js --restricted`, seguida de `npm.cmd run pages:prepare`; elimina las proyecciones adicionales del artefacto. El siguiente `prebuild` usa otra vez la política del código, por lo que conviene cambiar la bandera para una reversión permanente. Pages necesita desplegar el artefacto actualizado; el interruptor de la base del servidor no modifica una publicación estática ya distribuida.
-
-Las cuentas, cuotas, proyectos privados, edición y sesiones compartidas necesitan el servidor Node/SQLite. En una publicación estática se informa de esta condición y no se muestra un formulario de contraseña que no pueda funcionar. La caída de la API nunca habilita edición ni recupera borradores privados del navegador.
-
-Para publicar, ejecutar `npm.cmd run build` y subir los cambios a `main`. El flujo `.github/workflows/pages.yml` prepara un artefacto con los recursos del visualizador y lo despliega mediante las acciones oficiales de Pages. En **Settings → Pages → Build and deployment → Source** se debe seleccionar **GitHub Actions**. También se puede iniciar manualmente desde Actions. `publication.json` identifica el commit y el hash del bundle que realmente se sirve.
-
-El workflow usa los bundles y las proyecciones **versionados y comprobados juntos**; no vuelve a construir escenas durante la publicación. `scripts/validate-public-scenes.js` valida los ejemplos con Node sin instalar dependencias npm. El generador local sí necesita las dependencias de modelado del proyecto. `publication.json` registra además los hashes del catálogo y de cada proyección, para identificar exactamente los bytes desplegados junto al bundle.
-
-El paquete sólo contiene HTML, estilos, scripts compilados y recursos estáticos. No incluye SQLite, carpetas de usuarios, servidor, certificados, dependencias de desarrollo ni mapas de fuentes. `npm.cmd run pages:prepare` lo genera en `data/pages-site`, excluido de Git.
-
-Para acceso mediante Dev Tunnels, ejecutar `npm.cmd start`, configurar el puerto 8080 con protocolo **HTTPS** y utilizar el dominio público asignado. El servidor admite los dominios de Dev Tunnels y conserva la validación para hosts ajenos. Tras cambiar de HTTP a HTTPS, VS Code puede volver a marcar el puerto como privado: restablecer **Puertos → 8080 → Visibilidad del puerto → Público**. La primera visita puede requerir pulsar **Continuar** en el aviso propio de Dev Tunnels.
-
-Dev Tunnels puede mostrar un aviso inicial con el botón «Continuar». Al abrir el túnel de este proyecto, ese paso permite llegar al visualizador y sólo se solicita una vez por navegador/túnel.
-
-Validación automatizada:
+## Preparar una publicación
 
 ```powershell
-node scripts/test-editor-routes.js
-node scripts/test-public-tunnel.js
-node scripts/test-public-static-viewer.js
-node scripts/test-public-examples-policy.js
-node scripts/test-public-original-navigation.js
-$buildHash = (Get-FileHash bundle.js -Algorithm SHA256).Hash.ToLower()
-node scripts/qa-public-publication-browser.js --expected-bundle-sha256 $buildHash
+npm.cmd run build
+npm.cmd run pages:verify
+npm.cmd run pages:prepare
 ```
 
-La prueba de Chrome genera y sirve exactamente el artefacto de Pages en `data/pages-site/`, tanto en la raíz como bajo la carpeta de repositorio. Comprueba carga 3D, cambio de los dos ejemplos públicos, acceso de sólo lectura, aviso de cuentas, menú móvil, rutas de recursos y ausencia de escrituras o errores de WebGL. Detecta también dependencias de ejecución ausentes del paquete, como los decodificadores Basis/Draco. Los reportes y capturas se guardan en `data/qa-studio/`, excluida del repositorio. No es una medición física en Quest 3.
+`build` genera el catálogo fuente completo bajo `projects/smarttwin/scenes`, compila las aplicaciones y empaqueta distribuciones separadas. La existencia de esas escenas en el repositorio no las incorpora al visor público. `tooling/build/package-apps.cjs` selecciona solo la proyección autorizada y crea manifiestos de hashes por aplicación.
+
+`pages:verify` exige una lista cerrada de seis recursos y `publication.json`: rechaza archivos adicionales, cambios de bytes sin actualizar el manifiesto, escenas adicionales y metadatos globales privados. `pages:prepare` copia únicamente esa lista a `data/pages-site`, añade `.nojekyll` y registra la revisión publicada. Nunca copia la raíz del repositorio.
+
+Al subir a `main`, `.github/workflows/pages.yml` verifica estos artefactos versionados y despliega `data/pages-site`. No recompila las escenas dentro de Actions. En Settings → Pages debe estar seleccionado GitHub Actions. `publication.json` permite comprobar el commit y el SHA-256 del bundle efectivamente servido.
+
+El visor usa rutas relativas para funcionar bajo `/webxr-simulator/`. Su selección pública es fija: parámetros de URL o fallos de red no desbloquean escenarios privados. El botón de acceso muestra instrucciones si no hay backend configurado. Para conectar un servidor, configura las URLs HTTPS admitidas en `apps/public-viewer/config.js` y vuelve a empaquetar; las credenciales y claves nunca pertenecen a esa configuración.
+
+## Otras aplicaciones
+
+- `artifacts/workspace`: editor y mundo industrial existentes; se sirve autenticado desde la API. No publicar esta carpeta en un hosting estático abierto.
+- `artifacts/core-empty`: prueba independiente del núcleo y BrowserHost, sin sectores.
+- `artifacts/projects/<nombre>-…`: resultado de `npm.cmd run project:build -- --project projects/agricultura/project.json`. Contiene únicamente la composición elegida y sus dependencias. Es una aplicación local de referencia con estado en memoria; su despliegue no crea un backend ni convierte datos en privados automáticamente.
+
+Las herramientas heredadas de empaquetado y sus pruebas permanecen para compatibilidad de los ejemplos antiguos. El flujo oficial de Pages es `tooling/deploy/{verify-public,prepare-pages}.cjs`; no se debe volver a publicar el empaquetador antiguo del catálogo completo.
+
+## Validación
+
+`tests/framework/publication.test.mjs` comprueba aislamiento, hashes, campos privados y archivos extra. `packaging.test.mjs` comprueba listas de recursos y empaquetado transaccional. La revisión de navegador cubre el visor público, la entrada independiente, las composiciones de Agricultura y Turismo, y el editor privado con una base temporal HTTPS.
+
+La estabilidad y calidad en Quest 3 requieren además probar el visor físico. Los resultados de Chrome de escritorio no son una medida de FPS del dispositivo.

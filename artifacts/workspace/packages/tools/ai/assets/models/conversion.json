@@ -1,0 +1,38 @@
+{
+  "originalSha256": "85f36ff88cc504a24af5e0602148bc56a8aa09a58eca8c0da2756f3e8186035e",
+  "sha256": "f2645a31409ac2487242e1d8c42e627c3651dd1f6605f55bd0ca1754535ce62f",
+  "parameterTensors": [
+    {
+      "name": "conv1.bias",
+      "sha256": "d485f3761100c54248259bf65ac2ae77e317874307ac203d1e9b22b606e4c291"
+    },
+    {
+      "name": "conv1.weight",
+      "sha256": "f63bc6b1fa9e937626df80229f1cbe1543b06438a7621d1eb5bce22b62694bd0"
+    },
+    {
+      "name": "conv2.bias",
+      "sha256": "722f268ebfaa9cdea311deeb5d9ee68c40d96c1ce4b9337ea64434690913b0de"
+    },
+    {
+      "name": "conv2.weight",
+      "sha256": "8d1b58fcbe89623a60a4f8033a8627fbae6d490437de2cf6514be4e3837bd069"
+    },
+    {
+      "name": "conv3.bias",
+      "sha256": "9614ddf3e72bd8561283b57c4dc5e24524f1bba6bfa46f8523137b3a45693615"
+    },
+    {
+      "name": "conv3.weight",
+      "sha256": "74b652952dc38069b95cd01fadbc0ddefc3c98e66b4e12df28c2301bc20c16d4"
+    },
+    {
+      "name": "conv4.bias",
+      "sha256": "7992aec8380b7e21182bd0fa784becff914bb8c22e5b5bf0c9d9fd0298552b66"
+    },
+    {
+      "name": "conv4.weight",
+      "sha256": "a3fa3285d2547bbd937c51bc1cc8d76c3ca77167f0db837b5e18484babfb7ebc"
+    }
+  ]
+}
