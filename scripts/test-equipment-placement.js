@@ -153,4 +153,15 @@ schema.conveyorLayout.presetVariants.forEach(variant => {
   near(boxBounds.getCenter(v(0, 0, 0)).x, 0, 'Imported assets with an offset origin appear at the view target');
   near(boxBounds.getCenter(v(0, 0, 0)).z, 0); near(boxBounds.min.y, 0);
 }
-console.log('Equipment placement: floor support, free-space search, room walls, parent transforms and authored pose passed.');
+{
+  const {root, placer} = fixture(); floor(root);
+  const paint = schema.industrialFloor.createVisual(THREE, {type:'industrialFloor',version:1,bounds:[-15,-15,15,15],floorY:0,
+    walkways:[[-2,-12,2,12]],zones:[[-8,-8,8,8]],texts:['ENSAMBLE'],labels:[[0,0,0,3,.6,8]],signs:[[-10,0,0,1,8],[10,0,0,1,8]]});
+  root.add(paint);
+  const machine=box(root,[1,1,1],[0,1,0]), result=placer.place(machine,v(0,1.2,0));
+  assert.equal(result.attempts,1,'A painted walkway, label and zone do not reserve the whole room between two distant signs.');
+  near(machine.position.x,0);near(machine.position.z,0);near(result.floorY,0);
+  const bySign=box(root,[.6,1,.6],[0,1,0]), displaced=placer.place(bySign,v(10,1.2,0));
+  assert(displaced.attempts>1,'The footprint of the individual upright sign still reserves space.');
+}
+console.log('Equipment placement: painted zones/walkways stay buildable, individual signs reserve only their own footprint, floor support, free-space search, room walls, parent transforms and authored pose passed.');

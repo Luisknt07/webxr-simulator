@@ -305,6 +305,10 @@ export default class ImmersiveStudioMenu {
     this.button('movement', this.ctx.studioLocomotion === 'teleport' ? 'Movimiento: solo teletransporte' : 'Movimiento: stick izquierdo y teletransporte', 46, 585, 932, 64, () => this.setPreferences({locomotion: this.ctx.studioLocomotion === 'teleport' ? 'smooth' : 'teleport'}), {size: 25});
     this.button('hand', 'Mano preferida: ' + (this.ctx.handedness === 'left' ? 'izquierda' : 'derecha'), 46, 665, 932, 66, () => this.setPreferences({handedness: this.ctx.handedness === 'left' ? 'right' : 'left'}));
     this.button('recenter', 'Recentrar el menú frente a mí', 46, 765, 932, 66, () => this.placePanel());
+    const graphics = this.ctx.graphics;
+    if (graphics && graphics.getXRClarity && graphics.setXRClarity) this.button('xr-clarity', graphics.getXRClarity() === 'sharp' ? 'Nitidez: más detalle en los bordes' : 'Nitidez: priorizar rendimiento', 46, 845, 932, 64, () => {
+      graphics.setXRClarity(graphics.getXRClarity() === 'sharp' ? 'balanced' : 'sharp'); this.dirty = true;
+    }, {size: 25});
   }
   setPreferences(change) {
     return this.run(async () => {

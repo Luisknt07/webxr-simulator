@@ -33,6 +33,8 @@ export default class PublicSceneLibrary {
     this.entries = entries.map(value => publicSceneEntry(value.scene, value.included));
     this.listeners = []; this.cardListeners = []; this.images = []; this.buttons = []; this.cards = []; this.groups = []; this.busy = false; this.disposed = false;
     this.query = ''; this.category = ''; this.difficulty = ''; this.mode = '';
+    const ctx = studio.ctx || studio.editor && studio.editor.ctx;
+    if (ctx && ctx.graphics && ctx.graphics.hints && ctx.graphics.hints.standaloneXR && this.entries.some(value => value.category === 'Realidad virtual compacta')) this.category = 'Realidad virtual compacta';
     this.build(); this.render();
   }
   node(tag, text, parent, className) {
@@ -58,6 +60,7 @@ export default class PublicSceneLibrary {
       this.listen(element, 'change', () => { change(element.value); this.render(); }); return element;
     };
     this.categorySelect = select('Todas las categorías', Array.from(new Set(this.entries.map(value => value.category))).map(value => [value, value]), value => { this.category = value; });
+    if (this.category) this.categorySelect.value = this.category;
     this.difficultySelect = select('Todos los niveles', DIFFICULTIES, value => { this.difficulty = value; });
     this.modeSelect = select('Todos los modos', MODES, value => { this.mode = value; });
     this.fields = [this.search, this.categorySelect, this.difficultySelect, this.modeSelect];

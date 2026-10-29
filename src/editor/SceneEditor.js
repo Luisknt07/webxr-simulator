@@ -1340,6 +1340,10 @@ export default class SceneEditor {
     const visible = el('input'); visible.type = 'checkbox'; visible.checked = object.visible;
     this.field(header, 'Visible', visible).addEventListener('change', () => this.perform(() => this.document.setProperty(object, 'visible', visible.checked)));
     if (native) header.appendChild(el('p', 'ed-native-info', describeNative(object) || 'Objeto original. Su nombre y sus conexiones nativas se mantienen. Quitar lo oculta sin romper referencias.'));
+    if (object.userData.editorDescriptor && object.userData.editorDescriptor.type === 'industrialFloor') {
+      const floor = this.section('PISO · PASILLOS Y TEXTOS');
+      floor.appendChild(button('Editar pasillos y textos', 'Cambiar posiciones, tamaños y nombres de piso y carteles', () => this.shell && this.shell.openFloorPlan(object)));
+    }
     const info = this.document.getBehaviors(object).find(component => component.type === 'info');
     if (info) {
       const text = this.section('TEXTO DEL PANEL');

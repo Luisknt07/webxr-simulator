@@ -1,4 +1,5 @@
 import SceneCatalogBrowser from './SceneCatalogBrowser.js';
+import FloorPlanEditor from './FloorPlanEditor.js';
 
 const LAYOUT_KEY = 'hello-studio-layout-v1';
 const DEFAULT_LAYOUT = {left: 238, right: 304, bottom: 248, hierarchy: true, inspector: true, resources: true};
@@ -57,6 +58,11 @@ export default class EditorShell {
     const tools = this.editor.studioTools;
     if (!tools || typeof tools[method] !== 'function') return this.editor.toast('Las herramientas del proyecto se están preparando. Vuelve a intentarlo.');
     return tools[method](...args);
+  }
+
+  openFloorPlan(object) {
+    if (!this.floorPlan) this.floorPlan = new FloorPlanEditor(this.editor);
+    return this.floorPlan.open(object);
   }
 
   requestSceneName({title = 'Nuevo escenario', value = 'Nuevo escenario', confirmLabel = 'Crear'} = {}) {
@@ -186,6 +192,7 @@ export default class EditorShell {
       ]],
       ['Añadir', [
         ['Equipo de biblioteca', () => this.openResources('library')],
+        ['Pasillos, zonas y textos de piso…', () => this.openFloorPlan()],
         ['Diseño paramétrico CAD…', () => e.cadWorkbench && e.cadWorkbench.open()],
         ['Monitor de producción', () => e.monitorWidgets && e.monitorWidgets.add()],
         ['Vincular monitor seleccionado…', () => e.monitorWidgets && e.monitorWidgets.openBinding(e.selected), '', selected],

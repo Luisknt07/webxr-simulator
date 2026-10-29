@@ -74,6 +74,7 @@ async function run() {
   menu.navigate('projects'); await flush(); menu.tick(.016); await menu.chooseItem(menu.items[0]); assert.equal(menu.page, 'projectScenes'); assert.equal(menu.items.length, 2); assert.equal(menu.privateProject.id, f.project.id);
   await menu.chooseItem(menu.items[1]); assert.equal(f.applications[0].settings.roomId, 'sound'); assert.equal(menu.opened, false); assert.equal(menu.privateProject, null);
   menu.open('settings'); menu.tick(.016); press(f, 'volume-down'); assert(Math.abs(f.editor.industrialAudio.volume - .6) < 1e-8); await menu.setPreferences({locomotion: 'teleport'}); assert.equal(ctx.studioLocomotion, 'teleport');
+  let clarity='sharp';ctx.graphics={getXRClarity:()=>clarity,setXRClarity:value=>{clarity=value;}};const profileWrites=f.writes.length;menu.dirty=true;menu.tick(.016);press(f,'xr-clarity');assert.equal(clarity,'balanced');menu.tick(.016);press(f,'xr-clarity');assert.equal(clarity,'sharp');assert.equal(f.writes.length,profileWrites,'The in-headset clarity control stays a local device preference.');
   menu.open('account'); menu.fields.password = 'discard-me'; menu.close(); assert.equal(menu.fields.password, ''); assert(!menu.canvas.text.some(value => value.includes('discard-me')));
   menu.tick(.016); assert.equal(menu.group.visible, false); assert.equal(menu.panel.visible, false); assert(!ctx.raycontrol.currentStates.includes(menu.state), 'A closed menu has no active ray target.');
   toggleMenu(f, 1); assert(menu.opened, 'The right A button can reopen the menu without any floating launcher.');

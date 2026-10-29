@@ -126,10 +126,100 @@ function localBounds(root, objects) {
   objects.forEach(visit); return bounds;
 }
 
+// Small, finite teaching cells for standalone XR. The same physical pallet
+// crosses Source -> robot -> conveyor(s) -> manual forklift -> floor stock.
+// No decorative warehouse, background production or continuous feed is added.
+function compactVrStudy(document, roomId, definition, scene, options) {
+  const objects = [], links = [], conveyors = [], root = document.getRoot(roomId);
+  const assembly = new ConveyorAssembly({document, roomId, root, ctx: {scene}, hooks: {renderScene: scene}, assemblyMessage() {}});
+  const add = (type, name, variant, config, position) => {
+    const object = document.addPrefab(roomId, type, variant); patch(document, object, config);
+    document.setProperty(object, 'name', name); document.setTransform(object, {position}); objects.push(object); return object;
+  };
+  const connect = (from, to, port = 'output') => {
+    if (!assembly.align(from, port, to, 'input') || !assembly.connect(assembly.pair(to, 'input', from, port))) throw new Error('No se pudo conectar la célula compacta de RV.');
+    links.push({source: from.userData.editorId, sourcePort: port, target: to.userData.editorId, targetPort: 'input'});
+  };
+  try {
+    const source = add('source', 'RV · dos pallets / cuatro cajas cada uno', undefined, {
+      running: true, autoGenerate: true, initialCount: 1, totalLimit: 2, capacity: 2, interval: 18, delivery: 'manual', withPanel: false,
+      loadMode: 'pallet', palletType: 'euro-1200x800', palletColumns: 2, palletRows: 2, palletLayers: 1,
+      generationMode: 'sequence', catalog: JSON.stringify([{id: 'vr-four-boxes', name: 'Caja de práctica RV', type: 'box', variant: 'box-small', width: .3, depth: .3, height: .22, mass: 2, base: 'flat', color: '#b98d53', quality: 'good', defect: 'none'}])}, [-1.3, 1, .8]);
+    const robot = add('robot', 'RV · robot de expedición', 'articulated-general', {
+      running: true, mode: 'automatic', withPanel: false, sourceId: source.userData.editorId, reach: 3.2, payloadKg: 80,
+      tool: 'vacuum', acceptedTypes: 'pallets', requireKnownMass: true, maxProductWidth: 1.3, maxProductDepth: 1.1, maxProductHeight: 1,
+      baseHeight: .45, speed: .8, cycleTime: 4, processTime: 0, setupTime: .4, approachHeight: .18}, [0, 0, 0]);
+    patch(document, source, {outputId: robot.userData.editorId});
+    const turn = definition.compactVR === 'turn', one = definition.compactVR === 'dispatch';
+    const entry = add('conveyor', turn ? 'RV · mesa de giro a 90°' : 'RV · banda de recepción', turn ? 'pallet-turntable' : 'pallet-chain', {
+      length: turn ? 2.8 : 2.4, width: 1.4, supportHeight: .65, powered: true, running: true, autoSpawn: false,
+      withSensors: false, withPanel: one, speed: .25, maxPackages: 1, maxLoad: 150, clearance: 1.5}, [2.4, .65, 0]);
+    conveyors.push(entry); patch(document, robot, {outputId: entry.userData.editorId});
+    links.push({source: source.userData.editorId, sourcePort: 'output', target: robot.userData.editorId, targetPort: 'input'}, {source: robot.userData.editorId, sourcePort: 'output', target: entry.userData.editorId, targetPort: 'input'});
+    let pickup = entry;
+    if (!one) {
+      pickup = add('conveyor', 'RV · salida / recogida de montacargas', 'pallet-chain', {
+        length: 2.4, width: 1.4, supportHeight: .65, powered: true, running: true, autoSpawn: false, withSensors: false,
+        withPanel: true, speed: .25, maxPackages: 1, maxLoad: 150, clearance: 1.5}, [0, .65, 0]);
+      connect(entry, pickup, turn ? 'branch' : 'output'); conveyors.push(pickup);
+    }
+    document.setBehaviors(pickup, document.getBehaviors(pickup).concat(Object.assign(schema.defaultBehavior('automation'), {rules: JSON.stringify([
+      {sourceId: pickup.userData.editorId, variable: 'transferBlocked', operator: 'eq', value: true, targetId: pickup.userData.editorId, targetVariable: 'running', set: false, edge: 'rising'}])})));
+    root.updateWorldMatrix(true, true);
+    const config = machine(document, pickup), port = schema.conveyorLayout.ports(config).output;
+    const direction = new THREE.Vector3(port.tx, 0, port.tz).applyQuaternion(pickup.quaternion).normalize();
+    const end = new THREE.Vector3(port.x, port.y, port.z).applyQuaternion(pickup.quaternion).add(pickup.position);
+    const parking = end.clone().addScaledVector(direction, 3.4); parking.y = 0;
+    const destination = add('palletQueue', 'RV · bahías de entrega de pallets completos', undefined, {
+      running: true, withPanel: false, acceptsPallets: true, palletType: 'euro-1200x800', width: 1.2, depth: .8,
+      palletCapacity: 2, capacity: 2, columns: 1, rows: 1, layers: 1, autoRelease: false, delivery: 'manual'}, [parking.x - direction.z * 4.5, 1, parking.z + direction.x * 4.5]);
+    document.setTransform(destination, {quaternion: pickup.quaternion.toArray()});
+    const vehicle = add('vehicle', 'RV · único montacargas manual', 'forklift-electric-3w', {
+      mode: 'manual', powered: true, running: true, parkingBrake: true, forkSpread: .312, sourceId: pickup.userData.editorId,
+      outputId: destination.userData.editorId, waypointsJson: '[]', serial: 'RV-COMPACTO', detail: 'balanced'}, parking.toArray());
+    document.setTransform(vehicle, {rotation: [0, Math.atan2(-direction.x, -direction.z), 0]});
+    links.push({source: pickup.userData.editorId, sourcePort: 'output', target: vehicle.userData.editorId, targetPort: 'input'}, {source: vehicle.userData.editorId, sourcePort: 'output', target: destination.userData.editorId, targetPort: 'input'});
+    const line = {id: definition.id, title: definition.title, mode: 'mixed', continuous: false, objects: objects.slice(), links,
+      sources: [source], receivers: [destination], source, receiver: destination, controller: robot, expectedUnits: 8,
+      expectedReceiverUnits: [8], memberIds: objects.map(object => object.userData.editorId)};
+    let environment = null;
+    if (!options.preview) {
+      const solid = schema.defaultBehavior('collision');
+      const part = (name, color, position, scale, behaviors = []) => { const object = document.addPrimitive(roomId, 'box', color);
+        document.setProperty(object, 'name', name); document.setTransform(object, {position, scale}); document.setBehaviors(object, behaviors); objects.push(object); return object; };
+      const floor = part('RV · suelo continuo', '#777c76', [3, -.06, 0], [24, .12, 20], [solid, schema.defaultBehavior('teleport'),
+        Object.assign(schema.defaultBehavior('surfaceMaterial'), {preset: 'concrete', color: '#777c76', roughness: .97, colorMapMode: 'preserve', repeatX: 6, repeatY: 5})]);
+      part('RV · pared posterior', '#858981', [3, 2.6, -10], [24, 5.2, .16], [solid]);
+      part('RV · pared lateral', '#858981', [-9, 2.6, 0], [.16, 5.2, 20], [solid]);
+      part('RV · cubierta', '#656c65', [3, 5.3, 0], [24, .14, 20]);
+      const markings = document.addIndustrialFloorPresentation(roomId, {type: 'industrialFloor', version: 1,
+        bounds: [-9, -10, 15, 10], floorY: 0, walkways: [[-7, 5, -5, 9]], zones: [[-3, -4.5, 6.5, 2.6]],
+        texts: ['CELDA RV', 'PASILLO'], labels: [[1, 2.1, 0, 2.4, .45, 8], [-6, 7, -Math.PI / 2, 2.4, .45, 9]], signs: [[-6, 4.5, 0, 0, 9]]});
+      document.setProperty(markings, 'name', 'RV · pasillos y textos editables'); objects.push(markings); line.objects.push(markings);
+      const guide = part('RV · guía de la práctica', '#18303a', [-3.3, 1.7, 2.5], [2.6, 1.15, .05], [Object.assign(schema.defaultBehavior('info'), {
+        title: definition.title, text: definition.objective + '\n' + definition.tasks.join('\n') + '\nLímite: dos pallets de cuatro cajas. Libera Freno P para conducir. Detén la banda antes de recoger; retira las uñas antes de reiniciar.', fontSize: .032})]);
+      line.objects.push(guide);
+      const studio = document.studio || {}, settings = Object.assign(schema.studio.defaultEnvironment(roomId), STUDY_ENVIRONMENT_DEFAULTS, {
+        renderQuality: 'balanced', exposure: 1, sunIntensity: .8, ambientIntensity: .4, sky: 'color', skyColor: '#30444c', machineVolume: .18});
+      document.setStudio({environments: (studio.environments || []).filter(e => e.roomId !== roomId).concat(settings),
+        groups: (studio.groups || []).concat({id: 'compact-vr-' + roomId + '-' + definition.id, name: definition.title, roomId, members: line.objects.map(o => o.userData.editorId)}),
+        missions: (studio.missions || []).concat({id: 'compact-vr-mission-' + roomId + '-' + definition.id, name: definition.title, roomId,
+          description: definition.objective, help: definition.tasks.join('\n'), start: 'automatic', steps: [{name: 'Entregar los dos pallets con el montacargas', event: 'vehicle-delivered', objectId: vehicle.userData.editorId, target: 2, failEvent: ''}]})});
+      (document.studio.spawns || []).filter(v => v.roomId === roomId).forEach(v => {const marker = document.getObject(v.objectId); if (marker) document.setTransform(marker, {position: [4, .02, 8]});});
+      const camera = new THREE.PerspectiveCamera(); camera.position.set(10, 4.5, 9); camera.lookAt(1, 1, 0);
+      (document.studio.entities || []).filter(v => v.roomId === roomId && v.type === 'camera').forEach(v => {const marker = document.getObject(v.objectId); if (marker) document.setTransform(marker, {position: camera.position.toArray(), quaternion: camera.quaternion.toArray()});});
+      environment = {objects: [floor], floor, environment: settings};
+    }
+    return {objects, cells: [line], lines: [line], sources: [source], receivers: [destination], controllers: [robot], vehicles: [vehicle],
+      conveyors, robot, source, pickup, destination, vehicle, links, expectedUnits: 8, environment, compactVR: true, presetId: definition.id, definition};
+  } finally { assembly.clear(); }
+}
+
 export function buildStudyScene(document, roomId, id, options = {}) {
   const definition = studyScene(id), root = document.getRoot(roomId), scene = options.scene || root, own = !document.transaction;
   if (own) document.begin();
   try {
+    if (definition.compactVR) {const built = compactVrStudy(document, roomId, definition, scene, options); if (own) document.commit(); return built;}
     if (definition.vehicles) {
       const built = buildIndustrialVehicleStudy(document, roomId, options);
       if (!options.preview) configureStudyEnvironment(document, roomId, built);

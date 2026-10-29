@@ -24,6 +24,8 @@ export default class XRMirror {
     this.ctx = ctx; this.renderer = ctx.renderer; this.options = options;
     this.document = options.document || (typeof document === 'undefined' ? null : document);
     this.enabled = options.enabled !== false; this.captureActive = false; this.disposed = false; this.lost = false;
+    this.standalone = !!(ctx.graphics && ctx.graphics.hints && ctx.graphics.hints.standaloneXR);
+    this.mirrorOnHeadset = options.mirrorOnHeadset === true;
     this.maxPixels = Math.max(1, Math.min(4000000, Number(options.maxPixels) || 4000000));
     this.maxFPS = Math.max(1, Math.min(30, Number(options.maxFPS) || 15));
     this.elapsed = Infinity; this.session = null; this.failedSession = null;
@@ -75,6 +77,14 @@ export default class XRMirror {
     if (!this.enabled || this.lost || !xr || !xr.isPresenting) {
       if (this.scene || this.session) this.reset(this.lost ? 'context-lost' : this.enabled ? 'inactive' : 'disabled');
       return false;
+    }
+    // An autonomous headset has no companion monitor. Its normal OS casting
+    // captures the XR compositor, not this page canvas. Avoid an otherwise
+    // unused eye-sized texture and GPU copy without changing either XR eye.
+    // Explicit application capture can still request the canvas mirror.
+    if (this.standalone && !this.captureActive && !this.mirrorOnHeadset) {
+      if (this.scene || this.session) this.reset('headset-only');
+      this.stats.status = 'headset-only'; return false;
     }
     const session = xr.getSession && xr.getSession();
     if (session !== this.session) { this.release(); this.session = session; this.failedSession = null; this.elapsed = Infinity; }

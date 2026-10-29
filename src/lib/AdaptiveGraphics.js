@@ -1,6 +1,7 @@
 import quality from '../../shared/graphics-quality.js';
 
 const STORAGE_KEY = 'hello-webxr.graphics-mode.v1';
+const CLARITY_KEY = 'hello-webxr.xr-clarity.v1';
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 /** Resource ceilings and measured frame pacing; never mutates authored scenes.
@@ -15,6 +16,10 @@ export default class AdaptiveGraphics {
     this.storage = options.storage === undefined ? (() => { try { return this.window && this.window.localStorage; } catch (_) { return null; } })() : options.storage;
     let mode = options.mode || 'auto'; try { if (!options.mode && this.storage) mode = this.storage.getItem(STORAGE_KEY) || mode; } catch (_) { /* Storage may be unavailable. */ }
     this.mode = quality.MODES.includes(mode) ? mode : 'auto'; this.tier = Math.min(quality.initialTier(this.hints, this.mode), quality.ceilingFor(this.mode, this.hints));
+    let clarity = options.xrClarity || (this.hints.standaloneXR ? 'sharp' : 'balanced');
+    try { if (!options.xrClarity && this.storage) clarity = this.storage.getItem(CLARITY_KEY) || clarity; } catch (_) { /* Optional local preference. */ }
+    this.xrClarity = ['sharp', 'balanced'].includes(clarity) ? clarity : this.hints.standaloneXR ? 'sharp' : 'balanced';
+    this.desktopAntialias = null; try { const gl = renderer && renderer.getContext && renderer.getContext(); this.desktopAntialias = gl && gl.getContextAttributes().antialias; } catch (_) { /* Diagnostic only. */ }
     this.originalRatio = renderer && renderer.getPixelRatio ? renderer.getPixelRatio() : 1;
     this.width = renderer && renderer.domElement && renderer.domElement.clientWidth || this.window && this.window.innerWidth || 1;
     this.height = renderer && renderer.domElement && renderer.domElement.clientHeight || this.window && this.window.innerHeight || 1;
@@ -40,7 +45,30 @@ export default class AdaptiveGraphics {
       pixelRatio: ratio, renderScale: ratio / this.dpr, targetFPS: this.targetFPS, frameMs: this.frameMs, fps: this.frameMs ? 1000 / this.frameMs : null,
       status: this.status, reason: this.reason, xr: this.xr, contextLost: this.lost, foveationSupported: this.foveationSupported, foveation: this.foveation,
       frameBudgetMs: 1000 / this.targetFPS, frameBudgetRatio: this.frameMs ? this.frameMs / (1000 / this.targetFPS) : null, budgetOverruns: this.budgetOverruns, adaptiveFoveationBias: this.foveationBias,
-      pixelBudget: limits.maxPixels, estimatedMemoryMB: null, hints: Object.assign({}, this.hints), limits};
+      pixelBudget: limits.maxPixels, estimatedMemoryMB: null, xrClarity: this.xrClarity,
+      antialias: this.xr ? this.layer && typeof this.layer.antialias === 'boolean' ? this.layer.antialias : null : this.desktopAntialias,
+      hints: Object.assign({}, this.hints), limits};
+  }
+  getXRClarity() { return this.xrClarity; }
+  setXRClarity(value) {
+    if (!['sharp', 'balanced'].includes(value)) throw new Error('Nitidez de RV no compatible.');
+    if (this.disposed) return this.getStats();
+    this.xrClarity = value; this.foveationBias = 0;
+    try { if (this.storage) this.storage.setItem(CLARITY_KEY, value); } catch (_) { /* Optional preference. */ }
+    this.applyFoveation(); this.notify(); return this.getStats();
+  }
+  updateCameraDepth(xr, camera) {
+    const target = xr && this.hints.standaloneXR ? camera || this.depthCamera : null;
+    if (this.depthCamera && this.depthCamera !== target) {
+      if (this.depthCamera.near === .02) {this.depthCamera.near = this.originalNear; this.depthCamera.updateProjectionMatrix();}
+      this.depthCamera = null; this.originalNear = null;
+    }
+    // A 5 mm near plane wastes depth precision on distant floor paint and
+    // thin machine surfaces. Keep the far plane and all authored geometry;
+    // use a 2 cm near plane only for the standalone headset presentation.
+    if (target && !this.depthCamera && Number.isFinite(target.near) && target.near > 0 && target.near < .02) {
+      this.depthCamera = target; this.originalNear = target.near; target.near = .02; target.updateProjectionMatrix();
+    }
   }
   subscribe(listener) { this.listeners.add(listener); try { listener(this.getStats()); } catch (_) { /* Optional UI isolation. */ } return () => this.listeners.delete(listener); }
   notify() { this.lastNotify = this.elapsed; const state = this.getStats(); this.listeners.forEach(listener => { try { listener(state); } catch (_) { /* An optional UI cannot interrupt rendering. */ } }); }
@@ -83,7 +111,8 @@ export default class AdaptiveGraphics {
     }
     if (!this.layer) { this.foveationSupported = false; return; }
     if (!this.foveationSupported) return;
-    const wanted = Math.min(.75, this.getLimits().fixedFoveation + this.foveationBias);
+    const base = this.getLimits().fixedFoveation, sharp = this.xrClarity === 'sharp';
+    const wanted = Math.min(sharp ? .5 : .75, (sharp ? Math.min(.25, base) : base) + this.foveationBias);
     try {
       if (Math.abs(this.layer.fixedFoveation - wanted) > .01) this.layer.fixedFoveation = wanted;
       const actual = this.layer.fixedFoveation;
@@ -95,6 +124,7 @@ export default class AdaptiveGraphics {
     if (this.disposed) return this.getStats();
     const xr = frame.xr === undefined ? !!(this.renderer && this.renderer.xr && this.renderer.xr.isPresenting) : !!frame.xr;
     if (xr !== this.xr) { this.xr = xr; this.foveationBias = 0; this.restoreFoveation(); this.resetPacing(2); this.notify(); }
+    this.updateCameraDepth(xr, frame.camera);
     if (frame.width !== undefined || frame.height !== undefined || frame.dpr !== undefined) this.setViewport(frame.width || this.width, frame.height || this.height, frame.dpr);
     const session = frame.session || this.renderer && this.renderer.xr && this.renderer.xr.getSession && this.renderer.xr.getSession();
     const fps = quality.targetFrameRate(xr, session);
@@ -133,6 +163,7 @@ export default class AdaptiveGraphics {
   contextRestored() { if (this.disposed) return; this.lost = false; this.appliedRatio = null; this.resetPacing(3); this.reason = 'webgl-context-restored'; this.applyDesktopRatio(); this.notify(); }
   dispose() {
     if (this.disposed) return; this.restoreFoveation();
+    this.updateCameraDepth(false);
     if (!this.xr && !this.lost && this.renderer && this.renderer.setPixelRatio) this.renderer.setPixelRatio(this.originalRatio);
     if (this.renderer && this.renderer.domElement && this.renderer.domElement.removeEventListener) { this.renderer.domElement.removeEventListener('webglcontextlost', this.onLost); this.renderer.domElement.removeEventListener('webglcontextrestored', this.onRestored); }
     this.disposed = true; this.listeners.clear();

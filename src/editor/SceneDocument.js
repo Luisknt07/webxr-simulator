@@ -756,6 +756,7 @@ export default class SceneDocument {
       if (record.descriptor.type === 'cad' && !same(entry.descriptor, record.descriptor)) {
         this._replaceCADVisual(entry.object, record.descriptor);
       }
+      if (record.descriptor.type === 'industrialFloor' && !same(entry.descriptor, record.descriptor)) this._replaceIndustrialFloorVisual(entry.object, record.descriptor);
       entry.descriptor = clone(record.descriptor);
       entry.object.userData.editorDescriptor = clone(record.descriptor);
       if (record.descriptor.variant) entry.object.userData.editorPrefabVariant = record.descriptor.variant;
@@ -1002,6 +1003,29 @@ export default class SceneDocument {
       // The plan already contains room-local coordinates, including floorY.
       // The ordinary insertion offset [0,1,-2] must never shift this layer.
       object.position.set(0, 0, 0); return object;
+    });
+  }
+
+  _replaceIndustrialFloorVisual(object, descriptor) {
+    const content = behaviorSchema.industrialFloor.createVisual(THREE, descriptor), geometries = new Set(), materials = new Set(), textures = new Set();
+    const previous = object.children[0];
+    if (previous) {
+      previous.traverse(node => {if (node.geometry) geometries.add(node.geometry); (Array.isArray(node.material) ? node.material : [node.material]).filter(Boolean).forEach(material => {materials.add(material); if (material.map && material.map.userData && material.map.userData.industrialFloorAtlas) textures.add(material.map);});});
+      object.remove(previous);
+    }
+    object.add(content);
+    geometries.forEach(value => value.dispose()); materials.forEach(value => value.dispose()); textures.forEach(value => value.dispose());
+  }
+
+  updateIndustrialFloorPresentation(object, value) {
+    this._requireObject(object);
+    const entry = this.additions.get(object.userData.editorId), descriptor = behaviorSchema.industrialFloor.normalize(value);
+    if (!entry || entry.descriptor.type !== 'industrialFloor') throw new Error('Selecciona una capa de señalización editable.');
+    if (this.visuals.has(entry.id)) throw new Error('Restaura la apariencia de esta capa antes de editar su señalización.');
+    return this._action(() => {
+      this._replaceIndustrialFloorVisual(object, descriptor); entry.descriptor = clone(descriptor); object.userData.editorDescriptor = clone(descriptor);
+      if (object.userData.editorColor) this._applyColor(object, object.userData.editorColor);
+      return object;
     });
   }
 

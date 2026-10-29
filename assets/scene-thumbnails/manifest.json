@@ -4,10 +4,10 @@
   "recipeVersion": 2,
   "width": 480,
   "height": 320,
-  "bundleSha256": "29442861e36336c560906edded89938a95dae7bee9bf88745a7a0c7a2c47d739",
-  "catalogSha256": "a4052979b913631b001d69299c3e5772497a08fe2513653ca7ba06810b38bfdf",
+  "bundleSha256": "b287ca811c4c6a5ad5b27e366bd8d2958b3e5d17208e85a5a945cccfe6b8a8d1",
+  "catalogSha256": "a3570cfa0c03def9daad68f189ff90ae4b3fbb5dd639d271d053a92b3e2bce59",
   "complete": true,
-  "bytes": 3194921,
+  "bytes": 3291419,
   "scenes": [
     {
       "id": "l-transfer",
@@ -49,6 +49,69 @@
         "variance": 1320.2276368317803,
         "min": 40,
         "max": 233.66666666666666
+      }
+    },
+    {
+      "id": "vr-robot-dispatch",
+      "title": "RV · Robot, banda y montacargas",
+      "file": "vr-robot-dispatch.png",
+      "method": "actual-study-factory",
+      "recipeVersion": 2,
+      "width": 480,
+      "height": 320,
+      "bytes": 32398,
+      "sha256": "ad40514fba77fbe9d123a95658ef7e8b52236e8fac08e0b6774dcffc043ef1ba",
+      "bundleSha256": "b287ca811c4c6a5ad5b27e366bd8d2958b3e5d17208e85a5a945cccfe6b8a8d1",
+      "sceneSha256": "5e9da83a4b0a3865082eac6f20a96d1addbcad347a3bbc3c23ab55a69eef304c",
+      "quality": {
+        "width": 480,
+        "height": 320,
+        "mean": 46.05121527777777,
+        "variance": 491.85472653235774,
+        "min": 40,
+        "max": 211.33333333333334
+      }
+    },
+    {
+      "id": "vr-robot-transfer",
+      "title": "RV · Transferencia entre dos bandas",
+      "file": "vr-robot-transfer.png",
+      "method": "actual-study-factory",
+      "recipeVersion": 2,
+      "width": 480,
+      "height": 320,
+      "bytes": 31841,
+      "sha256": "69c421d08ba294f7d2d83dfcb7a2550d73e607e71b3ad82f2ced5ad9ce3f5f53",
+      "bundleSha256": "b287ca811c4c6a5ad5b27e366bd8d2958b3e5d17208e85a5a945cccfe6b8a8d1",
+      "sceneSha256": "bbea5302a250731ecce175a1a31522562a6296b0f8bd3e63f736942692726ed9",
+      "quality": {
+        "width": 480,
+        "height": 320,
+        "mean": 44.60720486111112,
+        "variance": 318.2101506362717,
+        "min": 40,
+        "max": 189.33333333333334
+      }
+    },
+    {
+      "id": "vr-robot-turn",
+      "title": "RV · Giro y expedición compacta",
+      "file": "vr-robot-turn.png",
+      "method": "actual-study-factory",
+      "recipeVersion": 2,
+      "width": 480,
+      "height": 320,
+      "bytes": 32259,
+      "sha256": "7e83d7c161682d97a9ab92631aa850b9946421b5f738c6f1676049fb5ed1528a",
+      "bundleSha256": "b287ca811c4c6a5ad5b27e366bd8d2958b3e5d17208e85a5a945cccfe6b8a8d1",
+      "sceneSha256": "9d8eb2fabfa2e1d83a8a1cbd40601b7e2fb820c6bcce70dbc6e1dcd51dcc2baa",
+      "quality": {
+        "width": 480,
+        "height": 320,
+        "mean": 47.24392361111112,
+        "variance": 648.864691086756,
+        "min": 40,
+        "max": 224
       }
     },
     {

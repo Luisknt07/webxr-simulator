@@ -155,6 +155,19 @@ function proceduralProperties(config) {
   const texture = dataTexture(data, size, size, false);
   texture.repeat.set(config.repeatX, config.repeatY); return texture;
 }
+
+// Key the immutable pixels and sampler recipe, rather than editable labels or
+// parameters that the generator never reads. These families are byte-identical
+// in the generators above. Wear repeats live in shader uniforms, not Texture.
+function proceduralRecipeKey(kind, config, anisotropy) {
+  const brushed = config.preset === 'steel' || config.preset === 'aluminum';
+  let family;
+  if (kind === 'base') family = brushed ? 'brushed' : ['wood', 'concrete', 'rubber'].includes(config.preset) ? config.preset : 'plain';
+  else if (kind === 'properties') family = brushed ? 'brushed' : config.preset === 'paintedMetal' ? 'painted' : 'granular';
+  else family = config.wearType === 'rust' || config.wearType === 'dirt' ? config.wearType : config.preset === 'wood' ? 'wood' : config.wearType === 'chips' ? 'chips' : 'metal';
+  return JSON.stringify([kind, family, config.seed, kind === 'wear' ? 1 : config.repeatX,
+    kind === 'wear' ? 1 : config.repeatY, kind === 'wear' ? config.wearType : '', anisotropy]);
+}
 function installWear(material, original, config, texture) {
   // Keep shader-owned samplers discoverable by GPU accounting and eviction.
   // This runtime field is deliberately outside serializable userData.
@@ -368,8 +381,7 @@ export default class SurfaceMaterialSystem {
     if (!owner.procedural) owner.procedural = new Map();
     const capabilities = this.ctx.renderer && this.ctx.renderer.capabilities;
     const anisotropy = capabilities && capabilities.getMaxAnisotropy ? Math.min(4, capabilities.getMaxAnisotropy()) : 1;
-    const key = JSON.stringify([kind, config.preset, config.seed, config.repeatX, config.repeatY,
-      kind === 'wear' ? config.wearType : '', anisotropy]);
+    const key = proceduralRecipeKey(kind, config, anisotropy);
     if (!owner.procedural.has(key)) {
       let entry = this.proceduralPool.get(key);
       if (entry) this.stats.proceduralPoolHits++;

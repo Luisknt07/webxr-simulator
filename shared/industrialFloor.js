@@ -9,16 +9,20 @@ const point = (value, length) => {
 };
 function rectangle(value) { const result = point(value, 4); if (result[2] <= result[0] || result[3] <= result[1] || result[2] - result[0] > 500 || result[3] - result[1] > 500) throw new Error('Dimensiones de zona de piso inválidas.'); return result; }
 function normalize(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value) || value.type !== 'industrialFloor' || value.version !== VERSION || Object.keys(value).some(key => !['type', 'version', 'bounds', 'floorY'].concat(Object.keys(LIMITS)).includes(key))) throw new Error('Presentación de piso no compatible.');
+  if (!value || typeof value !== 'object' || Array.isArray(value) || value.type !== 'industrialFloor' || value.version !== VERSION || Object.keys(value).some(key => !['type', 'version', 'bounds', 'floorY', 'texts'].concat(Object.keys(LIMITS)).includes(key))) throw new Error('Presentación de piso no compatible.');
   if (!Number.isFinite(value.floorY) || Math.abs(value.floorY) > 1000) throw new Error('Altura del piso inválida.');
   const result = {type: 'industrialFloor', version: VERSION, bounds: rectangle(value.bounds), floorY: value.floorY};
+  const texts = value.texts === undefined ? [] : value.texts;
+  if (!Array.isArray(texts) || texts.length > 24 || texts.some(text => typeof text !== 'string' || !text.trim() || text.length > 64 || /[\u0000-\u001f\u007f]/.test(text))) throw new Error('Usa hasta 24 textos de piso, de 1 a 64 caracteres cada uno.');
+  if (texts.length) result.texts = texts.map(text => text.trim());
+  const labels = LABELS.concat(texts);
   Object.keys(LIMITS).forEach(key => {
     const entries = value[key] || []; if (!Array.isArray(entries) || entries.length > LIMITS[key]) throw new Error('Demasiadas marcas de piso: ' + key + '.');
     result[key] = entries.map(entry => {
       if (['walkways', 'zones', 'bays', 'crossings'].includes(key)) return rectangle(entry);
       const tuple = point(entry, key === 'arrows' ? 3 : key === 'labels' ? 6 : 5);
       const label = key === 'labels' ? tuple[5] : tuple[4];
-      if (key !== 'arrows' && (!Number.isInteger(label) || !LABELS[label])) throw new Error('Rótulo de piso desconocido.');
+      if (key !== 'arrows' && (!Number.isInteger(label) || !labels[label])) throw new Error('Rótulo de piso desconocido.');
       if (key === 'labels' && (tuple[3] < .25 || tuple[3] > 8 || tuple[4] < .12 || tuple[4] > 3)) throw new Error('Tamaño del rótulo de piso inválido.');
       if (key === 'signs' && (!Number.isInteger(tuple[3]) || tuple[3] < 0 || tuple[3] > 2)) throw new Error('Tipo de señal vertical inválido.');
       return tuple;
@@ -32,15 +36,24 @@ function normalize(value) {
  * factory without loading a browser renderer or constructing an AudioContext. */
 function createVisual(THREE, input, canvasFactory) {
   const plan = normalize(input), root = new THREE.Group(), batches = new Map(); root.name = 'Señalización industrial del piso';
+  const labels = LABELS.concat(plan.texts || []), atlasHeight = Math.pow(2, Math.ceil(Math.log2(Math.max(256, Math.ceil(labels.length / 4) * 128))));
+  // Paint is never an occupied room-sized volume. Keep only each real sign's
+  // small upright footprint available to the editor's placement search.
+  root.userData.industrialFloorObstacleBounds = plan.signs.map(([x, z, yaw]) => {
+    const hx = .48 * Math.abs(Math.cos(yaw)) + .16 * Math.abs(Math.sin(yaw));
+    const hz = .48 * Math.abs(Math.sin(yaw)) + .16 * Math.abs(Math.cos(yaw));
+    return [x - hx, plan.floorY, z - hz, x + hx, plan.floorY + 2.04, z + hz];
+  });
   const palette = {joint: '#515a54', walkway: '#385d50', yellow: '#cfb044', white: '#e2e7df', metal: '#394844', blue: '#286477', atlasWhite: '#edf0e8', atlasDark: '#202b24'};
   const canvas = canvasFactory ? canvasFactory() : typeof document !== 'undefined' && document.createElement ? document.createElement('canvas') : null;
   let atlas = null;
   if (canvas && canvas.getContext) {
-    canvas.width = 1024; canvas.height = 256; const drawing = canvas.getContext('2d');
+    canvas.width = 1024; canvas.height = atlasHeight; const drawing = canvas.getContext('2d');
     if (drawing && drawing.fillText) {
-      drawing.clearRect(0, 0, 1024, 256); drawing.textAlign = 'center'; drawing.textBaseline = 'middle'; drawing.font = 'bold 38px Arial, sans-serif'; drawing.fillStyle = '#ffffff';
-      LABELS.forEach((label, index) => drawing.fillText(label, (index % 4) * 256 + 128, Math.floor(index / 4) * 128 + 64, 238));
+      drawing.clearRect(0, 0, 1024, atlasHeight); drawing.textAlign = 'center'; drawing.textBaseline = 'middle'; drawing.font = 'bold 38px Arial, sans-serif'; drawing.fillStyle = '#ffffff';
+      labels.forEach((label, index) => drawing.fillText(label, (index % 4) * 256 + 128, Math.floor(index / 4) * 128 + 64, 238));
       atlas = new THREE.CanvasTexture(canvas); atlas.encoding = THREE.sRGBEncoding; atlas.minFilter = THREE.LinearMipmapLinearFilter; atlas.magFilter = THREE.LinearFilter; atlas.generateMipmaps = true; atlas.needsUpdate = true;
+      atlas.anisotropy = 4; atlas.userData = {industrialFloorAtlas: true};
     }
   }
   const get = key => { if (!batches.has(key)) batches.set(key, {positions: [], normals: [], uv: [], index: []}); return batches.get(key); };
@@ -71,7 +84,7 @@ function createVisual(THREE, input, canvasFactory) {
     const cosine = Math.cos(yaw), sine = Math.sin(yaw), rotate = (dx, dz) => [x + dx * cosine + dz * sine, y + .019, z - dx * sine + dz * cosine];
     polygon('white', [rotate(-.34, -.20), rotate(.34, -.20), rotate(0, -.70)]);
   });
-  const atlasUV = index => { const x = index % 4 / 4, top = Math.floor(index / 4) / 2; return [[x, 1 - top], [x, .5 - top], [x + .25, .5 - top], [x + .25, 1 - top]]; };
+  const atlasUV = index => { const x = index % 4 / 4, top = Math.floor(index / 4) * 128 / atlasHeight, height = 128 / atlasHeight; return [[x, 1 - top], [x, 1 - top - height], [x + .25, 1 - top - height], [x + .25, 1 - top]]; };
   plan.labels.forEach(([x, z, yaw, width, depth, label]) => quad('atlasWhite', x, z, width, depth, y + .023, yaw, atlasUV(label)));
   const box = (x, z, width, height, depth, base) => {
     const xa = x - width / 2, xb = x + width / 2, za = z - depth / 2, zb = z + depth / 2, ya = base, yb = base + height;
@@ -88,7 +101,7 @@ function createVisual(THREE, input, canvasFactory) {
     const normal = [sine, 0, cosine]; polygon(kind === 0 ? 'blue' : 'yellow', vertices(0), normal);
     // Reverse the back face's vertices, keeping its own left-to-right UVs.
     // DoubleSide alone would mirror the letters viewed from behind.
-    const uv = [[label % 4 / 4, .5 - Math.floor(label / 4) / 2], [label % 4 / 4 + .25, .5 - Math.floor(label / 4) / 2], [label % 4 / 4 + .25, 1 - Math.floor(label / 4) / 2], [label % 4 / 4, 1 - Math.floor(label / 4) / 2]];
+    const tile = atlasUV(label), uv = [tile[1], tile[2], tile[3], tile[0]];
     polygon(kind === 0 ? 'atlasWhite' : 'atlasDark', vertices(.004), normal, uv);
     const back = vertices(-.004); polygon(kind === 0 ? 'atlasWhite' : 'atlasDark', [back[1], back[0], back[3], back[2]], [-normal[0], 0, -normal[2]], uv);
   });

@@ -17,10 +17,17 @@ export default class GraphicsSettings {
     MODES.forEach(([value, text]) => { const option = node('option', text, this.select); option.value = value; });
     this.select.disabled = !graphics || typeof graphics.setMode !== 'function';
     this.change = () => { if (this.graphics && this.graphics.setMode) { this.graphics.setMode(this.select.value); this.update(); } }; this.select.addEventListener('change', this.change);
+    if (graphics && graphics.setXRClarity) {
+      const field = node('label', undefined, this.root); node('span', 'Nitidez de bordes en RV', field);
+      this.claritySelect = node('select', undefined, field); this.claritySelect.setAttribute('aria-label', 'Nitidez de bordes en RV');
+      [['sharp', 'Más nítida'], ['balanced', 'Priorizar rendimiento']].forEach(([value, text]) => {const option = node('option', text, this.claritySelect); option.value = value;});
+      this.clarityChange = () => {graphics.setXRClarity(this.claritySelect.value); this.update();}; this.claritySelect.addEventListener('change', this.clarityChange);
+      node('p', 'Más nítida conserva más detalle en los bordes del visor. Si baja la fluidez, prueba Priorizar rendimiento.', this.root).className = 'graphics-settings-note';
+    }
     this.effective = node('output', '', this.root); this.effective.className = 'graphics-settings-effective';
     const details = node('details', undefined, this.root); node('summary', 'Resolución y recursos', details); const list = node('dl', undefined, details);
     this.values = {};
-    [['target', 'Objetivo'], ['resolution', 'Resolución de renderizado'], ['memory', 'Memoria gráfica estimada'], ['timing', 'Rendimiento medido']].forEach(([key, title]) => { node('dt', title, list); this.values[key] = node('dd', '—', list); });
+    [['target', 'Objetivo'], ['resolution', 'Resolución de renderizado'], ['edges', 'Suavizado de bordes'], ['memory', 'Memoria gráfica estimada'], ['timing', 'Rendimiento medido']].forEach(([key, title]) => { node('dt', title, list); this.values[key] = node('dd', '—', list); });
     if (!options.compact) { const note = node('p', 'Automático adapta la imagen al dispositivo. Esta preferencia se guarda aquí y conserva el escenario.', this.root); note.className = 'graphics-settings-note'; }
     const ai = options.ctx && options.ctx.materialAI;
     if (ai) {
@@ -46,6 +53,8 @@ export default class GraphicsSettings {
     if (!this.root || this.disposed) return;
     const graphics = this.graphics; state = state || graphics && (graphics.getState ? graphics.getState() : graphics.getStats && graphics.getStats()) || {};
     const mode = graphics && graphics.getMode ? graphics.getMode() : state.mode || 'auto'; this.select.value = mode;
+    if (this.claritySelect) this.claritySelect.value = graphics.getXRClarity();
+    this.values.edges.textContent = state.antialias === true ? 'Activo' : state.antialias === false ? 'No disponible en este navegador' : 'Por confirmar al entrar en RV';
     const status = {'warming-up': ' · Evaluando rendimiento', pressure: ' · Ajustando al dispositivo', paused: ' · Pausado', 'context-lost': ' · Recuperando gráficos'}[state.status] || '';
     const effective = state.effectiveProfile || state.tier, adapted = mode !== 'auto' && effective && effective !== mode && !status ? ' · Adaptado al rendimiento disponible' : '';
     this.effective.textContent = 'Perfil efectivo: ' + label(effective) + status + adapted;
@@ -57,5 +66,5 @@ export default class GraphicsSettings {
     this.values.memory.textContent = finite(memory) ? Math.round(memory) + ' MB (estimación)' : 'Sin estimación disponible';
     this.values.timing.textContent = finite(state.fps) ? Math.round(state.fps) + ' FPS' + (finite(state.frameMs) ? ' · ' + state.frameMs.toFixed(1) + ' ms/fotograma' : '') : 'Evaluando…';
   }
-  dispose() { if (this.disposed) return; this.disposed = true; if (this.unsubscribe) this.unsubscribe(); if (this.unsubscribeAI) this.unsubscribeAI(); if (this.select) this.select.removeEventListener('change', this.change); if (this.root && this.root.parentNode) this.root.parentNode.removeChild(this.root); }
+  dispose() { if (this.disposed) return; this.disposed = true; if (this.unsubscribe) this.unsubscribe(); if (this.unsubscribeAI) this.unsubscribeAI(); if (this.select) this.select.removeEventListener('change', this.change); if (this.claritySelect) this.claritySelect.removeEventListener('change', this.clarityChange); if (this.root && this.root.parentNode) this.root.parentNode.removeChild(this.root); }
 }

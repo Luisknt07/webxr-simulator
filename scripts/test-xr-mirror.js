@@ -3,7 +3,7 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), path = re
 const source = fs.readFileSync(path.join(__dirname, '../src/lib/XRMirror.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export function mirrorRegion', 'function mirrorRegion').replace('export default class XRMirror', 'class XRMirror');
 const {XRMirror, mirrorRegion} = new Function('THREE', source + '\nreturn {XRMirror,mirrorRegion};')(THREE);
 class Events { constructor() { this.listeners = new Map(); } addEventListener(name, handler) { if (!this.listeners.has(name)) this.listeners.set(name, new Set()); this.listeners.get(name).add(handler); } removeEventListener(name, handler) { this.listeners.get(name)?.delete(handler); } fire(name) { this.listeners.get(name)?.forEach(handler => handler({})); } }
-function fixture() {
+function fixture(extra = {}) {
   const canvas = new Events(); Object.assign(canvas, {width: 160, height: 90}); const xr = new Events(), frame = {native: true}, session = {renderState: {baseLayer: {framebuffer: frame, framebufferWidth: 600, framebufferHeight: 400}}};
   const left = new THREE.PerspectiveCamera(), right = new THREE.PerspectiveCamera(); left.viewport = new THREE.Vector4(0, 0, 300, 400); right.viewport = new THREE.Vector4(300, 0, 300, 400); left.matrixWorld.makeTranslation(3, 2, -7); right.matrixWorld.makeTranslation(3.06, 2, -7);
   Object.assign(xr, {enabled: true, isPresenting: true, getSession: () => session, getCamera: () => ({cameras: [left, right]})});
@@ -15,7 +15,7 @@ function fixture() {
     copyFramebufferToTexture(position, texture) { calls.push({kind: 'copy', position: position.clone(), texture, shape: [texture.image.width, texture.image.height]}); assert.equal(this.framebuffer, frame); assert(this.xr.enabled); if (this.failCopy) throw new Error('Copy unavailable'); },
     render(scene, camera) { calls.push({kind: 'draw', scene, camera}); assert.equal(this.framebuffer, null); assert.equal(this.xr.enabled, false); assert.equal(this.shadowMap.enabled, false); assert.equal(this.autoClear, false); assert.equal(scene.children.length, 1); assert.equal(scene.children[0].frustumCulled, false); this.info.render.calls++; this.info.render.triangles += 2; }
   };
-  const document = {hidden: false}, ctx = {renderer}, mirror = new XRMirror(ctx, {document}); return {canvas, xr, frame, session, left, right, calls, renderer, document, mirror};
+  const document = {hidden: false}, ctx = {renderer, ...extra}, mirror = new XRMirror(ctx, {document}); return {canvas, xr, frame, session, left, right, calls, renderer, document, mirror};
 }
 assert.deepEqual(mirrorRegion({x: 400, y: 0, width: 300, height: 400}, 16 / 9), {x: 400, y: 116, width: 300, height: 168});
 assert.equal(mirrorRegion({x: 0, y: 0, width: 5000, height: 5000}, 1), null, 'The memory ceiling rejects a view instead of zooming into a tiny region.');
@@ -34,4 +34,9 @@ f.mirror.postRender(world, camera, 1); f.canvas.fire('webglcontextlost'); assert
 f.renderer.failCopy = true; assert.equal(f.mirror.postRender(world, camera, 1), false); assert.equal(f.mirror.getStats().failures, 1); assert.equal(f.mirror.getStats().status, 'unavailable'); assert.equal(f.renderer.framebuffer, f.frame); assert(f.renderer.viewport.equals(state.viewport)); assert.equal(f.renderer.xr.enabled, true); const copies = f.calls.filter(row => row.kind === 'copy').length; f.mirror.postRender(world, camera, 1); assert.equal(f.calls.filter(row => row.kind === 'copy').length, copies, 'Unsupported copying fails closed for this session without a retry loop.');
 f.mirror.dispose(); assert.equal(f.xr.listeners.get('sessionend').size, 0); assert.equal(f.canvas.listeners.get('webglcontextlost').size, 0); assert.equal(f.canvas.listeners.get('webglcontextrestored').size, 0);
 const limited = fixture(); limited.mirror.maxPixels = 100; assert.equal(limited.mirror.postRender(world, camera, 1), false); assert.equal(limited.mirror.scene, null); assert.equal(limited.mirror.getStats().status, 'eye-or-memory-limit'); limited.mirror.dispose();
+const quest = fixture({graphics:{hints:{standaloneXR:true}}});
+const questState={viewport:quest.renderer.viewport.clone(),pose:quest.left.matrixWorld.clone(),info:{...quest.renderer.info.render}};
+assert.equal(quest.mirror.postRender(world,camera,1),false);assert.equal(quest.mirror.getStats().status,'headset-only');assert.equal(quest.calls.length,0);assert.equal(quest.mirror.getStats().estimatedGpuBytes,0);assert(quest.left.matrixWorld.equals(questState.pose));assert(quest.renderer.viewport.equals(questState.viewport));assert.deepEqual(quest.renderer.info.render,questState.info);
+quest.mirror.setCaptureActive(true);assert.equal(quest.mirror.postRender(world,camera,1),true);assert(quest.mirror.getStats().estimatedGpuBytes>0);
+quest.mirror.setCaptureActive(false);assert.equal(quest.mirror.postRender(world,camera,1),false);assert.equal(quest.mirror.getStats().estimatedGpuBytes,0);quest.mirror.dispose();
 console.log('XR mono mirror: one-eye bounded GPU copy, exact aspect/poses, no CPU pixels or world rerender, cadence, framebuffer/state/stat restoration, hidden/capture policy, failure isolation and context/session cleanup passed.');

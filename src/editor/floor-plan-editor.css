@@ -1,0 +1,17 @@
+.ed-scene-name-dialog.ed-floor-plan-dialog { width: min(1080px, calc(100vw - 40px)); max-width: calc(100vw - 40px); max-height: calc(100vh - 40px); overflow: auto; }
+.ed-floor-plan-dialog form { display: grid; gap: 14px; }
+.ed-floor-plan-dialog h2, .ed-floor-plan-dialog p { margin: 0; }
+.ed-floor-plan-bounds { display: flex; flex-wrap: wrap; gap: 12px; }
+.ed-floor-plan-bounds label { display: grid; gap: 5px; flex: 1 1 130px; }
+.ed-floor-plan-bounds input { width: 100%; box-sizing: border-box; }
+.ed-floor-plan-scroll { overflow: auto; max-height: 48vh; }
+.ed-floor-plan-scroll table { border-collapse: collapse; width: 100%; text-align: left; }
+.ed-floor-plan-scroll th, .ed-floor-plan-scroll td { padding: 7px 5px; border-bottom: 1px solid #364650; white-space: nowrap; }
+.ed-floor-plan-dialog .ed-floor-plan-scroll input { width: 76px; box-sizing: border-box; }
+.ed-floor-plan-dialog .ed-floor-plan-scroll input[type=text] { width: 195px; }
+.ed-floor-plan-scroll input:disabled { opacity: .35; }
+.ed-floor-plan-dialog button { cursor: pointer; }
+.ed-floor-plan-dialog .ed-error:empty { display: none; }
+.ed-floor-plan-dialog .ed-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.ed-floor-plan-dialog .ed-actions button { flex: 0 0 auto; width: auto; min-height: 32px; padding: 6px 12px; }
+.ed-floor-plan-dialog::backdrop { background: #06121bcc; }

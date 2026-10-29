@@ -13,7 +13,7 @@ function visibleMesh(object, root) {
   if (!object.isMesh || !object.geometry || object.userData.editorGeometryReplaced) return false;
   for (let node = object; node; node = node.parent) {
     const data = node.userData || {};
-    if (!node.visible || data.editorHelper || data.editorRuntimeHelper || data.industrialSensorVolume) return false;
+    if (!node.visible || data.editorHelper || data.editorRuntimeHelper || data.industrialSensorVolume || data.industrialFloorMarking) return false;
     if (node === root) break;
   }
   if (/^(sky|clouds|textMesh|foxr|mozillamr)$/i.test(object.name)) return false;
@@ -107,8 +107,13 @@ export default class EquipmentPlacement {
     const entries = world.entries.filter(entry => !within(entry.object, object));
     const supporters = new Set(entries.filter(entry => maySupport(entry, root)).map(entry => entry.object));
     const occupied = new Map();
+    const paintedSigns = [];
     let hasRoomGeometry = false;
     root.traverse(mesh => {
+      if (!within(mesh, object) && mesh.userData.industrialFloorObstacleBounds) {
+        let shown = true; for (let n = mesh; n && n !== root; n = n.parent) if (!n.visible) shown = false;
+        if (shown) mesh.userData.industrialFloorObstacleBounds.forEach(b => paintedSigns.push(new THREE.Box3(new THREE.Vector3(...b.slice(0, 3)), new THREE.Vector3(...b.slice(3))).applyMatrix4(mesh.matrixWorld)));
+      }
       if (within(mesh, object) || !visibleMesh(mesh, root)) return;
       hasRoomGeometry = true;
       const actor = actorRoot(mesh, root);
@@ -121,7 +126,7 @@ export default class EquipmentPlacement {
       if (!occupied.has(actor)) occupied.set(actor, new THREE.Box3());
       occupied.get(actor).union(part);
     });
-    const obstacles = Array.from(occupied.values());
+    const obstacles = Array.from(occupied.values()).concat(paintedSigns);
     const emptyRoom = entries.length === 0 && !hasRoomGeometry;
     const points = supportPoints(bounds, measured.parts);
     const size = bounds.getSize(new THREE.Vector3());

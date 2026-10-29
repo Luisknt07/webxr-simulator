@@ -46,3 +46,11 @@ f.listeners.get('webglcontextlost')({preventDefault() {}}); const lostCount = f.
 f.listeners.get('webglcontextrestored')(); assert.equal(c.getStats().status, 'warming-up'); assert(f.calls.length > lostCount); unsubscribe(); c.dispose(); assert.equal(f.renderer.ratio, 2);
 const restored = setup({storage: {getItem: () => 'ultra', setItem() {}}}); assert.equal(restored.controller.getMode(), 'ultra'); restored.controller.dispose();
 console.log('Adaptive graphics: pure device/resource ceilings, actual pixel budgets, startup/hidden/loading rejection, sustained pressure and slow recovery, persistent local mode, XR refresh/foveation feature detection without manager stubs or pixel-ratio changes, context recovery and exact renderer restoration passed.');
+const quest=setup({navigator:{userAgent:'OculusBrowser Quest 3',deviceMemory:8,hardwareConcurrency:8}}), sharpLayer={fixedFoveation:0,antialias:true},sharpSession={frameRate:72,renderState:{baseLayer:sharpLayer}};
+const depthCamera={near:.005,far:10000,updates:0,updateProjectionMatrix(){this.updates++;}};
+assert.equal(quest.controller.getXRClarity(),'sharp');quest.controller.tick(1/72,{xr:true,session:sharpSession,camera:depthCamera});assert.equal(depthCamera.near,.02);assert.equal(depthCamera.far,10000);
+assert(sharpLayer.fixedFoveation<=.25);assert.equal(quest.controller.getStats().antialias,true);
+feed(quest.controller,12,1/30,{xr:true,session:sharpSession});assert(sharpLayer.fixedFoveation<=.5,'Sharp mode bounds peripheral detail loss even during pressure.');assert.equal(quest.controller.getStats().effectiveProfile,'economy','Frame-pressure adaptation remains available.');
+quest.controller.setXRClarity('balanced');assert(sharpLayer.fixedFoveation>=.65);assert.equal(quest.storage.get('hello-webxr.xr-clarity.v1'),'balanced');
+quest.controller.tick(1/60,{xr:false});assert.equal(sharpLayer.fixedFoveation,0);assert.equal(depthCamera.near,.005);assert.equal(depthCamera.updates,2);quest.controller.dispose();
+console.log('Quest clarity: sharper default, bounded foveation with frame-pressure recovery, actual layer antialias diagnostic, persistent performance fallback and exact XR-layer restoration passed.');

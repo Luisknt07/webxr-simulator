@@ -887,6 +887,7 @@ function animate(time, frame) {
   const editor = context.editor;
   if (context.graphics) context.graphics.tick(delta, {
     xr: context.vrMode,
+    camera,
     loading: Boolean(context.roomTransition || editor && (editor.initializing || editor.loadingProject || editor.busy || editor.document && editor.document.loading)),
     workMs: lastRenderWorkMs
   });
