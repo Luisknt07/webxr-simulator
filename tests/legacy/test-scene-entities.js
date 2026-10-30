@@ -15,7 +15,7 @@ class Element {
 }
 const source = fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-scene-entities.js"), '../src/studio/SceneEntities.js')), 'utf8').replace(/^import .*$/gm, '').replace('export default class SceneEntities', 'return class SceneEntities');
 const environmentSource = fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-scene-entities.js"), '../src/studio/SceneEnvironment.js')), 'utf8').replace(/^import .*$/gm, '').replace('export default class SceneEnvironment', 'return class SceneEnvironment');
-const SceneEnvironment = new Function('THREE', 'schema', environmentSource)(THREE, schema);
+const SceneEnvironment = new Function('THREE', 'schema', 'industrialLighting', 'industrialSurfaces', environmentSource)(THREE, schema, require('../../packages/render-three/schema/industrial-lighting.js'), require('../../packages/render-three/schema/industrial-surfaces.js'));
 const SceneEntities = new Function('THREE', 'document', 'SceneEnvironment', source)(THREE, {createElement: tag => new Element(tag)}, SceneEnvironment);
 
 const scene = new THREE.Scene(), root = new THREE.Group(); scene.add(root);

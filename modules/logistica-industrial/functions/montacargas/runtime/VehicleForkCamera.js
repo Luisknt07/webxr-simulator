@@ -4,47 +4,131 @@ const UP = new THREE.Vector3(0, 1, 0), ASPECT = 16 / 9;
 const finite = value => Number.isFinite(value);
 const shown = object => { for (let node = object; node; node = node.parent) if (!node.visible) return false; return true; };
 
+// The original r112 renderer normally uses WebGL1. Its default framebuffer AA
+// does not apply to an offscreen camera texture. Filter that texture while it
+// is composed, preserving BasicMaterial's UV transform and output encoding.
+const CAMERA_FXAA = `
+uniform vec2 cameraTexel;
+uniform float cameraFxaaEnabled;
+vec4 cameraFxaa(sampler2D image, vec2 uv) {
+  vec4 center = texture2D(image, uv);
+  if (cameraFxaaEnabled < 0.5) return center;
+  vec3 nw = texture2D(image, uv + vec2(-1.0, -1.0) * cameraTexel).rgb;
+  vec3 ne = texture2D(image, uv + vec2(1.0, -1.0) * cameraTexel).rgb;
+  vec3 sw = texture2D(image, uv + vec2(-1.0, 1.0) * cameraTexel).rgb;
+  vec3 se = texture2D(image, uv + vec2(1.0, 1.0) * cameraTexel).rgb;
+  vec3 weights = vec3(0.299, 0.587, 0.114);
+  float lnw = dot(nw, weights), lne = dot(ne, weights);
+  float lsw = dot(sw, weights), lse = dot(se, weights), lm = dot(center.rgb, weights);
+  float low = min(lm, min(min(lnw, lne), min(lsw, lse)));
+  float high = max(lm, max(max(lnw, lne), max(lsw, lse)));
+  if (high - low < max(0.025, high * 0.075)) return center;
+  vec2 direction = vec2(-((lnw + lne) - (lsw + lse)), (lnw + lsw) - (lne + lse));
+  float reduce = max((lnw + lne + lsw + lse) * 0.03125, 0.0078125);
+  float inverse = 1.0 / (min(abs(direction.x), abs(direction.y)) + reduce);
+  direction = clamp(direction * inverse, vec2(-6.0), vec2(6.0)) * cameraTexel;
+  vec3 a = 0.5 * (texture2D(image, uv + direction * (-1.0 / 6.0)).rgb + texture2D(image, uv + direction * (1.0 / 6.0)).rgb);
+  vec3 b = a * 0.5 + 0.25 * (texture2D(image, uv - direction * 0.5).rgb + texture2D(image, uv + direction * 0.5).rgb);
+  float lb = dot(b, weights);
+  return vec4(lb < low || lb > high ? a : b, center.a);
+}
+`;
+
 /** Two GPU displays share one throttled auxiliary world-pass budget. Neither
  * camera changes the tracked view, vehicle motion, pallet or fork geometry. */
 export default class VehicleForkCamera {
   constructor(driving, options = {}) {
     this.driving = driving; this.ctx = driving.ctx; this.options = options; this.renderer = this.ctx.renderer;
-    this.enabled = true; this.available = false; this.elapsed = Infinity; this.side = -1; this.mode = 'entry'; this.mounted = false; this.lost = false; this.failed = false; this.nextFeed = 0;
+    this.enabled = true; this.available = false; this.elapsed = Infinity; this.side = -1; this.mode = 'isometric'; this.selectedFeed = 'front'; this.mounted = false; this.lost = false; this.failed = false; this.nextFeed = 0;
     this.viewport = new THREE.Vector4(); this.scissor = new THREE.Vector4(); this.rendered = new Set();
     this.visibilityProbe = new THREE.PerspectiveCamera();
-    this.stats = {status: 'inactive', frames: 0, frontFrames: 0, mirrorFrames: 0, failures: 0, allocations: 0, width: 0, height: 0, mirrorWidth: 0, mirrorHeight: 0, maxFPS: 0, estimatedGpuBytes: 0, lastRenderMs: 0};
-    this.entryCamera = new THREE.PerspectiveCamera(90, ASPECT, .008, 60); this.entryCamera.name = 'Cámara frontal de entrada · eje de horquillas';
-    this.tipCamera = new THREE.PerspectiveCamera(65, ASPECT, .008, 60); this.tipCamera.name = 'Cámara frontal de salida de puntas'; this.camera = this.entryCamera;
+    this.stats = {status: 'inactive', frames: 0, frontFrames: 0, mirrorFrames: 0, failures: 0, allocations: 0, width: 0, height: 0, mirrorWidth: 0, mirrorHeight: 0, maxFPS: 0, antialias: 'fxaa', samples: 0, estimatedGpuBytes: 0, gpuBudgetBytes: 0, lastRenderMs: 0};
+    // Inspection cameras use metric orthographic projection. A perspective
+    // lens a few millimetres behind a pallet had to open past 140 degrees;
+    // changing insertion depth then produced the reported exploding image.
+    this.entryCamera = new THREE.OrthographicCamera(-1, 1, 1 / ASPECT, -1 / ASPECT, .02, 40); this.entryCamera.name = 'Inspección frontal ortográfica · entradas de pallet';
+    this.tipCamera = new THREE.OrthographicCamera(-1, 1, 1 / ASPECT, -1 / ASPECT, .02, 40); this.tipCamera.name = 'Inspección ortográfica de salida de puntas';
+    this.isometricCamera = new THREE.OrthographicCamera(-1, 1, 1 / ASPECT, -1 / ASPECT, .02, 40); this.isometricCamera.name = 'Cámara isométrica lateral de horquillas y pallet'; this.camera = this.isometricCamera;
     this.mirrorCamera = new THREE.PerspectiveCamera(66, ASPECT, .05, 70); this.mirrorCamera.name = 'Retrovisor · cámara posterior del vehículo';
     this.onLost = () => { this.lost = true; this.release('context-lost'); };
     this.onRestored = () => { this.lost = this.failed = false; this.elapsed = Infinity; };
     const canvas = this.renderer && this.renderer.domElement;
     if (canvas && canvas.addEventListener) { canvas.addEventListener('webglcontextlost', this.onLost); canvas.addEventListener('webglcontextrestored', this.onRestored); }
   }
+  displayMaterial(options = {}) {
+    const material = new THREE.MeshBasicMaterial(Object.assign({color: 0xffffff, toneMapped: false}, options));
+    const filter = {texel: {value: new THREE.Vector2(1, 1)}, enabled: {value: 1}};
+    material.userData.vehicleCameraFilter = filter;
+    material.onBeforeCompile = shader => {
+      shader.uniforms.cameraTexel = filter.texel; shader.uniforms.cameraFxaaEnabled = filter.enabled;
+      shader.fragmentShader = CAMERA_FXAA + shader.fragmentShader.replace('#include <map_fragment>',
+        '#ifdef USE_MAP\nvec4 texelColor = cameraFxaa(map, vUv);\ntexelColor = mapTexelToLinear(texelColor);\ndiffuseColor *= texelColor;\n#endif');
+    };
+    return material;
+  }
+  displayTexture(material, target) {
+    material.map = target.texture;
+    const filter = material.userData.vehicleCameraFilter;
+    if (filter) filter.enabled.value = target.isWebGLMultisampleRenderTarget ? 0 : 1;
+    this.displaySampling(material, target, target.width, target.height);
+    material.needsUpdate = true;
+  }
+  displaySampling(material, target, width, height) {
+    const filter = material.userData.vehicleCameraFilter;
+    if (!filter) return;
+    // A high-resolution source may be composed into the adaptive desktop
+    // buffer. Filter at least one destination pixel, not a subpixel of that
+    // reduced buffer. The XR plane retains its original source sampling.
+    filter.texel.value.set(Math.max(1 / target.width, 1 / Math.max(1, Math.floor(width))), Math.max(1 / target.height, 1 / Math.max(1, Math.floor(height))));
+  }
   makePlane(name, layout, fallback) {
-    const setting = Object.assign({}, fallback, layout), plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(setting.width, setting.height), new THREE.MeshBasicMaterial({color: 0xffffff, toneMapped: false}));
+    const setting = Object.assign({}, fallback, layout), plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(setting.width, setting.height), this.displayMaterial());
     plane.name = name; plane.position.fromArray(setting.position); plane.quaternion.setFromRotationMatrix(new THREE.Matrix4().lookAt(new THREE.Vector3(), plane.position, UP));
     plane.userData.editorRuntimeHelper = true; plane.visible = false; if (this.mountOptions.parent) this.mountOptions.parent.add(plane); return plane;
   }
   mount(options = {}) {
-    this.unmount(); this.mountOptions = options; this.element = options.element; this.mirrorElement = options.mirrorElement; this.mounted = true; this.enabled = true; this.available = true; this.failed = false; this.mode = 'entry'; this.nextFeed = 0;
+    this.unmount(); this.mountOptions = options; this.element = options.element; this.mirrorElement = options.mirrorElement; this.mounted = true; this.enabled = true; this.available = true; this.failed = false; this.mode = 'isometric'; this.selectedFeed = 'front'; this.nextFeed = 0;
     const layout = options.planeLayout || {};
-    this.plane = this.makePlane('Frontal de horquillas · imagen real', layout.front, {position: [.84, .08, 1.10], width: .68, height: .3825});
-    this.mirrorPlane = this.makePlane('Retrovisor · imagen posterior reflejada', layout.mirror, {position: [.84, .405, 1.10], width: .36, height: .2025});
+    this.plane = this.makePlane('Inspección de horquillas · imagen real', layout.front, {position: [.84, .08, 1.10], width: .68, height: .3825});
+    // The rear image alternates in this same display, including in XR. There
+    // is no second picture-in-picture surface over the working camera.
+    this.mirrorPlane = null;
     // Informational displays never capture the steering/lever trigger or grip.
     this.state = this.stateName = null; this.elapsed = Infinity;
   }
   setEnabled(value) { this.enabled = !!value; this.failed = false; this.elapsed = Infinity; if (!this.enabled) this.release('disabled'); return this.enabled; }
   setAvailable(value) { this.available = !!value; if (!this.available) this.release('inactive'); }
-  switchSide() { this.side *= -1; return this.side; } // Legacy binding; frontal lenses stay centred.
-  setMode(value) { if (!['entry', 'tips'].includes(value)) return false; this.mode = value; this.elapsed = Infinity; this.nextFeed = 0; return true; }
-  toggleMode() { this.setMode(this.mode === 'entry' ? 'tips' : 'entry'); return this.mode; }
-  getStats() { return Object.assign({}, this.stats, {enabled: this.enabled, targetAllocated: !!this.target, mirrorTargetAllocated: !!this.mirrorTarget, totalFrames: this.stats.frames, mounted: this.mounted, side: this.side, mode: this.mode}); }
+  switchSide() { this.side *= -1; this.elapsed = Infinity; this.nextFeed = 0; return this.side; }
+  setMode(value) { if (!['isometric', 'entry', 'tips'].includes(value)) return false; this.setRearView(false); this.mode = value; this.elapsed = Infinity; this.nextFeed = 0; return true; }
+  toggleMode() { const modes = ['isometric', 'entry', 'tips']; this.setMode(modes[(modes.indexOf(this.mode) + 1) % modes.length]); return this.mode; }
+  setRearView(value) { const next = value ? 'mirror' : 'front'; if (next !== this.selectedFeed) {this.release('switching-view'); this.selectedFeed = next;} this.elapsed = Infinity; return this.selectedFeed === 'mirror'; }
+  toggleRearView() { return this.setRearView(this.selectedFeed !== 'mirror'); }
+  getStats() { return Object.assign({}, this.stats, {enabled: this.enabled, targetAllocated: !!this.target, mirrorTargetAllocated: !!this.mirrorTarget, totalFrames: this.stats.frames, mounted: this.mounted, side: this.side, mode: this.mode, selectedFeed: this.selectedFeed}); }
   profile() {
     const graphics = this.ctx.graphics, limits = graphics && graphics.getLimits && graphics.getLimits(), tier = limits && limits.tier;
-    const profile = tier === 'economy' ? {width: 256, height: 144, fps: 8} : tier === 'high' || tier === 'ultra' ? {width: 640, height: 360, fps: 15} : {width: 512, height: 288, fps: 12};
-    if (this.ctx.vrMode) { profile.width = Math.min(384, profile.width); profile.height = profile.width / ASPECT; profile.fps = Math.min(10, profile.fps); }
-    profile.mirrorWidth = Math.max(128, profile.width / 2); profile.mirrorHeight = profile.mirrorWidth / ASPECT; return profile;
+    const economy = tier === 'economy', high = tier === 'high' || tier === 'ultra', xr = !!this.ctx.vrMode;
+    const capability = this.renderer && this.renderer.capabilities || {}, maxTexture = finite(capability.maxTextureSize) ? capability.maxTextureSize : 4096;
+    const maxSamples = finite(capability.maxSamples) ? Math.floor(capability.maxSamples) : 4;
+    let samples = capability.isWebGL2 && THREE.WebGLMultisampleRenderTarget && maxSamples >= 2 ? !xr && !economy && maxSamples >= 4 ? 4 : 2 : 0;
+    const ratio = this.renderer && this.renderer.getPixelRatio ? this.renderer.getPixelRatio() : 1;
+    const deviceRatio = typeof window !== 'undefined' && finite(window.devicePixelRatio) ? window.devicePixelRatio : 1;
+    const dpr = Math.min(2, Math.max(1, finite(ratio) ? ratio : 1, deviceRatio));
+    const minimum = xr ? economy ? 512 : high ? 768 : 640 : economy ? 512 : high ? 960 : 768;
+    const maximum = xr ? 768 : economy ? 768 : high ? 1280 : 1024;
+    const fitted = (element, low, high) => {
+      const rectangle = !xr && this.desktopRect(element), desired = rectangle ? rectangle.rect.width * dpr * 1.2 : low;
+      return Math.max(16, Math.floor(Math.min(maxTexture, high, Math.max(low, Math.ceil(desired / 64) * 64)) / 16) * 16);
+    };
+    const profile = {width: fitted(this.element, minimum, maximum), fps: economy ? 8 : high ? 15 : 12, pixelRatio: dpr, gpuBudgetBytes: (xr ? 12 : 32) * 1024 * 1024};
+    profile.mirrorWidth = profile.width;
+    if (xr) profile.fps = Math.min(10, profile.fps);
+    const bytes = () => profile.width * profile.width / ASPECT * 8 * (samples + 1);
+    // Resolved color/depth plus multisample attachments count towards the same
+    // budget. Prefer fewer samples/FPS over the previous unreadable 256px feed.
+    if (bytes() > profile.gpuBudgetBytes && samples > 2) samples = 2;
+    while (bytes() > profile.gpuBudgetBytes && profile.width > 256) {profile.width -= 64; profile.mirrorWidth = profile.width;}
+    profile.height = profile.width / ASPECT; profile.mirrorHeight = profile.mirrorWidth / ASPECT;
+    profile.samples = samples; profile.antialias = samples ? 'msaa' : 'fxaa'; return profile;
   }
   active() {
     const driving = this.driving, record = driving.record(), document = driving.document, xr = this.renderer && this.renderer.xr, session = xr && xr.getSession && xr.getSession();
@@ -70,22 +154,25 @@ export default class VehicleForkCamera {
     const sphere = plane.geometry.boundingSphere.clone().applyMatrix4(plane.matrixWorld);
     return cameras.some(view => new THREE.Frustum().setFromMatrix(new THREE.Matrix4().multiplyMatrices(view.projectionMatrix, new THREE.Matrix4().getInverse(view.matrixWorld))).intersectsSphere(sphere));
   }
-  visibleFeeds() { return ['front', 'mirror'].filter(name => this.ctx.vrMode ? this.screenVisible(name === 'front' ? this.plane : this.mirrorPlane) : !!this.desktopRect(name === 'front' ? this.element : this.mirrorElement)); }
+  visibleFeeds() { return (this.ctx.vrMode ? this.screenVisible(this.plane) : !!this.desktopRect(this.element)) ? [this.selectedFeed] : []; }
   resources(profile, name = 'front') {
-    if (this.stats.width && (this.stats.width !== profile.width || this.stats.height !== profile.height)) this.release('allocating');
+    if (this.stats.width && (this.stats.width !== profile.width || this.stats.height !== profile.height || this.stats.mirrorWidth !== profile.mirrorWidth || this.stats.mirrorHeight !== profile.mirrorHeight || this.stats.samples !== profile.samples)) this.release('allocating');
     const key = name === 'front' ? 'target' : 'mirrorTarget'; if (this[key]) return;
     const width = name === 'front' ? profile.width : profile.mirrorWidth, height = name === 'front' ? profile.height : profile.mirrorHeight;
-    const target = this[key] = new THREE.WebGLRenderTarget(width, height, {minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, type: THREE.UnsignedByteType, depthBuffer: true, stencilBuffer: false, generateMipmaps: false});
-    target.texture.name = name === 'front' ? 'Frontal de horquillas · GPU' : 'Retrovisor posterior reflejado · GPU'; target.texture.generateMipmaps = false; target.texture.encoding = THREE.LinearEncoding;
+    const Target = profile.samples ? THREE.WebGLMultisampleRenderTarget : THREE.WebGLRenderTarget;
+    const target = this[key] = new Target(width, height, {minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, type: THREE.UnsignedByteType, depthBuffer: true, stencilBuffer: false, generateMipmaps: false});
+    if (profile.samples) target.samples = profile.samples;
+    target.texture.name = name === 'front' ? 'Inspección de horquillas · GPU' : 'Retrovisor posterior reflejado · GPU'; target.texture.generateMipmaps = false; target.texture.encoding = THREE.LinearEncoding;
     if (name === 'mirror') { target.texture.repeat.x = -1; target.texture.offset.x = 1; target.texture.updateMatrix(); }
     const targets = this.ctx.performanceRenderTargets || (this.ctx.performanceRenderTargets = new Set()); if (targets.add) targets.add(target); else if (Array.isArray(targets) && !targets.includes(target)) targets.push(target);
-    const plane = name === 'front' ? this.plane : this.mirrorPlane; if (plane) { plane.material.map = target.texture; plane.material.needsUpdate = true; }
+    if (this.plane) this.displayTexture(this.plane.material, target);
     const sceneKey = name === 'front' ? 'overlayScene' : 'mirrorOverlayScene', overlayKey = name === 'front' ? 'overlay' : 'mirrorOverlay';
-    if (!this[sceneKey]) { this[sceneKey] = new THREE.Scene(); this[overlayKey] = new THREE.Mesh(new THREE.PlaneBufferGeometry(2, 2), new THREE.MeshBasicMaterial({map: target.texture, depthTest: false, depthWrite: false, toneMapped: false, fog: false})); this[overlayKey].frustumCulled = false; this[sceneKey].add(this[overlayKey]); }
-    else { this[overlayKey].material.map = target.texture; this[overlayKey].material.needsUpdate = true; }
+    if (!this[sceneKey]) { this[sceneKey] = new THREE.Scene(); this[overlayKey] = new THREE.Mesh(new THREE.PlaneBufferGeometry(2, 2), this.displayMaterial({depthTest: false, depthWrite: false, fog: false})); this[overlayKey].frustumCulled = false; this[sceneKey].add(this[overlayKey]); }
+    this.displayTexture(this[overlayKey].material, target);
     if (!this.overlayCamera) this.overlayCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     this.stats.width = profile.width; this.stats.height = profile.height; this.stats.mirrorWidth = profile.mirrorWidth; this.stats.mirrorHeight = profile.mirrorHeight; this.stats.maxFPS = profile.fps;
-    this.stats.estimatedGpuBytes = [this.target, this.mirrorTarget].filter(Boolean).reduce((sum, value) => sum + value.width * value.height * 8, 0); this.stats.allocations++;
+    this.stats.antialias = profile.antialias; this.stats.samples = profile.samples; this.stats.pixelRatio = profile.pixelRatio; this.stats.gpuBudgetBytes = profile.gpuBudgetBytes;
+    this.stats.estimatedGpuBytes = [this.target, this.mirrorTarget].filter(Boolean).reduce((sum, value) => sum + value.width * value.height * 8 * (value.isWebGLMultisampleRenderTarget ? value.samples + 1 : 1), 0); this.stats.allocations++;
   }
   product(record, snapshot) {
     const vehicle = record.components.vehicle; if (vehicle.entry && vehicle.entry.product) return vehicle.entry.product; if (snapshot === this.lastSnapshot) return this.lastProduct;
@@ -93,35 +180,43 @@ export default class VehicleForkCamera {
     const center = outline.reduce((point, value) => point.add(new THREE.Vector3().fromArray(value)), new THREE.Vector3()).multiplyScalar(.25); let distance = .06;
     if (this.driving.simulation.products) this.driving.simulation.products.forEach(product => { if (!shown(product.object)) return; product.object.updateWorldMatrix(true, false); const bottom = product.bounds.getCenter(new THREE.Vector3()); bottom.y = product.bounds.min.y; bottom.applyMatrix4(product.object.matrixWorld); const next = bottom.distanceTo(center); if (next < distance) { distance = next; this.lastProduct = product; } }); return this.lastProduct;
   }
-  fit(camera, visible, entry = false) {
-    const points = visible.map(point => point.clone().applyMatrix4(camera.matrixWorldInverse)), slopes = new THREE.Box2().setFromPoints(points.map(point => new THREE.Vector2(point.x / Math.max(.008, -point.z), point.y / Math.max(.008, -point.z))));
-    const size = slopes.getSize(new THREE.Vector2()).multiplyScalar(1.14), middle = slopes.getCenter(new THREE.Vector2()), h = Math.max(.18, size.y, size.x / ASPECT), w = h * ASPECT, n = camera.near;
-    // A wide frontal lens has spare vertical field. Shift its sensor toward
-    // the working floor rather than filling the top with the truck's chassis.
-    if (entry) middle.y = Math.min(middle.y, slopes.max.y + Math.max(.04, size.y * .12) - h / 2);
-    camera.fov = 2 * Math.atan(h / 2) * 180 / Math.PI; camera.projectionMatrix.makePerspective((middle.x - w / 2) * n, (middle.x + w / 2) * n, (middle.y + h / 2) * n, (middle.y - h / 2) * n, n, camera.far); camera.projectionMatrixInverse.getInverse(camera.projectionMatrix); return h;
+  workArea(config) {
+    const span = Math.max(.65, config.forkSpread / 2 + config.forkWidth / 2 + .17), points = [];
+    // This is the insertion work envelope, not the entire truck or a distant
+    // load's bounding box. Its metric scale stays fixed while the truck moves.
+    for (const x of [-span, span]) for (const y of [-Math.max(.07, config.forkThickness + .025), .29]) for (const z of [.025, config.forkLength + .28]) points.push(new THREE.Vector3(x, y, z));
+    return points;
+  }
+  fit(camera, visible) {
+    const box = new THREE.Box3().setFromPoints(visible.map(point => point.clone().applyMatrix4(camera.matrixWorldInverse))), center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+    const height = Math.max(.45, size.y, size.x / ASPECT) * 1.12, width = height * ASPECT;
+    camera.left = center.x - width / 2; camera.right = center.x + width / 2; camera.top = center.y + height / 2; camera.bottom = center.y - height / 2;
+    // Start the frontal section at the working envelope. The cab/mast behind
+    // it cannot occupy the image, including with an opaque hologram disabled.
+    camera.near = Math.max(.02, -box.max.z - .03); camera.far = Math.max(camera.near + 12, -box.min.z + 12);
+    camera.updateProjectionMatrix(); return height;
+  }
+  frameIsometric(record, forks, product, load) {
+    const config = record.components.vehicle.config, center = new THREE.Vector3(0, .04, config.forkLength * .52), distance = Math.max(1.5, config.forkLength + .6, config.forkSpread + .6);
+    const eyeLocal = center.clone().add(new THREE.Vector3(this.side * distance, distance, -distance)), aimLocal = center;
+    const camera = this.camera = this.isometricCamera, eye = eyeLocal.clone().applyMatrix4(forks.matrixWorld), aim = aimLocal.clone().applyMatrix4(forks.matrixWorld);
+    camera.position.copy(eye); camera.up.copy(UP).transformDirection(forks.matrixWorld); camera.lookAt(aim); camera.updateMatrixWorld(true);
+    const visible = this.workArea(config).map(point => point.applyMatrix4(forks.matrixWorld)), height = this.fit(camera, visible);
+    this.framing = {eye, aim, eyeLocal, aimLocal, product, forks, localLoad: load, visible, height, mode: this.mode, side: this.side, direction: 'oblique'}; return this.framing;
   }
   frame(snapshot) {
     const record = this.driving.record(), config = record.components.vehicle.config, forks = this.driving.visualRoot.userData.vehicleRig.forks; forks.updateWorldMatrix(true, false);
     const inverse = new THREE.Matrix4().getInverse(forks.matrixWorld), product = this.product(record, snapshot); if (product) product.object.updateWorldMatrix(true, false);
-    const load = product ? product.bounds.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse, product.object.matrixWorld)) : null, entry = this.mode === 'entry', face = load ? entry ? load.min.z : load.max.z : config.forkLength;
-    let pocketY = -config.forkThickness * .25;
-    const runtime = this.driving.simulation.vehicleRuntime, pockets = product && runtime && runtime.productPockets && runtime.productPockets(product);
-    if (pockets) { const center = product.bounds.getCenter(new THREE.Vector3()); center.y = (pockets.minY + pockets.maxY) / 2; pocketY = center.applyMatrix4(product.object.matrixWorld).applyMatrix4(inverse).y; }
-    // A slight elevation exposes the broad upper faces, instead of sighting
-    // through the metal thickness. The lens clears the hydraulic cylinder's
-    // front face, keeps a frontal axis and uses at most 15° optical pitch.
-    const eyeLocal = new THREE.Vector3(0, entry ? .025 : -config.forkThickness * .25, entry ? -.02 : Math.max(config.forkLength, face) + .65);
-    const aimZ = entry ? Math.max(face, eyeLocal.z + .3) : config.forkLength - .02;
-    const aimLocal = new THREE.Vector3(0, entry ? Math.max(pocketY, eyeLocal.y - Math.tan(15 * Math.PI / 180) * (aimZ - eyeLocal.z)) : eyeLocal.y, aimZ);
+    const load = product ? product.bounds.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse, product.object.matrixWorld)) : null;
+    if (this.mode === 'isometric') return this.frameIsometric(record, forks, product, load);
+    const entry = this.mode === 'entry', eyeLocal = new THREE.Vector3(0, entry ? .07 : -config.forkThickness * .25,
+      entry ? -1.35 : Math.max(config.forkLength, load ? load.max.z : 0) + 1.1);
+    const aimLocal = new THREE.Vector3(0, entry ? .005 : eyeLocal.y, config.forkLength * .52);
     this.camera = entry ? this.entryCamera : this.tipCamera;
-    const eye = eyeLocal.clone().applyMatrix4(forks.matrixWorld), aim = aimLocal.clone().applyMatrix4(forks.matrixWorld); this.camera.position.copy(eye); this.camera.up.copy(UP).transformDirection(forks.matrixWorld); this.camera.lookAt(aim); this.camera.updateMatrixWorld(true);
-    const visible = [], span = config.forkSpread / 2 + config.forkWidth / 2, shaft = entry && load ? [Math.max(.055, Math.min(config.forkLength - .02, load.min.z - .45)), Math.min(config.forkLength, Math.max(.06, load.min.z - .015))] : [Math.max(.02, config.forkLength - .22), config.forkLength];
-    for (const side of [-1, 1]) for (const x of [-1, 1]) for (const z of shaft) for (const y of [-config.forkThickness, 0]) visible.push(new THREE.Vector3(side * config.forkSpread / 2 + x * config.forkWidth / 2, y, z).applyMatrix4(forks.matrixWorld));
-    if (load) for (const x of [Math.max(load.min.x, -span - .12), Math.min(load.max.x, span + .12)]) for (const y of [load.min.y, Math.min(load.max.y, load.min.y + .18)]) visible.push(new THREE.Vector3(x, y, face).applyMatrix4(forks.matrixWorld));
-    const pocketPoints = snapshot && snapshot.geometry && snapshot.geometry.pockets || [];
-    pocketPoints.flat().filter(point => Array.isArray(point) && point.length === 3 && point.every(finite)).forEach(point => { const local = new THREE.Vector3().fromArray(point).applyMatrix4(inverse); if (Math.abs(local.z - face) < .06) visible.push(new THREE.Vector3().fromArray(point)); });
-    const height = this.fit(this.camera, visible, false); this.framing = {eye, aim, eyeLocal, aimLocal, product, forks, localLoad: load, visible, height, mode: this.mode, direction: entry ? 'forward' : 'rearward'}; return this.framing;
+    const eye = eyeLocal.clone().applyMatrix4(forks.matrixWorld), aim = aimLocal.clone().applyMatrix4(forks.matrixWorld);
+    this.camera.position.copy(eye); this.camera.up.copy(UP).transformDirection(forks.matrixWorld); this.camera.lookAt(aim); this.camera.updateMatrixWorld(true);
+    const visible = this.workArea(config).map(point => point.applyMatrix4(forks.matrixWorld)), height = this.fit(this.camera, visible);
+    this.framing = {eye, aim, eyeLocal, aimLocal, product, forks, localLoad: load, visible, height, mode: this.mode, direction: entry ? 'forward' : 'rearward'}; return this.framing;
   }
   frameMirror() {
     const root = this.driving.visualRoot, config = this.driving.record().components.vehicle.config; root.updateWorldMatrix(true, false);
@@ -140,13 +235,13 @@ export default class VehicleForkCamera {
     renderer.setRenderTarget(saved.target, saved.cube, saved.mip); renderer.setViewport(saved.viewport); renderer.setScissor(saved.scissor); renderer.setScissorTest(saved.scissorTest);
   }
   hideHelpers() {
-    const ray = this.ctx.raycontrol, values = [this.plane, this.mirrorPlane, this.ctx.cameraRig, ray && ray.raycasterContext, this.driving.worldPanel && this.driving.worldPanel.plane, this.driving.docking && this.driving.docking.plane]; if (this.mountOptions.hiddenObjects) values.push(...this.mountOptions.hiddenObjects());
+    const ray = this.ctx.raycontrol, values = [this.plane, this.mirrorPlane, this.ctx.cameraRig, ray && ray.raycasterContext, this.driving.worldPanel && this.driving.worldPanel.plane, this.driving.docking && this.driving.docking.plane, this.driving.holographicGuide && this.driving.holographicGuide.label]; if (this.mountOptions.hiddenObjects) values.push(...this.mountOptions.hiddenObjects());
     const seen = new Set(); this.hidden = []; for (const node of values) if (node && !seen.has(node)) { seen.add(node); this.hidden.push([node, node.visible]); node.visible = false; }
   }
   syncScreenVisibility() {
     const active = !!this.ctx.vrMode && this.active();
-    if (this.plane) this.plane.visible = !!(active && this.target);
-    if (this.mirrorPlane) this.mirrorPlane.visible = !!(active && this.mirrorTarget);
+    if (this.plane) this.plane.visible = !!(active && (this.selectedFeed === 'mirror' ? this.mirrorTarget : this.target));
+    if (this.mirrorPlane) this.mirrorPlane.visible = false;
   }
   renderBefore(scene, delta = 0) {
     if (!this.active()) { this.release(this.failed ? 'unavailable' : this.enabled ? 'inactive' : 'disabled'); return false; }
@@ -156,7 +251,7 @@ export default class VehicleForkCamera {
     // 90 Hz headset never draws the uninitialized white mirror between passes.
     const visible = this.visibleFeeds(); this.syncScreenVisibility(); if (!visible.length) { this.stats.status = 'hidden'; return false; } if (this.rendered.size && this.elapsed < 1 / profile.fps) return false;
     const renderer = this.renderer, gl = renderer.getContext && renderer.getContext(); if (gl && gl.isContextLost && gl.isContextLost()) { this.release('context-lost'); return false; }
-    const schedule = ['front', 'front', 'mirror'], missing = visible.find(value => !this.rendered.has(value)); let name = missing || schedule[this.nextFeed++ % schedule.length]; if (!visible.includes(name)) name = visible[0];
+    const name = visible[0];
     const saved = this.saveState(), started = typeof performance === 'undefined' ? Date.now() : performance.now();
     try {
       this.resources(profile, name); const camera = name === 'front' ? (this.frame(this.driving.docking && this.driving.docking.snapshot), this.camera) : (this.frameMirror(), this.mirrorCamera);
@@ -171,11 +266,12 @@ export default class VehicleForkCamera {
   }
   postRender() {
     if (this.ctx.vrMode || !this.active()) return false;
-    const feeds = [{element: this.element, target: this.target, scene: this.overlayScene}, {element: this.mirrorElement, target: this.mirrorTarget, scene: this.mirrorOverlayScene}].filter(feed => feed.target && feed.scene && this.desktopRect(feed.element)); if (!feeds.length) return false;
+    const feeds = [this.selectedFeed === 'mirror' ? {element: this.element, target: this.mirrorTarget, scene: this.mirrorOverlayScene, overlay: this.mirrorOverlay} : {element: this.element, target: this.target, scene: this.overlayScene, overlay: this.overlay}].filter(feed => feed.target && feed.scene && this.desktopRect(feed.element)); if (!feeds.length) return false;
     const renderer = this.renderer, canvas = renderer.domElement, dpr = renderer.getPixelRatio ? renderer.getPixelRatio() : 1, saved = this.saveState();
     try {
       if (renderer.xr) renderer.xr.enabled = false; renderer.setRenderTarget(null); renderer.autoClear = false; if (renderer.info) renderer.info.autoReset = false; if (renderer.shadowMap) { renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; }
       feeds.forEach(feed => { const {rect, canvasRect, left, right, top, bottom} = this.desktopRect(feed.element), scaleX = canvas.width / dpr / canvasRect.width, scaleY = canvas.height / dpr / canvasRect.height;
+        this.displaySampling(feed.overlay.material, feed.target, rect.width * canvas.width / canvasRect.width, rect.height * canvas.height / canvasRect.height);
         renderer.setViewport((rect.left - canvasRect.left) * scaleX, (canvasRect.height - (rect.top - canvasRect.top) - rect.height) * scaleY, rect.width * scaleX, rect.height * scaleY); renderer.setScissor((left - canvasRect.left) * scaleX, (canvasRect.height - (bottom - canvasRect.top)) * scaleY, (right - left) * scaleX, (bottom - top) * scaleY); renderer.setScissorTest(true); renderer.render(feed.scene, this.overlayCamera); }); return true;
     } catch (_) { this.stats.failures++; this.failed = true; this.release('unavailable'); return false; } finally { this.restoreState(saved); }
   }

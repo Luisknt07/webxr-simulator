@@ -29,7 +29,12 @@ function validate(root = __layout.map(path.resolve(__layout.oldDir("scripts/vali
     assert.deepEqual(project.allowedRoomIds, [scene.roomId]); assert.equal(project.access.role, 'public'); assert.equal(project.access.canEdit, false); assert.equal(project.access.canShare, false);
     assert.deepEqual(project, safeProjection(project.document, scene), 'Unexpected metadata, private overrides, or imports: ' + scene.id);
     validateDocument(project.document, () => {throw new Error('Public examples cannot resolve server imports.');});
-    if (scene.templateId) assert(presets.some(definition => definition.id === scene.templateId && templateId(definition.id) === scene.id));
+    if (scene.templateId) {
+      // The one public URL now uses the maintained transfer lesson. Every
+      // other published ID must still match its own authoring template.
+      const maintainedPublicAlias = scene.id === 'vr-robot-dispatch' && scene.templateId === 'vr-robot-transfer';
+      assert(presets.some(definition => definition.id === scene.templateId && (templateId(definition.id) === scene.id || maintainedPublicAlias)));
+    }
     if (scene.original) {assert.equal(scene.id, 'original-' + scene.roomId); assert.equal(project.document.rooms[scene.roomId].additions.length, 0); assert.equal(project.document.rooms[scene.roomId].overrides.length, 0);}
     projections[scene.id] = hash(bytes);
   }

@@ -72,7 +72,7 @@ async function verifyAccess(fixture, password, report) {
   assert.equal((await get('/workspace/bundle.js')).status, 401); assert.equal((await get('/workspace/publication.json')).status, 401); assert.equal((await get('/data/studio.sqlite')).status, 404); assert.equal((await get('/api/library/scenes')).status, 401);
   const anonymous = await get('/api/public/scenes'); assert.equal(anonymous.status, 200); assert.deepEqual(anonymous.json.scenes.map(scene => scene.id), ['vr-robot-dispatch']);
   const owner = await request(fixture.origin, '/api/studio/login', 'POST', {username: 'qa_production_owner', password}); assert.equal(owner.status, 200); const setCookie = owner.headers['set-cookie'][0]; assert.match(setCookie, /; HttpOnly/); assert.match(setCookie, /; Secure/); assert.match(setCookie, /SameSite=Strict/); const ownerCookie = setCookie.split(';')[0];
-  const library = await get('/api/library/scenes', ownerCookie); assert.equal(library.status, 200); assert.equal(library.json.scenes.length, 34);
+  const library = await get('/api/library/scenes', ownerCookie); assert.equal(library.status, 200); assert.equal(library.json.scenes.length, require('../assets/validate-public-scenes').inventory(ROOT).includedCount);assert(library.json.scenes.some(scene=>scene.id==='vr-warehouse-missions'));
   const regular = await request(fixture.origin, '/api/studio/register', 'POST', {username: 'qa_production_creator', displayName: 'QA creator', password, role: 'superadmin', superadmin: true}); assert.equal(regular.status, 201); assert.equal(regular.json.user.role, 'creator'); assert.equal(regular.json.user.superadmin, false); assert.equal(regular.json.user.permissions.manageUsers, false); const cookie = regular.headers['set-cookie'][0].split(';')[0], userId = regular.json.user.id;
   const admin = await get('/api/studio/admin/users', cookie); assert.equal(admin.status, 403);
   const promote = await request(fixture.origin, '/api/studio/users/' + owner.json.user.id + '/role', 'PUT', {role: 'viewer'}, cookie, userId); assert.equal(promote.status, 403);
@@ -119,5 +119,5 @@ async function run(options = {}) {
   catch (error) { report.passed = false; report.failure = error.stack || String(error); throw error; }
   finally { report.completedAt = new Date().toISOString(); report.serverErrors = fixture.errors; fs.writeFileSync(path.join(OUTPUT, 'report.json'), JSON.stringify(report, null, 2)); await fixture.close(); }
 }
-module.exports = {run, request, startFixture};
+module.exports = {run, request, startFixture, withBrowser};
 if (require.main === module) { const flag = process.argv.indexOf('--expected-workspace-sha256'); run({expectedWorkspaceSha256: flag < 0 ? null : process.argv[flag + 1]}).catch(error => { console.error(error); process.exitCode = 1; }); }

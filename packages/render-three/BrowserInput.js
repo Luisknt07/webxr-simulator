@@ -24,7 +24,9 @@ export default class BrowserInput {
     const aim = new THREE.Group(); aim.name = 'raycasterContext'; aim.position.copy(this.desktop.position).negate(); aim.visible = false;
     this.desktop.add(aim); ctx.camera.add(this.desktop); ctx.desktopController = this.desktop;
     ctx.desktopControllerData = this.ray.addController(this.desktop, {handedness: 'right'}, aim);
-    ctx.desktopLook = {get isLocked() {return document.pointerLockElement === canvas;}, lock: () => canvas.requestPointerLock && canvas.requestPointerLock(), unlock: () => document.exitPointerLock && document.exitPointerLock(), reset: () => {this.drag = null;}};
+    this.document = canvas.ownerDocument || document;
+    const input = this;
+    ctx.desktopLook = {get isLocked() {return input.document.pointerLockElement === canvas;}, lock: () => this.lockLook(), unlock: () => this.unlockLook(), reset: () => {this.clearDrag(); this.lockPress = null;}};
     this.locomotion = new XRLocomotion(ctx); ctx.xrLocomotion = this.locomotion;
     for (let index = 0; index < 2; index++) {
       const controller = ctx.renderer.xr.getController(index), grip = createXRGrip(ctx.renderer, controller, index);
@@ -40,18 +42,56 @@ export default class BrowserInput {
     this.listen(window, 'keyup', event => this.keys.delete(event.code)); this.listen(window, 'blur', () => this.reset());
     this.listen(document, 'visibilitychange', () => {if (document.hidden) this.reset();});
     this.listen(canvas, 'contextmenu', event => event.preventDefault());
-    this.listen(canvas, 'pointerdown', event => {if (ctx.vrMode || event.button !== 0) return; this.drag = {id: event.pointerId, x: event.clientX, y: event.clientY, distance: 0}; canvas.setPointerCapture(event.pointerId);});
+    this.listen(canvas, 'pointerdown', event => {
+      if (!this.lookAllowed() || event.button !== 0) return;
+      if (this.options.desktopPointerLock && !this.pointerLockUnavailable && (!event.pointerType || event.pointerType === 'mouse')) {
+        // The first press only captures the mouse. A later press uses the
+        // centre ray, never the browser cursor's former screen coordinates.
+        this.lockPress = {id: event.pointerId, select: ctx.desktopLook.isLocked};
+        if (!ctx.desktopLook.isLocked) this.lockLook();
+        return;
+      }
+      this.drag = {id: event.pointerId, x: event.clientX, y: event.clientY, distance: 0}; canvas.setPointerCapture(event.pointerId);
+    });
     this.listen(canvas, 'pointermove', event => {
-      if (document.pointerLockElement === canvas) {this.look(event.movementX, event.movementY); return;}
+      if (ctx.desktopLook.isLocked) return;
+      if (this.options.desktopPointerLock && !this.pointerLockUnavailable && (!event.pointerType || event.pointerType === 'mouse')) return;
       if (!this.drag || this.drag.id !== event.pointerId) return;
+      if (!(event.buttons & 1)) {this.clearDrag(); return;}
       const x = event.clientX - this.drag.x, y = event.clientY - this.drag.y; this.drag.distance += Math.hypot(x, y); this.drag.x = event.clientX; this.drag.y = event.clientY;
       this.look(x, y);
     });
-    this.listen(canvas, 'pointerup', event => {const drag = this.drag; this.drag = null; if (drag && drag.id === event.pointerId && drag.distance < 8) this.select();});
-    this.listen(canvas, 'pointercancel', () => {this.drag = null;});
+    this.listen(this.document, 'pointermove', event => {if (ctx.desktopLook.isLocked && this.lookAllowed()) this.look(event.movementX, event.movementY);});
+    this.listen(canvas, 'pointerup', event => {
+      const press = this.lockPress; this.lockPress = null;
+      if (press) {if (press.id === event.pointerId && press.select && ctx.desktopLook.isLocked) this.select(); return;}
+      const drag = this.drag; this.drag = null; if (drag && drag.id === event.pointerId && drag.distance < 8) this.select();
+    });
+    this.listen(canvas, 'pointercancel', () => {this.clearDrag(); this.lockPress = null;});
+    this.listen(canvas, 'lostpointercapture', () => {this.drag = null;});
+    this.listen(window, 'pointerup', event => {if (this.drag && this.drag.id === event.pointerId) this.clearDrag();});
+    this.listen(this.document, 'pointerlockchange', () => {this.clearDrag(); if (!ctx.desktopLook.isLocked) this.lockPress = null;});
+    this.listen(this.document, 'pointerlockerror', () => this.disablePointerLock());
     this.buildTouch();
   }
   listen(target, name, handler, options) {target.addEventListener(name, handler, options); this.listeners.push(() => target.removeEventListener(name, handler, options));}
+  clearDrag() {
+    const drag = this.drag; this.drag = null;
+    if (drag && this.canvas.hasPointerCapture && this.canvas.hasPointerCapture(drag.id)) this.canvas.releasePointerCapture(drag.id);
+  }
+  lookAllowed() {return !this.disposed && !this.ctx.vrMode && !this.ctx.publicDialogOpen && !this.ctx.studioMenuOpen;}
+  disablePointerLock() {this.pointerLockUnavailable = true; this.clearDrag(); this.lockPress = null;}
+  lockLook() {
+    if (!this.lookAllowed() || this.pointerLockUnavailable || this.canvas.isConnected === false) return;
+    if (typeof this.canvas.requestPointerLock !== 'function') {this.disablePointerLock(); return;}
+    this.clearDrag();
+    try {const request = this.canvas.requestPointerLock(); if (request && request.catch) request.catch(() => this.disablePointerLock());}
+    catch (_) {this.disablePointerLock();}
+  }
+  unlockLook() {
+    this.clearDrag(); this.lockPress = null;
+    if (this.document.pointerLockElement === this.canvas && this.document.exitPointerLock) this.document.exitPointerLock();
+  }
   look(x, y) {
     if (this.ctx.vrMode || !Number.isFinite(x) || !Number.isFinite(y)) return;
     this.euler.setFromQuaternion(this.ctx.camera.quaternion, 'YXZ'); this.euler.y -= x * .003; this.euler.x = Math.max(-1.45, Math.min(1.45, this.euler.x - y * .003));
@@ -78,7 +118,7 @@ export default class BrowserInput {
     const use = document.createElement('button'); use.textContent = 'Usar'; use.type = 'button'; use.className = 'touch-use'; this.listen(use, 'click', () => this.select()); root.appendChild(use); document.body.appendChild(root);
   }
   reset() {
-    this.keys.clear(); this.axes.x = this.axes.y = 0; this.pointers.clear(); this.drag = null; this.locomotion.reset();
+    this.keys.clear(); this.axes.x = this.axes.y = 0; this.pointers.clear(); this.clearDrag(); this.lockPress = null; this.locomotion.reset();
     this.ray.controllers.forEach(data => this.ray.cancelSelect(data));
     if (this.options.onReset) this.options.onReset();
   }
@@ -111,7 +151,7 @@ export default class BrowserInput {
     this.ray.execute(ctx, delta, this.options.time ? this.options.time() : 0);
   }
   dispose() {
-    this.reset(); this.listeners.splice(0).forEach(off => off()); this.locomotion.dispose();
+    this.unlockLook(); this.disposed = true; this.reset(); this.listeners.splice(0).forEach(off => off()); this.locomotion.dispose();
     this.ray.controllers.slice().forEach(data => this.ray.removeController(data.controller));
     const geometry = new Set(), materials = new Set(); [this.ray.raycasterContext, this.desktop].forEach(root => root.traverse(node => {if (node.geometry) geometry.add(node.geometry); if (node.material) materials.add(node.material);}));
     geometry.forEach(value => value.dispose()); materials.forEach(value => value.dispose()); this.texture.dispose();

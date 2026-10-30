@@ -12,7 +12,7 @@ async function run(){const selected=process.argv.slice(2);for(const id of select
  const actors=f.document.getObjects('hall').filter(o=>config(o));
  assert.equal(actors.filter(o=>config(o).type==='robot').length,1);assert.equal(actors.filter(o=>config(o).type==='vehicle').length,1);assert.equal(built.conveyors.length,id==='vr-robot-dispatch'?1:2);
  assert.equal(config(built.source).totalLimit,2,'Even continuous:true must retain the finite VR batch.');assert.equal(config(built.source).capacity,2);assert(built.conveyors.every(o=>config(o).maxPackages===1));
- assert.equal(f.document.studio.entities.filter(e=>e.type==='pointLight').length,0);assert(built.objects.length<=12,'Keep the main scene objects bounded, independently of registered control children.');
+ assert.equal(f.document.studio.entities.filter(e=>e.type==='pointLight').length,0);assert(built.objects.length<=24,'Keep equipment plus the complete industrial shell bounded, independently of registered control children.');
  assert.equal(config(built.vehicle).sourceId,built.pickup.userData.editorId);assert.equal(config(built.vehicle).outputId,built.destination.userData.editorId);assert.equal(config(built.robot).sourceId,built.source.userData.editorId);assert.equal(config(built.robot).outputId,built.conveyors[0].userData.editorId);
  validateDocument(await f.document.serialize(),()=>{throw Error('No external imports');});
  f.runtime.vehicleRuntime=new VehicleRuntime(f.runtime);f.scene.updateMatrixWorld(true);f.runtime.start('hall');

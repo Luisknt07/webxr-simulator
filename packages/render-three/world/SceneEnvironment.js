@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import schema from '../../project-model/shared/studio-document.js';
+import industrialLighting from '../schema/industrial-lighting.js';
+import industrialSurfaces from '../schema/industrial-surfaces.js';
 
 const SHADOW_ACTORS = new Set(['conveyor', 'source', 'processor', 'palletQueue']);
 const RECOVERED_RENDERERS = new WeakSet();
@@ -34,13 +36,14 @@ const fragmentShader = `
 export default class SceneEnvironment {
   constructor(editor) {
     this.editor = editor; this.scene = null; this.original = null; this.sky = null; this.signature = null; this.configCache = null;
-    this.shadowMeshes = new Map(); this.meshVersion = null; this.reflections = null; this.reflectionRenderer = null;
+    this.shadowMeshes = new Map(); this.meshVersion = null; this.reflections = null; this.reflectionRenderer = null; this.reflectionProfile = null; this.interiorFill = null; this.resolvedConfig = null;
     this.focus = new THREE.Vector3(); this.direction = new THREE.Vector3(); this.shadowTarget = null;
     this.shadowScale = new THREE.Vector3();
     this.shadowBounds = new THREE.Box3();
     this.shadowActors = []; this.shadowAnchor = new THREE.Vector3(); this.actorFocus = new THREE.Vector3();
     this.contextRenderer = null; this.contextCanvas = null; this.contextLost = false; this.recoveryShadowsDisabled = false;
     this.stats = {profile: 'native', shadowMaps: 0, shadowMapSize: 0, shadowFocus: 'native', reflectionBuilds: 0, contextLost: false, contextRestores: 0, recoveryShadowFallback: false};
+    this.surfaceDetail = new industrialSurfaces.Detail(THREE); this.stats.surfaceDetail = this.surfaceDetail.stats;
     this.onContextLost = event => {
       if (event && event.preventDefault) event.preventDefault();
       if (this.contextLost) return;
@@ -91,7 +94,7 @@ export default class SceneEnvironment {
       if (this.scene && this.scene.environment === this.reflections.texture) this.scene.environment = this.original && this.original.environment || null;
       this.reflections.dispose(); this.reflections = null;
     }
-    this.reflectionRenderer = null;
+    this.reflectionRenderer = null; this.reflectionProfile = null;
     if (this.original) this.original.lights.forEach(entry => {
       const shadow = entry.object.shadow;
       if (!shadow || shadow === entry.shadow) return;
@@ -101,9 +104,10 @@ export default class SceneEnvironment {
 
   getConfig() {
     const editor = this.editor, document = editor.document;
+    const root = document.getRoot && document.getRoot(editor.roomId);
     const key = [document, editor.roomId, document.studio, editor.changeVersion, document.loadGeneration, document.undoStack && document.undoStack.length,
-      document.additions && document.additions.size, document.overrides && document.overrides.size];
-    if (!this.configCache || key.some((value, index) => value !== this.configCache.key[index])) this.configCache = {key, value: schema.environmentFor(document, editor.roomId)};
+      document.additions && document.additions.size, document.overrides && document.overrides.size, root, root && root.visible, root && root.children.length];
+    if (!this.configCache || key.some((value, index) => value !== this.configCache.key[index])) this.configCache = {key, value: schema.environmentFor(document, editor.roomId), indoor: industrialLighting.isIndustrialInterior(document, editor.roomId)};
     return this.configCache.value;
   }
 
@@ -112,18 +116,19 @@ export default class SceneEnvironment {
     this.scene = scene;
     const renderer = this.editor.ctx && this.editor.ctx.renderer;
     this.watchRenderer(renderer);
-    this.original = {background: scene.background, environment: scene.environment, lights: lights.map(object => ({object, color: object.color.clone(), intensity: object.intensity,
+    this.original = {background: scene.background, environment: scene.environment, lights: lights.map(object => ({object, color: object.color.clone(), intensity: object.intensity, visible: object.visible,
       position: object.position.clone(), target: object.target, castShadow: object.castShadow, shadow: object.shadow})), renderer: renderer && {
       object: renderer, toneMapping: renderer.toneMapping, exposure: renderer.toneMappingExposure,
       shadows: renderer.shadowMap && renderer.shadowMap.enabled, shadowType: renderer.shadowMap && renderer.shadowMap.type}};
   }
 
   restore() {
+    this.surfaceDetail.restoreBindings();
     if (!this.scene || !this.original) return;
     this.scene.background = this.original.background;
     this.scene.environment = this.original.environment;
     this.original.lights.forEach(entry => {
-      entry.object.color.copy(entry.color); entry.object.intensity = entry.intensity;
+      entry.object.color.copy(entry.color); entry.object.intensity = entry.intensity; entry.object.visible = entry.visible;
       entry.object.position.copy(entry.position); entry.object.target = entry.target; entry.object.castShadow = entry.castShadow;
       if (entry.object.shadow !== entry.shadow) {
         if (entry.object.shadow && entry.object.shadow.map) entry.object.shadow.map.dispose();
@@ -139,8 +144,10 @@ export default class SceneEnvironment {
     this.shadowMeshes.forEach((saved, mesh) => { mesh.castShadow = saved.cast; mesh.receiveShadow = saved.receive; }); this.shadowMeshes.clear();
     this.meshVersion = null;
     this.shadowActors.length = 0;
+    if (this.interiorFill && this.interiorFill.parent) this.interiorFill.parent.remove(this.interiorFill);
     if (this.shadowTarget && this.shadowTarget.parent) this.shadowTarget.parent.remove(this.shadowTarget);
     this.stats.profile = 'native'; this.stats.shadowMaps = this.stats.shadowMapSize = 0;
+    this.stats.indoorLightingProfile = 'native';
     this.stats.effectiveTier = 'native';
     this.stats.shadowFocus = 'native';
     if (this.sky && this.sky.parent) this.sky.parent.remove(this.sky);
@@ -150,33 +157,25 @@ export default class SceneEnvironment {
   // A single reusable, prefiltered lighting texture supplies the long ceiling
   // reflections that let brushed metal read as metal. It is rendered once,
   // never captures the production scene and has no per-frame cube cameras.
-  createReflections(renderer) {
+  createReflections(renderer, industrial = false) {
     this.watchRenderer(renderer);
     if (this.contextLost) return null;
-    if (this.reflections && this.reflectionRenderer === renderer) return this.reflections.texture;
+    if (this.reflections && this.reflectionRenderer === renderer && this.reflectionProfile === industrial) return this.reflections.texture;
     // r112 predates WebGLRenderer.isWebGLRenderer; inspect its public WebGL
     // capabilities instead so the real renderer enters this path as well.
     if (typeof renderer.getContext !== 'function' || !renderer.capabilities || !THREE.PMREMGenerator) return null;
-    if (this.reflections) this.reflections.dispose();
-    const room = new THREE.Scene(), geometry = new THREE.BoxBufferGeometry(), resources = [];
-    const box = (color, position, scale, inside) => {
-      const material = new THREE.MeshBasicMaterial({color, side: inside ? THREE.BackSide : THREE.FrontSide}); material.color.convertSRGBToLinear(); resources.push(material);
-      const mesh = new THREE.Mesh(geometry, material); mesh.position.fromArray(position); mesh.scale.fromArray(scale); room.add(mesh); return material;
-    };
-    box('#414743', [0, 2, 0], [20, 12, 24], true);
-    box('#272d29', [0, -3.85, 0], [19.8, .1, 23.8]);
-    for (const x of [-5, 0, 5]) for (const z of [-7, 5]) box('#fff4e2', [x, 7.6, z], [2.4, .12, 6]).color.multiplyScalar(1.6);
-    box('#9aa8b0', [-9.8, 3, 0], [.12, 3.2, 17]).color.multiplyScalar(.85);
+    if (this.reflections) {this.reflections.dispose(); this.reflections = null; this.reflectionRenderer = null; this.reflectionProfile = null;}
+    const proxy = industrialLighting.reflectionRoom(THREE, industrial);
     const previous = {target: renderer.getRenderTarget(), xr: renderer.xr && renderer.xr.enabled,
       viewport: renderer.getViewport(new THREE.Vector4()), scissor: renderer.getScissor(new THREE.Vector4()), scissorTest: renderer.getScissorTest()};
     const generator = new THREE.PMREMGenerator(renderer);
     try {
       if (renderer.xr) renderer.xr.enabled = false;
-      this.reflections = generator.fromScene(room, .035, .1, 60); this.reflectionRenderer = renderer; this.stats.reflectionBuilds++;
+      this.reflections = generator.fromScene(proxy.scene, .035, .1, 60); this.reflectionRenderer = renderer; this.reflectionProfile = industrial; this.stats.reflectionBuilds++;
     } finally {
       renderer.setRenderTarget(previous.target); renderer.setViewport(previous.viewport); renderer.setScissor(previous.scissor); renderer.setScissorTest(previous.scissorTest);
       if (renderer.xr) renderer.xr.enabled = previous.xr;
-      generator.dispose(); geometry.dispose(); resources.forEach(material => material.dispose());
+      generator.dispose(); proxy.dispose();
     }
     return this.reflections && this.reflections.texture;
   }
@@ -190,7 +189,7 @@ export default class SceneEnvironment {
     this.stats.profile = profile + (xr ? '-xr' : '');
     this.stats.effectiveTier = limits && limits.tier || profile;
     renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = config.exposure === undefined ? 1 : config.exposure;
-    if (!this.original.environment) this.scene.environment = this.createReflections(renderer);
+    if (!this.original.environment) this.scene.environment = this.createReflections(renderer, !!config.industrialInterior);
     const sun = this.original.lights.find(entry => entry.object.name === 'sun');
     const enabled = !this.recoveryShadowsDisabled && profile !== 'performance' && config.shadows === true && !!sun && !!renderer.shadowMap;
     if (renderer.shadowMap) { renderer.shadowMap.enabled = enabled; renderer.shadowMap.type = THREE.PCFSoftShadowMap; }
@@ -260,7 +259,7 @@ export default class SceneEnvironment {
       // The warehouse's ceiling is above the virtual interior key. Excluding
       // its shell from casting keeps that one bounded key inside the building.
       let shell = false;
-      for (let node = mesh; node && node !== root; node = node.parent) if (/CEDI.*(?:cubierta|muro|piso|ventana|franja|cerramiento|luminaria)/i.test(node.name || '')) { shell = true; break; }
+      for (let node = mesh; node && node !== root; node = node.parent) if ((node.userData || {}).editorIndustrialShell || /\b(?:CEDI|RV)\b.*(?:cubierta|muro|pared|piso|suelo|ventana|franja|cerramiento|luminaria|techo)/i.test(node.name || '')) { shell = true; break; }
       if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
       if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
       mesh.getWorldScale(this.shadowScale);
@@ -291,16 +290,27 @@ export default class SceneEnvironment {
     if (scene !== this.scene) { this.restore(); this.capture(scene); }
     this.watchRenderer(this.editor.ctx && this.editor.ctx.renderer);
     if (this.contextLost) return;
-    const config = this.getConfig();
-    const signature = config ? JSON.stringify(config) : '';
-    if (signature === this.signature) { this.syncRender(config); return; }
+    const authoredConfig = this.getConfig(), indoor = this.configCache.indoor;
+    const signature = authoredConfig ? JSON.stringify(authoredConfig) + '|' + indoor : '';
+    if (signature === this.signature) { this.syncRender(this.resolvedConfig); this.surfaceDetail.sync(this.editor.document, this.editor.roomId, !!(this.resolvedConfig && this.resolvedConfig.industrialInterior), this.editor.changeVersion); return; }
     this.restore(); this.signature = signature;
-    if (!config) return;
+    const config = this.resolvedConfig = industrialLighting.profile(authoredConfig, indoor);
+    if (!config) {this.surfaceDetail.dispose(); return;}
     const sun = this.original.lights.find(entry => entry.object.name === 'sun');
     const fill = this.original.lights.find(entry => entry.object.name === 'fillLight');
     if (sun) { sun.object.color.set(config.sunColor); sun.object.intensity = config.sunIntensity; }
     if (fill) { fill.object.color.set(config.horizonColor); fill.object.intensity = config.ambientIntensity; }
+    this.stats.indoorLightingProfile = config.indoorLightingProfile || 'native-or-authored';
+    if (config.industrialInterior) {
+      // The old fill is directional from below. Replace its active intensity
+      // with one broad interior bounce so mast/cargo faces stay readable.
+      if (fill) {fill.object.intensity = 0; fill.object.visible = false;}
+      if (!this.interiorFill) {this.interiorFill = new THREE.HemisphereLight(); this.interiorFill.name = 'Studio · rebote interior'; this.interiorFill.userData.editorRuntimeHelper = true;}
+      this.interiorFill.color.set(config.horizonColor); this.interiorFill.groundColor.set(config.groundColor); this.interiorFill.intensity = config.ambientIntensity;
+      scene.add(this.interiorFill);
+    }
     this.syncRender(config);
+    this.surfaceDetail.sync(this.editor.document, this.editor.roomId, !!config.industrialInterior, this.editor.changeVersion);
     if (config.sky === 'native') return;
     scene.background = new THREE.Color(config.skyColor);
     if (config.sky !== 'day') return;
@@ -313,9 +323,10 @@ export default class SceneEnvironment {
 
   dispose() {
     this.restore();
+    this.surfaceDetail.dispose();
     if (this.sky) { this.sky.geometry.dispose(); this.sky.material.dispose(); this.sky = null; }
     if (this.reflections) { this.reflections.dispose(); this.reflections = null; }
-    this.reflectionRenderer = null; this.shadowTarget = null;
+    this.reflectionRenderer = null; this.reflectionProfile = null; this.shadowTarget = null; this.interiorFill = null; this.resolvedConfig = null;
     this.watchRenderer(null);
     this.scene = null; this.original = null; this.configCache = null;
   }

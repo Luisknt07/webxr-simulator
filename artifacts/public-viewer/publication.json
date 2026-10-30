@@ -2,35 +2,43 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "public-viewer",
-  "revision": "7f14390787545096bc9057e550fc71c7407f02e2",
-  "bundleSha256": "6a6dd7e8888b0e223170e16cbf2f27914e5bdcad472281bf010b404f20c34b55",
+  "revision": "18832af29fff3be65ebb76f49464de145b7750a7",
+  "bundleSha256": "7a3d7999da51b53939b102d24a158e6655fc71dd815be39131c24ffd0ccaeb5b",
   "scenes": [
     "vr-robot-dispatch"
   ],
   "files": [
     {
       "path": "config.js",
-      "sha256": "d1cc2a8093901a60ae5a5bb95313d34c1485790a6f9bed7fd919485735e4234e"
+      "sha256": "17d0cb6dc9d8ce4e2abd24ddf0c05b3d31e9ba32b55a5f933d33d5d73f10922e"
+    },
+    {
+      "path": "cover.jpg",
+      "sha256": "3b3030941686baf54ec87537701806eac2df5803522ab292ac5ff9b76837d796"
     },
     {
       "path": "index.html",
-      "sha256": "aa786a34a723aae93b64cf8e1bfc215dcdf1e6e8905316a8af6a52aea9056dd1"
+      "sha256": "25a43f7d384e5fc666411539281152714f1b512accdff57aec52176872c5292d"
+    },
+    {
+      "path": "projects/smarttwin/previews/vr-robot-dispatch.png",
+      "sha256": "2246a59afc3f35a10d7475556ed3f8e4a76b14156941f4de8bfd44389d26f760"
     },
     {
       "path": "projects/smarttwin/scenes/catalog.json",
-      "sha256": "214973b1e9340ec9c9ea6ca39707cf363342f3619409932ec571203cf0e96f77"
+      "sha256": "397e43c2f6cff549c1a2cdcc549b90ea79623f255c2a61397aab09e9128f0609"
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-dispatch.json",
-      "sha256": "b7d7cf9e02feb42c16c2a2cfef01eb7f56614f583b502029202daeb28d25d04e"
+      "sha256": "551a19954ede789ef626f89cb9f905f41d55e99dc581388e29817d62aae0ec2d"
     },
     {
       "path": "viewer.css",
-      "sha256": "c0afffd11d8e830e1fd849b69af5a05e43f3312b34cc332bf3883cf965260007"
+      "sha256": "638ac66e83dafe98bb2575c7bf6ea67ce06543986a9ad9aa8be5cb3fdcb3db04"
     },
     {
       "path": "viewer.js",
-      "sha256": "6a6dd7e8888b0e223170e16cbf2f27914e5bdcad472281bf010b404f20c34b55"
+      "sha256": "7a3d7999da51b53939b102d24a158e6655fc71dd815be39131c24ffd0ccaeb5b"
     }
   ]
 }

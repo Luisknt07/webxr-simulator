@@ -1,31 +1,9 @@
-import {STUDY_SCENES, DIFFICULTY_LABELS, MODE_LABELS} from '../../../../modules/logistica-industrial/scenarios/StudySceneCatalog.js';
+import {publicSceneEntry as sharedPublicSceneEntry, normalizeSceneSearch, DIFFICULTY_LABELS, MODE_LABELS} from '../../../../projects/smarttwin/SceneLibraryMetadata.mjs';
 
-const TEMPLATE_ALIASES = {'l-transfer': 'lab-transfer-l', 'inspection-sorting': 'lab-sorting'};
+export const publicSceneEntry = sharedPublicSceneEntry;
 const DIFFICULTIES = Object.entries(DIFFICULTY_LABELS);
-const MODES = Object.entries(MODE_LABELS).concat([['explore', 'Exploración']]);
-const normalize = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
-
-/** Metadata only. Opening this library never constructs a scene or WebGL
- * preview: static thumbnails are decoded lazily by the browser. */
-export function publicSceneEntry(scene, included = false) {
-  const definition = (scene.included || scene.templateId) && STUDY_SCENES.find(value => value.id === (scene.templateId || TEMPLATE_ALIASES[scene.id] || scene.id));
-  const original = scene.original === true;
-  const category = scene.collection || definition && definition.family || (original ? 'Experiencias originales' : 'Escenarios publicados');
-  const description = scene.description || definition && definition.description || (original
-    ? /^panorama/.test(scene.roomId) ? 'Explora una experiencia panorámica de 360° con los controles de navegación y realidad virtual.'
-      : scene.roomId === 'photogrammetry' ? 'Acércate a un modelo capturado mediante fotogrametría y observa sus detalles desde distintos puntos de vista.'
-        : scene.roomId === 'sound' ? 'Descubre instrumentos y objetos sonoros en un espacio interactivo.'
-          : scene.roomId === 'vertigo' ? 'Recorre una experiencia de altura con los controles del visor o del navegador.'
-            : 'Recorre la galería y descubre sus objetos y experiencias interactivas.'
-    : scene.id === 'industrial-lab-complete' ? 'Un laboratorio con varias líneas de transporte, clasificación, procesamiento y logística para observar sus conexiones y funcionamiento.'
-      : 'Explora este escenario publicado y prueba sus equipos y controles disponibles.');
-  const mode = scene.mode || definition && definition.mode || 'explore';
-  return {scene, included, id: scene.id, title: scene.name || scene.title || scene.id, category, description, mode,
-    difficulty: scene.difficulty || definition && definition.difficulty || 0,
-    objective: scene.objective || definition && definition.objective || '', tasks: Array.isArray(scene.tasks) ? scene.tasks : definition && definition.tasks || [],
-    thumbnail: !!(scene.included || scene.templateId || original),
-    searchable: normalize([scene.name, scene.title, category, description, definition && definition.objective].join(' '))};
-}
+const MODES = Object.entries(MODE_LABELS);
+const normalize = normalizeSceneSearch;
 
 export default class PublicSceneLibrary {
   constructor(host, studio, entries, options = {}) {

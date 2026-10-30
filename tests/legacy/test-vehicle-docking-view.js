@@ -23,10 +23,13 @@ assert.equal(desktop.driving.viewIndex, 0); assert(desktop.driving.docking.camer
 const cabinWorld = desktop.camera.matrixWorld.clone(), cabinLocal = desktop.camera.matrix.clone();
 key(desktop, 'KeyC'); assert.equal(desktop.driving.viewIndex, 0); assert(!desktop.driving.docking.cameraEnabled); key(desktop, 'KeyC', false); key(desktop, 'KeyC'); assert.equal(desktop.driving.viewIndex, 0); assert(desktop.driving.docking.cameraEnabled); key(desktop, 'KeyC', false);
 assert(desktop.camera.matrixWorld.equals(cabinWorld)); assert(desktop.camera.matrix.equals(cabinLocal));
+const auxiliary=desktop.driving.docking.forkCamera;assert.equal(auxiliary.mode,'isometric');const originalSide=auxiliary.side;
+key(desktop,'KeyN',true,{shiftKey:true});key(desktop,'KeyN',false,{shiftKey:true});assert.equal(auxiliary.side,-originalSide,'The alternate isometric side is reachable through the actual keyboard adapter.');
+key(desktop,'KeyC',true,{shiftKey:true});key(desktop,'KeyC',false,{shiftKey:true});assert.equal(auxiliary.mode,'entry','The original frontal view remains available after the new default inspection view.');
 for (const pose of [{lift: 0, tilt: 0}, {lift: .72, tilt: .04}, {lift: 2.7, tilt: -.08, sideShift: .08}]) {
   assert(desktop.api.applyPose(desktop.record, Object.assign({}, desktop.v.pose, pose), false)); desktop.driving.follow();
   desktop.driving.docking.update(true); const feed = desktop.driving.docking.forkCamera, framing = feed.frame(desktop.driving.docking.snapshot), eye = feed.camera.getWorldPosition(new THREE.Vector3()), target = framing.aim.clone();
-  const eyeLocal = eye.clone().applyMatrix4(new THREE.Matrix4().getInverse(rig.forks.matrixWorld)); near(eyeLocal.x, 0); near(eyeLocal.y, .025); near(eyeLocal.z, -.02);
+  const eyeLocal = eye.clone().applyMatrix4(new THREE.Matrix4().getInverse(rig.forks.matrixWorld)); near(eyeLocal.x, 0); near(eyeLocal.y, .07); near(eyeLocal.z, -1.35);
   const frontalDirection = feed.camera.getWorldDirection(new THREE.Vector3()).transformDirection(new THREE.Matrix4().getInverse(rig.forks.matrixWorld)); near(frontalDirection.x, 0); assert(frontalDirection.y <= 0 && frontalDirection.y >= -Math.sin(15 * Math.PI / 180) - 1e-7); assert(frontalDirection.z >= Math.cos(15 * Math.PI / 180) - 1e-7);
   near(feed.camera.getWorldDirection(new THREE.Vector3()).dot(target.sub(eye).normalize()), 1);
   assert(desktop.camera.quaternion.equals(new THREE.Quaternion()));
@@ -52,7 +55,7 @@ desktop.ctx.studioMenuOpen = true; monitor.update(true); assert.equal(monitor.se
 snapshot.ready = false; snapshot.severity = 'blocked'; snapshot.reason = 'Capacidad excedida'; monitor.update(true); assert.equal(monitor.severity, 'blocked');
 const sampleCount = queries; for (let i = 0; i < 100; i++) monitor.update(); assert(queries - sampleCount <= 1, 'Snapshot queries are bounded to 10Hz independently of render frequency.');
 assert(product.object.matrixWorld.equals(beforeMatrix)); assert.deepEqual(desktop.v.pose, beforePose); assert.equal(desktop.runtime.products.size, beforePopulation); assert.equal(desktop.v.entry, null, 'Guidance neither takes nor clones the target product.');
-monitor.canvas.fire('click', {clientX: 680, clientY: 30}); assert.equal(monitor.page, 'guide'); monitor.canvas.fire('click', {clientX: 680, clientY: 30}); assert.equal(monitor.page, 'alignment');
+monitor.canvas.fire('click', {clientX: 680, clientY: 30}); assert.equal(monitor.forkCamera.selectedFeed, 'mirror'); assert.equal(monitor.page, 'alignment'); monitor.canvas.fire('click', {clientX: 680, clientY: 30}); assert.equal(monitor.forkCamera.selectedFeed, 'front');
 desktop.driving.command('dockingHelp'); assert(monitor.element.hidden); desktop.driving.command('dockingHelp'); assert(!monitor.element.hidden); assert.equal(monitor.plane.visible, false);
 desktop.driving.dispose(); desktop.runtime.stop();
 
@@ -90,7 +93,7 @@ const inspectionFeed = inspection.driving.docking.forkCamera; inspectionFeed.set
 const visible=object=>{for(let node=object;node;node=node.parent)if(!node.visible||node.userData.editorRuntimeHelper)return false;return true;},meshes=[];
 [inspection.object,inspectedProduct.object].forEach(root=>root.traverse(node=>{if(node.isMesh&&visible(node))meshes.push(node);}));
 const wheelPivots=new Set(inspection.api.rig(inspection.record).wheels.map(wheel=>wheel.pivot)),counts={wheel:0,cargo:0,forks:0},ray=new THREE.Raycaster(),frustumSampleCount=32*18;
-for(let y=0;y<18;y++)for(let x=0;x<32;x++){ray.setFromCamera(new THREE.Vector2((x+.5)/32*2-1,1-(y+.5)/18*2),inspectionFeed.camera);const first=ray.intersectObjects(meshes,false)[0];if(!first)continue;let node=first.object;while(node&&!wheelPivots.has(node)&&node!==inspectedProduct.object&&node!==inspection.api.rig(inspection.record).forks)node=node.parent;if(wheelPivots.has(node))counts.wheel++;else if(node===inspectedProduct.object)counts.cargo++;else if(node===inspection.api.rig(inspection.record).forks)counts.forks++;}
+for(let y=0;y<18;y++)for(let x=0;x<32;x++){ray.setFromCamera(new THREE.Vector2((x+.5)/32*2-1,1-(y+.5)/18*2),inspectionFeed.camera);ray.near=inspectionFeed.camera.near;ray.far=inspectionFeed.camera.far;const first=ray.intersectObjects(meshes,false)[0];if(!first)continue;let node=first.object;while(node&&!wheelPivots.has(node)&&node!==inspectedProduct.object&&node!==inspection.api.rig(inspection.record).forks)node=node.parent;if(wheelPivots.has(node))counts.wheel++;else if(node===inspectedProduct.object)counts.cargo++;else if(node===inspection.api.rig(inspection.record).forks)counts.forks++;}
 assert(counts.wheel/frustumSampleCount<.10,'A front wheel cannot fill the inspection frame.');assert(counts.cargo/frustumSampleCount>.10&&counts.forks>0,'The real pallet/cargo and fork surfaces both remain visible in the wide-screen inspection view.');
 for (const carried of [false, true]) {
   if (carried) assert(inspection.driving.command('pickup'));
@@ -127,7 +130,7 @@ inspection.driving.dispose(); inspection.runtime.stop();
 // Its auxiliary camera never modifies the headset's tracked local pose.
 const vr = setup(true), trackingQ = vr.camera.quaternion.clone(), trackingP = vr.camera.position.clone(); assert(vr.driving.mount(vr.record.id));
 const vrMonitor = vr.driving.docking, rigPose = vr.cameraRig.matrixWorld.clone(); assert(vrMonitor.element.hidden); assert(vrMonitor.plane.visible); assert.equal(vrMonitor.state.controller, 'both'); assert(vrMonitor.state.isSelectable()); assert(vr.driving.worldPanel.regions.length <= 6); assert(vr.driving.worldPanel.actions.some(([action]) => action === 'controls'));
-vrMonitor.state.onSelectStart({uv: new THREE.Vector2(680 / 768, 1 - 30 / 432)}); assert.equal(vrMonitor.page, 'guide');
+vrMonitor.state.onSelectStart({uv: new THREE.Vector2(680 / 768, 1 - 30 / 432)}); assert.equal(vrMonitor.forkCamera.selectedFeed, 'mirror'); assert.equal(vrMonitor.page, 'alignment');
 vr.driving.seat.updateWorldMatrix(true, true);
 const seatInverse = new THREE.Matrix4().getInverse(vr.driving.seat.matrixWorld), panelBounds = plane => {plane.geometry.computeBoundingBox(); return plane.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(seatInverse, plane.matrixWorld));};
 const menuBounds = panelBounds(vr.driving.worldPanel.plane), alignmentBounds = panelBounds(vrMonitor.plane);

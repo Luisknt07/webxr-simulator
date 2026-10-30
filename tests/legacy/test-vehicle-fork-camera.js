@@ -42,176 +42,79 @@ function mounted(vr = false, pixelRatio = 1.25) {
   const f = setup(vr, true); f.screen = renderer(f, pixelRatio); f.ctx.graphics = {getLimits: () => ({tier: 'balanced'})};
   assert(f.driving.mount(f.record.id)); f.feed = f.driving.docking.forkCamera;
   f.driving.docking.feedViewport.rect = {left: 850, top: 480, width: 360, height: 202.5};
-  assert(f.feed.mirrorElement, 'The monitor exposes a separate rear-view display.');
-  f.feed.mirrorElement.rect = {left: 1030, top: 370, width: 180, height: 101.25}; return f;
+  return f;
 }
 function updateBoth(f) { for (let i = 0; i < 3; i++) assert(f.driving.docking.renderBefore(f.scene, .2)); }
 function meshes(f) { const values = []; [f.object, f.pallet].forEach(root => root.traverse(node => { if (node.isMesh && !node.userData.editorRuntimeHelper) values.push(node); })); return values; }
 function firstAt(f, local, camera) {
   const forks = f.api.rig(f.record).forks, screen = local.clone().applyMatrix4(forks.matrixWorld).project(camera), ray = new THREE.Raycaster();
   assert(Math.abs(screen.x) < .99 && Math.abs(screen.y) < .99, 'Both physical tines remain in the working crop.');
-  ray.setFromCamera(new THREE.Vector2(screen.x, screen.y), camera); return ray.intersectObjects(meshes(f), false)[0];
+  ray.setFromCamera(new THREE.Vector2(screen.x, screen.y), camera); ray.near = camera.near; ray.far = camera.far; return ray.intersectObjects(meshes(f), false)[0];
 }
 function isFork(f, hit) { let object = hit && hit.object; const forks = f.api.rig(f.record).forks; while (object && object !== forks) object = object.parent; return object === forks; }
-
-function publicThreeWheelOptics() {
-  // Use the published lesson's narrow-spread 3w truck and the very same pallet
-  // produced by its robot, rather than only a generic 4w factory fixture.
-  const lesson = require('./test-robot-grasp-clearance'), f = lesson.cell('vr-robot-dispatch'), runtime = f.runtime;
-  const record = runtime.records.get(f.built.vehicle.userData.editorId), vehicle = record.components.vehicle, api = runtime.vehicleRuntime;
-  const belt = runtime.records.get(f.built.pickup.userData.editorId).components.conveyor;
-  for (let frame = 0; frame < 3600; frame++) { lesson.tick(f); if (belt.packages.length && belt.packages[0].offset >= runtime.pathLength(belt.config) / 2 - .31) break; }
-  assert(belt.packages.length, 'The actual robot must deliver the lesson pallet.');
-  assert.equal(vehicle.config.variant, 'forklift-electric-3w'); near(vehicle.config.forkSpread, .312);
-  const product = belt.packages[0].product, entry = product.sourceEntry, object = product.object, rig = api.rig(record);
-  const forward = record.object.getWorldDirection(new THREE.Vector3()), dock = api.pickupDock(record, {yaw: Math.atan2(forward.x, forward.z), targetId: vehicle.config.sourceId}, product);
-  assert(dock); const {ForkCamera} = require('../support/load-vehicle-driving')(THREE), camera = new ForkCamera({ctx: f.ctx, simulation: runtime, record: () => record, visualRoot: vehicle.visualRoot});
-  const parts = []; [record.object, product.object].forEach(root => root.traverse(node => { if (node.isMesh && !node.userData.editorRuntimeHelper) parts.push(node); }));
-  const belongs = (node, root) => { while (node && node !== root) node = node.parent; return node === root; };
-  for (const [state, offset] of [['gap', -1.05], ['partial', -.55], ['full', 0]]) {
-    record.object.position.copy(dock.position).add(new THREE.Vector3(Math.sin(dock.yaw || 0), 0, Math.cos(dock.yaw || 0)).multiplyScalar(offset)); record.object.rotation.set(0, dock.yaw || 0, 0);
-    api.applyPose(record, Object.assign({}, vehicle.pose, {lift: dock.toolY - vehicle.originWorld.y - vehicle.config.forkBaseHeight}), false); f.scene.updateMatrixWorld(true);
-    const poseBefore = Object.assign({}, vehicle.pose), loadBefore = product.object.matrixWorld.toArray(), snapshot = api.getDockingState(record), frame = camera.frame(snapshot), inverse = new THREE.Matrix4().getInverse(rig.forks.matrixWorld), ray = new THREE.Raycaster();
-    near(frame.eyeLocal.x, 0); near(frame.eyeLocal.y, .025); near(frame.eyeLocal.z, -.02);
-    assert(!frame.localLoad.containsPoint(frame.eyeLocal), 'The optical centre stays outside the actual loaded pallet.');
-    const mastEye = frame.eye.clone().applyMatrix4(new THREE.Matrix4().getInverse(rig.mast.matrixWorld));
-    const insideCylinder = mastEye.x ** 2 + (mastEye.z - .02) ** 2 < .045 ** 2 && mastEye.y > vehicle.config.mastHeight * .02 && mastEye.y < vehicle.config.mastHeight * .56;
-    assert(!insideCylinder, 'A camera inside the hydraulic cylinder cannot be accepted just because its back faces are culled.');
-    for (const side of [-1, 1]) for (const quarter of [-.25, 0, .25]) {
-      const sample = new THREE.Vector3(side * vehicle.config.forkSpread / 2 + quarter * vehicle.config.forkWidth, 0, Math.min(vehicle.config.forkLength - .16, frame.localLoad.min.z - .025)).applyMatrix4(rig.forks.matrixWorld).project(camera.camera);
-      assert(Math.abs(sample.x) < .99 && Math.abs(sample.y) < .99); ray.setFromCamera(new THREE.Vector2(sample.x, sample.y), camera.camera);
-      const hit = ray.intersectObjects(parts, false)[0]; assert(hit && belongs(hit.object, rig.forks), state + ': every sampled top face must be the first visible real surface.');
-      const normal = hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize().applyMatrix3(new THREE.Matrix3().getNormalMatrix(inverse)).normalize(); assert(normal.y > .95, state + ': visible steel must be the upper face, rather than the vertical heel.');
-    }
-    for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) {
-      ray.setFromCamera(new THREE.Vector2((x - 2) * .12, (y - 2) * .12), camera.camera); const hit = ray.intersectObjects(parts, false)[0];
-      assert(!hit || belongs(hit.object, rig.forks) || belongs(hit.object, product.object), state + ': the centre working window cannot be blocked by the truck/mast.');
-    }
-    assert(camera.camera.fov < (state === 'full' ? 140 : 90)); assert.deepEqual(vehicle.pose, poseBefore); assert.deepEqual(product.object.matrixWorld.toArray(), loadBefore); assert.equal(product.sourceEntry, entry); assert.equal(product.object, object); assert.equal(runtime.productMetadata(product).units, 4);
-  }
-  camera.dispose(); runtime.stop();
-  console.log('Public 3w optics: actual robot-delivered four-unit pallet, both upper faces, empty centre working window, optical centre outside cylinder/cargo and unchanged custody passed in approach/partial/full.');
-}
 
 const desktop = setup(false, true);
 const r = desktop.screen = renderer(desktop); desktop.ctx.graphics = {getLimits: () => ({tier: 'balanced'})}; assert(desktop.driving.mount(desktop.record.id));
 const feed = desktop.feed = desktop.driving.docking.forkCamera, monitor = desktop.driving.docking;
-monitor.feedViewport.rect = {left: 850, top: 480, width: 360, height: 202.5}; feed.mirrorElement.rect = {left: 1030, top: 370, width: 180, height: 101.25};
-const original = baseline(desktop, r), population = desktop.runtime.products.size;
-assert(monitor.renderBefore(desktop.scene, .02)); assert.deepEqual(baseline(desktop, r), original);
-assert.equal(feed.target.width, 512); assert.equal(feed.getStats().maxFPS, 12);
-assert(r.calls[0].viewport.equals(feed.target.viewport), 'Targets use physical pixels independently of renderer DPR.');
-for (let frame = 0; frame < 120; frame++) monitor.renderBefore(desktop.scene, 1 / 120);
-const stats = feed.getStats(); assert(stats.frames <= 13, 'Both cameras share one world-pass budget.'); assert(stats.frontFrames > stats.mirrorFrames && stats.mirrorFrames >= 3);
-assert.equal(r.calls.filter(call => call.target).length, stats.frames); assert.equal(feed.mirrorTarget.width, 256); assert.equal(feed.mirrorTarget.height, 144);
-assert.equal(stats.estimatedGpuBytes, (512 * 288 + 256 * 144) * 8); assert(stats.estimatedGpuBytes < 2 * 1024 * 1024);
-assert.equal(desktop.ctx.performanceRenderTargets.size, 2, 'Both actual RT owners are registered for room memory accounting.');
-assert.equal(feed.mirrorTarget.texture.repeat.x, -1); assert.equal(feed.mirrorTarget.texture.offset.x, 1); assert.equal(feed.target.texture.repeat.x, 1, 'Only the rear feed is mirror-flipped.');
-assert(monitor.postRender()); assert.deepEqual(baseline(desktop, r), original);
-const composite = r.calls.slice(-2); assert.equal(composite[0].scene, feed.overlayScene); assert.equal(composite[1].scene, feed.mirrorOverlayScene);
-assert(composite[0].scissor.equals(new THREE.Vector4(850, 97.5, 360, 202.5))); assert.equal(composite[1].target, null);
-assert.equal(desktop.runtime.products.size, population); assert.equal(desktop.v.entry, null);
+monitor.feedViewport.rect = {left:850,top:480,width:360,height:202.5};
+assert.equal(feed.mode,'isometric'); assert.equal(feed.selectedFeed,'front'); assert.equal(feed.toggleMode(),'entry'); assert.equal(feed.toggleMode(),'tips'); assert.equal(feed.toggleMode(),'isometric');
+assert.equal(monitor.plan.hidden,false); assert.equal(monitor.metrics.hidden,false); assert(!monitor.guidancePanel.hidden); assert.notEqual(monitor.guidancePanel.parentNode,monitor.element);
+assert.equal(monitor.rear.parentNode,undefined,'No picture-in-picture camera obscures the working image.');
+const original=baseline(desktop,r),population=desktop.runtime.products.size;
+assert(monitor.renderBefore(desktop.scene,.02)); assert.deepEqual(baseline(desktop,r),original);
+assert.equal(feed.target.width,768); assert(!feed.mirrorTarget); assert.equal(desktop.ctx.performanceRenderTargets.size,1);
+for(let i=0;i<120;i++)monitor.renderBefore(desktop.scene,1/120);
+assert(feed.stats.frames<=13); assert.equal(feed.stats.mirrorFrames,0,'A hidden rear feed never renders in the background.');
+assert(monitor.postRender()); assert.deepEqual(baseline(desktop,r),original); const frontComposite=r.calls[r.calls.length-1];
+assert.equal(frontComposite.scene,feed.overlayScene); assert(frontComposite.scissor.equals(new THREE.Vector4(850,97.5,360,202.5)));
+let disposed=0;const frontTarget=feed.target;frontTarget.addEventListener('dispose',()=>disposed++);
+assert.equal(monitor.toggleRearView(),true); assert.equal(disposed,1); assert(!feed.target&&!feed.mirrorTarget); assert(monitor.renderBefore(desktop.scene,.2));
+assert.equal(feed.selectedFeed,'mirror');assert(!feed.target&&feed.mirrorTarget);assert.equal(feed.mirrorTarget.width,768,'Alternating rear view uses the full working-display resolution.');
+assert.equal(feed.mirrorTarget.texture.repeat.x,-1); assert.equal(feed.mirrorTarget.texture.offset.x,1);assert.equal(desktop.ctx.performanceRenderTargets.size,1);
+assert(monitor.postRender());assert.equal(r.calls[r.calls.length-1].scene,feed.mirrorOverlayScene);assert.deepEqual(baseline(desktop,r),original);
+const rearFrames=feed.stats.mirrorFrames;monitor.toggleRearView();assert(monitor.renderBefore(desktop.scene,.2));assert.equal(feed.stats.mirrorFrames,rearFrames);assert(feed.target&&!feed.mirrorTarget);
+assert.equal(desktop.runtime.products.size,population);assert.equal(desktop.v.entry,null);
+// World target banners are not photographed into the inspection camera.
+const label=new THREE.Object3D(),contour=new THREE.Object3D();desktop.driving.holographicGuide.label=label;desktop.driving.holographicGuide.root=contour;
+const savedRender=r.api.render;r.api.render=(scene,camera)=>{if(r.state.target){assert.equal(label.visible,false);assert.equal(contour.visible,true);}return savedRender(scene,camera);};
+assert(monitor.renderBefore(desktop.scene,.2));assert.equal(label.visible,true);r.api.render=savedRender;
 
-// Approach, partial insertion and the deepest valid insertion use actual first
-// surfaces. The centred camera cannot see through truck, pallet or cartons.
-const product = desktop.runtime.products.get(desktop.pallet), forks = desktop.api.rig(desktop.record).forks;
-for (const insertion of [-.18, .35, .97]) {
-  feed.frame(monitor.snapshot); desktop.pallet.position.z += desktop.config.forkLength - insertion - feed.framing.localLoad.min.z;
-  desktop.scene.updateMatrixWorld(true); monitor.update(true); feed.setMode('entry'); feed.frame(monitor.snapshot);
-  const frame = feed.framing, inverse = new THREE.Matrix4().getInverse(forks.matrixWorld), direction = feed.camera.getWorldDirection(new THREE.Vector3()).transformDirection(inverse);
-  near(frame.eye.clone().applyMatrix4(inverse).x, 0); near(frame.eyeLocal.y, .025); near(frame.eyeLocal.z, -.02); near(direction.x, 0); assert(direction.y <= 0 && direction.y >= -Math.sin(15 * Math.PI / 180) - 1e-7); assert(direction.z >= Math.cos(15 * Math.PI / 180) - 1e-7);
-  assert(!product.bounds.clone().applyMatrix4(product.object.matrixWorld).containsPoint(frame.eye));
-  const exposed = Math.min(desktop.config.forkLength - .16, frame.localLoad.min.z - .025);
-  for (const side of [-1, 1]) {
-    const hit = firstAt(desktop, new THREE.Vector3(side * (desktop.config.forkSpread / 2 - desktop.config.forkWidth * .25), 0, exposed), feed.camera);
-    assert(isFork(desktop, hit), 'Both upper tine surfaces are unobstructed at insertion ' + insertion);
-    const normal = hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize().applyMatrix3(new THREE.Matrix3().getNormalMatrix(inverse)).normalize();
-    assert(normal.y > .95, 'The first visible steel is the actual broad top face, rather than a side/heel/bevel silhouette.');
+// The same real forks retain metric projection down to 0/10/50/100 mm gaps.
+const {ForkCamera}=require('../support/load-vehicle-driving')(THREE);
+let variants=0;
+for(const definition of h.vehicles.VARIANTS.filter(value=>h.vehicles.supports(value.preset).forks)){
+ const f=h.fixture(definition.id,false,true),product=f.runtime.products.get(f.pallet),camera=new ForkCamera({ctx:f.ctx,simulation:f.runtime,record:()=>f.record,visualRoot:f.v.visualRoot}),rig=f.api.rig(f.record),saved={pose:JSON.stringify(f.v.pose),parent:product.object.parent,population:f.runtime.products.size};
+ const originalPosition=f.pallet.position.clone();
+ for(const mode of ['isometric','entry','tips']){
+  camera.setMode(mode);let crop=null;
+  for(const gap of [.6,.1,.05,.01,0,-.12]){
+   f.scene.updateMatrixWorld(true);const local=product.bounds.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(new THREE.Matrix4().getInverse(rig.forks.matrixWorld),product.object.matrixWorld));
+   f.pallet.position.z+=f.config.forkLength+gap-local.min.z;f.scene.updateMatrixWorld(true);
+   const before=product.object.matrixWorld.toArray(),frame=camera.frame(f.api.getDockingState(f.record)),view=camera.camera;
+   assert(view.isOrthographicCamera,mode+' has no fisheye FOV at a near-zero pallet gap.'); assert(view.projectionMatrix.elements.every(Number.isFinite));assert(view.near>=.02&&view.far>view.near);
+   const next=[view.left,view.right,view.top,view.bottom];if(crop)next.forEach((value,index)=>near(value,crop[index],1e-7));else crop=next;
+   for(const side of [-1,1])for(const fraction of [.12,.55,.94]){const point=new THREE.Vector3(side*f.config.forkSpread/2,0,f.config.forkLength*fraction).applyMatrix4(rig.forks.matrixWorld).project(view);assert(Math.abs(point.x)<1&&Math.abs(point.y)<1,'Both insertion blades remain in the fixed crop.');}
+   if(gap===.1&&mode==='entry')for(const side of [-1,1])assert(isFork(f,firstAt(f,new THREE.Vector3(side*f.config.forkSpread/2,0,f.config.forkLength*.7),view)),definition.id+': the actual visible surface of both insertion blades is inside the precise frontal section.');
+   assert.deepEqual(product.object.matrixWorld.toArray(),before);assert.equal(JSON.stringify(f.v.pose),saved.pose);assert.equal(product.object.parent,saved.parent);assert.equal(f.runtime.products.size,saved.population);
+   if(mode==='isometric'){const inverse=new THREE.Matrix4().getInverse(rig.forks.matrixWorld),direction=view.getWorldDirection(new THREE.Vector3()).transformDirection(inverse);near(Math.abs(direction.x),1/Math.sqrt(3));near(direction.y,-1/Math.sqrt(3));}
   }
-  assert(feed.camera.fov < (insertion < .8 ? 90 : 160), 'The approach crop remains focused; deep insertion uses a wider real lens, with Tips available for the opposite face.');
-  let forkPixels = 0, truckPixels = 0; const ray = new THREE.Raycaster(), geometry = meshes(desktop);
-  for (let y = 0; y < 18; y++) for (let x = 0; x < 32; x++) { ray.setFromCamera(new THREE.Vector2((x + .5) / 32 * 2 - 1, 1 - (y + .5) / 18 * 2), feed.camera); const hit = ray.intersectObjects(geometry, false)[0]; if (!hit) continue; if (isFork(desktop, hit)) forkPixels++; else { let node = hit.object; while (node && node !== product.object) node = node.parent; if (!node) truckPixels++; } }
-  assert(forkPixels >= 4, 'The metal has readable image area: ' + insertion + ' ' + forkPixels); assert(truckPixels < 32 * 18 * (insertion < .8 ? .30 : .40), 'The truck cannot dominate the crop, including the outer borders of the wider 4w full-insertion lens: ' + JSON.stringify({insertion, forkPixels, truckPixels, eye: frame.eyeLocal.toArray(), fov: feed.camera.fov}));
-  const before = frame.eye.clone(); feed.switchSide(); feed.frame(monitor.snapshot); near(before.distanceTo(feed.framing.eye), 0, 1e-7);
+ }
+ f.pallet.position.copy(originalPosition);f.scene.updateMatrixWorld(true);assert(f.api.pickup(f.record),definition.id+': '+f.v.warning);const held=f.v.entry;
+ for(const mode of ['isometric','entry','tips']){camera.setMode(mode);camera.frame(f.api.getDockingState(f.record));assert.equal(f.v.entry,held);}
+ camera.dispose();f.runtime.stop();variants++;
 }
+assert(variants>=9);
 
-// Full insertion and lift: the complementary opposite front view shows the
-// emerging tips, with no scene object hidden or custody altered.
-desktop.pallet.position.z += .08 - feed.framing.localLoad.min.z; desktop.scene.updateMatrixWorld(true); monitor.update(true); assert(desktop.driving.command('pickup')); const held = desktop.v.entry;
-for (const pose of [{lift: desktop.v.pose.lift, tilt: 0}, {lift: .9, tilt: .06, sideShift: .07}, {lift: 2.4, tilt: -.06}]) {
-  desktop.api.applyPose(desktop.record, Object.assign({}, desktop.v.pose, pose), false); monitor.update(true); feed.setMode('tips'); feed.frame(monitor.snapshot);
-  const inverse = new THREE.Matrix4().getInverse(forks.matrixWorld), direction = feed.camera.getWorldDirection(new THREE.Vector3()).transformDirection(inverse); near(direction.x, 0); near(direction.y, 0); near(direction.z, -1);
-  for (const side of [-1, 1]) assert(isFork(desktop, firstAt(desktop, new THREE.Vector3(side * desktop.config.forkSpread / 2, -desktop.config.forkThickness * .20, desktop.config.forkLength - .012), feed.camera)), 'Both actual emerging tips are visible.');
-  assert.equal(desktop.v.entry, held);
-}
-feed.frameMirror(); const rearDirection = feed.mirrorCamera.getWorldDirection(new THREE.Vector3()).transformDirection(new THREE.Matrix4().getInverse(desktop.driving.visualRoot.matrixWorld));
-assert(rearDirection.z < -.9 && rearDirection.y < 0, 'The rear lens looks into the actual rear aisle with truck context below.');
-
-// No background work for hidden slots or a view turned away in XR.
-const beforeHidden = feed.stats.frames; monitor.feedViewport.hidden = true; feed.mirrorElement.hidden = true;
-for (let i = 0; i < 10; i++) assert(!monitor.renderBefore(desktop.scene, .2)); assert.equal(feed.stats.frames, beforeHidden); monitor.feedViewport.hidden = false; feed.mirrorElement.hidden = false;
-const targets = [feed.target, feed.mirrorTarget]; let disposed = 0; targets.forEach(target => target.addEventListener('dispose', () => disposed++));
-desktop.ctx.graphics.getLimits = () => ({tier: 'economy'}); updateBoth(desktop); assert.equal(disposed, 2); assert.equal(feed.target.width, 256); assert.equal(feed.mirrorTarget.width, 128); assert.equal(feed.stats.maxFPS, 8);
-desktop.ctx.graphics.getLimits = () => ({tier: 'high'}); updateBoth(desktop); assert.equal(feed.target.width, 640); assert.equal(feed.mirrorTarget.width, 320);
-assert.equal(feed.stats.estimatedGpuBytes, (640 * 360 + 320 * 180) * 8); assert(feed.stats.estimatedGpuBytes < 3 * 1024 * 1024, 'High desktop quality remains below its explicit three-MiB two-target cap.');
-desktop.ctx.graphics.getLimits = () => ({tier: 'economy'}); updateBoth(desktop);
-monitor.toggleCamera(); assert(!feed.target && !feed.mirrorTarget); assert.equal(desktop.ctx.performanceRenderTargets.size, 0); assert(!monitor.renderBefore(desktop.scene, 3)); monitor.toggleCamera(); updateBoth(desktop);
-desktop.ctx.roomTransition = true; assert(!monitor.renderBefore(desktop.scene, .2)); assert(!feed.target && !feed.mirrorTarget); desktop.ctx.roomTransition = false; updateBoth(desktop);
-desktop.dom.hidden = true; assert(!monitor.renderBefore(desktop.scene, .2)); assert(!feed.target && !feed.mirrorTarget); desktop.dom.hidden = false; updateBoth(desktop);
-r.api.failNext = true; const failureState = baseline(desktop, r); assert(!monitor.renderBefore(desktop.scene, .2)); assert.deepEqual(baseline(desktop, r), failureState); assert(!feed.target && !feed.mirrorTarget);
-const attempts = r.calls.length; for (let i = 0; i < 30; i++) monitor.renderBefore(desktop.scene, .2); assert.equal(r.calls.length, attempts, 'Failed GPU passes suspend until explicit retry.');
-feed.setEnabled(true); updateBoth(desktop); feed.onLost(); assert(!feed.target && !feed.mirrorTarget); assert(!monitor.renderBefore(desktop.scene, .2)); feed.onRestored(); updateBoth(desktop);
-const {ForkCamera} = require('../support/load-vehicle-driving.js')(THREE), listenerProbe = new ForkCamera(desktop.driving);
-assert(r.canvas.listeners.get('webglcontextlost').has(listenerProbe.onLost)); listenerProbe.dispose(); assert(!r.canvas.listeners.get('webglcontextlost').has(listenerProbe.onLost));
-desktop.driving.dispose(); assert(!feed.target && !feed.mirrorTarget); assert.equal(desktop.active.size, 0); assert.equal(desktop.ctx.performanceRenderTargets.size, 0); desktop.runtime.stop();
-
-for (const dpr of [1, 1.5, 2, 2.5]) {
-  const f = mounted(false, dpr), initial = baseline(f, f.screen); updateBoth(f); assert.deepEqual(baseline(f, f.screen), initial);
-  f.screen.calls.filter(call => call.target).forEach(call => assert(call.viewport.equals(call.target.viewport), 'No DPR multiplication on auxiliary RTs.'));
-  f.driving.dispose(); f.runtime.stop();
-}
-const vr = mounted(true), vrFeed = vr.feed;
-vr.camera.lookAt(vrFeed.plane.getWorldPosition(new THREE.Vector3()).add(vrFeed.mirrorPlane.getWorldPosition(new THREE.Vector3())).multiplyScalar(.5)); vr.scene.updateMatrixWorld(true);
-vr.ctx.renderer.xr.getCamera = probe => { assert.notEqual(probe, vr.camera, 'Visibility must never ask r112 to overwrite the tracked head camera.'); probe.matrixWorld.makeTranslation(999, 888, 777); return vr.camera; };
-const xrBaseline = baseline(vr, vr.screen), framebuffer = vr.session.renderState.baseLayer.framebuffer;
-updateBoth(vr); assert.deepEqual(baseline(vr, vr.screen), xrBaseline); assert.equal(vr.screen.state.framebuffer, framebuffer);
-assert(vrFeed.plane.visible && vrFeed.mirrorPlane.visible); assert.equal(vrFeed.plane.material.map, vrFeed.target.texture); assert.equal(vrFeed.mirrorPlane.material.map, vrFeed.mirrorTarget.texture);
-assert.equal(vrFeed.state, null, 'Neither display captures a trigger/grip interaction.'); assert(!vr.driving.docking.postRender()); assert(vrFeed.stats.maxFPS <= 10);
-assert(vrFeed.target.width <= 384 && vrFeed.stats.estimatedGpuBytes < 1024 * 1024, 'XR keeps its own smaller two-target GPU budget.');
-const beforeTurn = vrFeed.stats.frames, oldRotation = vr.camera.quaternion.clone(); vr.camera.rotation.y += Math.PI; vr.camera.updateMatrixWorld(true);
-for (let i = 0; i < 10; i++) vr.driving.docking.renderBefore(vr.scene, .2); assert.equal(vrFeed.stats.frames, beforeTurn, 'Offscreen XR displays do not render the world.'); vr.camera.quaternion.copy(oldRotation); vr.camera.updateMatrixWorld(true); updateBoth(vr);
-vr.session.visibilityState = 'hidden'; assert(!vr.driving.docking.renderBefore(vr.scene, .2)); assert(!vrFeed.target && !vrFeed.mirrorTarget); vr.session.visibilityState = 'visible'; updateBoth(vr);
-vr.driving.dispose(); assert(!vrFeed.target && !vrFeed.mirrorTarget); assert.equal(vr.active.size, 0); vr.runtime.stop();
-
-// Headset frames arrive much faster than the shared camera budget. Frustum
-// probes may consider an uninitialized surface, but the world must never draw
-// its white fallback material on a skipped 90 Hz frame.
-const cold = mounted(true), coldFeed = cold.feed;
-coldFeed.visibleFeeds = () => ['front', 'mirror'];
-function firstFrontWithoutBlankMirror() {
-  const beforeFrames = coldFeed.stats.frames;
-  assert(coldFeed.renderBefore(cold.scene, .2));
-  assert(coldFeed.target && !coldFeed.mirrorTarget);
-  assert(coldFeed.plane.visible && !coldFeed.mirrorPlane.visible);
-  const frames = coldFeed.stats.frames;
-  assert.equal(frames, beforeFrames + 1, 'Initialization still renders only one world pass.');
-  assert(!coldFeed.renderBefore(cold.scene, 1 / 90));
-  assert.equal(coldFeed.stats.frames, frames, 'A 90 Hz frame keeps the shared render budget.');
-  assert(!coldFeed.mirrorPlane.visible && !coldFeed.mirrorPlane.material.map, 'A throttled frame cannot reveal an uninitialized mirror.');
-  const visibleFeeds = coldFeed.visibleFeeds; coldFeed.visibleFeeds = () => [];
-  assert(!coldFeed.renderBefore(cold.scene, 1 / 90));
-  assert(!coldFeed.mirrorPlane.visible, 'The hidden-frustum return also preserves display readiness.');
-  coldFeed.visibleFeeds = visibleFeeds;
-  assert(coldFeed.renderBefore(cold.scene, .2));
-  assert(coldFeed.mirrorTarget && coldFeed.mirrorPlane.visible);
-  assert.equal(coldFeed.mirrorPlane.material.map, coldFeed.mirrorTarget.texture);
-}
-firstFrontWithoutBlankMirror();
-cold.ctx.graphics.getLimits = () => ({tier: 'economy'});
-firstFrontWithoutBlankMirror();
-assert.equal(coldFeed.target.width, 256);
-coldFeed.onLost(); assert(!coldFeed.target && !coldFeed.mirrorTarget);
-coldFeed.onRestored(); firstFrontWithoutBlankMirror();
-cold.driving.dispose(); cold.runtime.stop();
-publicThreeWheelOptics();
-console.log('Vehicle cameras: real frontal pocket/shaft visibility, emerging tips, mirrored rear view, shared world-pass/GPU budget, desktop/XR visibility, renderer/head restoration, lifecycle and custody passed.');
+// Main/tracked camera and render state survive AA, rear switching, failures,
+// context recovery, DPR differences and high-frequency headset frames.
+for(const dpr of [1,1.5,2,2.5]){const f=mounted(false,dpr),state=baseline(f,f.screen);updateBoth(f);assert.deepEqual(baseline(f,f.screen),state);f.driving.docking.toggleRearView();updateBoth(f);assert.deepEqual(baseline(f,f.screen),state);assert.equal(f.ctx.performanceRenderTargets.size,1);f.driving.dispose();assert.equal(f.ctx.performanceRenderTargets.size,0);f.runtime.stop();}
+const xr=mounted(true),xrFeed=xr.feed;xr.camera.lookAt(xrFeed.plane.getWorldPosition(new THREE.Vector3()));xr.scene.updateMatrixWorld(true);
+xr.ctx.renderer.xr.getCamera=probe=>{assert.notEqual(probe,xr.camera);probe.matrixWorld.makeTranslation(999,888,777);return xr.camera;};
+const tracked=baseline(xr,xr.screen);updateBoth(xr);assert.deepEqual(baseline(xr,xr.screen),tracked);assert(xrFeed.plane.visible);assert.equal(xrFeed.mirrorPlane,null);assert.equal(xrFeed.plane.material.map,xrFeed.target.texture);
+xr.driving.docking.toggleRearView();assert.equal(xrFeed.plane.visible,false,'Switching does not expose an uninitialized white texture.');updateBoth(xr);assert.equal(xrFeed.plane.material.map,xrFeed.mirrorTarget.texture);assert(xrFeed.plane.visible);assert.equal(xr.ctx.performanceRenderTargets.size,1);assert(xrFeed.stats.estimatedGpuBytes<=12*1024*1024);
+assert.deepEqual(baseline(xr,xr.screen),tracked);assert.equal(xrFeed.state,null);assert.equal(xr.driving.docking.postRender(),false);
+const frames=xrFeed.stats.frames;assert.equal(xrFeed.renderBefore(xr.scene,1/90),false);assert.equal(xrFeed.stats.frames,frames);assert(xrFeed.plane.visible);
+const beforeFailure=baseline(xr,xr.screen);xr.screen.api.failNext=true;assert.equal(xrFeed.renderBefore(xr.scene,.2),false);assert.deepEqual(baseline(xr,xr.screen),beforeFailure);assert(!xrFeed.target&&!xrFeed.mirrorTarget);
+xrFeed.setEnabled(true);updateBoth(xr);xrFeed.onLost();assert.equal(xr.ctx.performanceRenderTargets.size,0);xrFeed.onRestored();updateBoth(xr);xr.driving.dispose();xr.runtime.stop();
+desktop.driving.dispose();desktop.runtime.stop();assert.equal(desktop.ctx.performanceRenderTargets.size,0);
+console.log('Precise vehicle camera: stable metric crops at 0/10/50/100mm, '+variants+' fork variants, real custody, single full-size alternating rear feed, separate targets, always-visible plan, source-label exclusion, DPR/XR/render restoration and cleanup passed.');

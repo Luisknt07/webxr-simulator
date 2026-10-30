@@ -8,6 +8,10 @@ module.exports = THREE => {
   const ForkCamera = new Function('THREE', read('VehicleForkCamera.js').replace('export default class VehicleForkCamera', 'return class VehicleForkCamera'))(THREE);
   const Monitor = new Function('THREE', 'VehicleForkCamera', read('VehicleDockingMonitor.js').replace('export default class VehicleDockingMonitor', 'return class VehicleDockingMonitor'))(THREE, ForkCamera);
   const Guide = new Function(read('VehicleControlGuide.js').replace('export default class VehicleControlGuide', 'return class VehicleControlGuide'))();
-  const Driving = new Function('THREE', 'VehicleCabInteraction', 'VehicleDockingMonitor', 'VehicleControlGuide', 'vehicles', read('VehicleDriving.js').replace('export default class VehicleDriving', 'return class VehicleDriving'))(THREE, Interaction, Monitor, Guide, require('../../modules/logistica-industrial/functions/montacargas/schema/vehicles'));
-  return {Driving, Interaction, Monitor, ForkCamera, Labels};
+  // Node 24 loads the actual portable ESM helper; no second guidance model is
+  // substituted by the legacy DOM/keyboard fixtures.
+  const HolographicGuide = require('../../modules/logistica-industrial/functions/montacargas/runtime/VehicleHolographicGuide.js').default;
+  const FrontVisibility = require('../../modules/logistica-industrial/functions/montacargas/runtime/VehicleFrontVisibility.js').default;
+  const Driving = new Function('THREE', 'VehicleCabInteraction', 'VehicleDockingMonitor', 'VehicleControlGuide', 'VehicleHolographicGuide', 'VehicleFrontVisibility', 'vehicles', read('VehicleDriving.js').replace('export default class VehicleDriving', 'return class VehicleDriving'))(THREE, Interaction, Monitor, Guide, HolographicGuide, FrontVisibility, require('../../modules/logistica-industrial/functions/montacargas/schema/vehicles'));
+  return {Driving, Interaction, Monitor, ForkCamera, Labels, FrontVisibility};
 };

@@ -7,7 +7,7 @@ async function run(){
  const write=(file,value)=>{fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,value);};
  const publicDir=path.join(temporary,'public'),workspaceDir=path.join(temporary,'workspace'),projectionsDir=path.join(temporary,'projections'),dataDir=path.join(temporary,'private-data');
  function build(root,scenes,files){for(const [relative,value]of Object.entries(files))write(path.join(root,relative),value);write(path.join(root,'publication.json'),JSON.stringify({scenes,files:Object.entries(files).map(([relative,value])=>({path:relative,sha256:digest(value)}))}));}
- build(publicDir,['vr-robot-dispatch'],{"index.html":'<!doctype html><title>Public example</title>','public.js':'/* approved public renderer */'});
+ build(publicDir,['vr-robot-dispatch'],{"index.html":'<!doctype html><title>Public example</title>','public.js':'/* approved public renderer */','config.js':'window.SMARTTWIN_PUBLIC_VIEWER_CONFIG=Object.freeze({sceneURL:"approved.json"});'});
  build(workspaceDir,['private-fixture'],{"index.html":'<!doctype html><base href="/workspace/"><title>Private workspace</title>','workspace.js':'/* synthetic private workspace code */','profile.json':'{"privateFixture":true}'});
  write(path.join(publicDir,'unlisted.json'),'{"notApproved":true}');
  const scenes=[{id:'vr-robot-dispatch',name:'Public robot',roomId:'hall'},{id:'private-fixture',name:'Authenticated fixture',roomId:'sound'}];
@@ -22,6 +22,8 @@ async function run(){
   assert.throws(()=>createApplication(baseOptions),/TLS|proxy HTTPS/);assert.throws(()=>createApplication({...baseOptions,host:'0.0.0.0',allowInsecureLocal:true}),/local/);
   const local=await start({allowInsecureLocal:true}),{app,origin}=local;
   assert.equal((await request(origin,'/')).status,200);assert.equal((await request(origin,'/unlisted.json')).status,404);assert.equal((await request(origin,'/server/api.js')).status,404);
+  const publicConfig=await request(origin,'/config.js');assert.equal(publicConfig.status,200);assert.equal(publicConfig.headers.get('cache-control'),'no-store');assert(publicConfig.data.includes('backendAvailable:true'));assert(publicConfig.data.includes('sceneURL:"approved.json"'));assert(!publicConfig.data.includes('private-fixture'));assert.equal(publicConfig.headers.get('set-cookie'),null);assert.equal(nextPath('/'),'/');assert.equal(nextPath('/?from=home'),'/?from=home');
+  assert.equal((await request(origin,'/config.js','HEAD')).data,'');
   assert.equal((await request(origin,'/workspace/workspace.js')).status,401);assert.equal((await request(origin,'/workspace/profile.json')).status,401);assert.equal((await request(origin,'/editor')).status,302);
   const login=await request(origin,'/login?next=//untrusted.invalid');assert.equal(login.status,200);assert(login.headers.get('content-security-policy').includes("default-src 'none'"));assert(!login.data.includes('untrusted.invalid'));assert.equal(nextPath('//untrusted.invalid'),'/workspace');
   const blocked=await request(origin,'/api/studio/register','POST',{username:'remote_bootstrap',password:'Synthetic-first-owner-123'});assert.equal(blocked.status,503);assert.equal(blocked.data.code,'owner_setup_required');assert.equal(app.api.studio.db.prepare('SELECT COUNT(*) AS n FROM studio_users').get().n,0);
@@ -49,7 +51,7 @@ async function run(){
   await app.close();apps.splice(apps.indexOf(app),1);const reopened=await start({allowInsecureLocal:true});assert.equal((await request(reopened.origin,'/api/studio/me','GET',undefined,alpha.cookie)).data.user.id,alpha.data.user.id,'Existing users and sessions survive a standalone restart.');
   assert.equal((await request(reopened.origin,'/api/studio/logout','POST',{},alpha.cookie)).status,200);assert.equal((await request(reopened.origin,'/workspace/workspace.js','GET',undefined,alpha.cookie)).status,401);
   write(path.join(publicDir,'public.js'),'/* tampered synthetic renderer */');assert.equal((await request(reopened.origin,'/public.js')).status,500);assert.equal(errors.length,1);assert.match(errors[0].message,/manifiesto/);
-  console.log('Production API: closed remote bootstrap/local CLI, existing sessions, one public scene, authenticated workspace/examples/assets, exact roles, fixed publication, trusted TLS proxy, manifest allowlist/integrity and safe login passed.');
+  console.log('Production API: closed remote bootstrap/local CLI, existing sessions, one public scene, authenticated workspace/examples/assets, exact roles, fixed publication, trusted TLS proxy, manifest allowlist/integrity, public backend capability and safe home/login passed.');
  }finally{for(const app of apps)await app.close();assert(path.resolve(temporary).startsWith(path.resolve(os.tmpdir())+path.sep)&&path.basename(temporary).startsWith('smarttwin-api-production-'));fs.rmSync(temporary,{recursive:true,force:true});}
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

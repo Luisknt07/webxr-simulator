@@ -29,7 +29,8 @@ function fixture(user = null) {
 }
 async function run() {
   const guest = fixture(); guest.personal(); const guestLabels = labels(guest.content);
-  assert.equal(guestLabels.length, 4); for (const text of ['Escenarios', 'Ajustes', 'Controles y ayuda', 'Iniciar sesión']) assert(guestLabels.some(value => value.includes(text)));
+  assert.equal(guestLabels.length, 5); for (const text of ['Inicio', 'Escenarios', 'Ajustes', 'Controles y ayuda', 'Iniciar sesión']) assert(guestLabels.some(value => value.includes(text)));
+  walk(guest.content).find(value => value.tag === 'button' && value.textContent.includes('Inicio')).listeners.click(); assert.equal(navigated.href, 'https://localhost:8080/', 'The home action works without account or editor privileges.');
   assert(!guestLabels.some(value => /avatar|multiusuario|editor|Nuevo escenario|Mis proyectos/.test(value)));
   const signed = fixture(account); signed.personal(); const signedLabels = labels(signed.content);
   assert(signedLabels.some(value => value.includes('Mis proyectos'))); assert(signedLabels.some(value => value.includes('Administración'))); assert(signedLabels.some(value => value.includes('Mis prácticas')));

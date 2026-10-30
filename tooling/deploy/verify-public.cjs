@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const SCENE='vr-robot-dispatch',FILES=['index.html','viewer.js','viewer.css','config.js',`projects/smarttwin/scenes/${SCENE}.json`,'projects/smarttwin/scenes/catalog.json'];
+const SCENE='vr-robot-dispatch',FILES=['index.html','viewer.js','viewer.css','config.js','cover.jpg',`projects/smarttwin/previews/${SCENE}.png`,`projects/smarttwin/scenes/${SCENE}.json`,'projects/smarttwin/scenes/catalog.json'];
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
 function verifyPublic(options={}){
  const root=fs.realpathSync(options.root||path.resolve(__dirname,'../..')),directory=path.join(root,'artifacts/public-viewer');

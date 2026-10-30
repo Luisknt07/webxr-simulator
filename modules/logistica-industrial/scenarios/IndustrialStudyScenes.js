@@ -128,7 +128,8 @@ function localBounds(root, objects) {
 
 // Small, finite teaching cells for standalone XR. The same physical pallet
 // crosses Source -> robot -> conveyor(s) -> manual forklift -> floor stock.
-// No decorative warehouse, background production or continuous feed is added.
+// A bounded warehouse shell supplies a real interior without background
+// production, texture overlays, extra shadow lights or continuous feed.
 function compactVrStudy(document, roomId, definition, scene, options) {
   const objects = [], links = [], conveyors = [], root = document.getRoot(roomId);
   const assembly = new ConveyorAssembly({document, roomId, root, ctx: {scene}, hooks: {renderScene: scene}, assemblyMessage() {}});
@@ -194,11 +195,22 @@ function compactVrStudy(document, roomId, definition, scene, options) {
       const solid = schema.defaultBehavior('collision');
       const part = (name, color, position, scale, behaviors = []) => { const object = document.addPrimitive(roomId, 'box', color);
         document.setProperty(object, 'name', name); document.setTransform(object, {position, scale}); document.setBehaviors(object, behaviors); objects.push(object); return object; };
-      const floor = part('RV · suelo continuo', '#777c76', [3, -.06, 0], [24, .12, 20], [solid, schema.defaultBehavior('teleport'),
-        Object.assign(schema.defaultBehavior('surfaceMaterial'), {preset: 'concrete', color: '#777c76', roughness: .97, colorMapMode: 'preserve', repeatX: 6, repeatY: 5})]);
-      part('RV · pared posterior', '#858981', [3, 2.6, -10], [24, 5.2, .16], [solid]);
-      part('RV · pared lateral', '#858981', [-9, 2.6, 0], [.16, 5.2, 20], [solid]);
-      part('RV · cubierta', '#656c65', [3, 5.3, 0], [24, .14, 20]);
+      const finish = color => Object.assign(schema.defaultBehavior('surfaceMaterial'), {preset: 'custom', color, roughness: .96, metalness: 0, colorMapMode: 'none', clearcoat: 0});
+      const floor = part('CEDI · RV suelo continuo', '#657071', [3, -.06, 0], [24, .12, 20], [solid, schema.defaultBehavior('teleport'),
+        Object.assign(schema.defaultBehavior('surfaceMaterial'), {preset: 'concrete', color: '#657071', roughness: .98, colorMapMode: 'none', normalStrength: .3, repeatX: 6, repeatY: 5})]);
+      // Each wall occupies its own volume. End walls stop at the inner faces
+      // of the side walls, avoiding coplanar faces at the four corners.
+      const walls = [
+        part('CEDI · RV pared posterior', '#777e80', [3, 2.8, -10], [23.84, 5.6, .16], [solid, finish('#777e80')]),
+        part('CEDI · RV pared frontal', '#777e80', [3, 2.8, 10], [23.84, 5.6, .16], [solid, finish('#777e80')]),
+        part('CEDI · RV pared lateral izquierda', '#777e80', [-9, 2.8, 0], [.16, 5.6, 20.16], [solid, finish('#777e80')]),
+        part('CEDI · RV pared lateral derecha', '#777e80', [15, 2.8, 0], [.16, 5.6, 20.16], [solid, finish('#777e80')])
+      ];
+      const roof = part('CEDI · RV cubierta industrial cerrada', '#56636b', [3, 5.68, 0], [24.16, .16, 20.16], [solid, finish('#56636b')]);
+      const beams = [-4, 4].map(z => part('CEDI · RV viga transversal de cubierta', '#414d54', [3, 5.42, z], [23.84, .25, .16], [finish('#414d54')]));
+      const fixtures = [];
+      for (const z of [-4, 4]) for (const x of [-3, 9]) fixtures.push(part('CEDI · RV luminaria LED de techo', '#d9e0df', [x, 5.25, z], [3.2, .05, .34], [
+        Object.assign(finish('#d9e0df'), {emissiveMode: 'custom', emissive: '#e2ede8', emissiveIntensity: .45})]));
       const markings = document.addIndustrialFloorPresentation(roomId, {type: 'industrialFloor', version: 1,
         bounds: [-9, -10, 15, 10], floorY: 0, walkways: [[-7, 5, -5, 9]], zones: [[-3, -4.5, 6.5, 2.6]],
         texts: ['CELDA RV', 'PASILLO'], labels: [[1, 2.1, 0, 2.4, .45, 8], [-6, 7, -Math.PI / 2, 2.4, .45, 9]], signs: [[-6, 4.5, 0, 0, 9]]});
@@ -207,7 +219,7 @@ function compactVrStudy(document, roomId, definition, scene, options) {
         title: definition.title, text: definition.objective + '\n' + definition.tasks.join('\n') + '\nLímite: dos pallets de cuatro cajas. Libera Freno P para conducir. Detén la banda antes de recoger; retira las uñas antes de reiniciar.', fontSize: .032})]);
       line.objects.push(guide);
       const studio = document.studio || {}, settings = Object.assign(schema.studio.defaultEnvironment(roomId), STUDY_ENVIRONMENT_DEFAULTS, {
-        renderQuality: 'balanced', exposure: 1, sunIntensity: .8, ambientIntensity: .4, sky: 'color', skyColor: '#30444c', machineVolume: .18});
+        renderQuality: 'balanced', exposure: .87, sunIntensity: .6, ambientIntensity: .25, sky: 'color', skyColor: '#30444c', horizonColor: '#c2cecb', groundColor: '#47545a', sunColor: '#f3f4e8', machineVolume: .18});
       document.setStudio({environments: (studio.environments || []).filter(e => e.roomId !== roomId).concat(settings),
         groups: (studio.groups || []).concat({id: 'compact-vr-' + roomId + '-' + definition.id, name: definition.title, roomId, members: line.objects.map(o => o.userData.editorId)}),
         missions: (studio.missions || []).concat({id: 'compact-vr-mission-' + roomId + '-' + definition.id, name: definition.title, roomId,
@@ -215,17 +227,128 @@ function compactVrStudy(document, roomId, definition, scene, options) {
       (document.studio.spawns || []).filter(v => v.roomId === roomId).forEach(v => {const marker = document.getObject(v.objectId); if (marker) document.setTransform(marker, {position: [4, .02, 8]});});
       const camera = new THREE.PerspectiveCamera(); camera.position.set(10, 4.5, 9); camera.lookAt(1, 1, 0);
       (document.studio.entities || []).filter(v => v.roomId === roomId && v.type === 'camera').forEach(v => {const marker = document.getObject(v.objectId); if (marker) document.setTransform(marker, {position: camera.position.toArray(), quaternion: camera.quaternion.toArray()});});
-      environment = {objects: [floor], floor, environment: settings};
+      environment = {objects: [floor, ...walls, roof, ...beams, ...fixtures], floor, walls, roof, structure: beams, fixtures, environment: settings,
+        bounds: {min: [-9, 0, -10], max: [15, 5.6, 10], width: 24, depth: 20, height: 5.6}};
     }
     return {objects, cells: [line], lines: [line], sources: [source], receivers: [destination], controllers: [robot], vehicles: [vehicle],
       conveyors, robot, source, pickup, destination, vehicle, links, expectedUnits: 8, environment, compactVR: true, presetId: definition.id, definition};
   } finally { assembly.clear(); }
 }
 
+/** A bounded manual warehouse: authored loads start on their real supports.
+ * Task routes describe chassis centres in room coordinates; they stop in
+ * clear approach lanes. The live docking planner supplies the final pose. */
+function warehouseVrStudy(document, roomId, definition, options) {
+  const objects = [], root = document.getRoot(roomId), racks = schema.warehouseRacks;
+  const set = (object, type, values) => document.setBehaviors(object, document.getBehaviors(object).map(config => config.type === type ? Object.assign({}, config, values) : config));
+  const add = (type, name, variant, config, position) => {
+    const object = document.addPrefab(roomId, type, variant); if (config) set(object, type, config);
+    document.setProperty(object, 'name', name); document.setTransform(object, {position}); objects.push(object); return object;
+  };
+  const stockValues = {running: true, withPanel: false, acceptsPallets: true, palletType: 'euro-1200x800', palletMaterial: 'wood',
+    width: 1.2, depth: .8, palletCapacity: 1, capacity: 1, columns: 1, rows: 1, layers: 1, autoRelease: false, delivery: 'manual'};
+  const rack = add('palletQueue', 'Almacén · A01 / R01 · ocho ubicaciones selectivas', undefined,
+    Object.assign({}, stockValues, racks.defaults('selective'), {rackBays: 2, rackLevels: 2, rackColumns: 2, rackBayWidths: '3, 3', rackSlotDepth: 1.1,
+      rackBaseHeight: .3, rackLevelHeight: 1.4, rackAisleCode: 'A01', rackRowCode: 'R01', rackAssignments: '[]'}), [0, 1, -5]);
+  const layout = racks.layout(document.getBehaviors(rack).find(config => config.type === 'palletQueue'));
+  const upper = layout.cells.find(cell => cell.bay === 0 && cell.level === 1 && cell.column === 0);
+  const lower = layout.cells.find(cell => cell.bay === 1 && cell.level === 0 && cell.column === 0);
+  const empty = layout.cells.find(cell => cell.bay === 1 && cell.level === 1 && cell.column === 1);
+  const incoming = add('palletQueue', 'ENTRADA E01 · recepción a piso', undefined, stockValues, [6, 1, 4]);
+  const outgoing = add('palletQueue', 'SALIDA S01 · expedición a piso', undefined, stockValues, [-6, 1, 4]);
+  const returns = add('palletQueue', 'DEVOLUCIÓN D01 · revisión a piso', undefined, stockValues, [6, 1, -5]);
+  const seed = (name, sku, store, cell, color) => {
+    const product = add('product', name, 'pallet-loaded', {sourceId: store.userData.editorId, sku, productType: 'pallet', loadMode: 'pallet',
+      // At .72 m total height cargo() retains the standard .144 m Euro
+      // pallet. Its real .07488 m openings clear the truck's metal tines.
+      units: 4, mass: 33, width: 1.2, depth: .8, height: .72, palletType: 'euro-1200x800', palletMaterial: 'wood', contents: 'boxes', color}, [0, 0, 0]);
+    // Match PalletQueueRuntime.rackMatrix: centre X/Z on the support and
+    // retain a five-millimetre contact tolerance above the bearing plane.
+    const bounds = localBounds(product, [product]), center = bounds.getCenter(new THREE.Vector3());
+    document.setTransform(product, {position: [store.position.x + cell.position[0] - center.x, store.position.y + cell.position[1] + .005 - bounds.min.y,
+      store.position.z + cell.position[2] - center.z]});
+    return product;
+  };
+  const highPallet = seed('WH-001 · retirada de nivel superior · 4 cajas / 33 kg', 'WH-001', rack, upper, '#b99b67');
+  const newPallet = seed('WH-002 · reposición desde entrada · 4 cajas / 33 kg', 'WH-002', incoming, {position: [0, -1, 0]}, '#6d8e9b');
+  const lowPallet = seed('WH-003 · devolución desde primer nivel · 4 cajas / 33 kg', 'WH-003', rack, lower, '#b6a57a');
+  // One load, one address. Occupied source slots derive their identity from
+  // actual initial custody; only the future inbound seat needs reservation.
+  set(rack, 'palletQueue', {rackAssignments: JSON.stringify([{locationCode: empty.code, palletId: newPallet.userData.editorId}])});
+  const tasks = [
+    {id: 'wh-01-expedicion', name: '1 · Retirar WH-001 del nivel superior y entregar en SALIDA S01', productId: highPallet.userData.editorId,
+      sourceId: rack.userData.editorId, sourceLocationCode: upper.code, destinationId: outgoing.userData.editorId, destinationSlot: 0,
+      pickupRoute: [{x: 0, z: 0}, {x: upper.x, z: 0}, {x: upper.x, z: -2}],
+      route: [{x: upper.x, z: 0}, {x: -6, z: 0}, {x: -8.5, z: 7}, {x: -6, z: 7}]},
+    {id: 'wh-02-reposicion', name: '2 · Recoger WH-002 de ENTRADA E01 y reponer ' + empty.code, productId: newPallet.userData.editorId,
+      sourceId: incoming.userData.editorId, destinationId: rack.userData.editorId, locationCode: empty.code,
+      pickupRoute: [{x: -6, z: 7}, {x: 0, z: 7}, {x: 6, z: 7}],
+      route: [{x: 6, z: 7}, {x: 8.5, z: 7}, {x: 6, z: 0}, {x: empty.x, z: 0}, {x: empty.x, z: -2}]},
+    {id: 'wh-03-devolucion', name: '3 · Retirar WH-003 del primer nivel y entregar en DEVOLUCIÓN D01', productId: lowPallet.userData.editorId,
+      sourceId: rack.userData.editorId, sourceLocationCode: lower.code, destinationId: returns.userData.editorId, destinationSlot: 0,
+      pickupRoute: [{x: empty.x, z: 0}, {x: lower.x, z: 0}, {x: lower.x, z: -2}],
+      route: [{x: lower.x, z: 0}, {x: 6, z: 0}, {x: 6, z: -2}]}
+  ];
+  const vehicle = add('vehicle', 'RV · montacargas de almacén · misiones guiadas', 'forklift-electric-3w', {
+    mode: 'manual', powered: true, running: true, parkingBrake: true, paused: false, emergency: false, forkSpread: .48,
+    speed: 1.35, reverseSpeed: .85, maxLift: 3, forkColor: '#aebcc6', detail: 'balanced', serial: 'WH-TRAIN-01',
+    sourceId: rack.userData.editorId, outputId: outgoing.userData.editorId, waypointsJson: '[]', trainingTasksJson: JSON.stringify(tasks)}, [0, 0, 5]);
+  document.setTransform(vehicle, {rotation: [0, Math.PI, 0]});
+  const products = [highPallet, newPallet, lowPallet], receivers = [rack, outgoing, returns];
+  const line = {id: definition.id, title: definition.title, mode: 'manual', continuous: false, objects: objects.slice(), links: [],
+    sources: [rack, incoming], receivers, source: rack, receiver: outgoing, controller: vehicle, expectedUnits: 12, expectedReceiverUnits: [4, 4, 4],
+    memberIds: objects.map(object => object.userData.editorId)};
+  let environment = null, floorPresentation = null;
+  if (!options.preview) {
+    document.getObjects(roomId).filter(object => object.name === 'Suelo del nivel' && !document.isNative(object)).forEach(object => document.remove(object));
+    const solid = schema.defaultBehavior('collision');
+    const finish = (color, concrete = false) => Object.assign(schema.defaultBehavior('surfaceMaterial'), {preset: concrete ? 'concrete' : 'custom', color,
+      roughness: .96, metalness: 0, colorMapMode: concrete ? 'preserve' : 'none', clearcoat: 0, normalStrength: .25, repeatX: 6, repeatY: 5});
+    const part = (name, color, position, scale, behaviors) => {
+      const object = document.addPrimitive(roomId, 'box', color); document.setProperty(object, 'name', name); document.setTransform(object, {position, scale});
+      document.setBehaviors(object, behaviors); objects.push(object); return object;
+    };
+    const floor = part('CEDI · RV almacén · hormigón continuo', '#7e8988', [0, -.06, 1], [24, .12, 20], [solid, schema.defaultBehavior('teleport'), finish('#7e8988', true)]);
+    const walls = [
+      part('CEDI · RV almacén · pared posterior', '#929b98', [0, 2.8, -9], [23.84, 5.6, .16], [solid, finish('#929b98', true)]),
+      part('CEDI · RV almacén · pared frontal', '#929b98', [0, 2.8, 11], [23.84, 5.6, .16], [solid, finish('#929b98', true)]),
+      part('CEDI · RV almacén · pared izquierda', '#929b98', [-12, 2.8, 1], [.16, 5.6, 20.16], [solid, finish('#929b98', true)]),
+      part('CEDI · RV almacén · pared derecha', '#929b98', [12, 2.8, 1], [.16, 5.6, 20.16], [solid, finish('#929b98', true)])
+    ];
+    const roof = part('CEDI · RV almacén · cubierta industrial cerrada', '#66747a', [0, 5.68, 1], [24.16, .16, 20.16], [solid, finish('#66747a')]);
+    const structure = [-3, 5].map(z => part('CEDI · RV almacén · viga de cubierta', '#4f5f66', [0, 5.42, z], [23.84, .25, .16], [finish('#4f5f66')]));
+    const fixtures = [];
+    for (const z of [-3, 5]) for (const x of [-5, 5]) fixtures.push(part('CEDI · RV almacén · luminaria LED', '#e1e7e3', [x, 5.25, z], [3.2, .05, .34], [
+      Object.assign(finish('#e1e7e3'), {emissiveMode: 'custom', emissive: '#edf4ed', emissiveIntensity: .45})]));
+    const plan = {type: 'industrialFloor', version: 1, bounds: [-12, -9, 12, 11], floorY: 0,
+      walkways: [[-11, -7, -9.8, 9]], zones: [[-3.35, -5.85, 3.35, -3.9]], bays: [[5.15, 3.35, 6.85, 4.65], [-6.85, 3.35, -5.15, 4.65], [5.15, -5.65, 6.85, -4.35]],
+      arrows: [[-5, 0, -Math.PI / 2], [0, 0, -Math.PI / 2], [5, 0, -Math.PI / 2]],
+      texts: ['ENTRADA E01', 'SALIDA S01', 'DEVOLUCIÓN D01', 'PASILLO A01 · FILA R01', 'PASILLO PEATONAL'],
+      labels: [[6, 5.15, 0, 2.4, .4, 8], [-6, 5.15, 0, 2.4, .4, 9], [6, -3.85, 0, 2.4, .4, 10], [0, -3.1, 0, 4.8, .4, 11], [-10.4, 2, -Math.PI / 2, 3.2, .4, 12]]};
+    const presentation = document.addIndustrialFloorPresentation(roomId, plan); document.setProperty(presentation, 'name', 'Almacén RV · bahías, pasillo y códigos editables'); objects.push(presentation);
+    floorPresentation = {presentation, plan, changed: true};
+    const studio = document.studio || {}, settings = Object.assign(schema.studio.defaultEnvironment(roomId), STUDY_ENVIRONMENT_DEFAULTS, {
+      renderQuality: 'balanced', exposure: .91, sunIntensity: .65, ambientIntensity: .29, sky: 'color', skyColor: '#31444b', horizonColor: '#d0d8d2',
+      groundColor: '#58646a', sunColor: '#f4f4ec', machineVolume: .16});
+    document.setStudio({environments: (studio.environments || []).filter(item => item.roomId !== roomId).concat(settings),
+      groups: (studio.groups || []).concat({id: 'warehouse-vr-' + roomId + '-' + definition.id, name: definition.title, roomId, members: objects.map(object => object.userData.editorId)})});
+    (document.studio.spawns || []).filter(value => value.roomId === roomId).forEach(value => { const marker = document.getObject(value.objectId); if (marker) document.setTransform(marker, {position: [2, .02, 7.5]}); });
+    const camera = new THREE.PerspectiveCamera(); camera.position.set(10, 4.7, 9.3); camera.lookAt(0, 1, -1);
+    (document.studio.entities || []).filter(value => value.roomId === roomId && value.type === 'camera').forEach(value => { const marker = document.getObject(value.objectId); if (marker) document.setTransform(marker, {position: camera.position.toArray(), quaternion: camera.quaternion.toArray()}); });
+    environment = {objects: [floor, ...walls, roof, ...structure, ...fixtures], floor, walls, roof, structure, fixtures, environment: settings,
+      bounds: {min: [-12, 0, -9], max: [12, 5.6, 11], width: 24, depth: 20, height: 5.6}};
+  }
+  line.objects = objects.slice(); line.memberIds = objects.map(object => object.userData.editorId);
+  return {objects, cells: [line], lines: [line], sources: [rack, incoming], receivers, controllers: [vehicle], vehicles: [vehicle], products, conveyors: [], links: [],
+    rack, incoming, outgoing, returns, source: rack, destination: outgoing, vehicle, tasks, layout, seededSlots: [upper, lower], destinationSlot: empty,
+    expectedUnits: 12, environment, floorPresentation, compactVR: true, warehouseTraining: true, presetId: definition.id, definition};
+}
+
 export function buildStudyScene(document, roomId, id, options = {}) {
   const definition = studyScene(id), root = document.getRoot(roomId), scene = options.scene || root, own = !document.transaction;
   if (own) document.begin();
   try {
+    if (definition.warehouseTraining) {const built = warehouseVrStudy(document, roomId, definition, options); if (own) document.commit(); return built;}
     if (definition.compactVR) {const built = compactVrStudy(document, roomId, definition, scene, options); if (own) document.commit(); return built;}
     if (definition.vehicles) {
       const built = buildIndustrialVehicleStudy(document, roomId, options);

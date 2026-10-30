@@ -3,12 +3,16 @@ const __layout = require("../../tooling/layout.cjs");
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), THREE = require('three');
 const schema = require('../../packages/project-model/shared/studio-document');
 const source = fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-render-quality.js"), '../src/studio/SceneEnvironment.js')), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class SceneEnvironment', 'return class SceneEnvironment');
-const Environment = new Function('THREE', 'schema', source)(THREE, schema);
+const industrialLighting = require('../../packages/render-three/schema/industrial-lighting.js');
+const industrialSurfaces = require('../../packages/render-three/schema/industrial-surfaces.js');
+const Environment = new Function('THREE', 'schema', 'industrialLighting', 'industrialSurfaces', source)(THREE, schema, industrialLighting, industrialSurfaces);
 const scene = new THREE.Scene(), sun = new THREE.DirectionalLight(), fill = new THREE.DirectionalLight();
 sun.name = 'sun'; sun.position.set(.2, 1, .1); fill.name = 'fillLight'; scene.add(sun, fill);
 const root = new THREE.Group(), other = new THREE.Group(), geometry = new THREE.BoxBufferGeometry(), material = new THREE.MeshStandardMaterial(); scene.add(root);
 const machine = new THREE.Mesh(geometry, material), floor = new THREE.Mesh(geometry, material), roof = new THREE.Group(), roofMesh = new THREE.Mesh(geometry, material), helper = new THREE.Mesh(geometry, material);
 roof.name = 'CEDI · Cubierta interior cerrada'; roof.add(roofMesh); floor.name = 'CEDI · Piso de hormigón'; helper.userData.editorRuntimeHelper = true; root.add(machine, floor, roof, helper);
+const vrWall = new THREE.Mesh(geometry, material), vrRoof = new THREE.Mesh(geometry, material), flaggedShell = new THREE.Mesh(geometry, material);
+vrWall.name = 'RV · pared posterior'; vrRoof.name = 'RV · cubierta'; flaggedShell.userData.editorIndustrialShell = true; root.add(vrWall, vrRoof, flaggedShell);
 const inactive = new THREE.Mesh(geometry, material); other.add(inactive);
 const genericFloor = new THREE.Mesh(geometry, material); genericFloor.scale.set(30, .05, 30); genericFloor.position.y = -.03; root.add(genericFloor);
 const markingGroup = require('../../modules/logistica-industrial/functions/presentacion/schema/industrialFloor').createVisual(THREE, {type: 'industrialFloor', version: 1, bounds: [-10, -8, 10, 8], floorY: .02, zones: [[-3, -2, 3, 2]], signs: [[3, 3, 0, 1, 6]]}); root.add(markingGroup);
@@ -26,6 +30,7 @@ assert.equal(renderer.toneMapping, THREE.ACESFilmicToneMapping); assert.equal(re
 assert.equal(sun.castShadow, true); assert.equal(sun.shadow.mapSize.x, 2048); assert.equal(renderer.shadowMap.type, THREE.PCFSoftShadowMap);
 assert.equal(environment.stats.shadowMaps, 1); assert.equal(scene.children.filter(node => node.isLight).length, 2, 'Shadow quality reuses the key; point lights never require six shadow faces.');
 assert(machine.castShadow && machine.receiveShadow); assert(floor.receiveShadow && !floor.castShadow); assert(roofMesh.receiveShadow && !roofMesh.castShadow);
+assert([vrWall, vrRoof, flaggedShell].every(mesh => mesh.receiveShadow && !mesh.castShadow), 'Legacy RV wall/roof names and explicit facility shells must not shadow themselves into dark triangles.');
 assert(genericFloor.receiveShadow && !genericFloor.castShadow, 'An existing generic level floor also receives contact shadows without self-shadow acne.');
 assert(markingGroup.children.every(mesh => mesh.receiveShadow && !mesh.castShadow), 'Batched floor paint and lettering receive contact shadows without projecting false paint/sign silhouettes across routes.');
 assert(tallPaintBatch.material.roughness >= .96 && tallPaintBatch.material.metalness === 0);
@@ -73,7 +78,7 @@ const MockThree = Object.assign({}, THREE, {PMREMGenerator: class {
   fromScene(room) { reflectionPasses++; assert.equal(mockRenderer.xr.enabled, false); assert(room.children.length >= 8); return {texture: reflectionPasses === 1 ? reflectionTexture : new THREE.Texture({width: 768, height: 768}), dispose() { reflectionDisposals++; }}; }
   dispose() { generatorDisposals++; }
 }});
-const MockEnvironment = new Function('THREE', 'schema', source)(MockThree, schema), reflections = new MockEnvironment({});
+const MockEnvironment = new Function('THREE', 'schema', 'industrialLighting', 'industrialSurfaces', source)(MockThree, schema, industrialLighting, industrialSurfaces), reflections = new MockEnvironment({});
 assert.equal(mockRenderer.isWebGLRenderer, undefined);
 assert.equal(reflections.createReflections(mockRenderer), reflectionTexture); assert.equal(mockRenderer.xr.enabled, true);
 assert.equal(reflections.createReflections(mockRenderer), reflectionTexture); assert.equal(reflectionPasses, 1); assert.equal(generatorDisposals, 1);

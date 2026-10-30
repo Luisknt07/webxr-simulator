@@ -6,6 +6,8 @@ export const STUDY_ENVIRONMENT_DEFAULTS = Object.freeze({renderQuality: 'high', 
   machineSounds: true, machineVolume: .25, ambientPreset: 'warehouse', ambientSound: '', ambientVolume: .12});
 
 export const STUDY_SCENES = [
+  lesson('vr-warehouse-missions', 'RV · Almacén, rutas y ubicaciones', 'Un montacargas manual, una estantería selectiva de ocho ubicaciones y tres pallets reales. Practica retirada, reposición y entrega en bahías demarcadas con rutas y atraque holográfico.', 2,
+    'Trasladar el pallet indicado hasta su ubicación exacta, siguiendo el pasillo y conservando su identidad y contenido.', ['Retira el pallet del nivel superior y entrégalo en SALIDA S01.', 'Recoge el pallet de ENTRADA E01 y repón la ubicación superior reservada de la fila R01.', 'Baja el pallet del primer nivel y deposítalo en DEVOLUCIÓN D01.'], {family: 'Realidad virtual compacta', compactVR: 'warehouse', warehouseTraining: true, mode: 'manual', expectedUnits: 12}),
   lesson('vr-robot-dispatch', 'RV · Robot, banda y montacargas', 'Una célula de expedición con un robot, un transportador de pallets y un montacargas. Lote finito de dos pallets de cuatro cajas.', 1,
     'Seguir la misma carga desde la recogida robótica hasta la entrega manual con las horquillas.', ['Observa al robot colocar el pallet sobre la banda.', 'Espera el paro de la banda y recoge el pallet con las dos uñas.', 'Deposita en la bahía y pulsa Marcha para el segundo pallet.'], {family: 'Realidad virtual compacta', compactVR: 'dispatch', mode: 'mixed', expectedUnits: 8}),
   lesson('vr-robot-transfer', 'RV · Transferencia entre dos bandas', 'Un robot, dos tramos cortos y un montacargas. Dos pallets como máximo y una sola zona de entrega.', 2,

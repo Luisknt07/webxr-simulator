@@ -105,6 +105,7 @@ npm.cmd run test:browser
 - [SDK, módulos y composición](docs/framework-modules.md)
 - [Seguridad y despliegue](docs/framework-security.md)
 - [Resultados de validación](docs/framework-validation.md)
+- [Pantalla inicial e instalaciones compactas de RV](docs/vr-facility-home.md)
 - [Guía del editor](docs/studio-guide.md)
 - [Cuentas y sesiones](docs/studio-service.md)
 - [Bandas](docs/conveyor-library.md), [estanterías](docs/warehouse-racks.md), [robots](docs/robot-grasp-clearance.md), [montacargas](docs/vehicle-front-mirror.md)

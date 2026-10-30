@@ -3,6 +3,7 @@ const __layout = require("../../tooling/layout.cjs");
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const read = file => fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-public-scene-library.js"), '..', file)), 'utf8').replace(/^import .*;\r?\n/gm, '');
 const catalog = new Function(read("modules/logistica-industrial/scenarios/StudySceneCatalog.js").replace(/^export /gm, '') + '\nreturn {STUDY_SCENES,DIFFICULTY_LABELS,MODE_LABELS};')();
+const metadata = new Function('STUDY_SCENES', 'STUDY_DIFFICULTY_LABELS', 'STUDY_MODE_LABELS', read('projects/smarttwin/SceneLibraryMetadata.mjs').replace(/^export /gm, '') + '\nreturn {publicSceneEntry,normalizeSceneSearch,DIFFICULTY_LABELS,MODE_LABELS};')(catalog.STUDY_SCENES,catalog.DIFFICULTY_LABELS,catalog.MODE_LABELS);
 class Element {
   constructor(tag, document) { this.tag = tag; this.ownerDocument = document; this.children = []; this.attributes = {}; this.dataset = {}; this.listeners = new Map(); this.isConnected = true; this.hidden = false; }
   set textContent(value) { this.text = String(value); this.children.forEach(child => {child.isConnected = false; child.parentNode = null;}); this.children = []; }
@@ -19,7 +20,7 @@ class Element {
 const document = {baseURI: 'https://example.test/webxr-simulator/', images: [], createElement(tag) { return new Element(tag, this); }};
 const source = read("packages/tools/editor/src/PublicSceneLibrary.js");
 assert(!/WebGLRenderer|studyPreviewObject|compileStudyProject|createIndustrialPrefab/.test(source), 'The visitor library never constructs scene meshes or renderers.');
-const {Library, publicSceneEntry} = new Function('STUDY_SCENES','DIFFICULTY_LABELS','MODE_LABELS','document', source.replace('export function publicSceneEntry','function publicSceneEntry').replace('export default class PublicSceneLibrary','class PublicSceneLibrary') + '\nreturn {Library:PublicSceneLibrary,publicSceneEntry};')(catalog.STUDY_SCENES,catalog.DIFFICULTY_LABELS,catalog.MODE_LABELS,document);
+const {Library, publicSceneEntry} = new Function('sharedPublicSceneEntry','normalizeSceneSearch','DIFFICULTY_LABELS','MODE_LABELS','document', source.replace('export default class PublicSceneLibrary','class PublicSceneLibrary').replace(/^export /gm, '') + '\nreturn {Library:PublicSceneLibrary,publicSceneEntry};')(metadata.publicSceneEntry,metadata.normalizeSceneSearch,metadata.DIFFICULTY_LABELS,metadata.MODE_LABELS,document);
 const View = new Function('compileBlankProject','PublicSceneLibrary', read("packages/tools/editor/src/ProjectAccessView.js").replace('export default class ProjectAccessView','return class ProjectAccessView'))(async()=>{},Library);
 const sample = [
   {id:'l-transfer',name:'Transferencia rectangular',roomId:'hall',collection:'Fundamentos',templateId:'lab-transfer-l',included:true},

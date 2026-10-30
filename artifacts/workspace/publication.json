@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "7f14390787545096bc9057e550fc71c7407f02e2",
-  "bundleSha256": "3e6928608bfa9adf37fecbf6036fa19fb594d68512c6787cc9dcb6e95ca8fd5b",
+  "revision": "18832af29fff3be65ebb76f49464de145b7750a7",
+  "bundleSha256": "a8156604365a2bed418f6f0b3c477b60015a1dd0115673605a202303bfac2a08",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -38,36 +38,25 @@
     "robot-scara-sorting",
     "vr-robot-dispatch",
     "vr-robot-transfer",
-    "vr-robot-turn"
+    "vr-robot-turn",
+    "vr-warehouse-missions"
   ],
   "files": [
     {
       "path": "1.bundle.js",
-      "sha256": "44b1b8976de090009864a0e0d0186cfaad927014699085ee89cbb173ef18a59a"
-    },
-    {
-      "path": "apps/core-empty/core.css",
-      "sha256": "66c505786e86e8eb73210c1c0ec7ef048ed8a1183abaae3922554a5a9f63f1fc"
-    },
-    {
-      "path": "apps/project-viewer/viewer.css",
-      "sha256": "810f1127f1dcbb86cd9367f0e1c8666c3908c67aea7b43c8f126ae5865a00b63"
-    },
-    {
-      "path": "apps/public-viewer/viewer.css",
-      "sha256": "c0afffd11d8e830e1fd849b69af5a05e43f3312b34cc332bf3883cf965260007"
+      "sha256": "fe41cc4c696cf356b8b3cef231a9a461b1ea86df1003342f2c2ab19d9f73661e"
     },
     {
       "path": "apps/workspace/studio/admin-workspace.css",
-      "sha256": "d84b15f67a3c186686ffeb0d5e77f844db16f5b0c799a3a39c8525fac8cc9e60"
+      "sha256": "bfaf5839ce8376c173f060cfa1fb7e76f19418066ebbc01b1ccf6e05dd0bf4d4"
     },
     {
       "path": "apps/workspace/studio/studio.css",
-      "sha256": "b76cf651f79bf34b2b115e44f4772f45538d32bd185fb790b57e9a417ad04d51"
+      "sha256": "eace5e08429a8cae2c22b7403060a34f6ce2129d6a53461eb097ada85b5f6c6d"
     },
     {
       "path": "bundle.js",
-      "sha256": "3e6928608bfa9adf37fecbf6036fa19fb594d68512c6787cc9dcb6e95ca8fd5b"
+      "sha256": "a8156604365a2bed418f6f0b3c477b60015a1dd0115673605a202303bfac2a08"
     },
     {
       "path": "cad-worker.js",
@@ -79,7 +68,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "c18c88263e543f4d31ed1d63cda30334ce34af578e24bb3fac8d9cb97ad8fbda"
+      "sha256": "a89eeb5105505e869b6c47586336a1d0499b922678352fdce01c1a06d14d76b4"
     },
     {
       "path": "mesh-optimizer-worker.js",
@@ -483,7 +472,7 @@
     },
     {
       "path": "modules/logistica-industrial/assets/recipes/README.md",
-      "sha256": "f279a8ea17a010693e903870f246fafb6656f7475642c8359f88efab28211e99"
+      "sha256": "100ff897f1890d229828f2073fe19fc1d304e477fdc5dc0f2738599dd033ed11"
     },
     {
       "path": "modules/logistica-industrial/assets/recipes/ai-industrial-concrete-v1-master.png",
@@ -491,7 +480,7 @@
     },
     {
       "path": "modules/logistica-industrial/functions/bandas/runtime/conveyor-viewer.css",
-      "sha256": "df6d7f0b1790371c11e706695ef934dd6fd8ef0e59eb028922631d4043eb4371"
+      "sha256": "6415b7c1e4b18c8a15bbd6d7fd0b41d768304e6cfd1a0d2f4c1a129261de4217"
     },
     {
       "path": "modules/turismo/assets/angel.basis",
@@ -851,15 +840,15 @@
     },
     {
       "path": "packages/render-three/src/StartupStatus.js",
-      "sha256": "a3c4f233977377c9261754b3f2f083dcebe7a34b1cec4f55079cc679c72b77bb"
+      "sha256": "791d64692ab21bfaaf8a2013a0f7dd8d504a656eb8a365f73a2e1c604cac50d3"
     },
     {
       "path": "packages/render-three/src/graphics-settings.css",
-      "sha256": "964ebc1e31a48c42b04a183e3a78cb7b5e12a2be15e8f45a43484672638bf159"
+      "sha256": "5f38a0cc1c5cb4c2333036755f7a85d9ca5f477637f7b2fc935625b02effb22f"
     },
     {
       "path": "packages/render-three/src/mobile-navigation.css",
-      "sha256": "548ee7e98a034ddae3db888ac7b81c626017541ff6e89a68fe65d94493438740"
+      "sha256": "7b2bfb51206a9bbd95eb91a126c23b67be10cadf21f262428a35718f920930e9"
     },
     {
       "path": "packages/render-three/vendor/basis_transcoder.js",
@@ -931,11 +920,11 @@
     },
     {
       "path": "packages/tools/cad/src/cad-workbench.css",
-      "sha256": "495a95753d8445d6caec19239026f34bab3b06dd7d6b95744ded982af929ad6b"
+      "sha256": "0d4373c331597078ec4dcf3835053f9370077b9b4edf5cc5945de2e8edcbc7ab"
     },
     {
       "path": "packages/tools/editor/assets/catalog.json",
-      "sha256": "42cf31c1d9d9f22ccc0bba4f880bb560c68e83b9c95e1673d1cd5dcfc14f4dea"
+      "sha256": "20d79ca4edc2890827495c6837a166d37d8f4deb99377f5e0e17bc77dcbb91ba"
     },
     {
       "path": "packages/tools/editor/assets/previews/blend_0f68dad69a763090.png",
@@ -979,31 +968,31 @@
     },
     {
       "path": "packages/tools/editor/src/editor.css",
-      "sha256": "e6654b1c5369f039e2a71227e7e4d2ce4346abb48c223e8bc1df449b2ad91b37"
+      "sha256": "23b5408b73b0441d69e2784fed1dd8ac8452eebad7ccb1b32a6fe771aa1e8d97"
     },
     {
       "path": "packages/tools/editor/src/floor-plan-editor.css",
-      "sha256": "50f145fe475ed7a84e97ed416b7de1a54a98fad72c992752e018002ab74a181f"
+      "sha256": "5c34739ac2d2b2ece38b51bdbc623565ed8576af9761f1a466f6b4d97ef7337b"
     },
     {
       "path": "packages/tools/editor/src/projects.css",
-      "sha256": "8c0d57e3d21eb7981f21415a488365e1ee04597e19fa53cbe2247fc2e8146de9"
+      "sha256": "5e3d1d3a67c4351e6427d0c79956b4205817f5c22ca82f3a0b9f1fa02add88a6"
     },
     {
       "path": "packages/tools/editor/src/resources.css",
-      "sha256": "df7efabcfd25a0b6db0a9a188b8639f7af3a7f3bab7dd62d73f6de85c1cb609c"
+      "sha256": "a1590142f400640235ec8b594d35fb2a4dfae6e641ba1b2e4d4dd97382e8a70a"
     },
     {
       "path": "packages/tools/editor/src/scene-guide.css",
-      "sha256": "23782082025b3e28c6a76b18561fe6505dd35896e1761afd55944917821f84cf"
+      "sha256": "dacdd1608ab1711ce544fab8cf9ed7b829779b8ac98570ff750bb8baf5a8b96f"
     },
     {
       "path": "packages/tools/editor/src/scene-workspace.css",
-      "sha256": "71e787b3b01b111c2d7c02c091be05405897d46b812cbfe6118f2c5251907c47"
+      "sha256": "62c455c3b9813f5d39236442d39b8ea291898ee066d823596575adb6971478b4"
     },
     {
       "path": "packages/tools/editor/src/workspace-layout.css",
-      "sha256": "a4e1bc53385fa7fe968d530995fce4622f29d2a80d72abdd467f6fe90c92d19f"
+      "sha256": "c681c037d1870fef204dd36026f7a1f9b9f4172076fb266fa9dc37bc3c906b00"
     },
     {
       "path": "projects/smarttwin/branding/apple-touch-icon-114x114.png",
@@ -1051,7 +1040,7 @@
     },
     {
       "path": "projects/smarttwin/branding/smart-twin-mark.svg",
-      "sha256": "258a10eb7c355cd9dcc72b6c755ffcb3408873d467a2f37699764bdb8721021b"
+      "sha256": "5a7977cc8799059f0cf3dacae25d1f8b15e5d5a5dcd4ceb0886d32319f6c533d"
     },
     {
       "path": "projects/smarttwin/previews/advanced-packing.png",
@@ -1127,7 +1116,7 @@
     },
     {
       "path": "projects/smarttwin/previews/manifest.json",
-      "sha256": "10ded2b556c645c5d62b6ecb4977bde98c2b318a25ed0a8028381a1ff772f498"
+      "sha256": "1dbd92d432f1f795b9f9512a7f850d16cd8723387f3d2805b6e20c0ab2d79604"
     },
     {
       "path": "projects/smarttwin/previews/manual-station.png",
@@ -1183,7 +1172,7 @@
     },
     {
       "path": "projects/smarttwin/previews/vr-robot-dispatch.png",
-      "sha256": "d59599420d62ac7cecd1f603c2e658a6cefee31faf703421e39be13dbe3d4460"
+      "sha256": "2246a59afc3f35a10d7475556ed3f8e4a76b14156941f4de8bfd44389d26f760"
     },
     {
       "path": "projects/smarttwin/previews/vr-robot-transfer.png",
@@ -1192,6 +1181,10 @@
     {
       "path": "projects/smarttwin/previews/vr-robot-turn.png",
       "sha256": "5d554032df4017f988e9b6c787788320130e7dd3672947974cbb38c130c17c8f"
+    },
+    {
+      "path": "projects/smarttwin/previews/vr-warehouse-missions.png",
+      "sha256": "ea8cdc1a82329af3c2c6994ef653eb4a4c7ba2220e307f791c6b7aee1219ad3c"
     },
     {
       "path": "projects/smarttwin/scenes/advanced-packing.json",
@@ -1207,7 +1200,7 @@
     },
     {
       "path": "projects/smarttwin/scenes/catalog.json",
-      "sha256": "a3570cfa0c03def9daad68f189ff90ae4b3fbb5dd639d271d053a92b3e2bce59"
+      "sha256": "b025078724fe9ef14a27c8f096a10a1b4a64db312093c7ce585fa09ae9121597"
     },
     {
       "path": "projects/smarttwin/scenes/cedi-packing-robotics.json",
@@ -1323,29 +1316,33 @@
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-dispatch.json",
-      "sha256": "b7d7cf9e02feb42c16c2a2cfef01eb7f56614f583b502029202daeb28d25d04e"
+      "sha256": "551a19954ede789ef626f89cb9f905f41d55e99dc581388e29817d62aae0ec2d"
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-transfer.json",
-      "sha256": "afab5abd9fd491429e88e97740ebc0bf470088e4c8abd3d9e911ca2cc504a92e"
+      "sha256": "32cf84b9b55986117fc1ec00fc7412fee6e8cd5ef9bde4d1bdeba7f5be74968c"
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-turn.json",
-      "sha256": "4b3e0e73d7785c16d2cefb2e4a8b9f41e1aef3b1f762c43c1262f36310e9c212"
+      "sha256": "6de3305fe4ea8279f082329903179ab67eb64a20416e6a0812f9cfc3ff1d157f"
+    },
+    {
+      "path": "projects/smarttwin/scenes/vr-warehouse-missions.json",
+      "sha256": "223bc977b5fe65c479fce8fea548d8b013df2f2a775e29e1640f588d7886dec5"
     }
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "0c4563acf3a449b7f56f",
-    "statsSha256": "b338e1364f3ddcfa6f4a53f95c51f6f0854e626e5b52c7f4469c8ead435c1295",
+    "hash": "76bf4141ed3a161d0730",
+    "statsSha256": "468e13ed18a6b37d0de05440ddd04156c8cbc3956788d15252292026a2a03bf6",
     "assets": [
       {
         "path": "1.bundle.js",
-        "size": 7227
+        "size": 7452
       },
       {
         "path": "bundle.js",
-        "size": 3203755
+        "size": 3327112
       }
     ]
   }

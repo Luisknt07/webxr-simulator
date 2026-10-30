@@ -3,6 +3,9 @@
 // Preview applies only to bundled examples. User permissions and the saved
 // selection of two public rooms remain independent and reversible.
 const POLICY = Object.freeze({previewAllExamples: true});
+// Keep the bounded public URL stable, but use the maintained transfer lesson
+// rather than a separate demonstration layout.
+const PUBLIC_DEMO = Object.freeze({id: 'vr-robot-dispatch', templateId: 'vr-robot-transfer', name: 'RV · Transferencia guiada'});
 const SCENES = Object.freeze([
   Object.freeze({id: 'l-transfer', name: 'Transferencia rectangular a 90°', roomId: 'hall'}),
   Object.freeze({id: 'inspection-sorting', name: 'Inspección y clasificación', roomId: 'sound'})
@@ -24,4 +27,4 @@ function project(document, scene) {
     access: {role: 'public', canEdit: false, canShare: false}, allowedRoomIds: [scene.roomId], publicSceneId: scene.id};
 }
 
-module.exports = {POLICY, SCENES, project};
+module.exports = {POLICY, PUBLIC_DEMO, SCENES, project};

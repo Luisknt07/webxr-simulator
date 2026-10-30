@@ -9,6 +9,7 @@ import ProcessorRuntime from '../../procesamiento/runtime/ProcessorRuntime.js';
 import PalletQueueRuntime from '../../almacenamiento/runtime/PalletQueueRuntime.js';
 import RobotRuntime from '../../robots/runtime/RobotRuntime.js';
 import VehicleRuntime from '../../montacargas/runtime/VehicleRuntime.js';
+import VehicleTrainingRuntime from '../../montacargas/runtime/VehicleTrainingRuntime.js';
 
 const {normalizeBehaviors, simulationTypes} = behaviorSchema;
 const conveyorLayout = behaviorSchema.conveyorLayout;
@@ -107,6 +108,7 @@ export default class SimulationRuntime {
     this.palletQueueRuntime = new PalletQueueRuntime(this);
     this.robotRuntime = typeof RobotRuntime === 'function' ? new RobotRuntime(this) : null;
     this.vehicleRuntime = typeof VehicleRuntime === 'function' ? new VehicleRuntime(this) : null;
+    this.vehicleTraining = typeof VehicleTrainingRuntime === 'function' ? new VehicleTrainingRuntime(this) : null;
     this.productionAnalytics = new behaviorSchema.productionAnalytics.Recorder();
   }
 
@@ -208,6 +210,7 @@ export default class SimulationRuntime {
     });
     this.installProductInput();
     this.sourceRuntime.start();
+    if (this.vehicleTraining) this.vehicleTraining.prepare();
     this.refreshVariables();
     this.productionAnalytics.reset(Array.from(this.records.values()).filter(record => this.machineComponent(record)).length);
     this.observeProduction(0); this.productionAnalytics.sample(0, true);
@@ -1585,6 +1588,7 @@ export default class SimulationRuntime {
         this.palletQueueRuntime.step(step);
         if (this.robotRuntime) this.robotRuntime.step(step);
         if (this.vehicleRuntime) this.vehicleRuntime.step(step);
+        if (this.vehicleTraining) this.vehicleTraining.step(step);
         this.records.forEach(record => this.transport(record, step));
         this.scopeGroups.forEach(group => {
           if (group.memberIds.some(id => this.records.get(id).components.conveyor.actualSpeed !== 0)) group.runSeconds += step;
@@ -2082,6 +2086,7 @@ export default class SimulationRuntime {
   }
 
   disposePackage(item) {
+    if (this.palletQueueRuntime && this.palletQueueRuntime.removeIdentification) this.palletQueueRuntime.removeIdentification(item.mesh);
     this.productFeedback.remove(item.mesh);
     if (item.authored) {
       if (!this.stopping && item.mesh.parent) {

@@ -251,9 +251,15 @@ export function restoreSimulation(runtime, saved, options = {}) {
         registry.add(descriptor.key, object);
         loadIdentities.set(object, descriptor.identity);
       }
-      if (descriptor.metadata && typeof descriptor.metadata === 'object') Object.keys(descriptor.metadata).forEach(key => {
-        if (key.startsWith('source') || key === 'productUnits') object.userData[key] = descriptor.metadata[key];
-      });
+      if (descriptor.metadata && typeof descriptor.metadata === 'object') {
+        // A fresh start can seed a rack address which was already cleared in
+        // the saved carrying state. Restore the managed snapshot exactly;
+        // merging would resurrect an old address or destination on the label.
+        Object.keys(object.userData).forEach(key => { if (key.startsWith('source') || key === 'productUnits') delete object.userData[key]; });
+        Object.keys(descriptor.metadata).forEach(key => {
+          if (key.startsWith('source') || key === 'productUnits') object.userData[key] = descriptor.metadata[key];
+        });
+      }
       object.name = typeof descriptor.name === 'string' ? descriptor.name.slice(0, 200) : object.name;
       const product = prior || (descriptor.active ? runtime.registerProduct(object, record || null, null) : {object, record: record || null});
       registry.add('product:' + index, product);
@@ -313,6 +319,7 @@ export function restoreSimulation(runtime, saved, options = {}) {
       }
       const vehicle = record.components.vehicle;
       if (vehicle) {
+        if (runtime.vehicleTraining && !runtime.vehicleTraining.validateState(record)) error('el progreso de la práctica de almacén está dañado.');
         if (vehicle.entry && (!vehicle.entry.product || vehicle.entry.product.vehicleOwnerId !== record.id || !Array.isArray(vehicle.queue) || !vehicle.queue.includes(vehicle.entry))) error('el vehículo perdió la propiedad de su carga.');
         if (vehicle.missionCandidate && vehicle.missionCandidate.vehicleReservedBy !== record.id) error('la reserva de recogida del vehículo está dañada.');
         const pose = vehicle.pose, numeric = ['lift', 'tilt', 'reach', 'sideShift', 'turret', 'steer', 'wheelRoll', 'boomAngle'];
@@ -378,6 +385,7 @@ export function restoreSimulation(runtime, saved, options = {}) {
       const belt = record.components.conveyor;
       if (belt) { if (belt.entryUnits === undefined) belt.entryUnits = belt.entryCount; if (belt.exitUnits === undefined) belt.exitUnits = belt.exitCount; }
     });
+    if (runtime.palletQueueRuntime.syncIdentification) runtime.palletQueueRuntime.syncIdentification(true);
     runtime.refreshVariables();
     if (runtime.productionAnalytics) { runtime.observeProduction(0); runtime.productionAnalytics.importState(state.productionAnalytics); }
     if (runtime.ctx.collisionWorld) runtime.ctx.collisionWorld.invalidate();

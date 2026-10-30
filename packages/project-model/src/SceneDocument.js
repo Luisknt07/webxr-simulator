@@ -62,6 +62,11 @@ function remapBehaviorReferences(behaviors, references, clearExternal = false) {
       rules.forEach(rule => { if (references.has(rule.outputId)) rule.outputId = references.get(rule.outputId); });
       behavior.destinationRulesJson = JSON.stringify(rules);
     }
+    if (behavior.type === 'vehicle' && behavior.trainingTasksJson) {
+      const tasks = JSON.parse(behavior.trainingTasksJson).filter(task => !clearExternal || ['productId','sourceId','destinationId'].every(key => references.has(task[key])));
+      tasks.forEach(task => ['productId','sourceId','destinationId'].forEach(key => { if (references.has(task[key])) task[key] = references.get(task[key]); }));
+      behavior.trainingTasksJson = JSON.stringify(tasks);
+    }
     if (behavior.type === 'automation') {
       // A copied machine retains its own controls. Rules involving a machine
       // outside the copied subtree need a new local binding in another level.
@@ -335,8 +340,21 @@ export default class SceneDocument {
 
   setBehaviors(object, value) {
     this._requireObject(object);
-    const behaviors = normalizeBehaviors(value);
+    const oldRack=this.getBehaviors(object).find(config=>config.type==='palletQueue'&&behaviorSchema.warehouseRacks.isRack(config));
+    const behaviors = this._withRackAddress(normalizeBehaviors(value), object.userData.editorRoom, object.userData.editorId, !oldRack);
     return this._action(() => { object.userData.editorBehaviors = behaviors; this._syncConveyor(object); });
+  }
+
+  _withRackAddress(behaviors, roomId, excludeId, allocate = false) {
+    const schema=behaviorSchema.warehouseRacks, config=behaviors.find(value=>value.type==='palletQueue'&&schema.isRack(value));
+    if(!config)return behaviors;
+    const others=Array.from(this.additions.values()).filter(entry=>entry.id!==excludeId&&entry.roomId===String(roomId)).map(entry=>this.getBehaviors(entry.object).find(value=>value.type==='palletQueue'&&schema.isRack(value))).filter(Boolean);
+    const used=new Set(others.map(value=>schema.addressPrefix(value))), next=Object.assign({},config);
+    if(allocate&&used.has(schema.addressPrefix(next))){let index=1;do{next.rackRowCode='R'+String(index++).padStart(2,'0');}while(used.has(schema.addressPrefix(next))&&index<10001);}
+    if(used.has(schema.addressPrefix(next)))throw Error('El pasillo y la fila ya existen. Asigna otro código de fila para evitar ubicaciones duplicadas.');
+    const assigned=new Set(others.flatMap(value=>schema.assignments(value).map(row=>row.palletId)));
+    if(schema.assignments(next).some(row=>assigned.has(row.palletId)))throw Error('Ese pallet ya tiene una ubicación reservada en otra estantería. Libera la reserva anterior.');
+    return behaviors.map(value=>value===config?schema.normalize(next):value);
   }
 
   _syncConveyor(object) {
@@ -375,11 +393,12 @@ export default class SceneDocument {
     if (config.type === 'conveyor') keys.push('supportHeight');
     if (config.type === 'palletQueue') keys.push(...behaviorSchema.warehouseRacks.FIELDS.map(field => field.key));
     const signature = JSON.stringify(keys.map(key => config[key]));
-    if (this.conveyorSignatures.get(content) === signature) { if (entry) this._syncConveyorActors(entry, config); return; }
+    if (this.conveyorSignatures.get(content) === signature) { if (entry) {this._syncConveyorActors(entry, config); this._syncStorageActors(entry,config);} return; }
     const replacement = this.visuals.get(object.userData.editorId);
     if (replacement) this._setVisual(object, null);
     createIndustrialPrefab.refresh(content, config);
     if (entry) this._syncConveyorActors(entry, config);
+    if (entry) this._syncStorageActors(entry, config);
     this.conveyorSignatures.set(content, signature);
     if (object.userData.editorColor) this._applyColor(object, object.userData.editorColor);
     if (replacement) this._setVisual(object, replacement);
@@ -400,6 +419,18 @@ export default class SceneDocument {
     sensor.userData.editorRoom = entry.roomId; sensor.userData.editorNative = false;
     sensor.userData.editorDefaultBehaviors = normalizeBehaviors(remapBehaviorReferences(sensor.userData.editorDefaultBehaviors || [], new Map([['@root', entry.id]])));
     entry.nodes.set(path, sensor); this.objects.set(sensor.userData.editorId, sensor);
+  }
+
+  _syncStorageActors(entry, config) {
+    if(!entry||entry.descriptor.prefab!=='palletQueue')return;
+    const content=entry.object.children[0], panel=content&&content.children[1];
+    const current=new Map();
+    if(panel&&!behaviorSchema.warehouseRacks.isRack(config)){
+      const visit=(node,path)=>{if(node.userData.editorPrefabNode){node.userData.editorId=entry.id+'/'+path;node.userData.editorRoom=entry.roomId;node.userData.editorNative=false;node.userData.editorDefaultBehaviors=normalizeBehaviors(remapBehaviorReferences(node.userData.editorDefaultBehaviors||[],new Map([['@root',entry.id]])));current.set(path,node);}node.children.forEach((child,index)=>visit(child,path+'.'+index));};
+      visit(panel,'1');
+    }
+    for(const [path,node]of entry.nodes)if(/^1(?:\.|$)/.test(path)&&current.get(path)!==node){entry.nodes.delete(path);this.objects.delete(node.userData.editorId);}
+    current.forEach((node,path)=>{entry.nodes.set(path,node);this.objects.set(node.userData.editorId,node);});
   }
 
   _enforceConveyorOptions(object) {
@@ -851,7 +882,8 @@ export default class SceneDocument {
     object.userData.editorInteraction = record ? clone(record.interaction) : {type: 'none'};
     const defaults = normalizeBehaviors(remapBehaviorReferences(content.userData.editorDefaultBehaviors || [], new Map([['@root', id]])));
     object.userData.editorDefaultBehaviors = defaults;
-    object.userData.editorBehaviors = normalizeBehaviors(record && record.behaviors || defaults);
+    object.userData.editorBehaviors = record?normalizeBehaviors(record.behaviors||defaults):this._withRackAddress(defaults,roomId,id,true);
+    if(!record)object.userData.editorDefaultBehaviors=clone(object.userData.editorBehaviors);
     if (descriptor.prefab) object.userData.editorPrefabKey = content.userData.editorPrefabKey;
     if (content.userData.editorPrefabVariant) object.userData.editorPrefabVariant = content.userData.editorPrefabVariant;
     if (content.userData.editorConveyorTop !== undefined) object.userData.editorConveyorTop = content.userData.editorConveyorTop;
@@ -1138,6 +1170,10 @@ export default class SceneDocument {
     }
     prepared.record.id = this._newId();
     prepared.record.name = (prepared.record.name || 'Objeto').slice(0, 154) + ' copia';
+    if(prepared.record.behaviors){
+      const rack=prepared.record.behaviors.find(value=>value.type==='palletQueue'&&behaviorSchema.warehouseRacks.isRack(value));
+      if(rack){rack.rackAssignments='[]';prepared.record.behaviors=this._withRackAddress(normalizeBehaviors(prepared.record.behaviors),roomId,null,true);}
+    }
     const cadAttachment=prepared.record.descriptor&&prepared.record.descriptor.type==='cad'&&prepared.record.descriptor.attachment;
     if(cadAttachment&&!options.deferExternalReferences){
       const target=this.getObject(cadAttachment.targetId);
@@ -1380,18 +1416,27 @@ export default class SceneDocument {
         ids.add(item.id);
         return Object.assign({id: item.id}, validateState(item, true));
       });
+      const rackPrefixes=new Set(), plannedPallets=new Set();
       const additions = value.additions.map(item => {
         if (!isPlain(item) || typeof item.id !== 'string' || !/^custom-[a-zA-Z0-9_-]{1,150}$/.test(item.id) || ids.has(item.id)) {
           throw new Error('Identificador de objeto inválido o duplicado.');
         }
         ids.add(item.id);
         const record = Object.assign({id: item.id, name: nameValue(item.name), descriptor: descriptorValue(item.descriptor), interaction: interactionValue(item.interaction)}, validateState(item, false));
+        const rack=record.behaviors&&record.behaviors.find(value=>value.type==='palletQueue'&&behaviorSchema.warehouseRacks.isRack(value));
+        if(rack){
+          const schema=behaviorSchema.warehouseRacks, saved=(item.behaviors||[]).find(value=>value.type==='palletQueue')||{};
+          if(!saved.rackAisleCode||!saved.rackRowCode){let index=1;while(rackPrefixes.has(schema.addressPrefix(rack))&&index<10001)rack.rackRowCode='R'+String(index++).padStart(2,'0');}
+          const prefix=schema.addressPrefix(rack);if(rackPrefixes.has(prefix))throw Error('El escenario contiene filas de almacén con códigos duplicados: '+prefix+'.');rackPrefixes.add(prefix);
+          for(const row of schema.assignments(rack)){if(plannedPallets.has(row.palletId))throw Error('Un pallet tiene más de un destino reservado en el escenario.');plannedPallets.add(row.palletId);}
+        }
         if (item.nodes !== undefined) {
           if (!(record.descriptor.nativeId || record.descriptor.prefab) || !isPlain(item.nodes)) throw new Error('Componentes descendientes inválidos.');
           record.nodes = {};
           Object.keys(item.nodes).forEach(path => {
             if (!/^\d+(?:\.\d+)*$/.test(path) || path.length > 200 || !isPlain(item.nodes[path])) throw new Error('Ruta de componente descendiente inválida.');
             count++;
+            if(rack&&record.descriptor.prefab==='palletQueue'&&/^1(?:\.|$)/.test(path))return;
             // Retired built-in loading box/table and outlet pallets: preserve the remaining actor
             // paths without restoring their old bodies or replacement assets.
             if (record.descriptor.prefab === 'conveyor') {

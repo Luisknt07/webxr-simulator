@@ -20,12 +20,12 @@ async function authoring(){
  const producer=add(f,'source',{autoGenerate:false,initialCount:0},[-50,1,0]),receiver=add(f,'source',{autoGenerate:false,initialCount:0},[50,1,0]);
  for(const system of racks.SYSTEMS){
   const actor=add(f,'palletQueue',{},[actors.length*12,1,16],system.id),initial=config(f,actor),content=actor.children[0],holder=content.children[0],panel=content.children[1],hardware=controls(f,actor),before=bounds(holder).getSize(new THREE.Vector3());
-  assert.equal(initial.rackSystem,system.id);assert.equal(actor.userData.editorDescriptor.variant,system.id);assert(content.userData.warehouseRackRig);assert(hardware.length>=4);
+  assert.equal(initial.rackSystem,system.id);assert.equal(actor.userData.editorDescriptor.variant,system.id);assert(content.userData.warehouseRackRig);assert.equal(hardware.length,0);assert.equal(panel.children.length,0);
   patch(f,actor,{rackBayWidth:initial.rackBayWidth+.3,outputId:id(receiver),outputPort:'input',withPanel:false});
   const revised=config(f,actor);assert.equal(content.children[0],holder);assert.equal(content.children[1],panel);assert.equal(panel.visible,false);assert.deepEqual(controls(f,actor),hardware);
   assert(bounds(holder).getSize(new THREE.Vector3()).x>before.x+.1,'Changing module width changes real '+system.id+' geometry.');
   actors.push(actor);hardware.forEach(node=>assert.equal(config(f,node,'control').targetId,id(actor)));
-  const copy=await f.document.pasteObject(f.document.captureObject(actor),'hall',3);assert.notEqual(id(copy),id(actor));assert.deepEqual(config(f,copy),revised);assert.equal(copy.userData.editorDescriptor.variant,system.id);controls(f,copy).forEach(node=>assert.equal(config(f,node,'control').targetId,id(copy)));
+  const copy=await f.document.pasteObject(f.document.captureObject(actor),'hall',3);assert.notEqual(id(copy),id(actor));assert.notEqual(config(f,copy).rackRowCode,revised.rackRowCode);assert.deepEqual(Object.assign({},config(f,copy),{rackRowCode:revised.rackRowCode,rackAssignments:revised.rackAssignments}),revised);assert.equal(copy.userData.editorDescriptor.variant,system.id);assert.equal(controls(f,copy).length,0);
   assert.equal(config(f,copy).outputId,id(receiver),'Same-room copies preserve deliberate external output references.');
   const across=await f.document.pasteObject(f.document.captureObject(actor),'sound',0);assert.equal(config(f,across).outputId,'','Cross-level copies clear out-of-level references.');assert.equal(config(f,across).rackSystem,system.id);
  }
@@ -34,9 +34,9 @@ async function authoring(){
  assert.equal(config(reopened,reopened.document.getObject(id(producer))).outputId,id(actors[0]));
  const legacy=add(f,'palletQueue'),holder=legacy.children[0].children[0],panel=legacy.children[0].children[1],hardware=controls(f,legacy);
  patch(f,legacy,Object.assign({},racks.defaults('selective'),{rackBays:1,rackColumns:1,rackLevels:2,outputId:id(receiver)}));assert(legacy.children[0].userData.warehouseRackRig);assert.equal(legacy.children[0].children[0],holder);
- f.document.setBehaviors(legacy,[Object.assign(schema.defaultBehavior('palletQueue'),{rackSystem:'floor',outputId:id(receiver)})]);assert(!legacy.children[0].userData.warehouseRackRig);assert.equal(legacy.userData.editorDescriptor.variant,undefined);assert.equal(legacy.children[0].children[1],panel);assert.deepEqual(controls(f,legacy),hardware);assert.equal(config(f,legacy).outputId,id(receiver));assert(holder.children[0].userData.industrialPalletWoodSize);
+ f.document.setBehaviors(legacy,[Object.assign(schema.defaultBehavior('palletQueue'),{rackSystem:'floor',outputId:id(receiver)})]);assert(!legacy.children[0].userData.warehouseRackRig);assert.equal(legacy.userData.editorDescriptor.variant,undefined);assert.equal(controls(f,legacy).length,hardware.length);controls(f,legacy).forEach(node=>assert.equal(config(f,node,'control').targetId,id(legacy)));assert.equal(config(f,legacy).outputId,id(receiver));assert(holder.children[0].userData.industrialPalletWoodSize);
  assert(f.document.undo());assert(legacy.children[0].userData.warehouseRackRig);assert.equal(config(f,legacy).rackSystem,'selective');assert(f.document.redo());assert(!legacy.children[0].userData.warehouseRackRig);
- console.log('Rack authoring: all14 real factory variants resize, retain HMI/control IDs, copy/load references correctly and switch floor↔rack↔floor with real visual undo.');
+ console.log('Rack authoring: all14 factory variants resize without physicalHMI, copy to unique addresses, load references correctly and switch floor↔rack↔floor with real visual undo.');
 }
 
 async function flow(system){

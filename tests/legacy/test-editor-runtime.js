@@ -368,7 +368,8 @@ const resolveProject = new Function(sourceFor('ProjectResolver.js').replace('exp
 const recorderSource = sourceFor('TelemetryRecorder.js').replace(/export default class /g, 'class ').replace(/export function /g, 'function ') +
   '\nreturn {TelemetryRecorder, csv};';
 const {TelemetryRecorder, csv} = new Function(recorderSource)();
-const SimulationPanel = loadClass('SimulationPanel.js', Object.assign({}, browserGlobals, {TelemetryClient, TelemetryRecorder, csv}));
+const RackLocationPanel = require('../../modules/logistica-industrial/functions/almacenamiento/ui/RackLocationPanel.cjs');
+const SimulationPanel = loadClass('SimulationPanel.js', Object.assign({}, browserGlobals, {TelemetryClient, TelemetryRecorder, csv, RackLocationPanel}));
 const adapterSource = sourceFor('NativeBehaviorAdapters.js').replace(/export function /g, 'function ') +
   '\nreturn {installNativeBehaviorAdapters, canvasCard};';
 const {installNativeBehaviorAdapters, canvasCard} = new Function(...Object.keys(browserGlobals), adapterSource)(...Object.values(browserGlobals));
@@ -378,7 +379,7 @@ const nativeSource = sourceFor('NativeBindings.js').replace(/export function /g,
 const nativeBindings = new Function(nativeSource)();
 const SceneEditor = loadClass('SceneEditor.js', Object.assign({}, browserGlobals, nativeBindings,
   {OrbitControls, TransformControls, AssetLibrary, AssetThumbnails, DecalSystem, SurfaceMaterialSystem, WearPaintSystem, WearBrush, MaterialInspector, ConveyorAssembly, ObjectAssembly, EquipmentPlacement, SceneDocument, InteractionRuntime, BehaviorRuntime, InfoPanelPreview,
-    SimulationRuntime, SimulationPanel, IndustrialVisuals, IndustrialAudioSystem, LineMonitorSystem, CollisionWorld, ScenePerformance, industrialPrefabs, installNativeBehaviorAdapters, ProjectClient, ProjectLibrary, ProjectSync, resolveProject, ProjectAccessView, ProjectSharing, EditorShell, ResourceBrowser,
+    SimulationRuntime, SimulationPanel, RackLocationPanel, IndustrialVisuals, IndustrialAudioSystem, LineMonitorSystem, CollisionWorld, ScenePerformance, industrialPrefabs, installNativeBehaviorAdapters, ProjectClient, ProjectLibrary, ProjectSync, resolveProject, ProjectAccessView, ProjectSharing, EditorShell, ResourceBrowser,
     resourceUsage: () => [], removeResource: () => { throw new Error('Resource operations use their independent tests.'); }}));
 
 const ROOM_IDS = ['hall', 'sound', 'photogrammetry', 'vertigo', 'panoramastereo', 'panorama1', 'panorama2', 'panorama3', 'panorama4', 'panorama5'];

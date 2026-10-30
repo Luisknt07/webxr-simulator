@@ -15,7 +15,7 @@ function fixture(t){
 }
 test('Pages receives only one verified scene, even with sensitive repository siblings',t=>{
  const root=fixture(t);fs.mkdirSync(path.join(root,'data'));fs.writeFileSync(path.join(root,'data/private.sqlite'),'private');fs.writeFileSync(path.join(root,'.env'),'secret fixture');
- const result=preparePages({root,revision:'a'.repeat(40)});assert.equal(result.files,7);assert.equal(result.publication.revision,'a'.repeat(40));assert.equal(fs.existsSync(path.join(result.target,'data')),false);assert.equal(fs.existsSync(path.join(result.target,'.env')),false);assert.equal(fs.existsSync(path.join(result.target,'.nojekyll')),true);
+ const result=preparePages({root,revision:'a'.repeat(40)});assert.equal(result.files,9);assert.equal(result.publication.revision,'a'.repeat(40));assert.equal(fs.existsSync(path.join(result.target,'data')),false);assert.equal(fs.existsSync(path.join(result.target,'.env')),false);assert.equal(fs.existsSync(path.join(result.target,'.nojekyll')),true);
 });
 test('publication rejects tampered code and unlisted files',t=>{
  const root=fixture(t),dir=path.join(root,'artifacts/public-viewer'),code=path.join(dir,'viewer.js'),original=fs.readFileSync(code);

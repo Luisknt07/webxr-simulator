@@ -5,7 +5,7 @@ function visible(object) { for (let node = object; node; node = node.parent) if 
 
 /** A physical, independent pallet store. It receives existing loads only. */
 export default class PalletQueueRuntime {
-  constructor(runtime) { this.runtime = runtime; this.sequence = 0; }
+  constructor(runtime) { this.runtime = runtime; this.sequence = 0; this.identificationLabels = new Map(); this.nextIdentificationAt = 0; }
 
   attach(record, component) {
     const config = behaviorSchema.palletQueues.settings(component.config), helper = new THREE.Group(); component.config = config;
@@ -32,7 +32,8 @@ export default class PalletQueueRuntime {
     component.rackSelectedSlot = config.rackSelectedSlot || 0; component.rackOpenAisle = config.rackOpenAisle || 0; component.rackMechanismSpeed = config.rackMechanismSpeed || .25;
     component.rack = {system: config.rackSystem, layout, definition: layout.definition, banks, carriage,
       homes: banks.map(node => node.position.clone()), carriageHome: carriage && carriage.position.clone(), openAisle: component.rackOpenAisle,
-      jobs: [], mobile: null, presentedSlot: null, preparedLane:null, carts, cartHomes:carts.map(cart=>cart.position.clone()), cartMotion:null, status: 'Disponible', blocked: false};
+      jobs: [], mobile: null, presentedSlot: null, preparedLane:null, carts, cartHomes:carts.map(cart=>cart.position.clone()), cartMotion:null,
+      assignments: behaviorSchema.warehouseRacks.assignments(config).map(row=>Object.assign({},row)), status: 'Disponible', blocked: false};
     record.writable.push({key:'rackSelectedSlot',type:'number',label:'Posición solicitada',min:0,max:layout.cells.length-1},
       {key:'rackOpenAisle',type:'number',label:'Pasillo solicitado',min:0,max:Math.max(0, config.rackBanks-1)},
       {key:'rackMechanismSpeed',type:'number',label:'Velocidad de estantería',min:.05,max:1});
@@ -43,6 +44,118 @@ export default class PalletQueueRuntime {
   rackLocked(component) { return component.items.some(item => {const p=item.product;return p.heldBy||p.robotOwnerId||p.robotReservedBy||p.vehicleOwnerId||p.vehicleReservedBy;}); }
   rackAutomatic(component) { return component.rack && ['lift','miniload'].includes(component.rack.definition.mechanism); }
   rackMass(item) { return Math.max(0, Number(this.runtime.productMetadata(item.product).mass) || 0); }
+
+  /** A load ID is independent of its SKU and of every storage address. */
+  palletIdentity(product) {
+    if (!product || !product.object) return '';
+    const data=product.object.userData;
+    // Once assigned, a generated load keeps that unit ID even when a later
+    // belt/manual handoff creates its first inventory-custody entry.
+    const id=product.record&&product.record.id || data.sourcePalletId || product.sourceEntry&&product.sourceEntry.id || data.sourceProductId || 'load:'+product.object.uuid;
+    if (!behaviorSchema.warehouseRacks.palletIdentifier(id)) throw new Error('El identificador de pallet no es válido.');
+    return id;
+  }
+
+  plannedLocation(palletId) {
+    let found=null;
+    this.runtime.records.forEach(record=>{
+      const c=record.components.palletQueue;
+      if(!c||!c.rack)return;
+      for(const row of c.rack.assignments||[])if(row.palletId===palletId) {
+        if(found)throw new Error('Un pallet tiene más de una ubicación reservada. Libera la asignación duplicada.');
+        found={record,locationCode:row.locationCode,palletId};
+      }
+    });
+    return found;
+  }
+
+  locations(record) {
+    const c=record&&record.components.palletQueue;if(!c||!c.rack)return [];
+    const assigned=new Map((c.rack.assignments||[]).map(row=>[row.locationCode,row.palletId]));
+    return c.rack.layout.cells.map(cell=>{
+      const item=c.items.find(item=>item.palletIndex===cell.index),palletId=item?this.palletIdentity(item.product):'';
+      return {index:cell.index,code:cell.code,aisleCode:cell.aisleCode,rowCode:cell.rowCode,bank:cell.bank,bay:cell.bay,level:cell.level,column:cell.column,depthIndex:cell.depthIndex,
+        status:palletId?'occupied':assigned.has(cell.code)?'reserved':'free',palletId,assignedPalletId:assigned.get(cell.code)||palletId,
+        capacityKg:cell.capacityKg,width:cell.width,depth:cell.depth,clearHeight:cell.clearHeight};
+    });
+  }
+
+  assignLocation(record, value) {
+    const c=record&&record.components.palletQueue;if(!c||!c.rack)throw new Error('Selecciona una estantería.');
+    if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('Selecciona una ubicación y un pallet.');
+    const row=behaviorSchema.warehouseRacks.assignmentRows(JSON.stringify([{locationCode:value.locationCode,palletId:value.palletId}]))[0],cell=c.rack.layout.cells.find(cell=>cell.code===row.locationCode);
+    if(!cell)throw new Error('La ubicación no existe en esta estantería.');
+    const occupant=c.items.find(item=>item.palletIndex===cell.index);
+    if(occupant&&this.palletIdentity(occupant.product)!==row.palletId)throw new Error('La ubicación está ocupada por otro pallet.');
+    const product=Array.from(this.runtime.products.values()).find(product=>this.palletIdentity(product)===row.palletId);
+    if(product){
+      const metadata=this.runtime.productMetadata(product),pallet=metadata.loadMode==='pallet'||metadata.productType==='pallet',size=product.bounds.getSize(new THREE.Vector3()).multiply(product.scale);
+      if(c.rack.definition.acceptedLoad==='pallet'&&!pallet||c.rack.definition.acceptedLoad==='individual'&&pallet)throw new Error('Este tipo de carga no es compatible con la estantería.');
+      if(Math.abs(size.x)>cell.width+.001||Math.abs(size.z)>cell.depth+.001||Math.abs(size.y)>cell.clearHeight+.001||Number(metadata.mass)>cell.capacityKg+.001)throw new Error('La carga no cabe o supera la capacidad de esta ubicación.');
+    }
+    this.runtime.records.forEach(other=>{
+      const store=other.components.palletQueue;if(other===record||!store||!store.rack)return;
+      if(store.rack.layout.cells.some(candidate=>candidate.code===cell.code))throw new Error('El código de ubicación se repite en otra estantería. Cambia su pasillo o fila.');
+      if((store.rack.assignments||[]).some(candidate=>candidate.palletId===row.palletId))throw new Error('Este pallet ya tiene una ubicación reservada en otra estantería. Libérala primero.');
+    });
+    const current=(c.rack.assignments||[]).find(candidate=>candidate.locationCode===cell.code);
+    if(current&&current.palletId!==row.palletId)throw new Error('La ubicación está reservada para otro pallet.');
+    c.rack.assignments=(c.rack.assignments||[]).filter(candidate=>candidate.palletId!==row.palletId&&candidate.locationCode!==cell.code);
+    if(!occupant)c.rack.assignments.push(row);
+    c.rack.status=occupant?'Pallet confirmado en '+cell.code:'Ubicación reservada: '+cell.code;
+    this.syncIdentification(true);return true;
+  }
+
+  clearLocationAssignment(record, locationCode) {
+    const c=record&&record.components.palletQueue;if(!c||!c.rack)return false;
+    if(typeof locationCode!=='string'||!c.rack.layout.cells.some(cell=>cell.code===locationCode))throw new Error('La ubicación no existe en esta estantería.');
+    const previous=(c.rack.assignments||[]).length;
+    c.rack.assignments=(c.rack.assignments||[]).filter(row=>row.locationCode!==locationCode);
+    if(previous===c.rack.assignments.length)return false;
+    c.rack.status='Reserva liberada: '+locationCode;this.syncIdentification(true);return true;
+  }
+
+  assignmentAllows(record, product, cell) {
+    const c=record.components.palletQueue,palletId=this.palletIdentity(product),plan=this.plannedLocation(palletId);
+    if(plan&&(plan.record!==record||plan.locationCode!==cell.code))return false;
+    return !(c.rack.assignments||[]).some(row=>row.locationCode===cell.code&&row.palletId!==palletId);
+  }
+
+  identifyStored(record,item) {
+    const cell=this.rackCell(record.components.palletQueue,item.palletIndex);if(!cell)return;
+    Object.assign(item.product.object.userData,{sourcePalletId:this.palletIdentity(item.product),sourceRackLocationCode:cell.code,sourceRackLocationOwner:record.id});
+  }
+
+  syncIdentification(force=false) {
+    const now=this.runtime.time||0;if(!force&&now<this.nextIdentificationAt)return;this.nextIdentificationAt=now+.25;
+    const products=Array.from(this.runtime.products.values()),active=new Set(products.map(product=>product.object));
+    const visual=behaviorSchema.warehouseRackVisual;
+    const release=state=>{if(state.root.parent)state.root.parent.remove(state.root);if(visual&&visual.disposeVisual)visual.disposeVisual(state.root);};
+    this.identificationLabels.forEach((state,object)=>{if(!active.has(object)){release(state);this.identificationLabels.delete(object);}});
+    const plans=new Map();this.runtime.records.forEach(record=>{const c=record.components.palletQueue;if(c&&c.rack)(c.rack.assignments||[]).forEach(row=>plans.set(row.palletId,row.locationCode));});
+    products.forEach(product=>{
+      const data=product.object.userData,id=this.palletIdentity(product),destination=plans.get(id)||'';
+      if(!data.sourcePalletId&&!data.sourceRackLocationCode&&!destination&&!data.sourceRackLastLocationCode)return;
+      data.sourcePalletId=id;data.sourceRackDestinationCode=destination;
+      const location=destination||data.sourceRackLocationCode||data.sourceRackLastLocationCode,
+        caption=location?(destination?'A ':data.sourceRackLocationCode?'EN ':'DE ')+location:'SIN UBICACION',key=id+'|'+caption,old=this.identificationLabels.get(product.object);
+      if(old&&old.key===key)return;if(old){release(old);this.identificationLabels.delete(product.object);}
+      if(!visual||!visual.createLocationLabel)return;
+      const size=product.bounds.getSize(new THREE.Vector3()),width=Math.min(1.08,Math.max(.3,size.x*.88)),height=.07;
+      const root=new THREE.Group();root.name='Identificación física del pallet';root.userData.editorRuntimeHelper=true;root.userData.editorCollisionDisabled=true;
+      const first=visual.createLocationLabel(THREE,id,{width,height}),second=visual.createLocationLabel(THREE,caption,{width,height});
+      first.position.y=height*.55;second.position.y=-height*.55;root.add(first,second);
+      root.position.set((product.bounds.min.x+product.bounds.max.x)/2,product.bounds.min.y+.12,product.bounds.max.z+.012);product.object.add(root);
+      this.identificationLabels.set(product.object,{key,root});
+    });
+  }
+
+  removeIdentification(object) {
+    const state=this.identificationLabels.get(object);if(!state)return;
+    if(state.root.parent)state.root.parent.remove(state.root);
+    if(behaviorSchema.warehouseRackVisual&&behaviorSchema.warehouseRackVisual.disposeVisual)behaviorSchema.warehouseRackVisual.disposeVisual(state.root);
+    this.identificationLabels.delete(object);
+  }
 
   rackMatrix(record, product, point) {
     record.object.updateWorldMatrix(true, false);
@@ -94,7 +207,8 @@ export default class PalletQueueRuntime {
     if(definition.acceptedLoad==='pallet'&&!pallet||definition.acceptedLoad==='individual'&&pallet)return null;
     const item=this.itemFor(product),physical=item.bounds.getSize(new THREE.Vector3()).multiply(item.scale),mass=Math.max(0,Number(metadata.mass)||0);
     const occupied=new Set(component.items.map(value=>value.palletIndex));reservations.forEach(value=>occupied.add(value.palletIndex));
-    let cells=state.layout.cells.filter(cell=>!occupied.has(cell.index));
+    const palletId=this.palletIdentity(product),plan=this.plannedLocation(palletId),assigned=new Map((state.assignments||[]).map(row=>[row.locationCode,row.palletId]));
+    let cells=state.layout.cells.filter(cell=>!occupied.has(cell.index)&&(!plan||plan.record===record&&plan.locationCode===cell.code)&&(!assigned.has(cell.code)||assigned.get(cell.code)===palletId));
     if(connectionOnly&&!this.rackAutomatic(component))cells=cells.filter(cell=>this.rackAtPort(component,cell,false));
     if(definition.mechanism==='mobile')cells=cells.filter(cell=>cell.bank===state.openAisle);
     if(['lifo','fifo'].includes(definition.policy))cells=cells.filter(cell=>{
@@ -114,7 +228,7 @@ export default class PalletQueueRuntime {
       const point=this.rackAutomatic(component)?state.layout.accessPosition:this.rackPoint(component,cell),matrix=this.rackMatrix(record,product,point),box=product.bounds.clone().applyMatrix4(matrix),world=this.runtime.ctx.collisionWorld;
       const options=this.collisionOptions(record,item,reservations);if(typeof receivingIgnore==='function')options.ignore.push(...receivingIgnore(matrix));
       if(world&&world.testBox(box,options))continue;
-      const candidate={slot:0,globalSlot:cell.index,palletIndex:cell.index,matrix,bounds:box,box,height:Math.abs(physical.y),mass,rackStorageCell:cell.index};
+      const candidate={slot:0,globalSlot:cell.index,palletIndex:cell.index,locationCode:cell.code,palletId,matrix,bounds:box,box,height:Math.abs(physical.y),mass,rackStorageCell:cell.index};
       if(!preferredCenter)return candidate;
       const distance=preferredCenter.distanceTo(box.getCenter(new THREE.Vector3()));if(!best||distance<best.distance)best=Object.assign(candidate,{distance});
     }
@@ -138,6 +252,9 @@ export default class PalletQueueRuntime {
   rackAfterReceive(record,item) {
     const component=record.components.palletQueue;if(!component.rack)return;
     const state=component.rack,cell=this.rackCell(component,item.palletIndex);if(state.preparedLane===cell.lane)state.preparedLane=null;
+    const palletId=this.palletIdentity(item.product);
+    state.assignments=(state.assignments||[]).filter(row=>row.palletId!==palletId);
+    this.identifyStored(record,item);this.syncIdentification(true);
     if(state.definition.mechanism==='push-back'&&state.carts.length){item.rackCartIndex=this.rackAvailableCart(component,cell,item);this.rackSyncVisual(record);}
     if(this.rackAutomatic(component))this.rackQueueMove(record,item,this.rackCell(component,item.palletIndex),'store',this.rackPath(record,item,this.rackCell(component,item.palletIndex),false));
   }
@@ -146,6 +263,7 @@ export default class PalletQueueRuntime {
     component.pallets[item.palletIndex].items=component.pallets[item.palletIndex].items.filter(value=>value!==item);
     item.palletIndex=index;item.palletSlot=0;component.pallets[index].items.push(item);
     component.pallets.forEach(pallet=>{pallet.full=!!pallet.items.length;});
+    const record=this.runtime.records.get(component.ownerId);if(record)this.identifyStored(record,item);
   }
 
   rackRequestRetrieval(record,index) {
@@ -213,7 +331,11 @@ export default class PalletQueueRuntime {
     const valid=value=>Array.isArray(value)&&value.length===3&&value.every(n=>Number.isFinite(n)&&Math.abs(n)<=10000);
     if(!Array.isArray(pose.banks)||pose.banks.length!==state.banks.length||!Array.isArray(pose.carts)||pose.carts.length!==state.carts.length||pose.banks.some(p=>!valid(p))||pose.carts.some(p=>!valid(p))||pose.carriage!==null&&!valid(pose.carriage))throw new Error('La posición del mecanismo de estantería no es válida.');
     state.banks.forEach((node,index)=>node.position.fromArray(pose.banks[index]));state.carts.forEach((node,index)=>node.position.fromArray(pose.carts[index]));if(state.carriage&&pose.carriage)state.carriage.position.fromArray(pose.carriage);
-    component.pallets.forEach((pallet,index)=>pallet.object.position.fromArray(this.rackPoint(component,this.rackCell(component,index))));record.object.updateWorldMatrix(true,true);this.rackSyncVisual(record);
+    const assignments=behaviorSchema.warehouseRacks.assignmentRows(JSON.stringify(state.assignments||behaviorSchema.warehouseRacks.assignments(component.config)));
+    if(assignments.some(row=>!state.layout.cells.some(cell=>cell.code===row.locationCode)))throw new Error('Una reserva de estantería apunta a una ubicación inexistente.');
+    state.assignments=assignments;assignments.forEach(row=>this.plannedLocation(row.palletId));
+    component.items.forEach(item=>this.identifyStored(record,item));
+    component.pallets.forEach((pallet,index)=>pallet.object.position.fromArray(this.rackPoint(component,this.rackCell(component,index))));record.object.updateWorldMatrix(true,true);this.rackSyncVisual(record);this.syncIdentification(true);
   }
 
   rackSupportProposal(record,item,matrix,limit) {
@@ -427,7 +549,7 @@ export default class PalletQueueRuntime {
     if (!component || !component.enabled || !manual && !this.operational(component) || !visible(record.object) || !entry.product || component.queue.includes(entry)) return false;
     const target = placement || (component.rack?this.rackPlacement(record,entry.product,[],undefined,undefined,!manual):this.placement(record, entry.product, [], undefined, true));
     if (!target) { component.blocked = true; return false; }
-    if(component.rack&&(this.rackBusy(component)||!this.rackCell(component,target.palletIndex)||component.items.some(item=>item.palletIndex===target.palletIndex)))return false;
+    if(component.rack&&(this.rackBusy(component)||!this.rackCell(component,target.palletIndex)||component.items.some(item=>item.palletIndex===target.palletIndex)||!this.assignmentAllows(record,entry.product,this.rackCell(component,target.palletIndex))))return false;
     const product = entry.product, item = this.itemFor(product);
     entry.ownerId = record.id; entry.lineage.push(record.id); if (entry.lineage.length > 64) entry.lineage.shift();
     entry.palletSequence = ++this.sequence;
@@ -463,6 +585,7 @@ export default class PalletQueueRuntime {
 
   removeItem(component, product) {
     const item = product.item;
+    if(component.rack&&item.palletOwnerId===component.ownerId&&product.object.userData.sourceRackLocationOwner===component.ownerId){const data=product.object.userData;data.sourceRackLastLocationCode=data.sourceRackLocationCode;delete data.sourceRackLocationCode;delete data.sourceRackLocationOwner;}
     if(component.rack){const oldIndex=component.pallets.findIndex(pallet=>pallet.items.includes(item));if(component.rack.presentedSlot===oldIndex)component.rack.presentedSlot=null;component.rack.jobs=component.rack.jobs.filter(job=>job.item!==item);}
     const index = component.items.indexOf(item); if (index !== -1) component.items.splice(index, 1);
     component.pallets.forEach(pallet => { const index = pallet.items.indexOf(item); if (index !== -1) { pallet.items.splice(index, 1); pallet.full = false; } });
@@ -471,6 +594,7 @@ export default class PalletQueueRuntime {
     if (item.palletOwnerId === component.ownerId) { item.palletOwnerId = null; item.palletSide = null; item.palletSlot = null; item.palletIndex = null; }
     component.blocked = false;
     this.order(component);
+    if(component.rack)this.syncIdentification(true);
   }
 
   picked(product) {
@@ -548,6 +672,7 @@ export default class PalletQueueRuntime {
   }
 
   step(delta) {
+    this.syncIdentification();
     this.runtime.records.forEach(record => {
       const component = record.components.palletQueue;
       if (!component || !visible(record.object) || !this.operational(component)) return;
@@ -576,7 +701,7 @@ export default class PalletQueueRuntime {
       dispatchedPallets: component.dispatchedPallets, autoRelease: component.config.autoRelease, releasePolicy: component.config.releasePolicy,
       occupancy: component.queue.length / component.config.capacity * 100, columns: component.config.columns, rows: component.config.rows, layers: component.config.layers,
       palletCapacity: component.pallets.length, palletCount: occupancies.filter(pallet => pallet.loads).length, completePallets: occupancies.filter(pallet => pallet.full).length,
-      palletOccupancies: JSON.stringify(occupancies)}, details,component.rack?{rackBusy:this.rackBusy(component),rackStatus:component.rack.status,rackBlocked:component.rack.blocked,rackSelectedSlot:component.rackSelectedSlot,rackOpenAisle:component.rackOpenAisle,rackMechanismSpeed:component.rackMechanismSpeed,rackPresentedSlot:component.rack.presentedSlot===null?-1:component.rack.presentedSlot,rackLoadKg:component.items.reduce((sum,item)=>sum+this.rackMass(item),0),rackSystem:component.rack.system}:{});
+      palletOccupancies: JSON.stringify(occupancies)}, details,component.rack?{rackBusy:this.rackBusy(component),rackStatus:component.rack.status,rackBlocked:component.rack.blocked,rackSelectedSlot:component.rackSelectedSlot,rackOpenAisle:component.rackOpenAisle,rackMechanismSpeed:component.rackMechanismSpeed,rackPresentedSlot:component.rack.presentedSlot===null?-1:component.rack.presentedSlot,rackLoadKg:component.items.reduce((sum,item)=>sum+this.rackMass(item),0),rackSystem:component.rack.system,rackLocations:JSON.stringify(this.locations(record))}:{});
   }
 
   bayFull(component, index) {
@@ -605,7 +730,9 @@ export default class PalletQueueRuntime {
   command(record, action, value) {
     const runtime = this.runtime, component = record.components.palletQueue;
     let result;
-    if(action==='requestRetrieval')result=this.rackRequestRetrieval(record,value);
+    if(action==='assignLocation')result=this.assignLocation(record,value);
+    else if(action==='clearLocationAssignment')result=this.clearLocationAssignment(record,value);
+    else if(action==='requestRetrieval')result=this.rackRequestRetrieval(record,value);
     else if(action==='openAisle')result=this.rackRequestAisle(record,value);
     else if(action==='prepareRackInput')result=this.rackPrepareInput(record);
     else if (action === 'dispatch') result = this.dispatch(record);
@@ -618,6 +745,8 @@ export default class PalletQueueRuntime {
   }
 
   stop() {
+    Array.from(this.identificationLabels.keys()).forEach(object=>this.removeIdentification(object));this.nextIdentificationAt=0;
+    this.runtime.records.forEach(record=>{if(record.components.product){const data=record.object.userData;for(const key of ['sourceRackLocationCode','sourceRackLocationOwner','sourceRackDestinationCode','sourceRackLastLocationCode'])delete data[key];}});
     this.runtime.records.forEach(record => {
       const component = record.components.palletQueue;
       if (!component) return;

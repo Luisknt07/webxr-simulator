@@ -162,7 +162,7 @@ export default class StudioExperience {
   }
   build(vrButton) {
     this.header = el('nav', undefined, document.body, 'studio-header'); this.header.setAttribute('aria-label', 'SMART-TWIN Simulator');
-    const brand = el('a', undefined, this.header, 'studio-brand'); brand.href = '/'; el('strong', 'SMART-TWIN', brand); el('span', 'Simulator', brand);
+    const brand = el('a', undefined, this.header, 'studio-brand'); brand.href = '/'; brand.title = 'Volver al inicio de SmartTwin'; brand.setAttribute('aria-label', 'SmartTwin · Volver al inicio'); el('strong', 'SMART-TWIN', brand); el('span', 'Simulator', brand); el('small', 'Inicio', brand, 'studio-brand-home');
     const actions = el('div', undefined, this.header, 'studio-header-actions'); this.accountButton = button(actions, 'Iniciar sesión', () => this.open(this.client.user ? 'personal' : 'account'), 'studio-account');
     this.flightButton = button(actions, 'Vuelo dron', () => this.setDesktopFlight(!this.ctx.desktopFlight), 'studio-flight');
     this.flightButton.setAttribute('aria-pressed', 'false'); this.flightButton.title = 'Volar en escritorio · WASD · Q subir · E bajar · Ctrl acelerar';
@@ -211,6 +211,7 @@ export default class StudioExperience {
     const content = this.content, user = this.client.user;
     const identity = el('div', undefined, content, 'studio-person'); identity.appendChild(avatarBadge(user ? user.avatar : DEFAULT_AVATAR)); el('strong', user ? user.displayName : 'Invitado', identity);
     el('p', user ? 'Perfil guardado en este servidor de SMART-TWIN Simulator.' : 'Puedes explorar. Inicia sesión para guardar progreso y participar en salas.', content, 'studio-muted');
+    button(content, '⌂   Inicio   ›', () => this.goHome(), 'studio-action');
     if (user && this.editor.simulationPaused && !this.room) button(content, '▶ Reanudar simulación', () => { this.editor.simulationPaused = false; this.close(); }, 'studio-primary');
     button(content, '▦   Escenarios   ›', () => this.open('scenes'), 'studio-action');
     const entries = user ? [['◎', 'Mi avatar', 'avatar'], ['♧', 'Sesiones multiusuario', 'rooms'], ['▣', 'Sesiones guardadas', 'sessions'], ['▥', 'Mi progreso', 'progress'], ['▤', 'Mis prácticas y evaluaciones', 'classroom']] : [];
@@ -226,6 +227,12 @@ export default class StudioExperience {
       button(content, 'Cerrar sesión', () => this.guard(() => this.logout()));
     }
     else button(content, 'Iniciar sesión', () => this.open('account'), 'studio-primary');
+  }
+  goHome() {
+    // A normal document navigation retains SceneEditor's beforeunload guard
+    // for this project, pending imports and every unsaved workspace tab. Do
+    // not clear dirty state or silently save/discard while leaving the page.
+    window.location.assign(new URL('/', window.location.href).href);
   }
   openEditor() { if (this.needAccount()) return; if (!this.client.user.permissions.editor) { this.message('Tu cuenta no tiene permiso de edición.'); return; } if (this.editor.editorEnabled) { this.close(); return this.editor.enter(); } const url = new URL('/editor', window.location), project = this.editor.currentProject; if (project && project.id && !/^(public-|library-)/.test(project.id) && (!project.access || project.access.canEdit === true)) { url.searchParams.set('project', project.id); if (ROOM_IDS.includes(this.editor.roomId)) url.searchParams.set('room', this.editor.roomId); } window.location.assign(url.href); }
   async openProjects() {

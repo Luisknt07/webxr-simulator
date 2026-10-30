@@ -53,9 +53,12 @@ export function createVehicleDetailBuilder(b, c) {
   };
   function batch(parent) {
     parent.children.filter(node=>node.isGroup).forEach(batch);
-    const sets=new Map(); parent.children.forEach(node=>{if(!node.isMesh||node.isInstancedMesh||node.children.length||node.userData.vehiclePreserve||node.userData.vehicleDecal||node.material.transparent)return;const list=sets.get(node.material)||[];list.push(node);sets.set(node.material,list);});
-    sets.forEach((nodes,material)=>{
-      if(nodes.length<4)return;const geometries=nodes.map(node=>{if(node.matrixAutoUpdate)node.updateMatrix();let geometry=node.geometry.index?node.geometry.toNonIndexed():node.geometry.clone();geometry.applyMatrix(node.matrix);return geometry;});
+    // Blades and upright heels share a steel finish, but they have different
+    // visibility roles in the occupied cab. A material-only batch inherited
+    // the first blade's tag and kept both tall heels opaque in the hologram.
+    const sets=new Map(); parent.children.forEach(node=>{if(!node.isMesh||node.isInstancedMesh||node.children.length||node.userData.vehiclePreserve||node.userData.vehicleDecal||node.material.transparent)return;const key=node.material.uuid+':'+(node.userData.vehicleForkBlade?'blade':'structure');if(!sets.has(key))sets.set(key,{nodes:[],material:node.material});sets.get(key).nodes.push(node);});
+    sets.forEach(({nodes,material})=>{
+      if(nodes.length<(nodes[0].userData.vehicleForkTine?2:4))return;const geometries=nodes.map(node=>{if(node.matrixAutoUpdate)node.updateMatrix();let geometry=node.geometry.index?node.geometry.toNonIndexed():node.geometry.clone();geometry.applyMatrix(node.matrix);return geometry;});
       const geometry=new THREE.BufferGeometry(); ['position','normal','uv'].forEach(key=>{if(!geometries.every(geo=>geo.attributes[key]))return;const size=geometries[0].attributes[key].itemSize,array=new Float32Array(geometries.reduce((sum,geo)=>sum+geo.attributes[key].array.length,0));let offset=0;geometries.forEach(geo=>{array.set(geo.attributes[key].array,offset);offset+=geo.attributes[key].array.length;});geometry.setAttribute(key,new THREE.BufferAttribute(array,size));});
       const object=new THREE.Mesh(geometry,material);object.name='Conjunto · '+material.name;object.castShadow=object.receiveShadow=true;object.userData=Object.assign({},nodes[0].userData,{industrialComponents:nodes.map(node=>node.name)});nodes.forEach(node=>parent.remove(node));parent.add(object);geometries.forEach(geo=>geo.dispose());
     });

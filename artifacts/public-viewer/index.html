@@ -4,33 +4,60 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#10252b">
-  <meta name="description" content="Explora una demostración compacta de SmartTwin: robot, banda transportadora y montacargas en un mismo proceso.">
-  <title>SmartTwin · Demostración interactiva</title>
+  <meta name="description" content="SMART-TWIN Simulator: diseña, simula y explora tu industria en PC, móvil y realidad virtual.">
+  <title>SMART-TWIN Simulator</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="viewer.css">
   <script src="config.js"></script>
   <script defer src="viewer.js"></script>
 </head>
-<body>
+<body class="welcome-open">
   <main id="viewer" aria-label="Simulación 3D de robot, banda y montacargas"></main>
   <header class="viewer-header">
-    <a class="viewer-brand" href="./" aria-label="SmartTwin, inicio"><span class="brand-mark" aria-hidden="true">S<span>t</span></span><span>SmartTwin<small>Laboratorio de sistemas conectados</small></span></a>
-    <a id="workspace-link" class="workspace-link" href="#workspace-access">Acceder al espacio <span aria-hidden="true">↗</span></a>
+    <a class="viewer-brand" href="./" aria-label="SMART-TWIN, inicio"><svg class="brand-mark" aria-hidden="true" viewBox="0 0 48 48" fill="none"><path d="m24 2 22 22-22 22L2 24Z" stroke="currentColor" stroke-width="2"/><path d="m24 10 14 14-14 14-14-14Z" stroke="currentColor" stroke-width="1.5"/><path d="m24 16 8 8-8 8-8-8Z" fill="currentColor" fill-opacity=".18"/><path d="M24 2v8m14 14h8M24 38v8M2 24h8" stroke="currentColor" stroke-width="2"/></svg><span>SMART-TWIN<small>Simulator</small></span></a>
+    <nav class="header-actions" aria-label="Navegación"><button id="home-link" type="button">Inicio</button><button id="back-scenes" type="button">← Escenarios</button><a id="workspace-link" class="workspace-link" href="#workspace-access">Acceder al espacio <span aria-hidden="true">↗</span></a><button id="overview" class="scene-navigation-action" type="button">Vista general</button><span id="xr-action" class="scene-navigation-action"></span><button id="viewer-menu-toggle" type="button" aria-haspopup="dialog" aria-controls="viewer-menu" aria-expanded="false">Menú ☰</button></nav>
   </header>
-  <section class="lesson-intro" aria-labelledby="lesson-title">
-    <p class="eyebrow"><span></span> DEMOSTRACIÓN INTERACTIVA · WEBXR</p>
-    <h1 id="lesson-title">Un proceso.<br>Tres sistemas conectados.</h1>
-    <p class="lesson-description">Sigue el mismo pallet desde la recogida robótica hasta su entrega con el montacargas.</p>
-    <div class="lesson-tags"><span>Robot</span><span>Banda</span><span>Montacargas</span></div>
-    <details class="viewer-help"><summary>Cómo explorar</summary><p>Arrastra la escena para mirar. Camina con W A S D o las flechas. En móvil, usa los mandos táctiles. Selecciona «Conducir» para operar el montacargas.</p><p>En RV: stick izquierdo para caminar, derecho para girar. Apunta y pulsa el gatillo para seleccionar; usa el agarre lateral en los mandos de cabina.</p></details>
+  <section id="welcome" class="welcome-screen" aria-labelledby="welcome-title">
+    <div class="welcome-content"><div class="welcome-panel">
+      <p class="eyebrow"><span></span> SIMULACIÓN INDUSTRIAL INMERSIVA</p>
+      <h1 id="welcome-title" tabindex="-1">SMART-TWIN<span>Simulator</span></h1>
+      <p class="welcome-tagline">Diseña, simula y explora tu industria.</p>
+      <p class="welcome-description">Entra a una instalación virtual e interactúa con robots, bandas y montacargas. Elige un escenario y empieza a explorar.</p>
+      <div class="welcome-actions"><button id="explore-scenes" class="welcome-primary" type="button">Explorar escenarios <span aria-hidden="true">→</span></button><a id="welcome-access" class="welcome-secondary" href="#workspace-access">Iniciar sesión</a></div>
+      <p class="welcome-access-hint">Prueba una demostración abierta o accede a tu biblioteca con tu cuenta.</p>
+      <p class="welcome-devices"><span aria-hidden="true">◈</span> PC <span aria-hidden="true">·</span> Móvil <span aria-hidden="true">·</span> Realidad virtual</p>
+    </div></div>
+    <div class="welcome-guide"><ol class="welcome-steps" aria-label="Cómo empezar"><li><span aria-hidden="true">01</span><div><h2>Elige un escenario</h2><p>Encuentra la práctica que quieres explorar.</p></div></li><li><span aria-hidden="true">02</span><div><h2>Entra a la instalación</h2><p>Recorre el espacio en PC, móvil o con un visor.</p></div></li><li><span aria-hidden="true">03</span><div><h2>Interactúa y aprende</h2><p>Prueba los equipos y observa el proceso.</p></div></li></ol></div>
   </section>
+  <section id="gallery" class="scenario-gallery" aria-labelledby="gallery-title" hidden>
+    <div class="gallery-heading"><div><p class="eyebrow"><span></span> BIBLIOTECA SMARTTWIN</p><h1 id="gallery-title" tabindex="-1">Elige un escenario</h1><p class="gallery-description">Explora procesos y practica con sistemas conectados. <br>Selecciona una instalación para empezar.</p></div><div class="gallery-account"><p id="gallery-session">Explora una demostración abierta</p><a id="gallery-access" class="gallery-access" href="#workspace-access">Iniciar sesión</a><p id="gallery-access-note">Accede a tu cuenta para ver más escenarios.</p></div></div>
+    <div class="gallery-toolbar"><p id="scene-count" aria-live="polite">1 escenario disponible</p><div class="gallery-filters"><label><span>Buscar</span><input id="scene-search" type="search" placeholder="Buscar escenario u objetivo…" autocomplete="off"></label><label><span>Categoría</span><select id="scene-category"><option value="">Todas las categorías</option></select></label><label><span>Nivel</span><select id="scene-level"><option value="">Todos los niveles</option></select></label><label><span>Modo</span><select id="scene-mode"><option value="">Todos los modos</option></select></label></div></div>
+    <div id="scene-grid" class="scene-library-results" aria-busy="true"></div>
+    <p id="gallery-empty" class="gallery-empty" hidden>No hay escenarios que coincidan. Prueba otra búsqueda.</p>
+    <p id="gallery-status" class="gallery-status" role="status" aria-live="polite">Elige un escenario para comenzar.</p>
+    <footer class="gallery-footer"><span>PC · Móvil · Realidad virtual</span><span>Los escenarios se cargan solo al abrirlos.</span></footer>
+  </section>
+  <svg class="gallery-symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs>
+    <g id="preview-room"><path d="M0 142 164 94 360 137V180H0Z" fill="#354e54"/><path d="m0 75 164-41 196 37v67L164 97 0 144Z" fill="#1c343b"/><path d="m0 75 164-41 196 37" fill="none" stroke="#65837e" stroke-width="3"/><path d="M0 93 164 51 360 88M0 116 164 74 360 111" fill="none" stroke="#33545b" stroke-width="2"/><path d="m33 85 131-33 164 32M73 75v57m48-69v55m83-55v44m77-30v48" fill="none" stroke="#79948b" stroke-width="3"/><path d="m80 78 36-9m120 4 40 8" stroke="#d6e9cd" stroke-width="4"/><path d="m0 161 165-44 195 39m-308 24 147-39m-69 39 139-29" fill="none" stroke="#60756e" stroke-opacity=".55"/><path d="m25 149 122-31 173 34" fill="none" stroke="#b2a362" stroke-width="2"/></g>
+    <symbol id="preview-cell" viewBox="0 0 360 180"><use href="#preview-room"/><path d="m145 130 81 17 61-18-81-16Z" fill="#6d8381"/><path d="m145 130 81 17v8l-81-17Zm81 17 61-18v8l-61 18Z" fill="#2a444c"/><path d="m153 130 55-13m-41 16 55-13m-41 16 55-13m-41 16 55-13m-41 16 55-13" stroke="#b2bfba" stroke-width="3"/><path d="M158 139v17m112-15v13m-43 1v18" stroke="#607b7a" stroke-width="4"/><path d="m101 148 23 5 17-5-22-5Z" fill="#192e34"/><path d="M121 143v-21l-13-20 18-23" fill="none" stroke="#dc995d" stroke-linecap="round" stroke-width="12"/><path d="m126 79 31 25-5 12" fill="none" stroke="#e8aa68" stroke-linecap="round" stroke-width="9"/><circle cx="109" cy="101" r="6" fill="#2a4148"/><circle cx="126" cy="80" r="5" fill="#2a4148"/><path d="m200 116 22 5 16-5-23-5Z" fill="#d2b785"/><path d="m200 116 22 5v14l-22-5Zm22 5 16-5v13l-16 6Z" fill="#ad946c"/><path d="m282 145 28 6 18-7-28-6Z" fill="#b9a554"/><path d="M305 146v-39l16 3v34m-16-39-22-5v41m19-33-20-4" fill="none" stroke="#223940" stroke-width="5"/><circle cx="291" cy="151" r="6" fill="#182a30"/><circle cx="320" cy="151" r="6" fill="#182a30"/></symbol>
+    <symbol id="preview-logistics" viewBox="0 0 360 180"><use href="#preview-room"/><path d="M52 80v62m51-75v62m50-75v62m-101-2 101-25m-101 2 101-25m-101 2 101-25" stroke="#6c9697" stroke-width="4"/><path d="m61 82 24-6v15l-24 6m38-24 23-6v15l-23 6m-38 18 24-6v15l-24 6m38-24 23-6v15l-23 6" fill="#aa9775"/><path d="m176 141 53 12 30-10-52-11Z" fill="#d5b461"/><path d="M248 141V88l-18-4v56m0-55-31-6v52m30-43-29-7" fill="none" stroke="#1b3038" stroke-width="6"/><path d="m249 143 43-12m-43 20 43-12" stroke="#8caaa3" stroke-width="4"/><circle cx="186" cy="148" r="9" fill="#182b32"/><circle cx="238" cy="156" r="9" fill="#182b32"/><path d="m184 129 25 6 19-6-25-6Z" fill="#f0c46e"/></symbol>
+    <symbol id="preview-world" viewBox="0 0 360 180"><use href="#preview-room"/><path d="m75 135 52-14 47 11-53 16Z" fill="#8faba1"/><path d="M121 148V85l53-16v63" fill="#355a61"/><path d="m121 85 53-16-36-8-53 15Z" fill="#779b92"/><path d="m200 112 39-11 42 9-39 13Z" fill="#a9bcb0"/><path d="M200 112v28l42 10v-27m0 0 39-13v28l-39 12" fill="#55777b"/><circle cx="230" cy="76" r="19" fill="#83bba4"/><path d="M230 95v16" stroke="#b9d1b8" stroke-width="4"/></symbol>
+  </defs></svg>
+  <dialog id="viewer-menu" class="viewer-scene-menu" aria-labelledby="viewer-menu-title">
+    <div class="viewer-scene-menu-header"><h2 id="viewer-menu-title">Menú del escenario</h2><button id="viewer-menu-close" type="button" aria-label="Cerrar menú">✕</button></div>
+    <div class="viewer-scene-options"><button id="drive" type="button">Subir al montacargas · F</button><button id="pause" type="button" aria-pressed="false">Pausar</button><button id="restart" type="button" aria-label="Reiniciar escenario">↺ Reiniciar escenario</button></div>
+    <section class="lesson-intro" aria-labelledby="lesson-title">
+      <p class="eyebrow"><span></span> GUÍA DEL ESCENARIO</p>
+      <h3 id="lesson-title">Transferencia entre dos bandas</h3>
+      <p class="lesson-description">Practica en la misma escena de transferencia del sistema: el robot entrega el pallet, las dos bandas lo trasladan y el montacargas lo lleva a una bahía. Espera el paro del tramo final antes de recoger.</p>
+      <p id="demo-progress" class="demo-progress" aria-live="polite">Preparando los sistemas…</p>
+      <details class="viewer-help" open><summary>Controles del escenario</summary><p>Haz clic en la escena para mirar con el mouse y apuntar con el círculo central. W A S D o las flechas para caminar; clic para usar lo señalado. Esc libera el mouse para abrir los menús.</p><p>Acércate al montacargas y pulsa F para subir o bajar. En la cabina: C abre la cámara de horquillas, Shift+R alterna el retrovisor y Shift+G activa o desactiva el holograma.</p><p>En móvil usa los mandos táctiles. En RV: stick izquierdo para caminar, derecho para girar. Apunta y pulsa el gatillo para seleccionar; usa el agarre lateral en los mandos de cabina.</p></details>
+    </section>
+  </dialog>
   <div id="reticle" class="viewer-reticle" aria-hidden="true"></div>
   <div id="viewer-notice" class="viewer-notice" role="status" aria-live="polite"></div>
-  <section class="lesson-footer" aria-label="Controles y avance de la demostración">
-    <ol class="lesson-stages"><li data-stage="robot"><span>01</span><div>Recogida<small>El robot coloca el pallet</small></div></li><li data-stage="belt"><span>02</span><div>Transporte<small>La banda espera la recogida</small></div></li><li data-stage="vehicle"><span>03</span><div>Entrega<small>Conduce hasta la bahía</small></div></li></ol>
-    <div class="viewer-actions"><button id="overview" type="button">Vista general</button><button id="drive" class="primary" type="button">Conducir</button><button id="pause" type="button" aria-pressed="false">Pausar</button><button id="restart" type="button" aria-label="Reiniciar demostración">↺ <span>Reiniciar</span></button><span id="xr-action"></span></div>
-    <p id="demo-progress" class="demo-progress" aria-live="polite">Preparando los sistemas…</p>
-  </section>
-  <section id="loading" class="loading-screen" aria-labelledby="loading-title"><div class="loading-card"><span class="loading-spinner" aria-hidden="true"></span><p class="eyebrow">SMARTTWIN</p><h2 id="loading-title">Preparando la demostración</h2><p id="loading-detail">Cargando un único escenario compacto.</p><button id="retry" type="button" hidden>Volver a intentar</button></div></section>
-  <noscript>Activa JavaScript para explorar la demostración 3D.</noscript>
+  <p id="navigation-hint" class="scene-navigation-hint" aria-live="polite"></p>
+  <section id="loading" class="loading-screen" aria-labelledby="loading-title" hidden><div class="loading-card"><span class="loading-spinner" aria-hidden="true"></span><p class="eyebrow">SMARTTWIN</p><h2 id="loading-title">Preparando la instalación</h2><p id="loading-detail">Cargando el escenario seleccionado.</p><button id="retry" type="button" hidden>Volver a intentar</button></div></section>
+  <noscript>Activa JavaScript para ver los escenarios disponibles.</noscript>
 </body>
 </html>

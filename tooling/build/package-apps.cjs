@@ -73,6 +73,9 @@ function makePlan(root, application, compilation) {
   let scenes = [];
   if (application === 'public-viewer') {
     add('viewer.css', 'apps/public-viewer/viewer.css'); add('config.js', 'apps/public-viewer/config.js');
+    add('cover.jpg', 'modules/turismo/assets/smart-twin-cover.jpg');
+    const previewPath = 'projects/smarttwin/previews/' + PUBLIC_SCENE + '.png';
+    add(previewPath, previewPath);
     const scenePath = 'projects/smarttwin/scenes/' + PUBLIC_SCENE + '.json';
     const scene = JSON.parse(read(root, scenePath)); if (!scene.project || scene.project.publicSceneId !== PUBLIC_SCENE) error('invalid_public_scene', 'The public scene must identify vr-robot-dispatch.');
     add(scenePath, scenePath);
@@ -84,7 +87,9 @@ function makePlan(root, application, compilation) {
   } else if (application === 'core-empty') add('core.css', 'apps/core-empty/core.css');
   else {
     ASSET_ROOTS.forEach(folder => walk(root, folder, name => { if (allowedAsset(name)) add(name, name); }, {skipPrivate: true}));
-    for (const folder of ['packages', 'modules', 'apps']) walk(root, folder, name => { if (/\.css$/i.test(name) && allowedAsset(name)) add(name, name); }, {skipPrivate: true});
+    // Other applications own their styles and their relative media. They are
+    // separate distributions, never dependencies of the private Workspace.
+    for (const folder of ['packages', 'modules', 'apps']) walk(root, folder, name => { if (/\.css$/i.test(name) && allowedAsset(name) && (folder !== 'apps' || name.startsWith('apps/workspace/'))) add(name, name); }, {skipPrivate: true});
     add('packages/render-three/src/StartupStatus.js', 'packages/render-three/src/StartupStatus.js'); VENDOR_FILES.forEach(name => add(name, name));
     scenes = [...files.keys()].filter(name => /^projects\/smarttwin\/scenes\/[^/]+\.json$/.test(name) && !name.endsWith('/catalog.json')).map(name => path.posix.basename(name, '.json')).sort();
   }

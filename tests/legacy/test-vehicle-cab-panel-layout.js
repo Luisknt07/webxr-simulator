@@ -49,7 +49,7 @@ function run() {
       }
     }
     assert(f.camera.position.equals(trackedPosition)); assert(f.camera.quaternion.equals(trackedQuaternion));
-    assert.equal(d.docking.element.dataset.plan, 'closed'); assert(d.docking.plan.hidden); d.docking.planButton.fire('click'); assert.equal(d.docking.element.dataset.plan, 'open'); assert(!d.docking.plan.hidden);
+    assert.equal(d.docking.element.dataset.plan, 'open'); assert(!d.docking.plan.hidden); d.docking.planButton.fire('click'); assert.equal(d.docking.element.dataset.plan, 'open'); assert(!d.docking.plan.hidden, 'Plan and measurements remain visible while changing cameras.');
     const left = new THREE.Group(), right = new THREE.Group(), leftHand = {controller: left, source: {}, control: d.cab.controls[0], hover: null};
     d.cab.hands.set(left, leftHand);
     assert(!d.worldState.state.isSelectable(null, left)); assert(!d.docking.state.isSelectable(null, left));

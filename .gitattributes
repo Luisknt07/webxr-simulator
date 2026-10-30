@@ -7,3 +7,8 @@ artifacts/** binary
 # Pinned upstream assets and their integrity tests also require exact bytes.
 packages/tools/ai/assets/** -text -whitespace
 packages/render-three/vendor/** -text -whitespace
+
+# The builtin catalog records the exact bytes of these text assets too.
+modules/logistica-industrial/assets/materials/pbr/LICENSE.txt -text
+modules/logistica-industrial/assets/materials/pbr/manifest.json -text
+modules/turismo/assets/tweets.json -text

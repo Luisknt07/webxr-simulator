@@ -710,18 +710,19 @@ function palletQueuePanel() {
   return panel;
 }
 
-function refreshRackPanel(root, config) {
-  const panel = root.children[1], definition = behaviorSchema.warehouseRacks.definition(config), key = definition ? definition.id : 'floor';
-  if (!definition && !panel.userData.warehouseRackCaption || panel.userData.warehouseRackCaption === key) return;
-  panel.userData.warehouseRackCaption = key;
-  const heading = panel.children.find(child => child.name === 'Identificación Pallet Queue');
-  if (heading) {panel.remove(heading); panel.add(label('Identificación Pallet Queue', definition ? 'ESTANTERÍA / ALMACÉN' : 'PALLET QUEUE / ESTIBA', .54, .036, [0, .698, .073])); disposeDetached([heading], root);}
-  const dispatch = panel.children.find(child => child.userData.editorPrefabVariant === 'dispatch');
-  if (!dispatch) return;
-  const action = definition && definition.mechanism === 'mobile' ? 'openAisle' : definition && definition.mechanism === 'push-back' ? 'prepareRackInput' : 'dispatch';
-  ['editorDefaultBehaviors', 'editorBehaviors'].forEach(field => {if (dispatch.userData[field]) dispatch.userData[field] = dispatch.userData[field].map(c => c.type === 'control' ? Object.assign({}, c, {mode: 'command', command: action, value: action === 'dispatch' ? 1 : -1}) : c);});
-  const old = dispatch.children.find(child => child.name === 'Rótulo del control');
-  if (old) {const caption = label('Rótulo del control', action === 'openAisle' ? 'PASILLO' : action === 'prepareRackInput' ? 'PREPARAR' : definition && ['lift', 'miniload'].includes(definition.mechanism) ? 'SOLICITAR' : 'DESPACHAR', .22, .037, old.position.toArray()); dispatch.remove(old); dispatch.add(caption); disposeDetached([old], root);}
+function rackPanelAnchor() {
+  const anchor = new THREE.Group(); anchor.name = 'Anclaje reservado del almacén';
+  anchor.userData.warehouseRackNoPanel = true; anchor.visible = false; return anchor;
+}
+
+function removeRackPanel(root) {
+  // Keep the child index stable for saved mechanical paths, but remove the
+  // actual cabinet, screen and controls. Configuration belongs to the editor.
+  const panel = root.children[1]; if (!panel) return;
+  const retired = panel.children.slice(); retired.forEach(child => panel.remove(child));
+  panel.name = 'Anclaje reservado del almacén'; panel.visible = false;
+  panel.userData = {warehouseRackNoPanel: true};
+  disposeDetached(retired, root);
 }
 
 function refreshWarehouseRackGeometry(root, config) {
@@ -734,8 +735,7 @@ function refreshWarehouseRackGeometry(root, config) {
   root.userData.warehouseRackSystem = normalized.rackSystem;
   root.userData.industrialPalletQueueDimensions = key;
   const panel = root.children[1], panelPosition = [-layout.length / 2 - .45, .05, layout.frontZ + .6];
-  panel.visible = normalized.withPanel !== false; panel.position.fromArray(panelPosition);
-  refreshRackPanel(root, normalized);
+  removeRackPanel(root); if (panel) panel.position.fromArray(panelPosition);
   root.userData.industrialPalletQueue = Object.assign({}, layout, {layout, floor: -1, top: layout.palletTop, palletWidth: normalized.width, palletDepth: normalized.depth, capacity: normalized.capacity, panelPosition});
   disposeDetached(removed, root); root.updateMatrixWorld(true); return true;
 }
@@ -750,7 +750,10 @@ export function refreshPalletQueueGeometry(root, value) {
     wood.updateWorldMatrix(true, true); const size = new THREE.Box3().setFromObject(wood).getSize(new THREE.Vector3()); wood.userData.industrialPalletWoodSize = [size.x, size.z]; holder.add(wood);
     delete root.userData.warehouseRackRig; delete root.userData.warehouseRackSystem; delete root.userData.industrialPalletQueueDimensions;
     disposeDetached(removed, root);
-    refreshRackPanel(root, config);
+    const oldPanel = root.children[1], panel = palletQueuePanel();
+    if (oldPanel) root.remove(oldPanel); root.add(panel);
+    root.children.splice(root.children.indexOf(panel), 1); root.children.splice(1, 0, panel);
+    if (oldPanel) disposeDetached([oldPanel], root);
   }
   if (root.children[1]) root.children[1].visible = config.withPanel !== false;
   const fields = ['width', 'depth', 'columns', 'rows', 'layers', 'capacity', 'palletCapacity', 'acceptsPallets', 'palletType', 'palletMaterial', 'layoutMode'], key = JSON.stringify(fields.map(field => config[field]));
@@ -811,7 +814,7 @@ function palletQueueEquipment(value) {
   wood.updateWorldMatrix(true, true);
   const woodSize = new THREE.Box3().setFromObject(wood).getSize(new THREE.Vector3());
   wood.userData.industrialPalletWoodSize = [woodSize.x, woodSize.z];
-  holder.add(wood); root.add(holder, palletQueuePanel()); refreshPalletQueueGeometry(root, config); return root;
+  holder.add(wood); root.add(holder, behaviorSchema.warehouseRacks.isRack(config) ? rackPanelAnchor() : palletQueuePanel()); refreshPalletQueueGeometry(root, config); return root;
 }
 
 function processorPanel() {

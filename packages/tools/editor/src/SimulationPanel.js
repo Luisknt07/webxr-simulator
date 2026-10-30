@@ -1,5 +1,6 @@
 import TelemetryClient from './TelemetryClient.js';
 import TelemetryRecorder, {csv} from './TelemetryRecorder.js';
+import RackLocationPanel from '../../../../modules/logistica-industrial/functions/almacenamiento/ui/RackLocationPanel.cjs';
 
 function node(tag, className, text) {
   const element = document.createElement(tag);
@@ -193,9 +194,10 @@ export default class SimulationPanel {
     const controlSignature = object ? object.id + ':' + JSON.stringify(object.writable) : 'empty';
     if (force || controlSignature !== this.controlSignature) {
       this.variables.textContent = ''; this.readouts = new Map();
+      this.rackLocations = null;
       if (!object) this.variables.appendChild(node('p', 'sim-hint', 'Añade una banda preestablecida o componentes de movimiento, sensores y automatización.'));
       if (object) Object.keys(object.variables).forEach(key => {
-        const row = node('div', 'sim-variable'); row.appendChild(node('span', '', key));
+        const row = node('div', 'sim-variable'); row.setAttribute('data-sim-variable',key); row.appendChild(node('span', '', key));
         const writable = object.writable.find(field => field.key === key);
         if (writable) {
           const input = node('input'); input.type = writable.type === 'boolean' ? 'checkbox' : 'number'; input.step = '0.05';
@@ -242,6 +244,13 @@ export default class SimulationPanel {
           control.disabled = this.editor.active; actions.appendChild(control);
         });
         this.variables.appendChild(actions);
+        if (rack) {
+          this.rackLocations = RackLocationPanel.renderRuntime({document, parent:this.variables, editor:this.editor, objectId:object.id, notify:message=>this.editor.toast(message)});
+          const advanced=node('details','sim-rack-advanced');advanced.appendChild(node('summary','','Variables y mecanismos'));
+          Array.from(this.variables.children).filter(child=>child.getAttribute('data-sim-variable')!=null).forEach(child=>advanced.appendChild(child));
+          this.variables.appendChild(advanced);
+          if(this.rackLocations&&this.variables.insertBefore)this.variables.insertBefore(this.rackLocations.root,this.variables.firstChild);
+        }
       }
       if (object && (object.types || [object.type]).includes('processor')) {
         const actions = node('div', 'sim-actions');
@@ -288,6 +297,7 @@ export default class SimulationPanel {
     } else this.trend.textContent = '';
     this.events.textContent = '';
     snapshot.events.filter(event => object && event.objectId === object.id).slice(-5).reverse().forEach(event => this.events.appendChild(node('p', '', formatted(event.time) + ' s · ' + event.message)));
+    if (this.rackLocations) this.rackLocations.update();
     const payload = this.recorder.active ? this.recorder.payload : this.payload;
     this.recordStatus.textContent = this.recorder.active ? '● Grabando · ' + payload.samples.length + ' muestras' : payload ?
       formatted(payload.duration) + ' s · ' + payload.samples.length + ' muestras · ' + payload.events.length + ' eventos · ' + (this.saved ? 'conservado' : 'pendiente de guardar') : 'Añade Analítica a los objetos y graba una sesión para conservar las variables.';

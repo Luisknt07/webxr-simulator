@@ -6,10 +6,11 @@ const RIGS=new WeakMap(), UP=new THREE.Vector3(0,1,0);
 function aging(amount,seed) { const data=new Uint8Array(64*64*4);let random=seed;for(let i=0;i<data.length;i+=4){random=(Math.imul(random,1664525)+1013904223)>>>0;const n=random/4294967296,p=i/4,x=p%64,y=Math.floor(p/64);let value=.97+n*.03;value-=amount*.16*Math.max(0,Math.sin(x*.11+Math.cos(y*.14))-.2);value-=amount*.12*Math.max(0,Math.sin(y*.065+x*.018));if(n>1-amount*.008)value*=.76;data[i]=data[i+1]=data[i+2]=Math.floor(value*255);data[i+3]=255;}const map=new THREE.DataTexture(data,64,64,THREE.RGBAFormat);map.wrapS=map.wrapT=THREE.RepeatWrapping;map.generateMipmaps=true;map.minFilter=THREE.LinearMipmapLinearFilter;map.needsUpdate=true;return map; }
 function builder(c) {
   const cache=new Map(), maps=[],wearMap=aging(c.wear,1327); maps.push(wearMap); const mat=(name,color,metalness,roughness)=>{const material=new THREE.MeshStandardMaterial({color,metalness,roughness,map:wearMap});material.name=name;return material;};
-  const materials={frame:mat('Carrocería',c.frameColor,c.finish==='polymer'?.05:.5,c.finish==='steel'?.35:.57),accent:mat('Protecciones',c.accentColor,.2,.7),steel:mat('Mecanizado',c.forkColor,.85,.36),rubber:mat('Neumáticos','#252b2b',.02,.9),seat:mat('Asiento','#303639',0,.85),glass:new THREE.MeshStandardMaterial({color:'#a9c8d3',metalness:.05,roughness:.16,transparent:true,opacity:.23}),light:new THREE.MeshStandardMaterial({color:'#e8ead3',emissive:'#e8ead3',emissiveIntensity:.1}),red:new THREE.MeshStandardMaterial({color:'#9a3335',emissive:'#c43428',emissiveIntensity:.05})};
+  const forkColor=c.forkColor.toLowerCase()==='#677682'?'#9eacb5':c.forkColor;
+  const materials={frame:mat('Carrocería',c.frameColor,c.finish==='polymer'?.05:.5,c.finish==='steel'?.35:.57),accent:mat('Protecciones',c.accentColor,.2,.7),steel:mat('Mecanizado','#677682',.85,.36),forkSteel:mat('Horquillas · acero satinado',forkColor,.55,.38),rubber:mat('Neumáticos','#252b2b',.02,.9),seat:mat('Asiento','#303639',0,.85),glass:new THREE.MeshStandardMaterial({color:'#a9c8d3',metalness:.05,roughness:.16,transparent:true,opacity:.23}),light:new THREE.MeshStandardMaterial({color:'#e8ead3',emissive:'#e8ead3',emissiveIntensity:.1}),red:new THREE.MeshStandardMaterial({color:'#9a3335',emissive:'#c43428',emissiveIntensity:.05})};
   Object.entries(materials).forEach(([role,material])=>{material.color.convertSRGBToLinear();if(material.emissive)material.emissive.convertSRGBToLinear();material.userData.studioColorSpace='linear';material.userData.industrialMaterialRole=role;});
   const geometry=(key,create)=>{if(!cache.has(key))cache.set(key,create());return cache.get(key);};
-  const mesh=(name,geo,role,parent,position)=>{const object=new THREE.Mesh(geo,materials[role]);object.name=name;object.castShadow=role!=='glass';object.receiveShadow=true;Object.assign(object.userData,{materialPart:role,materialPartLabel:{frame:'Carrocería',accent:'Protecciones',steel:'Mástil y horquillas',rubber:'Rodadura',seat:'Puesto de operador',glass:'Cristales',light:'Luces',red:'Pilotos'}[role],industrialMaterialPart:role,industrialMaterialRole:role,industrialPart:name});if(position)object.position.fromArray(position);parent.add(object);return object;};
+  const mesh=(name,geo,role,parent,position)=>{const object=new THREE.Mesh(geo,materials[role]);object.name=name;object.castShadow=role!=='glass';object.receiveShadow=true;Object.assign(object.userData,{materialPart:role,materialPartLabel:{frame:'Carrocería',accent:'Protecciones',steel:'Mástil y mecanismos',forkSteel:'Horquillas de acero satinado',rubber:'Rodadura',seat:'Puesto de operador',glass:'Cristales',light:'Luces',red:'Pilotos'}[role],industrialMaterialPart:role,industrialMaterialRole:role,industrialPart:name});if(role==='forkSteel')object.userData.vehicleForkTine=true;if(position)object.position.fromArray(position);parent.add(object);return object;};
   const box=(name,size,role,parent,position)=>mesh(name,geometry('b'+size.join(','),()=>new THREE.BoxBufferGeometry(...size)),role,parent,position);
   const cylinder=(name,radius,length,role,parent,position,segments=12)=>mesh(name,geometry('c'+[radius,length,segments],()=>new THREE.CylinderBufferGeometry(radius,radius,length,segments)),role,parent,position);
   const rod=(name,a,z,radius,role,parent)=>{const start=new THREE.Vector3().fromArray(a),end=new THREE.Vector3().fromArray(z),object=cylinder(name,radius,start.distanceTo(end),role,parent,start.clone().add(end).multiplyScalar(.5).toArray(),8);object.quaternion.setFromUnitVectors(UP,end.sub(start).normalize());return object;};
@@ -48,7 +49,7 @@ function cab(b,rig,c,parent,standing=false) {
   for(let i=-3;i<=3;i++)b.box('Barra superior de protección',[.033,.045,z*2],'steel',cabin,[i*x*.23,top+.008,0]);
   if(c.cabinStyle==='protected'||c.cabinStyle==='enclosed')b.box('Cubierta transparente superior',[x*2,.008,z*2],'glass',cabin,[0,top+.04,0]);
   if(c.cabinStyle==='enclosed'){
-    for(const end of [-1,1]){const glass=b.box(end>0?'Parabrisas frontal':'Cristal posterior',[x*2-.10,top-.80,.012],'glass',cabin,[0,(top+.75)/2,end*z]);glass.userData.vehiclePreserve=true;}
+    for(const end of [-1,1]){const glass=b.box(end>0?'Parabrisas frontal':'Cristal posterior',[x*2-.10,top-.80,.012],'glass',cabin,[0,(top+.75)/2,end*z]);glass.userData.vehiclePreserve=true;if(end>0)rig.frontGlass=glass;}
     for(const side of [-1,1]){b.box('Cristal lateral',[.012,top-.91,z*2-.12],'glass',cabin,[side*x,(top+.87)/2,0]);d.solid('Puerta inferior',[.025,.31,z*2-.10],'frame',cabin,[side*x,.67,0]);b.rod('Tirador de puerta',[side*(x+.018),.98,-.20],[side*(x+.018),.98,.02],.014,'accent',cabin);}
     d.hose('Limpiaparabrisas',[[0,.88,z+.025],[.22,1.15,z+.026],[.25,1.50,z+.026]],.008,cabin);
   }
@@ -116,11 +117,11 @@ function forkAssembly(b,rig,c,parent) {
   const lowLift=c.family==='pallet-truck';
   b.box('Portahorquillas',[Math.max(.75,c.forkSpread+c.forkWidth+.15),lowLift?.07:.12,.09],'steel',forks,[0,lowLift?.04:.30,-.06]);
   for(const side of [-1,1]){
-    b.box('Uña horizontal',[c.forkWidth,c.forkThickness,c.forkLength-.12],'steel',forks,[side*c.forkSpread/2,-c.forkThickness/2,(c.forkLength-.12)/2]);
+    const blade=b.box('Uña horizontal',[c.forkWidth,c.forkThickness,c.forkLength-.12],'forkSteel',forks,[side*c.forkSpread/2,-c.forkThickness/2,(c.forkLength-.12)/2]);blade.userData.vehicleForkBlade=true;
     const shape=new THREE.Shape();shape.moveTo(0,0);shape.lineTo(.12,-c.forkThickness*.6);shape.lineTo(.12,-c.forkThickness);shape.lineTo(0,-c.forkThickness);shape.closePath();
     const tip=new THREE.ExtrudeBufferGeometry(shape,{depth:c.forkWidth,bevelEnabled:false,steps:1});tip.rotateY(-Math.PI/2);tip.translate(c.forkWidth/2,0,c.forkLength-.12);
-    const object=new THREE.Mesh(tip,b.materials.steel);object.name='Punta biselada de horquilla';object.position.x=side*c.forkSpread/2;object.castShadow=object.receiveShadow=true;forks.add(object);
-    if(!lowLift)b.box('Talón vertical',[c.forkWidth,.48,c.forkThickness],'steel',forks,[side*c.forkSpread/2,.24,-c.forkThickness/2]);
+    const object=b.mesh('Punta biselada de horquilla',tip,'forkSteel',forks,[side*c.forkSpread/2,0,0]);object.userData.vehicleForkBlade=true;
+    if(!lowLift)b.box('Talón vertical',[c.forkWidth,.48,c.forkThickness],'forkSteel',forks,[side*c.forkSpread/2,.24,-c.forkThickness/2]);
   }
   if(lowLift)return;
   for(const side of [-1,1])b.rod('Marco de respaldo',[side*c.width*.31,.2,-.1],[side*c.width*.31,.9,-.1],.018,'steel',forks);

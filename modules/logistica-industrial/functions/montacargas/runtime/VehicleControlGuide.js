@@ -20,12 +20,15 @@ const ACTIONS = Object.freeze([
   command('uncouple', 'Desenganchar remolque', 'KeyI', 'Shift+I', 'Botón Desenganchar del panel', 'cargo', true, 'hitch'),
   command('horn', 'Bocina', 'KeyH', 'H', 'Pulsador de bocina'),
   command('lights', 'Luces', 'KeyN', 'N', 'Interruptor de luces'),
-  command('forkCamera', 'Cámara frontal y retrovisor', 'KeyC', 'C', 'Botón Cámara del monitor de alineación', 'view', false, 'forks'),
-  command('forkCameraMode', 'Vista frontal / puntas', 'KeyC', 'Shift+C', 'Botón Frontal / Puntas del monitor', 'view', true, 'forks'),
+  command('forkCamera', 'Cámara de horquillas y retrovisor', 'KeyC', 'C', 'Botón Cámara del monitor de alineación', 'view', false, 'forks'),
+  command('forkCameraMode', 'Vista isométrica / frontal / puntas', 'KeyC', 'Shift+C', 'Botón Vista del monitor', 'view', true, 'forks'),
   command('forkCameraSide', 'Lado de la cámara auxiliar', 'KeyN', 'Shift+N', 'Botón Lado del monitor de alineación', 'view', true, 'forks'),
+  command('rearView', 'Alternar retrovisor', 'KeyR', 'Shift+R', 'Botón Retrovisor del monitor de alineación', 'view', true, 'forks'),
   command('view', 'Vista cabina / seguimiento', 'KeyM', 'M', 'Vista del puesto de conducción', 'view'),
   command('mode', 'Modo hidráulico', 'KeyM', 'Shift+M', 'Botón Modo hidráulico para los sticks alternativos', 'movement', true, 'hydraulics'),
   command('dockingHelp', 'Guía de alineación', 'KeyH', 'Shift+H', 'Botón Guía del monitor de alineación', 'view', true, 'cargo'),
+  command('holographicGuide', 'Guía holográfica', 'KeyG', 'Shift+G', 'Botón Holograma del monitor', 'view', true, 'forks'),
+  command('guidanceNext', 'Cambiar objetivo', 'KeyJ', 'Shift+J', 'Botón Cambiar objetivo de los mandos', 'view', true, 'forks'),
   command('cursor', 'Alternar cursor / mirada', 'Tab', 'Tab', 'Apuntar con el mando y pulsar el gatillo', 'view'),
   command('exit', 'Bajar del vehículo', 'KeyF', 'F', 'Botón B del mando derecho, con el vehículo detenido', 'operation'),
   hold('driveForward', 'Avanzar', 'KeyW', 'W', 'Acelerador o timón; stick izquierdo como alternativa'),
@@ -45,6 +48,20 @@ const ACTIONS = Object.freeze([
   hold('turretRight', 'Girar torreta +', 'KeyO', 'O', 'Palanca de torreta con agarre', 'turret')
 ]);
 const BY_ACTION = new Map(ACTIONS.map(value => [value.action, value]));
+// Short labels are presentation only. Full action names remain available in
+// accessible labels, tooltips, instructions and the physical-control runtime.
+const PRESENTATION = Object.freeze({
+  powerOn: ['Encender', '⏻'], start: ['Marcha', '▷'], powerOff: ['Apagar', '⏻'], stop: ['Detener', '■'], pause: ['Pausa', 'Ⅱ'],
+  parkingBrake: ['Freno P', 'Ⓟ'], emergency: ['Emergencia', '!'], resetEmergency: ['Rearmar', '↺'],
+  pickup: ['Tomar', '↥'], release: ['Depositar', '↧'], depositIntent: ['Preparar', '▱'], couple: ['Acoplar', '⇥'], uncouple: ['Separar', '⇤'],
+  horn: ['Bocina', '◖'], lights: ['Luces', '☼'], forkCamera: ['Cámara', '▣'], forkCameraMode: ['Encuadre', '◇'], forkCameraSide: ['Lado', '↔'],
+  rearView: ['Retrovisor', '◧'], view: ['Cabina', '◉'], mode: ['Sticks RV', '⊕'], dockingHelp: ['Plano', '▤'], holographicGuide: ['Holograma', '⌖'],
+  guidanceNext: ['Objetivo', '◎'], cursor: ['Cursor', '↖'], exit: ['Bajar', '⇥'],
+  driveForward: ['Avanzar', '↑'], driveReverse: ['Retroceder', '↓'], steerLeft: ['Izquierda', '↶'], steerRight: ['Derecha', '↷'], brake: ['Frenar', '⊣'],
+  liftUp: ['Elevar', '⇡'], liftDown: ['Descender', '⇣'], tiltBack: ['Inclinar −', '↙'], tiltForward: ['Inclinar +', '↗'],
+  retract: ['Retraer', '⇤'], extend: ['Extender', '⇥'], sideLeft: ['Lateral ←', '←'], sideRight: ['Lateral →', '→'],
+  turretLeft: ['Torreta −', '↶'], turretRight: ['Torreta +', '↷']
+});
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const HYDRAULICS = {lift: 'maxLift', tilt: 'tiltLimit', reach: 'maxReach', sideShift: 'maxSideShift', turret: 'turretLimit'};
 function axisEnabled(key, features, config) { return features[key] === true && (!HYDRAULICS[key] || config[HYDRAULICS[key]] === undefined || config[HYDRAULICS[key]] > 0); }
@@ -65,7 +82,8 @@ function controls(action, xr, features) {
 
 export default class VehicleControlGuide {
   static get actions() { return ACTIONS; }
-  static definitions(features = {}, config = {}) { return ACTIONS.filter(value => value.action !== 'forkCameraSide' && supported(value, features, config)); }
+  static presentation(action) {const value = PRESENTATION[action], definition = BY_ACTION.get(action); return {label: value ? value[0] : definition && definition.label || action, icon: value ? value[1] : '•'};}
+  static definitions(features = {}, config = {}) { return ACTIONS.filter(value => supported(value, features, config)); }
   static shortcut(event = {}) {
     const target = event.target || {};
     if (event.ctrlKey || event.altKey || event.metaKey || event.repeat || event.isComposing || target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || '')) return null;

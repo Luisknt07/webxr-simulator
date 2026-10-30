@@ -26,6 +26,7 @@ import VehicleDriving from '../../../../modules/logistica-industrial/functions/m
 import CADWorkbench from '../../cad/src/CADWorkbench.js';
 import VehicleRouteEditor from '../../../../modules/logistica-industrial/functions/montacargas/runtime/VehicleRouteEditor.js';
 import SimulationPanel from './SimulationPanel.js';
+import RackLocationPanel from '../../../../modules/logistica-industrial/functions/almacenamiento/ui/RackLocationPanel.cjs';
 import CollisionWorld from '../../../render-three/src/CollisionWorld.js';
 import ConveyorAssembly from '../../../../modules/logistica-industrial/functions/bandas/runtime/ConveyorAssembly.js';
 import ObjectAssembly from './ObjectAssembly.js';
@@ -2082,8 +2083,10 @@ export default class SceneEditor {
       const update = (key, value) => this.perform(() => this.setEquipmentBehaviors(object, this.document.getBehaviors(object).map(component => {
         if (component.type !== config.type) return component;
         const next = Object.assign({}, component, {[key]: value});
+        if(next.type==='palletQueue'&&behaviorSchema.warehouseRacks.isRack(component)&&key==='rackBays'&&component.rackBayWidths&&Number.isInteger(value)&&value>=1&&value<=8){const widths=component.rackBayWidths.split(',').map(Number);next.rackBayWidths=Array.from({length:value},(_,index)=>widths[index]||component.rackBayWidth).join(', ');}
         if (next.type === 'palletQueue' && key === 'rackSystem') {
-          const common = {}; ['enabled', 'running', 'paused', 'withPanel', 'outputId', 'outputPort', 'outputInterval', 'delivery'].forEach(name => {common[name] = component[name];});
+          if(behaviorSchema.warehouseRacks.isRack(component)&&JSON.parse(component.rackAssignments||'[]').length)throw Error('Libera las reservas de esta fila antes de cambiar su sistema de almacenamiento.');
+          const common = {}; ['enabled', 'running', 'paused', 'withPanel', 'outputId', 'outputPort', 'outputInterval', 'delivery','rackAisleCode','rackRowCode'].forEach(name => {if(component[name]!==undefined)common[name] = component[name];});
           return Object.assign({}, behaviorSchema.defaultBehavior('palletQueue'), value === 'floor' ? {} : behaviorSchema.warehouseRacks.defaults(value), common);
         }
         if (next.type === 'vehicle' && ['family', 'variant'].includes(key)) return Object.assign({}, behaviorSchema.vehicles.defaults(value), {enabled: next.enabled, sourceId: next.sourceId, outputId: next.outputId});
@@ -2107,6 +2110,7 @@ export default class SceneEditor {
         if (next.type === 'palletQueue' && ['columns', 'rows', 'layers', 'palletCapacity', 'acceptsPallets'].includes(key)) next.capacity = Math.min(next.capacity, next.acceptsPallets ? next.palletCapacity : next.columns * next.rows * next.layers * next.palletCapacity);
         if (next.type === 'product' && key === 'quality') next.defect = value === 'good' ? 'none' : next.defect === 'none' ? 'damaged' : next.defect;
         if (next.type === 'product' && key === 'defect') next.quality = value === 'none' ? 'good' : 'defective';
+        if (next.type === 'palletQueue' && behaviorSchema.warehouseRacks.isRack(next) && behaviorSchema.warehouseRacks.isRack(component) && ['rackAisleCode','rackRowCode','rackBays','rackLevels','rackColumns','rackDepthSlots','rackBanks'].includes(key)) return RackLocationPanel.remapPlan(component,next);
         return next;
       })));
       const enabled = el('input'); enabled.type = 'checkbox'; enabled.checked = config.enabled;
@@ -2120,6 +2124,10 @@ export default class SceneEditor {
       if (config.type === 'automation') this.renderRuleBuilder(body, object, config, update);
       if (config.type === 'conveyor' && config.layout === 'tee' && config.junctionMode === 'split') this.renderConveyorRouting(body, config, update);
       if (['conveyor', 'source', 'processor', 'palletQueue', 'robot', 'vehicle', 'product'].includes(config.type)) this.organizeMachineFields(body, config);
+      if (config.type === 'palletQueue' && behaviorSchema.warehouseRacks.isRack(config)) {
+        const plan=RackLocationPanel.renderPlan({document, parent:body, config, update, products:this.document.getObjects(this.roomId).filter(item=>this.document.getBehaviors(item).some(value=>value.type==='product')).map(item=>({id:item.userData.editorId,name:item.name})), notify:message=>this.toast(message)});
+        const structure=Array.from(body.children).find(child=>child.getAttribute('data-machine-group')==='Sistema y estructura');if(structure&&body.insertBefore)body.insertBefore(plan,structure);
+      }
       if (config.type === 'vehicle') {
         const vehicleActions = el('div', 'ed-actions');
         if (this.vehicleRoutes) vehicleActions.appendChild(button('Ruta y misiones en plano', 'Configurar pasillos, recogidas, entregas y esperas', () => this.vehicleRoutes.open(object)));
@@ -2220,7 +2228,7 @@ export default class SceneEditor {
         const rack = behaviorSchema.warehouseRacks.isRack(config), definition = rack && behaviorSchema.warehouseRacks.definition(config);
         if (!rack && field.key !== 'rackSystem' && behaviorSchema.warehouseRacks.FIELDS.some(item => item.key === field.key)) return;
         if (!rack && field.key === 'palletCapacity') field = Object.assign({}, field, {max: 4});
-        if (rack && ['columns', 'rows', 'layers', 'palletCapacity', 'layoutMode', 'maxStackHeight', 'autoRelease', 'releasePolicy', 'releaseInterval', 'autoReleasePressure', 'acceptsPallets'].includes(field.key)) return;
+        if (rack && ['columns', 'rows', 'layers', 'palletCapacity', 'layoutMode', 'maxStackHeight', 'autoRelease', 'releasePolicy', 'releaseInterval', 'autoReleasePressure', 'acceptsPallets', 'withPanel', 'rackAssignments'].includes(field.key)) return;
         if (rack && ['palletType', 'palletMaterial', 'width', 'depth'].includes(field.key)) return;
         if (rack && ['rackBanks', 'rackOpenAisle', 'rackAisleWidth'].includes(field.key) && definition.mechanism !== 'mobile') return;
         if (rack && field.key === 'rackSlope' && !['gravity', 'push-back'].includes(definition.mechanism)) return;
@@ -2260,7 +2268,7 @@ export default class SceneEditor {
       let input;
       if (config.type === 'palletQueue' && behaviorSchema.warehouseRacks.isRack(config) && field.key === 'rackSelectedSlot') {
         input = el('select');
-        behaviorSchema.warehouseRacks.layout(config).cells.forEach(cell => {const option = el('option', '', cell.index + ' · B' + (cell.bay + 1) + '/N' + (cell.level + 1) + '/P' + (cell.column + 1) + '/F' + (cell.depthIndex + 1) + (config.rackSystem === 'mobile' ? '/Fila' + (cell.bank + 1) : '')); option.value = cell.index; input.appendChild(option);}); input.value = fieldValue;
+        behaviorSchema.warehouseRacks.layout(config).cells.forEach(cell => {const option = el('option', '', cell.code); option.value = cell.index; input.appendChild(option);}); input.value = fieldValue;
       } else if (['select', 'room', 'audio', 'image', 'object'].includes(field.input)) {
         input = el('select');
         const media = ['audio', 'image'].includes(field.input);
@@ -2283,6 +2291,8 @@ export default class SceneEditor {
       if (config.type === 'palletQueue' && ['width', 'depth'].includes(field.key) && config.palletType !== 'custom') { input.disabled = true; input.title = 'Dimensiones definidas por el formato de estiba elegido.'; }
       if (config.type === 'palletQueue' && behaviorSchema.warehouseRacks.isRack(config)) {
         if (field.key === 'capacity') {input.disabled = true; input.title = 'Se calcula con los módulos, niveles y posiciones de la estantería.';}
+        if (field.key === 'rackBayWidth' && config.rackBayWidths) input.title='Los anchos por módulo tienen prioridad. Vacía ese campo para utilizar el ancho común.';
+        if (field.key === 'rackBayWidths') {input.placeholder='Ej.: 2.4, 3.6';input.title='Un ancho por módulo, separado por coma. Usa punto decimal; deja vacío para utilizar el ancho común.';}
         if (field.key === 'rackSelectedSlot') input.max = Math.max(0, config.capacity - 1);
         if (field.key === 'rackDepthSlots' && !['drive-in', 'drive-through', 'pallet-flow', 'push-back', 'carton-flow'].includes(config.rackSystem)) input.disabled = true;
       }
@@ -2301,10 +2311,11 @@ export default class SceneEditor {
     });
     const dimensions = config.type === 'source' ? ['width', 'height', 'depth'] : ['length', 'width', 'depth', 'supportHeight', 'rise', 'radius', 'curveAngle', 'axis', 'gradeProfile', 'rollerPitch', 'mergeAngle', 'branchSide'];
     const groups = config.type === 'palletQueue' && behaviorSchema.warehouseRacks.isRack(config) ? [
-      ['Sistema y estructura', ['rackSystem', 'rackBays', 'rackLevels', 'rackColumns', 'rackDepthSlots', 'rackBayWidth', 'rackSlotDepth', 'rackLevelHeight', 'rackBaseHeight']],
+      ['Identificación del almacén', ['rackAisleCode','rackRowCode']],
+      ['Sistema y estructura', ['rackSystem', 'rackBays', 'rackLevels', 'rackColumns', 'rackDepthSlots', 'rackBayWidth', 'rackBayWidths', 'rackSlotDepth', 'rackLevelHeight', 'rackBaseHeight']],
       ['Carga y compatibilidad', ['rackClearance', 'rackMaxLoadKg', 'rackLevelLoadKg', 'rackSkuPolicy', 'palletType', 'palletMaterial', 'width', 'depth', 'capacity']],
       ['Mecanismo y acceso', ['rackSlope', 'rackMechanismSpeed', 'rackBanks', 'rackAisleWidth', 'rackOpenAisle', 'rackTransferHeight', 'rackSelectedSlot']],
-      ['Operación y conexiones', ['enabled', 'running', 'paused', 'withPanel', 'delivery', 'outputId', 'outputPort', 'outputInterval']]
+      ['Operación y conexiones', ['enabled', 'running', 'paused', 'delivery', 'outputId', 'outputPort', 'outputInterval']]
     ] : config.type === 'robot' ? [
       ['Arquitectura y herramienta', ['family', 'variant', 'operation', 'tool', 'withPanel']],
       ['Dimensiones y volumen de trabajo', ['reach', 'length', 'width', 'height', 'baseHeight', 'approachHeight', 'positionTolerance']],
@@ -2319,6 +2330,7 @@ export default class SceneEditor {
       ['Chasis y dirección', ['length', 'width', 'height', 'wheelbase', 'track', 'wheelRadius', 'speed', 'reverseSpeed', 'acceleration', 'brakeDeceleration', 'steerLimit']],
       ['Mástil y herramienta', ['mastHeight', 'maxLift', 'liftSpeed', 'initialLift', 'forkBaseHeight', 'forkLength', 'forkWidth', 'forkThickness', 'forkSpread', 'tiltLimit', 'maxReach', 'reachSpeed', 'maxSideShift', 'turretLimit', 'boomLength', 'maxBoomExtension', 'boomAngleLimit', 'boomPivotHeight']],
       ['Capacidad de carga', ['payloadKg', 'loadCenter', 'capacityHeightLimit', 'maxTowKg']],
+      ['Misiones de almacén verificables', ['trainingTasksJson']],
       ['Ruta y estaciones', ['waypointsJson', 'routeLoop', 'sourceId', 'outputId', 'carryLift', 'dockTolerance', 'batteryPercent', 'batteryDrainPerMeter']],
       ['Cabina y acabado por piezas', ['cabinStyle', 'cabInterior', 'decals', 'serial', 'filletRadius', 'frameColor', 'accentColor', 'forkColor', 'finish', 'wear', 'detail']]
     ] : config.type === 'product' ? [
@@ -2337,7 +2349,7 @@ export default class SceneEditor {
     const rest = Array.from(body.children).filter(child => !Array.from(rows.values()).includes(child));
     const append = (title, keys) => {
       const chosen = keys.filter(key => rows.has(key)); if (!chosen.length) return;
-      const group = el('fieldset', 'ed-machine-fields'); group.appendChild(el('legend', '', title));
+      const group = el('fieldset', 'ed-machine-fields'); group.setAttribute('data-machine-group',title); group.appendChild(el('legend', '', title));
       chosen.forEach(key => { group.appendChild(rows.get(key)); rows.delete(key); }); body.appendChild(group);
     };
     groups.forEach(([title, keys]) => append(title, keys)); append('Más parámetros', Array.from(rows.keys()));

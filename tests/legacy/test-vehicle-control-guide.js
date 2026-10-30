@@ -7,15 +7,16 @@ const guide = new Guide(), definitions = Guide.actions.filter(value => !value.co
 assert(Object.isFrozen(Guide.actions) && Guide.actions.every(Object.isFrozen));
 assert.equal(new Set(Guide.actions.map(value => value.action)).size, Guide.actions.length);
 assert.equal(new Set(definitions.map(value => value.code + ':' + value.shift)).size, definitions.length, 'One key combination names one action.');
-const expected = {powerOn:'B',start:'V',powerOff:'Shift+B',stop:'Shift+V',pause:'Shift+P',parkingBrake:'P',emergency:'Y',resetEmergency:'Shift+Y',pickup:'G',release:'K',depositIntent:'Shift+K',couple:'I',uncouple:'Shift+I',horn:'H',lights:'N',forkCamera:'C',forkCameraMode:'Shift+C',forkCameraSide:'Shift+N',view:'M',mode:'Shift+M',dockingHelp:'Shift+H',cursor:'Tab',exit:'F'};
+const expected = {powerOn:'B',start:'V',powerOff:'Shift+B',stop:'Shift+V',pause:'Shift+P',parkingBrake:'P',emergency:'Y',resetEmergency:'Shift+Y',pickup:'G',release:'K',depositIntent:'Shift+K',couple:'I',uncouple:'Shift+I',horn:'H',lights:'N',forkCamera:'C',forkCameraMode:'Shift+C',forkCameraSide:'Shift+N',rearView:'Shift+R',view:'M',mode:'Shift+M',dockingHelp:'Shift+H',holographicGuide:'Shift+G',guidanceNext:'Shift+J',cursor:'Tab',exit:'F'};
 for (const definition of definitions) {
   assert.equal(definition.key, expected[definition.action]); assert.equal(Guide.shortcut({code:definition.code,shiftKey:definition.shift}), definition.action);
   for (const modifier of ['ctrlKey','altKey','metaKey','repeat','isComposing']) assert.equal(Guide.shortcut({code:definition.code,shiftKey:definition.shift,[modifier]:true}),null);
   assert.equal(Guide.shortcut({code:definition.code,shiftKey:definition.shift,target:{tagName:'INPUT'}}),null);
   assert(Guide.actionLabel(definition.action).includes(definition.key)); assert(!/Shift\+|Key[A-Z]|WASD|Tab/.test(Guide.actionLabel(definition.action,true)));
 }
-for (const code of ['ArrowUp','ArrowLeft','KeyQ','KeyR','KeyZ','KeyW']) assert.equal(Guide.shortcut({code,shiftKey:true}),null, 'Unmapped Shift keys cannot fall back to a base action.');
+for (const code of ['ArrowUp','ArrowLeft','KeyQ','KeyT','KeyZ','KeyW']) assert.equal(Guide.shortcut({code,shiftKey:true}),null, 'Unmapped Shift keys cannot fall back to a base action.');
 const flt = vehicles.defaults('forklift-electric-4w'), forks = vehicles.supports(flt), tow = vehicles.defaults('tow-tractor');
+assert(Guide.definitions(forks,flt).some(value=>value.action==='forkCameraSide'),'Both sides of the isometric inspection view must be reachable from keyboard and view controls.');
 assert(!Guide.definitions(forks,flt).some(value=>['couple','uncouple'].includes(value.action)));
 assert(Guide.definitions(vehicles.supports(tow),tow).some(value=>value.action==='couple'));
 assert(!Guide.definitions(vehicles.supports(tow),tow).some(value=>['pickup','release','forkCamera','liftUp','tiltBack'].includes(value.action)));

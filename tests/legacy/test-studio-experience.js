@@ -36,6 +36,18 @@ function setup() {
 }
 
 async function run() {
+  const home = setup(); location.href = 'https://localhost:8080/editor?libraryScene=vr-robot-turn'; home.editor.dirty = true;
+  home.editor.importingFiles = true; home.editor.projectTabs = {hasUnsaved: () => true};
+  home.goHome(); const homeNavigation = calls.pop(); assert.deepEqual(homeNavigation, ['navigate', 'https://localhost:8080/']);
+  assert(home.editor.dirty && home.editor.importingFiles && home.editor.projectTabs.hasUnsaved(), 'Returning home must preserve every existing beforeunload condition instead of discarding or silently saving edits.');
+  const editorSource = fs.readFileSync(path.join(__dirname, '../../packages/tools/editor/src/SceneEditor.js'), 'utf8');
+  const unloadBody = editorSource.split("window.addEventListener('beforeunload', event => {")[1].split('    });')[0];
+  const beforeUnload = new Function('event', unloadBody);
+  for (const state of [{dirty:true}, {importingFiles:true}, {projectTabs:{hasUnsaved:()=>true}}]) {
+    let blocked = false; const event = {preventDefault() { blocked = true; }}; beforeUnload.call(state, event);
+    assert(blocked && event.returnValue === '', 'The existing native confirmation must still protect edits, pending imports and other tabs when navigating home.');
+  }
+  let cleanBlocked = false; beforeUnload.call({dirty:false, importingFiles:false, projectTabs:{hasUnsaved:()=>false}}, {preventDefault() { cleanBlocked = true; }}); assert.equal(cleanBlocked, false);
   const flight = setup(); let cleared = 0, resetLook = 0; const attributes = {};
   flight.editor.hooks.clearKeyboard = () => cleared++; flight.ctx.desktopLook = {reset() { resetLook++; }};
   flight.flightButton = {setAttribute(key, value) { attributes[key] = value; }}; flight.ctx.studioLocomotion = 'teleport';

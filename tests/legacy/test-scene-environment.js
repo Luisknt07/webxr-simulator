@@ -6,7 +6,7 @@ const path = require('node:path');
 const THREE = require('three');
 const schema = require('../../packages/project-model/shared/studio-document');
 const source = fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-scene-environment.js"), '../src/studio/SceneEnvironment.js')), 'utf8').replace(/^import .*$/gm, '').replace('export default class SceneEnvironment', 'return class SceneEnvironment');
-const SceneEnvironment = new Function('THREE', 'schema', source)(THREE, schema);
+const SceneEnvironment = new Function('THREE', 'schema', 'industrialLighting', 'industrialSurfaces', source)(THREE, schema, require('../../packages/render-three/schema/industrial-lighting.js'), require('../../packages/render-three/schema/industrial-surfaces.js'));
 
 assert.equal(schema.normalize({version: 1}).environments, undefined, 'Legacy documents retain native environments.');
 const defaults = schema.defaultEnvironment('sound');

@@ -10,7 +10,7 @@ const arg = name => {const index = process.argv.indexOf(name); return index < 0 
 const digest = value => createHash('sha256').update(value).digest('hex');
 async function staticServer(artifact) {
   const base = fs.realpathSync(artifact), requests = [], pem = fs.readFileSync(__layout.map(path.join(ROOT, 'node_modules/webpack-dev-server/ssl/server.pem')));
-  const mime = {'.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml'};
+  const mime = {'.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml'};
   const server = https.createServer({key: pem, cert: pem}, (request, response) => {
     const entry = {method: request.method, path: new URL(request.url, 'https://localhost').pathname}; requests.push(entry);
     const fail = code => {entry.status = code; response.writeHead(code); response.end();};
@@ -32,6 +32,27 @@ async function run() {
   try {
     await withBrowser(fixture.origin, async b => {
       await b.send('Page.navigate', {url: fixture.origin + '/webxr-simulator/'});
+      await b.until(() => b.evaluate('!!window.smartTwinGallery&&!document.getElementById("welcome").hidden&&document.getElementById("scene-grid").getAttribute("aria-busy")==="false"'), 'The welcome screen did not appear.');
+      report.welcome=await b.call(()=>({screen:smartTwinGallery.getStats().screen,canvas:document.querySelectorAll('#viewer canvas').length,galleryHidden:document.getElementById('gallery').hidden,loadingHidden:document.getElementById('loading').hidden,title:document.getElementById('welcome-title').textContent}));
+      assert.equal(report.welcome.screen,'welcome');assert.equal(report.welcome.canvas,0);assert.equal(report.welcome.galleryHidden,true);assert.equal(report.welcome.loadingHidden,true);assert(report.welcome.title.includes('SMART-TWIN'));
+      assert(!fixture.requests.some(value=>/projects\/.*\.json$/.test(value.path)),'The welcome screen must not load a 3D scene.');await b.screenshot('public-welcome-desktop');
+      for(const width of [390,320]){await b.send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:true});await b.until(()=>b.evaluate('innerWidth==='+width),'Welcome mobile dimensions did not apply.');assert.equal(await b.evaluate('document.documentElement.scrollWidth>innerWidth'),false);assert(await b.evaluate('(()=>{const r=document.getElementById("explore-scenes").getBoundingClientRect();return r.top>=0&&r.bottom<innerHeight;})()'),'The primary action must be visible on mobile.');await b.screenshot('public-welcome-mobile-'+width);}
+      await b.send('Emulation.clearDeviceMetricsOverride');await b.call(()=>document.getElementById('explore-scenes').click());
+      await b.until(()=>b.evaluate('!document.getElementById("gallery").hidden&&smartTwinGallery.getStats().screen==="gallery"'),'Explore must open the catalogue.');
+      await b.evaluate('history.back()');await b.until(()=>b.evaluate('smartTwinGallery.getStats().screen==="welcome"'),'Browser Back must return to welcome.');await b.evaluate('history.forward()');await b.until(()=>b.evaluate('smartTwinGallery.getStats().screen==="gallery"'),'Browser Forward must restore the catalogue without 3D.');
+      report.gallery = await b.call(() => ({state: smartTwinGallery.getStats(), canvas: document.querySelectorAll('#viewer canvas').length, demo: !!window.smartTwinViewer, cards: document.querySelectorAll('.scene-card').length, title: document.getElementById('gallery-title').textContent, access:document.getElementById('gallery-access').textContent, open:document.querySelector('.scene-open').textContent, description:document.querySelector('.gallery-description').textContent}));
+      assert.equal(report.gallery.canvas, 0); assert.equal(report.gallery.demo, false); assert.deepEqual(report.gallery.state.sceneIds, ['vr-robot-dispatch']); assert.equal(report.gallery.cards, 1);
+      assert.equal(report.gallery.access,'Iniciar sesión');assert.equal(report.gallery.open,'Explorar escenario');assert(report.gallery.description.length>20);
+      await b.until(()=>b.evaluate('Array.from(document.querySelectorAll(".scene-card img")).every(image=>image.complete&&image.naturalWidth>0)'),'The real scene thumbnail did not load.');
+      assert.equal(await b.evaluate('document.querySelectorAll(".scene-card img").length'),1);
+      assert(!fixture.requests.some(value => /projects\/.*\.json$/.test(value.path)), 'Opening the catalogue must not download or simulate a scene.');
+      await b.screenshot('public-gallery-desktop');
+      await b.send('Emulation.setDeviceMetricsOverride', {width:390,height:844,deviceScaleFactor:1,mobile:true});
+      await b.until(() => b.evaluate('innerWidth===390'), 'Gallery mobile dimensions did not apply.');
+      report.gallery.mobile = await b.call(() => ({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,visible:!document.getElementById('gallery').hidden}));
+      assert.equal(report.gallery.mobile.width,report.gallery.mobile.scrollWidth); await b.screenshot('public-gallery-mobile');
+      await b.send('Emulation.clearDeviceMetricsOverride');
+      await b.call(() => document.querySelector('.scene-open[data-scene-id="vr-robot-dispatch"]').click());
       await b.until(async () => {if (b.report.exceptions.length) throw new Error(b.report.exceptions[0]); const value = await b.evaluate('({ready:!!window.smartTwinViewer,failed:document.querySelector("#loading.failed")?.innerText})'); if (value.failed) throw new Error(value.failed); return value.ready;}, 'Public app did not initialize.');
       const initial = await b.call(async () => {
         const api = smartTwinViewer, bytes = await fetch('viewer.js').then(value => value.arrayBuffer()), hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), value => value.toString(16).padStart(2, '0')).join('');
@@ -105,9 +126,17 @@ async function run() {
       assert.equal(fixture.requests.filter(value => /projects\/.*\.json$/.test(value.path)).length, 1, 'Exactly one selected project snapshot must be fetched.');
       report.final = await b.call(() => {const ctx = smartTwinViewer.context; return {stats: smartTwinViewer.getStats(), gl: ctx.renderer.getContext().getError()};});
       assert.equal(report.final.gl, 0); assert.equal(report.final.stats.frameCount, report.final.stats.primaryRenders);
-      await b.evaluate('smartTwinViewer.dispose()');
-      report.cleanup = await b.call(() => ({canvas: document.querySelectorAll('#viewer canvas').length, touch: document.querySelectorAll('.xr-browser-touch').length, driving: !!smartTwinViewer.context.vehicleDriving, targets: smartTwinViewer.context.performanceRenderTargets.size, root: !!smartTwinViewer.document.root.parent}));
+      report.cleanup = await b.call(async () => {const disposedViewer = smartTwinViewer; await disposedViewer.dispose(); return {canvas: document.querySelectorAll('#viewer canvas').length, touch: document.querySelectorAll('.xr-browser-touch').length, driving: !!disposedViewer.context.vehicleDriving, targets: disposedViewer.context.performanceRenderTargets.size, root: !!disposedViewer.document.root.parent};});
       assert.deepEqual(report.cleanup, {canvas: 0, touch: 0, driving: false, targets: 0, root: false});
+      assert.equal(await b.evaluate('window.smartTwinViewer'),null,'The disposed viewer facade must be cleared.');
+      await b.call(() => document.getElementById('back-scenes').click());
+      await b.until(() => b.evaluate('!document.getElementById("gallery").hidden&&!window.smartTwinViewer'), 'Returning to the catalogue failed.');
+      assert.equal(await b.evaluate('document.querySelectorAll("#viewer canvas").length'),0);
+      await b.call(() => document.querySelector('.scene-open[data-scene-id="vr-robot-dispatch"]').click());
+      await b.until(() => b.evaluate('!!window.smartTwinViewer&&smartTwinViewer.getStats().frameCount>3'), 'The selected scenario could not reopen after returning to the catalogue.');
+      report.gallery.reentry = await b.call(() => ({canvas:document.querySelectorAll('#viewer canvas').length,sceneId:smartTwinViewer.getStats().sceneId,galleryHidden:document.getElementById('gallery').hidden}));
+      assert.equal(report.gallery.reentry.canvas,1);assert.equal(report.gallery.reentry.galleryHidden,true);await b.evaluate('smartTwinViewer.dispose()');
+      await b.call(()=>document.getElementById('home-link').click());await b.until(()=>b.evaluate('smartTwinGallery.getStats().screen==="welcome"&&!window.smartTwinViewer'),'Home must restore welcome.');assert.equal(await b.evaluate('document.querySelectorAll("#viewer canvas").length'),0);
       report.sessions.push(b.report);
       assert.deepEqual(b.report.exceptions, []); assert.deepEqual(b.report.consoleErrors, []); assert.deepEqual(b.report.apiFailures, []); assert.deepEqual(b.report.writes, []);
     });
