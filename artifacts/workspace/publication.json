@@ -3,7 +3,7 @@
   "version": 1,
   "application": "workspace",
   "revision": "45068bf03122e36ce2b79589fa9b926601df7e76",
-  "bundleSha256": "cd703cffb668594959e828b277c251208d3b96de27831fc98482140ea21cebc3",
+  "bundleSha256": "a7e23969cd55e31e2c4c2bc837e87b662ab2914acc6419b0115be289fe0864b4",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -72,7 +72,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "cd703cffb668594959e828b277c251208d3b96de27831fc98482140ea21cebc3"
+      "sha256": "a7e23969cd55e31e2c4c2bc837e87b662ab2914acc6419b0115be289fe0864b4"
     },
     {
       "path": "cad-worker.js",
@@ -984,7 +984,7 @@
     },
     {
       "path": "packages/tools/editor/src/editor.css",
-      "sha256": "ced58cd494a1525ec7c8fb3439862083a5368bb2c696cf27443dd9452309f5e4"
+      "sha256": "03d5a82f60d911e47db07e5d0b4f92b5a05a52f6bd8468d0467ff2a7656b2895"
     },
     {
       "path": "packages/tools/editor/src/floor-plan-editor.css",
@@ -1048,7 +1048,7 @@
     },
     {
       "path": "packages/voice-assistant/voice-assistant.css",
-      "sha256": "2c5fdd273cd0024e93bdecc755ec0a2f97c096dbeb9e97f5b580c8dc744f7e68"
+      "sha256": "151a3a7e8fee12ebcd565043906ab178800249b440ff38ba44f502bd3858d28d"
     },
     {
       "path": "projects/smarttwin/branding/apple-touch-icon-114x114.png",
@@ -1389,8 +1389,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "640c4718bb46d9116a25",
-    "statsSha256": "a1a08d96ff38e668079edbc41193aa46848fc6d59199505bcefc3fa85db58167",
+    "hash": "ff5962116c670412ae95",
+    "statsSha256": "5203553a6c32bcabd791fd67c0f880269c7aed0c7863c735bcb8fdb0a2853e89",
     "assets": [
       {
         "path": "0.bundle.js",
@@ -1414,7 +1414,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 3529188
+        "size": 3565665
       }
     ]
   }

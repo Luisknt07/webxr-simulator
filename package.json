@@ -50,14 +50,15 @@
     "project:build": "node --openssl-legacy-provider tooling/build/project.mjs",
     "test:vehicle-assistance": "node tests/legacy/test-vehicle-control-guide.js && node tests/legacy/test-vehicle-driving.js && node tests/legacy/test-vehicle-control-workflow.js && node tests/legacy/test-vehicle-fork-camera.js && node tests/legacy/test-vehicle-fork-camera-residency.js && node tests/legacy/test-vehicle-camera-quality.js && node tests/legacy/test-vehicle-holographic-guide.js && node tests/legacy/test-vehicle-docking-coach-ui.js && node tests/legacy/test-vehicle-cab-panel-layout.js && node tests/legacy/test-vehicle-front-visibility.js && node tests/legacy/test-vehicle-compact-controls.js && node tests/legacy/test-vehicle-fine-controls.js && node tests/legacy/test-vehicle-docking-assistance.js && node tests/legacy/test-vehicle-inspection-mode.js && node tests/legacy/test-vehicle-facility-layout.js && node tests/legacy/test-vehicle-route-visibility.js",
     "test:industrial-lighting": "node tests/legacy/test-industrial-lighting-profile.js && node tests/legacy/test-scene-environment.js && node tests/legacy/test-scene-entities.js && node tests/legacy/test-render-quality.js && node tests/legacy/test-industrial-surface-detail.js",
-    "test:voice": "node --test packages/voice-assistant/tests/*.test.mjs && node tests/legacy/test-voice-assistant-ui.js && node tests/legacy/test-voice-context.js && node tooling/qa/voice-assistant.cjs --assets-only",
+    "test:voice": "node --test packages/voice-assistant/tests/*.test.mjs tests/framework/voice-server.test.mjs && node tests/legacy/test-voice-assistant-ui.js && node tests/legacy/test-voice-context.js && node tooling/qa/voice-assistant.cjs --assets-only",
     "module:create": "node tooling/modules/create-module.mjs",
     "test:modular-browser": "node tooling/qa/modular-project.cjs",
     "test:modularity": "node --test tests/framework/project-selection.test.mjs tests/framework/project-session.test.mjs tests/framework/project-manager-ui.test.mjs tests/framework/module-scaffold.test.mjs tests/framework/package-boundaries.test.mjs tests/framework/discovery.test.mjs tests/framework/project-build.test.mjs",
     "module:pack": "node tooling/modules/module-pack.mjs",
     "project:content": "node tooling/projects/content-project.mjs",
     "test:project-content": "node --test tests/framework/project-content-format.test.mjs tests/framework/project-folder.test.mjs tests/framework/project-folder-discovery.test.mjs tests/framework/project-content-storage.test.mjs tests/framework/project-content-ui.test.mjs tests/framework/project-module-profile.test.mjs tests/framework/project-module-persistence.test.mjs tests/framework/module-pack.test.mjs",
-    "test:project-content-browser": "node tooling/qa/project-content.cjs"
+    "test:project-content-browser": "node tooling/qa/project-content.cjs",
+    "test:forklift-responsive": "node tests/legacy/test-vehicle-responsive-controls.js && node tooling/qa/forklift-responsive.cjs"
   },
   "repository": {
     "type": "git",

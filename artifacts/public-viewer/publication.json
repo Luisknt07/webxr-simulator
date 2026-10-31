@@ -3,7 +3,7 @@
   "version": 1,
   "application": "public-viewer",
   "revision": "45068bf03122e36ce2b79589fa9b926601df7e76",
-  "bundleSha256": "d3fd3f373327a104071ba1a363441d835edf9eed7354704f54c3b6a021a2c88c",
+  "bundleSha256": "bfa38347980a56ae116bde4fcf51718ba17783b622e5655dcf8bde6c9524ba87",
   "scenes": [
     "vr-robot-dispatch"
   ],
@@ -46,7 +46,7 @@
     },
     {
       "path": "packages/voice-assistant/voice-assistant.css",
-      "sha256": "2c5fdd273cd0024e93bdecc755ec0a2f97c096dbeb9e97f5b580c8dc744f7e68"
+      "sha256": "151a3a7e8fee12ebcd565043906ab178800249b440ff38ba44f502bd3858d28d"
     },
     {
       "path": "projects/smarttwin/previews/vr-robot-dispatch.png",
@@ -62,11 +62,11 @@
     },
     {
       "path": "viewer.css",
-      "sha256": "011956db207784f23d2161fe20e7a79cfea7f37a0c66821d0ab1ec8ed1506520"
+      "sha256": "52ba9272e7a0cd013bf1640c7f5dcdc5c91c16b08e286592d16e88a183c6bfa7"
     },
     {
       "path": "viewer.js",
-      "sha256": "d3fd3f373327a104071ba1a363441d835edf9eed7354704f54c3b6a021a2c88c"
+      "sha256": "bfa38347980a56ae116bde4fcf51718ba17783b622e5655dcf8bde6c9524ba87"
     }
   ]
 }

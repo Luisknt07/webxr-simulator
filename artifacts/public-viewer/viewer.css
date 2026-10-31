@@ -413,3 +413,107 @@ body:has(#editor-return:not([hidden])) #vehicle-operation-panels{top:134px}
  #vehicle-operation-panels .vehicle-navigation-display .vehicle-camera-views{aspect-ratio:auto!important;height:auto!important}
  #vehicle-operation-panels .vehicle-navigation-display .vehicle-fork-camera-viewport{width:min(100%,calc(max(54px,var(--vehicle-navigation-height) - 170px)*16/9))!important;aspect-ratio:16/9!important;height:auto!important;margin-left:auto!important;margin-right:auto!important}
 }
+
+/* Driving viewport: small independent instruments, with detail on demand. */
+#vehicle-operation-panels{--vehicle-hud-top:84px;position:fixed!important;inset:0!important;display:block!important;pointer-events:none!important;overflow:visible;min-height:0}
+body:has(#editor-return:not([hidden])) #vehicle-operation-panels{--vehicle-hud-top:148px;top:0!important}
+#vehicle-operation-panels .vehicle-operator-column{display:contents!important;height:auto!important;max-height:none!important;overflow:visible!important}
+#vehicle-operation-panels .vehicle-operator-column .vehicle-driving-hud[data-layout="compact"][data-controls]{position:fixed!important;inset:auto!important;left:max(8px,env(safe-area-inset-left))!important;bottom:max(8px,env(safe-area-inset-bottom))!important;width:min(350px,calc(100vw - 16px))!important;height:auto!important;min-height:0!important;max-height:min(300px,calc(100dvh - var(--vehicle-hud-top) - 16px))!important;flex:none!important;overflow:auto;padding:8px;z-index:34;background:#122733f2}
+.vehicle-driving-hud[data-controls] .vehicle-driving-header{position:relative;display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;margin:0 0 6px!important;min-height:34px}
+.vehicle-driving-hud[data-controls] .vehicle-driving-name{grid-column:1;font-size:11px!important;line-height:1.3!important;max-width:100%}
+.vehicle-driving-hud[data-controls] .vehicle-driving-summary{grid-column:1/-1;font-size:9px!important;line-height:1.3!important;gap:4px 7px!important;margin:1px 0 0!important;padding-right:0}
+.vehicle-driving-hud[data-controls] .vehicle-hud-actions{grid-column:2;grid-row:1;display:flex;gap:4px;align-items:center;min-width:0}
+.vehicle-driving-hud[data-controls] .vehicle-hud-actions button{box-sizing:border-box;min-width:30px;min-height:30px;margin:0;padding:4px 6px;border:1px solid #557788;border-radius:6px;background:#294452;color:#e1f3f6;font:600 10px/1.1 system-ui;cursor:pointer}
+.vehicle-driving-hud[data-controls] .vehicle-hud-actions .vehicle-hud-emergency{min-width:30px;color:#fff3ed;background:#863e48;border-color:#cf8790;font-size:16px;font-weight:800}
+.vehicle-driving-hud[data-controls] .vehicle-next-step{display:block!important;max-height:32px!important;margin:0 0 5px!important;padding:4px 6px!important;overflow:auto;font-size:10px!important;line-height:1.3!important}
+.vehicle-driving-hud[data-controls] .vehicle-next-step-title{display:block;font-size:10px!important;line-height:1.3}
+.vehicle-driving-hud[data-controls]:not([data-expanded="true"]) .vehicle-next-step-text{display:none}
+.vehicle-driving-hud[data-controls] .vehicle-control-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:0 0 5px}
+.vehicle-driving-hud[data-controls] .vehicle-control-tab{min-width:0;min-height:32px;padding:4px 3px;background:#1b3542;color:#c2dce4;border:1px solid #496775;border-radius:6px;font:600 10px/1.1 system-ui;cursor:pointer}
+.vehicle-driving-hud[data-controls] .vehicle-control-tab[aria-selected="true"]{background:#2c5d57;color:#c5ffeb;border-color:#8edec7}
+.vehicle-driving-hud[data-controls] .vehicle-control-tab:focus-visible,.vehicle-driving-hud[data-controls] .vehicle-hud-actions button:focus-visible,.vehicle-mission-expand:focus-visible{outline:2px solid #b9ffdf;outline-offset:2px}
+.vehicle-driving-hud[data-controls] .vehicle-control-groups{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:5px!important}
+.vehicle-driving-hud[data-controls] .vehicle-control-group{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px!important;padding:4px!important;min-width:0;max-width:none!important;width:100%!important;box-sizing:border-box}
+.vehicle-driving-hud[data-controls] .vehicle-control-group[hidden],.vehicle-driving-hud[data-controls] .vehicle-control-tab[hidden]{display:none!important}
+.vehicle-driving-hud[data-controls] .vehicle-control-group-title{display:none!important}
+.vehicle-driving-hud[data-controls] .vehicle-control-group button{min-width:0!important;min-height:36px!important;padding:4px!important;gap:3px!important}
+.vehicle-driving-hud[data-controls] .vehicle-control-label{font-size:10px!important;line-height:1.15!important}
+.vehicle-driving-hud[data-controls] .vehicle-control-key{font-size:8px!important;line-height:1.1!important}
+.vehicle-driving-hud[data-controls] .vehicle-driving-hint{display:none!important}
+#vehicle-operation-panels .vehicle-operator-column .vehicle-driving-hud[data-controls][data-expanded="true"]{max-height:min(540px,calc(100dvh - var(--vehicle-hud-top) - 16px))!important}
+.vehicle-driving-hud[data-controls][data-expanded="true"] .vehicle-control-group-title{display:block!important;grid-column:1/-1;font-size:10px;margin:0}
+.vehicle-driving-hud[data-controls][data-minimized="true"] .vehicle-control-tabs,.vehicle-driving-hud[data-controls][data-minimized="true"] .vehicle-next-step,.vehicle-driving-hud[data-controls][data-minimized="true"] .vehicle-control-groups{display:none!important}
+.vehicle-driving-hud[data-controls][data-minimized="true"] .vehicle-driving-header{margin-bottom:0!important}
+#vehicle-operation-panels .vehicle-operator-column .vehicle-guidance-panel{position:fixed!important;inset:auto!important;top:var(--vehicle-hud-top)!important;left:max(8px,env(safe-area-inset-left))!important;width:min(340px,calc(46vw - 12px))!important;height:auto!important;max-height:min(45dvh,calc(100dvh - var(--vehicle-hud-top) - 260px))!important;overflow:auto!important;padding:5px!important;z-index:33}
+.vehicle-mission-panel[data-expanded="false"] .vehicle-mission-progress-row,.vehicle-mission-panel[data-expanded="false"] .vehicle-mission-stages,.vehicle-mission-panel[data-expanded="false"] .vehicle-mission-instruction,.vehicle-mission-panel[data-expanded="false"] .vehicle-mission-badges,.vehicle-mission-panel[data-expanded="false"] .vehicle-mission-drawers{display:none!important}
+.vehicle-mission-panel .vehicle-mission-scorebar{display:flex;gap:5px;align-items:center;flex-wrap:nowrap!important}
+.vehicle-mission-panel .vehicle-mission-kicker{flex:1;min-width:0;font-size:9px;line-height:1.2}
+.vehicle-mission-panel .vehicle-mission-score{flex:none;font-size:9px;padding:2px 4px}
+.vehicle-mission-panel .vehicle-mission-expand{flex:none;min-height:28px;padding:4px 6px;border:1px solid #678a91;border-radius:5px;background:#254952;color:#d7f4ec;font:600 10px/1.2 system-ui;cursor:pointer}
+.vehicle-mission-panel[data-expanded="false"]{padding:7px!important;margin:0!important}
+.vehicle-mission-panel[data-expanded="false"] .vehicle-mission-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-size:11px!important;line-height:1.35!important;margin:4px 0!important}
+.vehicle-mission-panel[data-expanded="false"] .vehicle-mission-stage-label{font-size:10px!important;line-height:1.3!important;margin:3px 0 0!important}
+.vehicle-mission-panel[data-expanded="false"] .vehicle-mission-feedback{font-size:10px;padding:4px;max-height:44px;overflow:auto}
+.vehicle-mission-panel[data-expanded="false"] .vehicle-mission-recovery{font-size:10px;max-height:30px;overflow:auto;margin:4px 0 0}
+#vehicle-operation-panels .vehicle-guidance-panel:has(.vehicle-mission-panel[data-expanded="false"]) .vehicle-guidance-controls,#vehicle-operation-panels .vehicle-guidance-panel:has(.vehicle-mission-panel[data-expanded="false"]) .vehicle-guidance-instruction{display:none!important}
+#vehicle-operation-panels .vehicle-operator-column .vehicle-guidance-panel:has(.vehicle-mission-panel[data-expanded="true"]){max-height:calc(100dvh - var(--vehicle-hud-top) - 260px)!important}
+#vehicle-operation-panels .vehicle-navigation-display{position:fixed!important;inset:auto!important;top:var(--vehicle-hud-top)!important;right:max(8px,env(safe-area-inset-right))!important;width:min(390px,36vw)!important;height:auto!important;max-height:calc(100dvh - var(--vehicle-hud-top) - 16px)!important;overflow:auto!important;z-index:33;padding:4px!important;align-self:auto}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-header{padding:5px 6px;gap:4px}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-title{font-size:11px}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-actions{gap:3px}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-actions button{font-size:9px;min-height:28px;padding:4px 5px}
+#vehicle-operation-panels .vehicle-navigation-display[data-display="layout"] .vehicle-docking-plan canvas{aspect-ratio:var(--vehicle-layout-aspect,1.7778)!important;max-height:min(44dvh,calc(100dvh - var(--vehicle-hud-top) - 120px))!important;width:100%!important;height:auto!important;object-fit:contain}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-docking-summary,#vehicle-operation-panels .vehicle-navigation-display .vehicle-docking-metrics:not([hidden]){font-size:10px!important;line-height:1.3!important;padding:4px 6px!important;margin:4px 0 0!important;max-height:42px;overflow:auto}
+#vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"]{left:50%!important;right:auto!important;transform:translateX(-50%)!important;width:min(920px,calc(100vw - 24px))!important;max-height:calc(100dvh - var(--vehicle-hud-top) - 12px)!important;z-index:38;background:#10232ef5!important;box-shadow:0 10px 60px #0009}
+#vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"][data-display="layout"] .vehicle-docking-plan canvas{height:min(56dvh,660px)!important;max-height:calc(100dvh - var(--vehicle-hud-top) - 122px)!important;object-fit:contain}
+#vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"][data-display="layout"]{width:min(920px,calc(100vw - 24px),calc(min(56dvh,660px)*var(--vehicle-layout-aspect,1.7778) + 24px))!important}
+@media(max-width:720px){
+ #vehicle-operation-panels{--vehicle-hud-top:78px}
+ body:has(#editor-return:not([hidden])) #vehicle-operation-panels{--vehicle-hud-top:136px}
+ #vehicle-operation-panels .vehicle-operator-column .vehicle-driving-hud[data-layout="compact"][data-controls]{left:8px!important;right:8px!important;bottom:max(8px,env(safe-area-inset-bottom))!important;width:calc(100vw - 16px)!important;max-height:240px!important;padding:6px}
+ .vehicle-driving-hud[data-controls] .vehicle-driving-name{font-size:10px!important}
+ .vehicle-driving-hud[data-controls] .vehicle-driving-summary{font-size:9px!important;flex-wrap:nowrap!important;white-space:nowrap;overflow:hidden}
+ .vehicle-driving-hud[data-controls] .vehicle-control-group button{min-height:38px!important}
+ .vehicle-driving-hud[data-controls] .vehicle-control-tabs{margin-bottom:4px}
+ .vehicle-driving-hud[data-controls] .vehicle-next-step{max-height:22px!important;padding:3px 5px!important;margin-bottom:4px!important}
+ #vehicle-operation-panels .vehicle-operator-column .vehicle-driving-hud[data-controls][data-expanded="true"]{max-height:min(52dvh,calc(100dvh - var(--vehicle-hud-top) - 12px))!important}
+ #vehicle-operation-panels .vehicle-operator-column .vehicle-guidance-panel{left:8px!important;width:calc(48vw - 12px)!important;max-height:calc(100dvh - var(--vehicle-hud-top) - 250px)!important;min-height:0;padding:4px!important}
+ .vehicle-mission-panel .vehicle-mission-scorebar{flex-wrap:wrap!important;gap:3px}
+ .vehicle-mission-panel .vehicle-mission-kicker{min-width:70px;font-size:8px}
+ .vehicle-mission-panel .vehicle-mission-score{font-size:8px}
+ .vehicle-mission-panel .vehicle-mission-expand{min-height:28px;font-size:9px;margin-left:auto}
+ .vehicle-mission-panel[data-expanded="false"]{padding:5px!important}
+ .vehicle-mission-panel[data-expanded="false"] .vehicle-mission-title{font-size:10px!important;line-height:1.3!important}
+ .vehicle-mission-panel[data-expanded="false"] .vehicle-mission-stage-label{font-size:9px!important}
+ #vehicle-operation-panels .vehicle-operator-column .vehicle-guidance-panel:has(.vehicle-mission-panel[data-expanded="true"]){width:calc(100vw - 16px)!important;max-height:calc(100dvh - var(--vehicle-hud-top) - 250px)!important;z-index:37;background:#142935fc}
+ #vehicle-operation-panels .vehicle-navigation-display{top:var(--vehicle-hud-top)!important;right:8px!important;width:calc(52vw - 12px)!important;max-height:calc(100dvh - var(--vehicle-hud-top) - 250px)!important;padding:3px!important;z-index:33}
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-title{font-size:10px}
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-header{padding:4px!important;gap:3px}
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-actions button{font-size:8px;min-height:28px;padding:3px 4px}
+ #vehicle-operation-panels .vehicle-navigation-display:not([data-expanded="true"]) .vehicle-docking-summary,#vehicle-operation-panels .vehicle-navigation-display:not([data-expanded="true"]) .vehicle-docking-metrics:not([hidden]){display:none!important}
+ #vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"]{width:calc(100vw - 16px)!important;max-height:calc(100dvh - var(--vehicle-hud-top) - 10px)!important}
+}
+@media(max-height:560px) and (min-width:721px){
+ #vehicle-operation-panels{--vehicle-hud-top:74px}
+ body:has(#editor-return:not([hidden])) #vehicle-operation-panels{--vehicle-hud-top:128px}
+ #vehicle-operation-panels .vehicle-operator-column .vehicle-driving-hud[data-layout="compact"][data-controls]{width:min(320px,36vw)!important;max-height:calc(100dvh - 150px)!important}
+ #vehicle-operation-panels .vehicle-operator-column .vehicle-guidance-panel{left:calc(50vw - 100px)!important;width:200px!important;max-height:calc(100dvh - var(--vehicle-hud-top) - 16px)!important}
+ #vehicle-operation-panels .vehicle-navigation-display{width:30vw!important;max-height:calc(100dvh - var(--vehicle-hud-top) - 16px)!important}
+ #vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"]{width:min(920px,calc(100vw - 24px))!important}
+ #vehicle-operation-panels .vehicle-operator-column .vehicle-guidance-panel:has(.vehicle-mission-panel[data-expanded="false"]){top:74px!important;left:calc(50vw - 180px)!important;width:360px!important;max-height:46px!important;overflow:hidden!important;padding:3px!important}
+ #vehicle-operation-panels .vehicle-guidance-panel .vehicle-mission-panel[data-expanded="false"]{display:grid!important;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;gap:1px 6px;padding:4px!important}
+ #vehicle-operation-panels .vehicle-mission-panel[data-expanded="false"] .vehicle-mission-scorebar{display:contents!important}
+ #vehicle-operation-panels .vehicle-mission-panel[data-expanded="false"] .vehicle-mission-kicker,#vehicle-operation-panels .vehicle-mission-panel[data-expanded="false"] .vehicle-mission-score{display:none!important}
+ #vehicle-operation-panels .vehicle-mission-panel[data-expanded="false"] .vehicle-mission-expand{grid-column:2;grid-row:1/span 2;align-self:center;font-size:9px;min-height:28px;padding:3px 5px}
+ #vehicle-operation-panels .vehicle-mission-panel[data-expanded="false"] .vehicle-mission-title{grid-column:1;grid-row:1;display:block!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0!important;font-size:10px!important;line-height:13px!important}
+ #vehicle-operation-panels .vehicle-mission-panel[data-expanded="false"] .vehicle-mission-stage-label{grid-column:1;grid-row:2;margin:0!important;font-size:9px!important;line-height:12px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
+@media(max-height:560px) and (max-width:720px){
+ #vehicle-operation-panels .vehicle-operator-column .vehicle-driving-hud[data-layout="compact"][data-controls]{width:calc(50vw - 12px)!important;max-height:max(110px,calc(100dvh - var(--vehicle-hud-top) - 80px))!important}
+ #vehicle-operation-panels .vehicle-operator-column .vehicle-guidance-panel{width:calc(50vw - 12px)!important;max-height:60px!important;overflow:auto!important}
+ #vehicle-operation-panels .vehicle-operator-column .vehicle-guidance-panel:has(.vehicle-mission-panel[data-expanded="true"]){width:calc(100vw - 16px)!important;max-height:calc(100dvh - var(--vehicle-hud-top) - 12px)!important}
+ .vehicle-mission-panel .vehicle-mission-scorebar{flex-wrap:nowrap!important;gap:3px}
+ .vehicle-mission-panel .vehicle-mission-kicker{min-width:0;font-size:8px}
+ #vehicle-operation-panels .vehicle-navigation-display{width:calc(50vw - 12px)!important;max-height:calc(100dvh - var(--vehicle-hud-top) - 12px)!important}
+ #vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"]{width:calc(100vw - 16px)!important}
+}
