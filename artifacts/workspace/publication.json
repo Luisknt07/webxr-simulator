@@ -3,7 +3,7 @@
   "version": 1,
   "application": "workspace",
   "revision": "45068bf03122e36ce2b79589fa9b926601df7e76",
-  "bundleSha256": "3506106c95d3abb147690ebe32209a4c870abc662fd31c16397d9428b829f4ed",
+  "bundleSha256": "be677a2c31c5a09ffb3f8d64534816cc39d52721f16022d1c92e1343f7c1ea00",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -56,7 +56,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "3506106c95d3abb147690ebe32209a4c870abc662fd31c16397d9428b829f4ed"
+      "sha256": "be677a2c31c5a09ffb3f8d64534816cc39d52721f16022d1c92e1343f7c1ea00"
     },
     {
       "path": "cad-worker.js",
@@ -1369,8 +1369,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "b9a93e6536d8a18a1964",
-    "statsSha256": "8f382bb9270f52890e4de011b4f1f305881b5b45c9f63f56a73749fb6a9df1d9",
+    "hash": "a1c1217e2e2e5aa5d569",
+    "statsSha256": "58a809a646ad3ec8bf6bfaf4b2009e5dd1efa9a71bf37726c134eaa33675295d",
     "assets": [
       {
         "path": "1.bundle.js",
@@ -1378,7 +1378,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 3454946
+        "size": 3455560
       }
     ]
   }

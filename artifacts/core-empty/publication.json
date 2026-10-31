@@ -3,12 +3,12 @@
   "version": 1,
   "application": "core-empty",
   "revision": "45068bf03122e36ce2b79589fa9b926601df7e76",
-  "bundleSha256": "7647db93cc1d2cbf72c665524c8574fad1c615c9ddc5c9c304559e144da959c3",
+  "bundleSha256": "003ba3a5d806f7458a4d220a37f46b11cb8bf97b98e2dc2777f4290a8e6106d0",
   "scenes": [],
   "files": [
     {
       "path": "core-empty.js",
-      "sha256": "7647db93cc1d2cbf72c665524c8574fad1c615c9ddc5c9c304559e144da959c3"
+      "sha256": "003ba3a5d806f7458a4d220a37f46b11cb8bf97b98e2dc2777f4290a8e6106d0"
     },
     {
       "path": "core.css",
