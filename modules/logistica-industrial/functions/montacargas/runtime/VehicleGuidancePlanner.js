@@ -196,11 +196,43 @@ function routeEnvelope(api, record) {
   return box;
 }
 
+/** Reuse an explicitly authored manual corridor, without running its actions.
+ * Runtime waypoints are already normalized into world coordinates at attach.
+ * Each pickup/drop ends one leg; selecting another receiver never borrows it.
+ * Progress is a read-only projection, not routeIndex, custody or task credit. */
+export function guidanceAdvisoryRoute(driving, record, target) {
+  const v = record && record.components.vehicle, phase = v && v.entry ? 'drop' : 'pickup';
+  if (!v || v.config.mode !== 'manual' || !target || target.allowed !== true || target.kind !== phase || !target.targetId || !Array.isArray(v.route) || !v.route.length || v.route.length > 48) return null;
+  let start = 0;
+  for (let end = 0; end < v.route.length; end++) {
+    const terminal = v.route[end];
+    if (!terminal || !['pickup', 'drop'].includes(terminal.action)) continue;
+    if (terminal.action === phase && terminal.targetId === target.targetId) {
+      const rows = v.route.slice(start, end + 1), anchor = start ? v.route[start - 1].position : v.originWorld;
+      if (!finitePoint(anchor) || rows.some(row => !row || !finitePoint(row.position))) return null;
+      const route = rows.map(row => ({x:row.position.x, z:row.position.z})), path = [anchor, ...rows.map(row => row.position)], here = position(record.object);
+      let nearest = null;
+      for (let segment = 1; segment < path.length; segment++) {
+        const a = path[segment - 1], b = path[segment], dx = b.x - a.x, dz = b.z - a.z, length2 = dx * dx + dz * dz;
+        if (length2 < .0016) continue;
+        const t = Math.max(0, Math.min(1, ((here.x - a.x) * dx + (here.z - a.z) * dz) / length2));
+        const distance = Math.hypot(here.x - a.x - dx * t, here.z - a.z - dz * t);
+        if (distance <= .85 && (!nearest || distance < nearest.distance - 1e-6 || Math.abs(distance - nearest.distance) <= 1e-6 && segment > nearest.segment)) nearest = {segment, t, distance};
+      }
+      const waypointIndex = nearest ? Math.min(route.length, nearest.segment - 1 + (nearest.t >= .999 ? 1 : 0)) : 0;
+      return {phase, route, waypointIndex, advisory:true};
+    }
+    start = end + 1;
+  }
+  return null;
+}
+
 /** Read-only floor route, deliberately not autonomous navigation. Every leg
  * is checked against the real collision world with the truck, fork and load
  * envelope. A blocked leg hides all arrows beyond it. Turns use a conservative
  * swept envelope too; a thin floor ray alone cannot prove vehicle clearance. */
-export function guidanceRoute(driving, record, mission = guidanceTraining(driving, record)) {
+export function guidanceRoute(driving, record, mission = guidanceTraining(driving, record), selectedTarget = null) {
+  if (!mission) mission = guidanceAdvisoryRoute(driving, record, selectedTarget);
   const floor = record.components.vehicle.originWorld.y, raw = mission && mission.route;
   if (!Array.isArray(raw) || !raw.length || !['pickup', 'drop'].includes(mission.phase)) return null;
   const authored = raw.slice(0, 64).filter(finitePoint).map(value => new THREE.Vector3(value.x, floor + .035, value.z));
@@ -240,7 +272,7 @@ export function guidanceRoute(driving, record, mission = guidanceTraining(drivin
     clearPoints.push(end.clone());
     previousYaw = yaw;
   }
-  return {arrows, points: canCheck ? clearPoints : [], blockedAt, blocked, clear: verified && !blocked, distanceM, index, total: authored.length, note: blocked ? 'Ruta bloqueada: frena y revisa el pasillo. No continúes por las flechas.' : !verified ? 'Sin comprobación física disponible: revisa el pasillo antes de avanzar.' : 'Ruta guiada manual · pasillo comprobado con la carga actual; observa el entorno.'};
+  return {arrows, points: canCheck ? clearPoints : [], blockedAt, blocked, clear: verified && !blocked, distanceM, index, total: authored.length, advisory:!!mission.advisory, note: blocked ? 'Ruta bloqueada: frena y revisa el pasillo. No continúes por las flechas.' : !verified ? 'Sin comprobación física disponible: revisa el pasillo antes de avanzar.' : mission.advisory ? 'Ruta orientativa manual · pasillo comprobado con la carga actual; conduce y completa la alineación con la cámara.' : 'Ruta guiada manual · pasillo comprobado con la carga actual; observa el entorno.'};
 }
 
 export function guidanceForkBox(api, record) {

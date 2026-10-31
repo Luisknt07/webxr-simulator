@@ -14,6 +14,25 @@ function mask(root) {
   return {hall: 1, sound: 2, photogrammetry: roots('angel.min.glb'), vertigo: roots('vertigo.glb'), panoramastereo: 2, panorama1: 1, panorama2: 1, panorama3: 1, panorama4: 1, panorama5: 1};
 }
 function workspace() {const scene = new THREE.Scene(), document = new ExampleDocument({scene}); schema.studio.ROOM_IDS.forEach(id => {const root = new THREE.Group(); scene.add(root); document.registerRoom(id, root);}); return {scene, document};}
+// The public transfer cell keeps its dynamic robot/belt products. An advisory
+// manual corridor therefore uses existing vehicle waypoints, not a warehouse
+// training program that would take startup inventory custody from the robot.
+function authorPublicAdvisoryRoute(document, roomId) {
+  const rows = document.rooms[roomId].additions, truck = rows.find(row => row.behaviors.some(value => value.type === 'vehicle'));
+  if (!truck) throw new Error('La demostración pública no contiene su montacargas.');
+  const vehicle = truck.behaviors.find(value => value.type === 'vehicle');
+  if (vehicle.mode !== 'manual' || !vehicle.sourceId || !vehicle.outputId || !rows.some(row => row.id === vehicle.sourceId && row.behaviors.some(value => value.type === 'conveyor')) || !rows.some(row => row.id === vehicle.outputId && row.behaviors.some(value => value.type === 'palletQueue'))) throw new Error('La ruta pública necesita su banda y sus bahías originales.');
+  // Home-relative chassis staging points: in this transfer cell these are
+  // (9.4,0) -> (8.4,0) pickup, then back to (9.4,0) -> (9.4,1.5) delivery.
+  // Exact pocket/support alignment remains the real target's docking guide.
+  vehicle.waypointsJson = JSON.stringify([
+    {x:0,z:0,action:'drive'},
+    {x:0,z:1,action:'pickup',targetId:vehicle.sourceId},
+    {x:0,z:0,reverse:true},
+    {x:1.5,z:0,action:'drop',targetId:vehicle.outputId}
+  ]);
+  return vehicle;
+}
 async function generate(root = __layout.map(path.resolve(__layout.oldDir("scripts/generate-public-scenes.js"), '..')), options = {}) {
   const previewAllExamples = options.previewAllExamples === undefined ? POLICY.previewAllExamples : options.previewAllExamples;
   const compiler = require('../../tests/support/load-study-scenes')(THREE, schema, ExampleDocument), builders = require('../../tests/support/load-industrial-cedi')(THREE, schema), counts = mask(root);
@@ -29,6 +48,7 @@ async function generate(root = __layout.map(path.resolve(__layout.oldDir("script
     if (only && only !== id) {append(metadata); continue;}
     const w = workspace(); compiler.studySceneBase(w.document, roomId); compiler.buildStudyScene(w.document, roomId, template.id, {scene: w.scene, continuous: true});
     const document = await w.document.serialize(); document.rooms[roomId].overrides = Array.from({length: counts[roomId]}, (_, index) => ({id: 'native:' + roomId + ':root.' + index, visible: false}));
+    if (id === PUBLIC_DEMO.id) authorPublicAdvisoryRoute(document, roomId);
     append(metadata, document);
     w.scene.traverse(node => {if (node.geometry) node.geometry.dispose();});
   }
@@ -50,3 +70,4 @@ async function generate(root = __layout.map(path.resolve(__layout.oldDir("script
 }
 if (require.main === module) generate(__layout.map(path.resolve(__layout.oldDir("scripts/generate-public-scenes.js"), '..')), {only: process.argv.find(value => value.startsWith('--only='))?.slice(7), previewAllExamples: process.argv.includes('--restricted') ? false : POLICY.previewAllExamples}).then(scenes => console.log('Ejemplos públicos incluidos: ' + scenes.length + ' proyecciones sin archivos de usuario.')).catch(error => {console.error(error); process.exitCode = 1;});
 module.exports = generate;
+module.exports.authorPublicAdvisoryRoute = authorPublicAdvisoryRoute;

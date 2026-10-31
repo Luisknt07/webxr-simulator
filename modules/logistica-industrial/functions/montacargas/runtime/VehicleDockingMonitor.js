@@ -220,9 +220,10 @@ export default class VehicleDockingMonitor {
     this.summary.textContent = (withdrawing ? 'RETIRADA · ' : this.severity === 'ready' ? 'LISTO · ' : this.severity === 'near' ? 'AJUSTAR · ' : 'NO DISPONIBLE · ') + reason;
     this.updateGuidance(data, blocked);
     if(this.mode==='layout'){
-      const model=this.guidanceModel(),rawGuide=this.guidance(),layout=this.facilityLayout.update(record,{lesson,guide:rawGuide&&rawGuide.enabled?model:null,snapshot:data});
+      const model=this.guidanceModel(),layout=this.facilityLayout.update(record,{lesson,guide:model,snapshot:data});
       if(layout&&this.element.style&&this.element.style.setProperty){const b=layout.bounds,x=Math.max(1,b.maxX-b.minX),z=Math.max(1,b.maxZ-b.minZ),aspect=Math.max(1,Math.min(2.6,Math.round(Math.max(x/z,z/x)*10)/10));if(this.mapAspect!==aspect){this.mapAspect=aspect;this.element.style.setProperty('--vehicle-layout-aspect',String(aspect));}}
-      this.summary.textContent=lesson?lesson.phase==='complete'?'Práctica completada · todas las entregas verificadas.':(lesson.phase==='pickup'?'Recoger: ':'Llevar a: ')+(lesson.phase==='pickup'?lesson.sourceLocationCode||lesson.title:lesson.locationCode||lesson.title):'Vista en tiempo real · la cámara se activa al acercarse a una carga o receptor.';
+      const navigation=layout&&layout.mission;
+      this.summary.textContent=lesson?lesson.phase==='complete'?'Práctica completada · todas las entregas verificadas.':(lesson.phase==='pickup'?'Recoger: ':'Llevar a: ')+(lesson.phase==='pickup'?lesson.sourceLocationCode||lesson.title:lesson.locationCode||lesson.title):navigation?(navigation.phase==='pickup'?'Recoger: ':'Llevar a: ')+(navigation.locationCode||navigation.title)+(navigation.verified?'':' · referencia local, sin itinerario validado'):'Vista en tiempo real · la cámara se activa al acercarse a una carga o receptor.';
       this.metrics.hidden=true;this.element.dataset.state=layout&&layout.mission&&layout.mission.blocked?'blocked':'navigation';
       this.canvas.setAttribute('aria-label','Plano de la instalación en tiempo real. '+this.summary.textContent);
       this.paintLayout(layout);this.texture.needsUpdate=true;return;
@@ -238,6 +239,7 @@ export default class VehicleDockingMonitor {
     this.guidancePanel.dataset.training = lesson ? 'active' : 'off';
     this.guidanceBar.hidden = !guide || !this.cameraSupported && !targets.length;
     this.hologramButton.setAttribute('aria-pressed', String(!!guide && guide.enabled)); this.hologramButton.disabled = blocked || !guide;
+    this.hologramButton.title = 'Shift+G muestra las flechas y el holograma en el escenario. El plano conserva el destino y la ruta al ocultarlos.';
     this.hologramButton.textContent = 'Holograma ' + (guide && guide.enabled ? 'ON' : 'OFF') + ' · Shift+G';
     const withdrawing = !!(guide && guide.enabled && model && ['withdraw', 'withdraw-source'].includes(model.phase));
     const automaticText = targets.length ? 'Selección automática' : withdrawing ? 'Retira las horquillas' : 'Sin objetivo compatible';

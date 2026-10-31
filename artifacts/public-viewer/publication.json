@@ -3,7 +3,7 @@
   "version": 1,
   "application": "public-viewer",
   "revision": "45068bf03122e36ce2b79589fa9b926601df7e76",
-  "bundleSha256": "451296a485a4888ff0f7c6f51f98253105820dc36af1e0cce1d13859873c08a5",
+  "bundleSha256": "1d5824c117198c94da8c33b5f3485f7b072b42607de518df48f42765b8764375",
   "scenes": [
     "vr-robot-dispatch"
   ],
@@ -58,7 +58,7 @@
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-dispatch.json",
-      "sha256": "2378182ecb86ee2e699b5098bc2f534a97d884ed6a52693619298045276560f7"
+      "sha256": "a4f2ef6c46f2983e4f8cee4ae3855408fe9623637f200c0beab6246642f5e48e"
     },
     {
       "path": "viewer.css",
@@ -66,7 +66,7 @@
     },
     {
       "path": "viewer.js",
-      "sha256": "451296a485a4888ff0f7c6f51f98253105820dc36af1e0cce1d13859873c08a5"
+      "sha256": "1d5824c117198c94da8c33b5f3485f7b072b42607de518df48f42765b8764375"
     }
   ]
 }

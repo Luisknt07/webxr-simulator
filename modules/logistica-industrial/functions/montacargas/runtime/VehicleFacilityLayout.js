@@ -193,7 +193,7 @@ export default class VehicleFacilityLayout {
       // Reuse the guide's already chosen physical target. Do not call the
       // placement/collision planners again or turn a bearing into a route.
       const liveGuide = driving.holographicGuide;
-      const current = guide.currentTarget || liveGuide && liveGuide.enabled && liveGuide.currentTarget || (guide.targets || []).find(target => target.id === guide.targetId && target.matrix && target.bounds);
+      const current = guide.currentTarget || liveGuide && liveGuide.currentTarget || (guide.targets || []).find(target => target.id === guide.targetId && target.matrix && target.bounds);
       const owner = current && (current.record && current.record.object || current.product && current.product.object);
       if (current && (!owner || within(owner, root)) && current.kind === guide.phase && (!guide.targetId || current.id === guide.targetId)) {
         let target = null;

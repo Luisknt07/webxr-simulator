@@ -3,7 +3,7 @@
   "version": 1,
   "application": "workspace",
   "revision": "45068bf03122e36ce2b79589fa9b926601df7e76",
-  "bundleSha256": "d818d51f890f249d6ea50b05f63da1d3eeb3ea3ce6f0884136e57e72ceced6ff",
+  "bundleSha256": "05e83ef0820255c3ba3ce2bea7f78aeb6add88dd62e68c460d058bcb5c9e0c35",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -72,7 +72,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "d818d51f890f249d6ea50b05f63da1d3eeb3ea3ce6f0884136e57e72ceced6ff"
+      "sha256": "05e83ef0820255c3ba3ce2bea7f78aeb6add88dd62e68c460d058bcb5c9e0c35"
     },
     {
       "path": "cad-worker.js",
@@ -1376,7 +1376,7 @@
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-dispatch.json",
-      "sha256": "2378182ecb86ee2e699b5098bc2f534a97d884ed6a52693619298045276560f7"
+      "sha256": "a4f2ef6c46f2983e4f8cee4ae3855408fe9623637f200c0beab6246642f5e48e"
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-transfer.json",
@@ -1393,8 +1393,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "6e66d8e4340af5480d9b",
-    "statsSha256": "43412c95cafab7808214da2930b6e6bab9b1b95ef877d7452595d777b09d13be",
+    "hash": "f8ba169f8ca7852af6f4",
+    "statsSha256": "88290dd18b1e51949cdc99d3b27d3bb0f3414ba562ec5d2144cc7f7bf7d2c9e3",
     "assets": [
       {
         "path": "0.bundle.js",
@@ -1418,7 +1418,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 3627109
+        "size": 3628761
       }
     ]
   }

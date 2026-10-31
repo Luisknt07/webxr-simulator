@@ -131,7 +131,7 @@ export default class VehicleHolographicGuide {
   }
   update(force = false, snapshot = null) {
     const record = this.driving.record && this.driving.record(), blocked = this.driving.blocked && this.driving.blocked();
-    if (!record || record.id !== this.recordId || !this.enabled || blocked || this.ctx.editor && this.ctx.editor.active) {
+    if (!record || record.id !== this.recordId || blocked || this.ctx.editor && this.ctx.editor.active) {
       if (this.root) this.root.visible = false; this.stats.visible = false; return this.state;
     }
     const runtimeAPI = this.simulation && this.simulation.vehicleRuntime;
@@ -139,8 +139,10 @@ export default class VehicleHolographicGuide {
       if (this.root) this.root.visible = false; this.stats.visible = false;
       this.state = Object.assign(empty(), {phase: 'unavailable', title: 'Guía de horquillas no disponible', instruction: 'Este equipo no dispone de un sistema de horquillas compatible.'}); return this.state;
     }
-    if (!this.root) this.create(); if (!this.root) return this.state;
-    this.root.visible = true; this.stats.visible = true;
+    // Hologram visibility is independent from the live navigation model used
+    // by the installation map. Keep targets/custody/routes fresh when hidden.
+    if (this.enabled && !this.root) this.create();
+    if (this.root) this.root.visible = this.enabled; this.stats.visible = !!(this.enabled && this.root);
     const time = now(), api = this.simulation.vehicleRuntime, v = record.components.vehicle, entryChanged = v.entry !== this.previousEntry;
     if (!force && !entryChanged && time - this.lastUpdate < 200) {
       if (this.state.ready && Math.abs(record.components.vehicle.actualSpeed) > .06) {this.state = Object.assign({}, this.state, {ready: false, severity: 'near', instruction: 'Detén el vehículo antes de manipular la carga.'}); this.color('near');}
@@ -170,10 +172,11 @@ export default class VehicleHolographicGuide {
     // Missed approach arrows are guidance, not a reason to reverse out of a
     // physically correct pickup. Delivery routes remain mission requirements.
     const dockedAdvisoryPickup = !!(mission && mission.pickupRouteAdvisory && mission.phase === 'pickup' && ready && !mission.routeFault);
-    this.route = chosen && chosen.allowed && !this.withdraw && !this.depart && !dockedAdvisoryPickup ? guidanceRoute(this.driving, record, mission) : null;
+    this.route = chosen && chosen.allowed && !this.withdraw && !this.depart && !dockedAdvisoryPickup ? guidanceRoute(this.driving, record, mission, chosen) : null;
     if (mission && mission.routeFault) this.route = Object.assign({distanceM: 0, index: mission.waypointIndex || 0, total: Array.isArray(mission.route) ? mission.route.length : 0}, this.route || {}, {
       arrows: [], points: [], blockedAt: point(record.object).setY(v.originWorld.y + .035), blocked: true, clear: false, note: mission.status || 'Vuelve al último punto válido y recorre las flechas conduciendo.'});
     model.routePath = this.route ? Object.freeze({points: Object.freeze((this.route.points || []).map(value => Object.freeze(value.toArray()))), blocked: !!this.route.blocked, stop: this.route.blockedAt ? Object.freeze(this.route.blockedAt.toArray()) : null}) : EMPTY_PATH;
+    if (!mission && this.route) Object.assign(model, {routeVerified: !!(this.route.clear && !this.route.blocked), routeNote: this.route.note, routeBlocked: !!this.route.blocked});
     if (mission) {
       const feedback = mission.feedback;
       if (feedback && feedback.id !== this.feedbackId) { this.feedbackId = feedback.id; this.feedbackUntil = time + 5000; }
@@ -191,7 +194,7 @@ export default class VehicleHolographicGuide {
     if (model.selectionLimited) model.routeNote = 'Selección local: hasta ' + selectionLimit + ' candidatos cercanos; acércate al equipo deseado. ' + model.routeNote;
     if ((!api.operational(v) || v.parkingBrake || v.emergency) && !['complete', 'error'].includes(model.phase) && !(mission && mission.routeFault)) {model.ready = false; model.severity = 'blocked'; model.instruction = v.emergency ? 'Rearma la emergencia y comprueba el entorno.' : !v.powered ? 'Enciende el vehículo para empezar.' : !v.running ? 'Habilita la marcha y revisa el pasillo.' : 'Libera el freno de estacionamiento cuando el pasillo esté libre.';}
     this.state = Object.freeze(model); this.lastTargetName = chosen && chosen.name || this.lastTargetName;
-    this.paint(record, chosen, model); return this.state;
+    if (this.enabled && this.root) this.paint(record, chosen, model); return this.state;
   }
   color(severity, phase) {if (!this.palette) return; const accent = ROUTE_COLORS[phase || this.state.phase] || ROUTE_COLORS.drop; this.palette.near.line.color.setHex(accent).convertSRGBToLinear(); this.palette.near.fill.color.setHex(accent).convertSRGBToLinear(); this.palette.target.line.color.setHex(accent).convertSRGBToLinear(); const palette = this.palette[severity] || this.palette.near; this.outline.material = palette.line; this.fill.material = palette.fill; this.forks.forEach(fork => {fork.material = palette.line;});}
   paintArrows(values, points = [], phase = 'pickup') {
