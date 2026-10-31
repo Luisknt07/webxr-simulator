@@ -58,7 +58,8 @@
     "project:content": "node tooling/projects/content-project.mjs",
     "test:project-content": "node --test tests/framework/project-content-format.test.mjs tests/framework/project-folder.test.mjs tests/framework/project-folder-discovery.test.mjs tests/framework/project-content-storage.test.mjs tests/framework/project-content-ui.test.mjs tests/framework/project-module-profile.test.mjs tests/framework/project-module-persistence.test.mjs tests/framework/module-pack.test.mjs",
     "test:project-content-browser": "node tooling/qa/project-content.cjs",
-    "test:forklift-responsive": "node tests/legacy/test-vehicle-responsive-controls.js && node tooling/qa/forklift-responsive.cjs"
+    "test:forklift-responsive": "node tests/legacy/test-vehicle-responsive-controls.js && node tooling/qa/forklift-responsive.cjs",
+    "test:assistant": "node --test tests/framework/assistant-*.test.mjs"
   },
   "repository": {
     "type": "git",

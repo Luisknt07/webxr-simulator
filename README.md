@@ -18,6 +18,9 @@ packages/
   module-sdk/             Contrato de funciones y recursos administrados
   render-three/           Render, entrada de escritorio/móvil y WebXR
   project-model/          Modelo y esquemas de compatibilidad del editor existente
+  assistant-core/         Agente, herramientas tipadas y ciclo de vida independiente
+  assistant-ui/           Conversación, fuentes y análisis visual opcionales
+  voice-assistant/        Voz y micrófono contextual reutilizables
   tools/                  Herramientas opcionales: editor, CAD, IA y colaboración
 modules/
   logistica-industrial/   Robots, bandas, montacargas, almacén y flujo de materiales
@@ -37,6 +40,8 @@ tooling/                 Compilación, módulos, publicación, mantenimiento y Q
 ```
 
 Dentro de un sector, `functions/<función>/` reúne su implementación, esquema, UI, validación de servidor, migraciones, pruebas y manifiesto. Las funciones exportables se conectan mediante contratos versionados; el núcleo no importa sectores. Los archivos físicos del sistema anterior se trasladaron a estas carpetas y sus imports se actualizaron. `tooling/layout-map.json` documenta la correspondencia de rutas y ayuda a ejecutar las herramientas antiguas.
+
+El Workspace incorpora un [asistente inteligente modular](docs/intelligent-assistant.md) con herramientas del editor, consulta web, fuentes y gráficos. DeepSeek y ElevenLabs se configuran en el servidor; sin claves funcionan los comandos locales y la guía existente. La investigación visual es una pantalla complementaria de escritorio/móvil, y la voz conserva sus controles WebXR.
 
 ## Ejecutar y compilar
 

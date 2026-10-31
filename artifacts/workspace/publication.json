@@ -3,7 +3,7 @@
   "version": 1,
   "application": "workspace",
   "revision": "45068bf03122e36ce2b79589fa9b926601df7e76",
-  "bundleSha256": "a7e23969cd55e31e2c4c2bc837e87b662ab2914acc6419b0115be289fe0864b4",
+  "bundleSha256": "284a84df812142118837f5ce87585a909d5af4c406e409d8e50d14d689ee005d",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -72,7 +72,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "a7e23969cd55e31e2c4c2bc837e87b662ab2914acc6419b0115be289fe0864b4"
+      "sha256": "284a84df812142118837f5ce87585a909d5af4c406e409d8e50d14d689ee005d"
     },
     {
       "path": "cad-worker.js",
@@ -84,7 +84,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "c1ca7d48ec27270f4bd45ba4e7936783162e5b66d6e378c9983a678adf74662d"
+      "sha256": "91f810517079823abd1c1e28987cda5cbe8fde596f18c1fd990dfff8e41da6e1"
     },
     {
       "path": "mesh-optimizer-worker.js",
@@ -855,6 +855,10 @@
       "sha256": "95772b9ee433abcd9352e32098680bbed1124dcad0bfdfac87ab466560ffea48"
     },
     {
+      "path": "packages/assistant-ui/assistant-workspace.css",
+      "sha256": "1e360aa9a506ee1ded106bbeb4a09d4927f8c246075a63ad0cc8623dd2c0006e"
+    },
+    {
       "path": "packages/render-three/src/StartupStatus.js",
       "sha256": "791d64692ab21bfaaf8a2013a0f7dd8d504a656eb8a365f73a2e1c604cac50d3"
     },
@@ -1389,8 +1393,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "ff5962116c670412ae95",
-    "statsSha256": "5203553a6c32bcabd791fd67c0f880269c7aed0c7863c735bcb8fdb0a2853e89",
+    "hash": "93555e8872069ce78891",
+    "statsSha256": "176eb9596502912855d221ebfc3bd9cf3d02126fa5dff24aa2fa6b3b3f9870fa",
     "assets": [
       {
         "path": "0.bundle.js",
@@ -1414,7 +1418,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 3565665
+        "size": 3626244
       }
     ]
   }
