@@ -212,6 +212,7 @@ export default class EditorShell {
         ['Crear nivel de ejemplos industriales', () => this.studio('createIndustrialExamples'), '', canStudio],
           ['Crear escenarios CEDI avanzados', () => this.studio('createCediExamples'), '', canStudio],
         ['Integrar robótica y vehículos en este nivel', () => this.studio('integrateRobotics'), '', canStudio],
+        ['Añadir almacén con misiones y recompensas', () => this.studio('addWarehouseMissionExperience'), '', canStudio],
         ['Renombrar escenario…', () => this.studio('renameScene'), '', canStudio], ['Usar como escenario inicial', () => this.studio('setStartScene'), '', canStudio],
         ['Configurar entorno', () => this.studio('configureEnvironment'), '', canStudio], null,
         ['Conectar equipos…', () => this.studio('connect'), '', canStudio], ['Ajuste de ensamblaje', () => e.assemblyButton.click(), '', () => true, () => e.assembly.enabled],

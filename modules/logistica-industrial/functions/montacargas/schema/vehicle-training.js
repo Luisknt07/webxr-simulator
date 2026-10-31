@@ -3,6 +3,7 @@
 // Training routes use room coordinates. They guide a human driver; they are
 // deliberately separate from the truck's automatic local waypoints.
 const MAX_LENGTH = 24000, MAX_TASKS = 8, MAX_POINTS = 24;
+const score = require('./VehicleTrainingScore.js');
 const plain = value => value && typeof value === 'object' && !Array.isArray(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value));
 function text(value, label, max = 128) {
   if (typeof value !== 'string' || !value.length || value.length > max || /[\x00-\x1f\x7f<>]/.test(value)) throw new Error('Dato de misión inválido: ' + label);
@@ -29,11 +30,15 @@ function parse(value = {}) {
   if (!Array.isArray(rows) || rows.length > MAX_TASKS) throw new Error('Un programa admite hasta 8 misiones.');
   const ids = new Set();
   return rows.map(row => {
-    const allowed = ['id','name','productId','sourceId','sourceLocationCode','destinationId','locationCode','destinationSlot','pickupRoute','route'];
+    const allowed = ['id','name','productId','sourceId','sourceLocationCode','destinationId','locationCode','destinationSlot','pickupRoute','route','scoring'];
     if (!plain(row) || Object.keys(row).some(key => !allowed.includes(key))) throw new Error('Misión didáctica inválida.');
     const item = {id: reference(row.id, 'id'), name: text(row.name, 'nombre', 180), productId: reference(row.productId, 'pallet'), sourceId: reference(row.sourceId, 'origen'), destinationId: reference(row.destinationId, 'destino'), pickupRoute: route(row.pickupRoute || []), route: route(row.route || [])};
     if (ids.has(item.id)) throw new Error('Los identificadores de misión deben ser únicos.');
     ids.add(item.id);
+    if (row.scoring !== undefined) {
+      if (typeof row.scoring !== 'boolean') throw new Error('La puntuación de misión debe ser booleana.');
+      item.scoring = row.scoring;
+    }
     for (const key of ['sourceLocationCode', 'locationCode']) if (row[key] !== undefined) item[key] = reference(row[key], key);
     if (row.destinationSlot !== undefined) {
       if (!Number.isInteger(row.destinationSlot) || row.destinationSlot < 0 || row.destinationSlot > 511) throw new Error('Posición de misión inválida.');
@@ -43,4 +48,4 @@ function parse(value = {}) {
     return item;
   });
 }
-module.exports = {parse, MAX_LENGTH, MAX_TASKS, MAX_POINTS};
+module.exports = {parse, MAX_LENGTH, MAX_TASKS, MAX_POINTS, score};

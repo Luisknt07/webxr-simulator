@@ -18,7 +18,7 @@ function fixture() {
 function run(){
   for(const row of [{id:'bad',name:'x',productId:'p',sourceId:'s',destinationId:'d',route:[{x:Infinity,z:0}]},{id:'bad',name:'x',productId:'p',sourceId:'s',destinationId:'d',destinationSlot:-1}])assert.throws(()=>schema.parse(JSON.stringify([row])));
   const f=fixture(),{record:r,product:p,api:a,task:t}=f;
-  assert(a.validatePickup(r,p),'Approach route is mandatory.');
+  assert.equal(a.validatePickup(r,p),'','Pickup arrows are advisory; the physical pickup planner remains authoritative.');
   f.drive(1);assert.equal(a.guidance(r).routeComplete,true);
   assert(a.validatePickup(r,{...p,id:'PALLET-OTHER'}),'Another pallet cannot satisfy the task.');
   const owner=p.sourceEntry.ownerId;p.sourceEntry.ownerId='wrong-rack';assert(a.validatePickup(r,p));p.sourceEntry.ownerId=owner;

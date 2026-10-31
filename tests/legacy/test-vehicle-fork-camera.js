@@ -67,6 +67,18 @@ for(let i=0;i<120;i++)monitor.renderBefore(desktop.scene,1/120);
 assert(feed.stats.frames<=13); assert.equal(feed.stats.mirrorFrames,0,'A hidden rear feed never renders in the background.');
 assert(monitor.postRender()); assert.deepEqual(baseline(desktop,r),original); const frontComposite=r.calls[r.calls.length-1];
 assert.equal(frontComposite.scene,feed.overlayScene); assert(frontComposite.scissor.equals(new THREE.Vector4(850,97.5,360,202.5)));
+// The WebGL composition obeys CSS clipping, independently on each axis.
+// A panel scroll clips pixels without stretching the full 16:9 source crop.
+const viewport=monitor.feedViewport,oldParent=viewport.parentNode,oldOwner=viewport.ownerDocument,xClip=new Element('section'),yClip=new Element('section'),visibleAncestor=new Element('section');
+xClip.rect={left:900,top:0,width:270,height:1};yClip.rect={left:0,top:500,width:1,height:100};visibleAncestor.rect={left:0,top:0,width:1,height:1};
+viewport.parentNode=xClip;xClip.parentNode=yClip;yClip.parentNode=visibleAncestor;
+viewport.ownerDocument={defaultView:{getComputedStyle:node=>node===xClip?{overflowX:'hidden',overflowY:'visible'}:node===yClip?{overflowX:'visible',overflowY:'auto'}:{overflow:'visible'}}};
+let clipped=feed.desktopRect(viewport);assert.equal(clipped.rect,viewport.rect);assert.deepEqual([clipped.left,clipped.right,clipped.top,clipped.bottom],[900,1170,500,600]);
+assert(monitor.postRender());const clippedComposite=r.calls[r.calls.length-1];assert(clippedComposite.viewport.equals(frontComposite.viewport),'Ancestor clipping cannot resize or shift the complete camera projection.');assert(clippedComposite.scissor.equals(new THREE.Vector4(900,180,270,100)));
+const clippedFrames=feed.stats.frames;xClip.rect.left=1220;assert.equal(feed.desktopRect(viewport),null);assert.deepEqual(feed.visibleFeeds(),[]);assert.equal(feed.renderBefore(desktop.scene,.2),false);assert.equal(feed.stats.frames,clippedFrames,'An entirely clipped feed does not perform another world render.');
+let reads=0,node=viewport;for(let i=0;i<40;i++){const parent=new Element('section');parent.rect={left:0,top:0,width:1280,height:780};node.parentNode=parent;node=parent;}
+viewport.ownerDocument.defaultView.getComputedStyle=()=>{reads++;return{overflow:'clip'};};assert(feed.desktopRect(viewport));assert.equal(reads,32,'Style/layout probes are bounded even in a deeply nested host application.');
+viewport.parentNode=oldParent;if(oldOwner===undefined)delete viewport.ownerDocument;else viewport.ownerDocument=oldOwner;assert.deepEqual(baseline(desktop,r),original);
 let disposed=0;const frontTarget=feed.target;frontTarget.addEventListener('dispose',()=>disposed++);
 assert.equal(monitor.toggleRearView(),true); assert.equal(disposed,1); assert(!feed.target&&!feed.mirrorTarget); assert(monitor.renderBefore(desktop.scene,.2));
 assert.equal(feed.selectedFeed,'mirror');assert(!feed.target&&feed.mirrorTarget);assert.equal(feed.mirrorTarget.width,768,'Alternating rear view uses the full working-display resolution.');
@@ -74,10 +86,27 @@ assert.equal(feed.mirrorTarget.texture.repeat.x,-1); assert.equal(feed.mirrorTar
 assert(monitor.postRender());assert.equal(r.calls[r.calls.length-1].scene,feed.mirrorOverlayScene);assert.deepEqual(baseline(desktop,r),original);
 const rearFrames=feed.stats.mirrorFrames;monitor.toggleRearView();assert(monitor.renderBefore(desktop.scene,.2));assert.equal(feed.stats.mirrorFrames,rearFrames);assert(feed.target&&!feed.mirrorTarget);
 assert.equal(desktop.runtime.products.size,population);assert.equal(desktop.v.entry,null);
-// World target banners are not photographed into the inspection camera.
-const label=new THREE.Object3D(),contour=new THREE.Object3D();desktop.driving.holographicGuide.label=label;desktop.driving.holographicGuide.root=contour;
-const savedRender=r.api.render;r.api.render=(scene,camera)=>{if(r.state.target){assert.equal(label.visible,false);assert.equal(contour.visible,true);}return savedRender(scene,camera);};
-assert(monitor.renderBefore(desktop.scene,.2));assert.equal(label.visible,true);r.api.render=savedRender;
+// The external inspection camera crops away its own truck, including ghost
+// wires, while preserving the actual insertion blades and carried cargo.
+// Guide arrows/target contours have no place in either camera image.
+assert(desktop.api.pickup(desktop.record),desktop.v.warning);const heldCargo=desktop.v.entry,guide=desktop.driving.holographicGuide,savedGuide={root:guide.root,label:guide.label};
+const label=new THREE.Object3D(),contour=new THREE.Group(),guideMesh=new THREE.Mesh(new THREE.BoxBufferGeometry(.1,.1,.1),new THREE.MeshBasicMaterial());contour.add(guideMesh);desktop.scene.add(contour,label);guide.label=label;guide.root=contour;
+const cargo=heldCargo.product.object,insideCargo=node=>{for(let parent=node;parent;parent=parent.parent)if(parent===cargo)return true;return false;};
+const body=[],blades=[],cargoNodes=[];desktop.driving.visualRoot.traverse(node=>{if(node.isMesh||node.isLineSegments)(insideCargo(node)?cargoNodes:node.userData.vehicleForkBlade?blades:body).push(node);});
+assert(body.length>20&&blades.length>=2&&cargoNodes.length>2,'Use the actual truck, entering blades and reparented load.');
+body[0].visible=false;const visibility=new Map([...body,...blades,...cargoNodes,label,contour,guideMesh].map(node=>[node,node.visible]));
+const cargoPose=cargo.matrixWorld.toArray(),mechanismPose=JSON.stringify(desktop.v.pose),savedRender=r.api.render;let frontChecks=0,rearChecks=0;
+r.api.render=(scene,camera)=>{if(r.state.target){
+ assert.equal(label.visible,false);assert.equal(contour.visible,false,'The whole guide root must be excluded, not just its text banner.');
+ if(camera===feed.camera){body.forEach(node=>assert.equal(node.visible,false));frontChecks++;}else{body.forEach(node=>assert.equal(node.visible,visibility.get(node)));rearChecks++;}
+ [...blades,...cargoNodes].forEach(node=>assert.equal(node.visible,visibility.get(node),'Camera exclusion cannot hide an entering tine or a real carried pallet.'));
+ }return savedRender(scene,camera);};
+const restored=()=>{visibility.forEach((visible,node)=>assert.equal(node.visible,visible,'Every authored visibility flag is restored after the camera pass.'));assert.equal(desktop.v.entry,heldCargo);assert.equal(JSON.stringify(desktop.v.pose),mechanismPose);assert.deepEqual(cargo.matrixWorld.toArray(),cargoPose);};
+assert(monitor.renderBefore(desktop.scene,.2));restored();assert(frontChecks);
+monitor.toggleRearView();assert(monitor.renderBefore(desktop.scene,.2));restored();assert(rearChecks,'Rear inspection retains the truck body instead of applying the front cutaway.');
+monitor.toggleRearView();const preserved=baseline(desktop,r);r.api.failNext=true;assert.equal(monitor.renderBefore(desktop.scene,.2),false);restored();assert.deepEqual(baseline(desktop,r),preserved,'A GPU exception restores visibility and all primary/XR render state.');
+feed.setEnabled(true);assert(monitor.renderBefore(desktop.scene,.2));restored();r.api.render=savedRender;
+guide.root=savedGuide.root;guide.label=savedGuide.label;desktop.scene.remove(contour,label);guideMesh.geometry.dispose();guideMesh.material.dispose();
 
 // The same real forks retain metric projection down to 0/10/50/100 mm gaps.
 const {ForkCamera}=require('../support/load-vehicle-driving')(THREE);
@@ -96,7 +125,7 @@ for(const definition of h.vehicles.VARIANTS.filter(value=>h.vehicles.supports(va
    for(const side of [-1,1])for(const fraction of [.12,.55,.94]){const point=new THREE.Vector3(side*f.config.forkSpread/2,0,f.config.forkLength*fraction).applyMatrix4(rig.forks.matrixWorld).project(view);assert(Math.abs(point.x)<1&&Math.abs(point.y)<1,'Both insertion blades remain in the fixed crop.');}
    if(gap===.1&&mode==='entry')for(const side of [-1,1])assert(isFork(f,firstAt(f,new THREE.Vector3(side*f.config.forkSpread/2,0,f.config.forkLength*.7),view)),definition.id+': the actual visible surface of both insertion blades is inside the precise frontal section.');
    assert.deepEqual(product.object.matrixWorld.toArray(),before);assert.equal(JSON.stringify(f.v.pose),saved.pose);assert.equal(product.object.parent,saved.parent);assert.equal(f.runtime.products.size,saved.population);
-   if(mode==='isometric'){const inverse=new THREE.Matrix4().getInverse(rig.forks.matrixWorld),direction=view.getWorldDirection(new THREE.Vector3()).transformDirection(inverse);near(Math.abs(direction.x),1/Math.sqrt(3));near(direction.y,-1/Math.sqrt(3));}
+   if(mode==='isometric'){const inverse=new THREE.Matrix4().getInverse(rig.forks.matrixWorld),direction=view.getWorldDirection(new THREE.Vector3()).transformDirection(inverse),elevation=Math.atan2(-direction.y,Math.hypot(direction.x,direction.z)),oblique=Math.atan2(Math.abs(direction.x),Math.abs(direction.z));assert(elevation>4*Math.PI/180&&elevation<15*Math.PI/180,'Low inspection angle exposes pocket mouths instead of looking down at the deck.');assert(oblique>20*Math.PI/180&&oblique<40*Math.PI/180,'Three-quarter inspection retains a clear front and depth view.');}
   }
  }
  f.pallet.position.copy(originalPosition);f.scene.updateMatrixWorld(true);assert(f.api.pickup(f.record),definition.id+': '+f.v.warning);const held=f.v.entry;

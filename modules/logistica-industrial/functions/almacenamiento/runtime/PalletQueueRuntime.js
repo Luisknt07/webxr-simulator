@@ -141,11 +141,41 @@ export default class PalletQueueRuntime {
         caption=location?(destination?'A ':data.sourceRackLocationCode?'EN ':'DE ')+location:'SIN UBICACION',key=id+'|'+caption,old=this.identificationLabels.get(product.object);
       if(old&&old.key===key)return;if(old){release(old);this.identificationLabels.delete(product.object);}
       if(!visual||!visual.createLocationLabel)return;
-      const size=product.bounds.getSize(new THREE.Vector3()),width=Math.min(1.08,Math.max(.3,size.x*.88)),height=.07;
+      const size=product.bounds.getSize(new THREE.Vector3());
+      let pockets=data.forkPockets||data.sourceProduct&&data.sourceProduct.forkPockets,anchors=data.palletIdentificationAnchors;
+      // Authored actors wrap their prefab in an editor-owned group. Source
+      // cargo stores these presentation metrics on its root; both paths must
+      // place the plate above the same physical pallet entries.
+      if(!pockets||!anchors)product.object.traverse(node=>{if(!pockets&&node.userData.forkPockets)pockets=node.userData.forkPockets;if(!anchors&&node.userData.palletIdentificationAnchors)anchors=node.userData.palletIdentificationAnchors;});
+      const top=pockets&&Number.isFinite(pockets.maxY)?pockets.maxY:pockets&&Number.isFinite(pockets.top)?pockets.top:0;
+      const baseHeight=top>0?top/.74:0,loaded=size.y>baseHeight+.08;
+      const face=loaded&&(anchors||[]).filter(anchor=>['centerX','frontZ','minY','maxY','width'].every(key=>Number.isFinite(anchor[key]))&&anchor.width>.05&&anchor.maxY-anchor.minY>.05)
+        .sort((a,b)=>b.frontZ-a.frontZ||b.width-a.width||a.minY-b.minY)[0];
+      const width=Math.min(1.08,Math.max(.12,(face?face.width:size.x)*.88));
+      // The old two-row plate crossed the fork pockets at y=.12. Loaded cargo
+      // carries its tag above the complete pallet deck; an empty pallet uses
+      // the narrow solid deck edge, never a placard across an entry opening.
+      const safeBottom=face?face.minY+.018:product.bounds.min.y+(loaded?baseHeight+.018:top+.002);
+      const safeTop=face?face.maxY-.012:loaded?product.bounds.max.y-.012:product.bounds.min.y+baseHeight-.002;
+      const height=Math.min(.07,Math.max(.006,(safeTop-safeBottom)/2.2));
+      const centerY=safeBottom+height*1.05;
+      let faceZ=face?face.frontZ:product.bounds.max.z;
+      if(loaded&&!face){
+        product.object.updateWorldMatrix(true,true);
+        const inverse=new THREE.Matrix4().getInverse(product.object.matrixWorld);let front=-Infinity;
+        product.object.traverse(mesh=>{
+          if(!mesh.isMesh||!mesh.geometry||mesh.userData.editorRuntimeHelper)return;
+          if(!mesh.geometry.boundingBox)mesh.geometry.computeBoundingBox();if(!mesh.geometry.boundingBox)return;
+          const box=mesh.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse,mesh.matrixWorld));
+          if(box.max.y>product.bounds.min.y+baseHeight+.04&&box.min.y<safeTop)front=Math.max(front,box.max.z);
+        });
+        if(Number.isFinite(front))faceZ=front;
+      }
       const root=new THREE.Group();root.name='Identificación física del pallet';root.userData.editorRuntimeHelper=true;root.userData.editorCollisionDisabled=true;
+      root.userData.palletIdentificationAboveEntries=true;
       const first=visual.createLocationLabel(THREE,id,{width,height}),second=visual.createLocationLabel(THREE,caption,{width,height});
       first.position.y=height*.55;second.position.y=-height*.55;root.add(first,second);
-      root.position.set((product.bounds.min.x+product.bounds.max.x)/2,product.bounds.min.y+.12,product.bounds.max.z+.012);product.object.add(root);
+      root.position.set(face?face.centerX:(product.bounds.min.x+product.bounds.max.x)/2,centerY,faceZ+.005);product.object.add(root);
       this.identificationLabels.set(product.object,{key,root});
     });
   }

@@ -11,7 +11,7 @@ function fixture() {
     const body = await (state.pending ? state.pending.promise : state.identity);
     return {ok: state.status === 200, status: state.status, async json() { return body; }};
   });
-  const Experience = new Function('StudioClient', 'window', read("apps/workspace/studio/StudioExperience.js").replace('export default class StudioExperience', 'return class StudioExperience'))(Client, {location: new URL('https://localhost:8080/')});
+  const Experience = new Function('StudioClient', 'window', 'VehicleMissionOverlay', read("apps/workspace/studio/StudioExperience.js").replace('export default class StudioExperience', 'return class StudioExperience'))(Client, {location: new URL('https://localhost:8080/')}, require('../support/load-vehicle-mission-overlay')());
   const client = new Client(), beforeCaps = {}, beforeLimits = {}, pose = {x: 3, y: 2, z: 5};
   const editor = {staticPublic: true, serverCapabilities: beforeCaps, serverLimits: beforeLimits, storageAvailable: false,
     currentProject: {id: 'public-l', access: {canEdit: false}}, projectClient: {base: '/api', assetUploadAvailable: false, maxAssetBytes: 20,

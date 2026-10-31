@@ -24,6 +24,7 @@ export default class VehicleDriving {
     this.document = options.document || ctx.document || (typeof document === 'undefined' ? null : document);
     this.window = options.window || this.document && this.document.defaultView || (typeof window === 'undefined' ? null : window);
     this.mode = 0; this.viewIndex = 0; this.chase = false; this.listeners = []; this.position = new THREE.Vector3(); this.rotation = new THREE.Quaternion();
+    this.finePosition = new THREE.Vector3(); this.fineTarget = new THREE.Vector3(); this.fineControlActive = false;
     this.controlGuide = new VehicleControlGuide(); this.operatorIntent = 'auto'; this.xrControlMode = 'cab'; this.worldPage = 'cab';
     if (this.window) {
       this.listen(this.window, 'keydown', event => this.key(event, true), true); this.listen(this.window, 'keyup', event => this.key(event, false), true);
@@ -47,7 +48,7 @@ export default class VehicleDriving {
     const ctx = this.ctx, editor = ctx.editor, studio = ctx.studio;
     const xr = ctx.renderer && ctx.renderer.xr, session = xr && xr.getSession && xr.getSession();
     return !this.authority() || !this.simulation.running || editor && (editor.active || editor.loadingProject || editor.busy || editor.simulationPaused) ||
-      ctx.studioMenuOpen || ctx.publicDialogOpen || ctx.roomTransition || ctx.xrEntryPending || ctx.xrExitPending || this.document && this.document.hidden ||
+      ctx.studioMenuOpen || ctx.voicePanelOpen || ctx.publicDialogOpen || ctx.roomTransition || ctx.xrEntryPending || ctx.xrExitPending || this.document && this.document.hidden ||
       studio && studio.drawer && !studio.drawer.hidden || ctx.vrMode && (!session || session.visibilityState && session.visibilityState !== 'visible' || ctx.raycontrol && ctx.raycontrol.enabled === false);
   }
   panelSelectable(controller) {
@@ -109,7 +110,7 @@ export default class VehicleDriving {
     this.resetInput(); this.releaseCursor(); this.cab.mount(visual); this.holographicGuide.mount(record); this.frontVisibility.mount(visual); this.buildHUD(); this.buildWorldPanel(record); this.docking.mount(); this.follow(); this.updateHUD();
     this.notify(this.ctx.vrMode ? 'Cabina RV activa: agarre lateral en volante o palancas; stick izquierdo avanza, gatillo izquierdo frena. Click del stick derecho abre los mandos; B derecho permite bajar detenido.' : 'Cabina: Encender (B) → Marcha (V) → liberar Freno P (P). Sigue la guía resaltada; Tab alterna cursor y mirada.'); return true;
   }
-  resetInput(preservePads = false) { this.keys.forEach(key => this.blockedKeys.add(key)); this.keys.clear(); this.touches.clear(); if (!preservePads) this.padState = new WeakMap(); if (this.cab) this.cab.reset(); const record = this.record(); if (record && this.simulation.vehicleRuntime) this.simulation.vehicleRuntime.setInput(record, ZERO()); }
+  resetInput(preservePads = false) { if(this.fineControlActive)this.hudUpdated=-Infinity;this.fineControlActive=false;this.keys.forEach(key => this.blockedKeys.add(key)); this.keys.clear(); this.touches.clear(); if (!preservePads) this.padState = new WeakMap(); if (this.cab) this.cab.reset(); const record = this.record(); if (record && this.simulation.vehicleRuntime) this.simulation.vehicleRuntime.setInput(record, ZERO()); }
   releaseCursor() {
     if (this.ctx.vrMode) return false;
     const look = this.ctx.desktopLook;
@@ -234,7 +235,34 @@ export default class VehicleDriving {
     this.cab.apply(input);
     if (vehicle.entry && input.lift < -.05) this.operatorIntent = 'deposit';
     Object.keys(input).forEach(key => { input[key] = Math.max(-1, Math.min(1, input[key])); });
+    this.applyFineControl(record,input);
     if (this.id) this.simulation.vehicleRuntime.setInput(record, input); this.updateHUD();
+  }
+  /** Meter the existing manual input near a real docking target. This reads
+   * the monitor's cached plan only; pickup/drop still check live geometry. */
+  applyFineControl(record,input) {
+    const snapshot=this.docking&&this.docking.snapshot,vehicle=record&&record.components.vehicle;
+    let active=false;
+    if(vehicle&&snapshot&&snapshot.phase===(vehicle.entry?'drop':'pickup')){
+      if(vehicle.entry){
+        // Own carried-pallet geometry is always close. It is not a destination.
+        active=!!(snapshot.destination&&snapshot.destination.id&&snapshot.errors&&Number.isFinite(snapshot.errors.lateralM)&&Math.abs(snapshot.errors.lateralM)<=.6);
+      }else{
+        const geometry=snapshot.geometry,target=geometry&&geometry.target,pockets=geometry&&geometry.pockets;
+        const polygon=value=>Array.isArray(value)&&value.length===4&&value.every(point=>Array.isArray(point)&&point.length>=3&&Number.isFinite(point[0])&&Number.isFinite(point[2]));
+        if(polygon(target)&&Array.isArray(pockets)&&pockets.some(polygon)){
+          const rig=this.simulation.vehicleRuntime.rig(record),forks=rig&&rig.forks;
+          if(forks){
+            this.fineTarget.set(0,0,0);target.forEach(point=>{this.fineTarget.x+=point[0]/4;this.fineTarget.z+=point[2]/4;});
+            forks.getWorldPosition(this.finePosition);
+            active=Math.hypot(this.finePosition.x-this.fineTarget.x,this.finePosition.z-this.fineTarget.z)<=vehicle.config.forkLength+.65||!!(snapshot.insertion&&Number.isFinite(snapshot.insertion.actualM)&&snapshot.insertion.actualM>0);
+          }
+        }
+      }
+    }
+    if(active!==this.fineControlActive)this.hudUpdated=-Infinity;this.fineControlActive=active;
+    if(active){if(Number.isFinite(input.throttle))input.throttle*=.35;['lift','tilt','reach','sideShift','turret'].forEach(key=>{if(Number.isFinite(input[key]))input[key]*=.3;});}
+    return input;
   }
   follow() {
     const record = this.record(); if (!record || !this.seat) return;
@@ -374,7 +402,8 @@ export default class VehicleDriving {
     this.guideTitle.textContent = next.title || 'Siguiente paso';
     this.guideText.textContent = [next.instruction, next.control && 'Mando: ' + next.control, next.reason].filter(Boolean).join(' · ');
     this.guideElement.dataset.tone = v.emergency ? 'danger' : next.canAct ? 'ready' : 'warning';
-    this.hint.textContent = 'Mantén pulsadas las flechas y la hidráulica · Holograma: Shift+G · Tab: cursor / mirada · Esc: liberar mouse';
+    this.hud.dataset.fineControl=this.fineControlActive?'active':'off';
+    this.hint.textContent = (this.fineControlActive?'Maniobra fina · velocidad reducida · ':'')+'Mantén pulsadas las flechas y la hidráulica · Holograma: Shift+G · Tab: cursor / mirada · Esc: liberar mouse';
     this.viewButton.controlLabel.textContent = this.viewIndex ? 'Seguir' : 'Cabina';
     this.actionButtons.get('mode').controlLabel.textContent = 'Sticks ' + (this.mode + 1);
     this.actionButtons.get('holographicGuide').controlLabel.textContent = 'Holo ' + (this.holographicGuide.enabled ? 'ON' : 'OFF');

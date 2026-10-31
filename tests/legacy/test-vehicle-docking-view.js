@@ -44,18 +44,24 @@ near(desktop.camera.getWorldPosition(new THREE.Vector3()).distanceTo(rig.driverS
 // Read-only snapshots control all colors. In particular, "almost aligned" is
 // never made green by the presentation layer, and menus cannot retain green.
 const monitor = desktop.driving.docking, product = desktop.runtime.products.get(desktop.pallet), beforeMatrix = product.object.matrixWorld.clone(), beforePose = Object.assign({}, desktop.v.pose), beforePopulation = desktop.runtime.products.size;
-const quad = (x, z, w, d) => [[x-w/2, 0, z-d/2], [x+w/2, 0, z-d/2], [x+w/2, 0, z+d/2], [x-w/2, 0, z+d/2]];
-const snapshot = {phase: 'pickup', targetName: 'Pallet EUR 1200×800', ready: false, severity: 'near', reason: 'Ajusta la altura', errors: {lateralM: .025, verticalM: .04, yawRad: .03}, insertion: {actualM: .72, requiredM: .85}, stability: {loadKg: 145, capacityKg: 1800}, geometry: {frame: {position: [0,0,0], yaw: 0}, chassis: quad(0,-1,1,2), forks: [quad(-.25,.5,.1,1),quad(.25,.5,.1,1)], target: quad(0,.9,1.2,.8), pockets: [quad(-.25,.9,.2,.8),quad(.25,.9,.2,.8)]}};
+// Snapshot contours are world-space telemetry. Keep their target beside the
+// real articulated forks even in this rotated room, so automatic proximity
+// chooses inspection rather than correctly falling back to the facility map.
+const forkFrame = rig.forks.matrixWorld.clone(), world = p => new THREE.Vector3().fromArray(p).applyMatrix4(forkFrame).toArray();
+const quad = (x, z, w, d) => [[x-w/2, 0, z-d/2], [x+w/2, 0, z-d/2], [x+w/2, 0, z+d/2], [x-w/2, 0, z+d/2]].map(world);
+const frameForward = new THREE.Vector3(0,0,1).transformDirection(forkFrame);
+const snapshot = {phase: 'pickup', targetName: 'Pallet EUR 1200×800', ready: false, severity: 'near', reason: 'Ajusta la altura', errors: {lateralM: .025, verticalM: .04, yawRad: .03}, insertion: {actualM: .72, requiredM: .85}, stability: {loadKg: 145, capacityKg: 1800}, geometry: {frame: {position: world([0,0,0]), yaw: Math.atan2(frameForward.x,frameForward.z)}, chassis: quad(0,-1,1,2), forks: [quad(-.25,.5,.1,1),quad(.25,.5,.1,1)], target: quad(0,.9,1.2,.8), pockets: [quad(-.25,.9,.2,.8),quad(.25,.9,.2,.8)]}};
+if (!monitor.cameraEnabled) monitor.cameraButton.fire('click');
 let queries = 0; desktop.api.getDockingState = () => { queries++; return snapshot; }; monitor.update(true);
-assert.equal(monitor.severity, 'near'); assert.match(monitor.summary.textContent, /AJUSTAR/); assert(monitor.canvas.calls.some(call => call[0] === 'lineTo'), 'Actual contours are drawn, rather than substituting a status-only overlay.');
-const pLeft = monitor.projection.screen([-.3,0,1]), pRight = monitor.projection.screen([.3,0,1]), pForward = monitor.projection.screen([0,0,2]), pBack = monitor.projection.screen([0,0,0]);
+assert.equal(monitor.mode,'inspection');assert.equal(monitor.severity, 'near'); assert.match(monitor.summary.textContent, /AJUSTAR/); assert(monitor.canvas.calls.some(call => call[0] === 'lineTo'), 'Actual contours are drawn, rather than substituting a status-only overlay.');
+const pLeft = monitor.projection.screen(world([-.3,0,1])), pRight = monitor.projection.screen(world([.3,0,1])), pForward = monitor.projection.screen(world([0,0,2])), pBack = monitor.projection.screen(world([0,0,0]));
 assert(pLeft[0] > pRight[0], 'Operator right (−X when facing +Z) appears on the right of the top view.'); assert(pForward[1] < pBack[1], 'Vehicle forward appears toward the top of the plan.');
 snapshot.ready = true; snapshot.severity = 'ready'; snapshot.reason = 'Ambas horquillas alineadas'; monitor.update(true); assert.equal(monitor.severity, 'ready');
 desktop.ctx.studioMenuOpen = true; monitor.update(true); assert.equal(monitor.severity, 'blocked'); assert.match(monitor.summary.textContent, /Controles bloqueados/); desktop.ctx.studioMenuOpen = false;
 snapshot.ready = false; snapshot.severity = 'blocked'; snapshot.reason = 'Capacidad excedida'; monitor.update(true); assert.equal(monitor.severity, 'blocked');
 const sampleCount = queries; for (let i = 0; i < 100; i++) monitor.update(); assert(queries - sampleCount <= 1, 'Snapshot queries are bounded to 10Hz independently of render frequency.');
 assert(product.object.matrixWorld.equals(beforeMatrix)); assert.deepEqual(desktop.v.pose, beforePose); assert.equal(desktop.runtime.products.size, beforePopulation); assert.equal(desktop.v.entry, null, 'Guidance neither takes nor clones the target product.');
-monitor.canvas.fire('click', {clientX: 680, clientY: 30}); assert.equal(monitor.forkCamera.selectedFeed, 'mirror'); assert.equal(monitor.page, 'alignment'); monitor.canvas.fire('click', {clientX: 680, clientY: 30}); assert.equal(monitor.forkCamera.selectedFeed, 'front');
+monitor.rearButton.fire('click'); assert.equal(monitor.forkCamera.selectedFeed, 'mirror'); assert.equal(monitor.mode, 'rear'); assert.equal(monitor.page, 'alignment'); monitor.rearButton.fire('click'); assert.equal(monitor.forkCamera.selectedFeed, 'front');assert.equal(monitor.mode,'inspection');
 desktop.driving.command('dockingHelp'); assert(monitor.element.hidden); desktop.driving.command('dockingHelp'); assert(!monitor.element.hidden); assert.equal(monitor.plane.visible, false);
 desktop.driving.dispose(); desktop.runtime.stop();
 
@@ -128,9 +134,15 @@ inspection.driving.dispose(); inspection.runtime.stop();
 
 // The VR helper shares one canvas and uses the existing rays for both hands.
 // Its auxiliary camera never modifies the headset's tracked local pose.
-const vr = setup(true), trackingQ = vr.camera.quaternion.clone(), trackingP = vr.camera.position.clone(); assert(vr.driving.mount(vr.record.id));
-const vrMonitor = vr.driving.docking, rigPose = vr.cameraRig.matrixWorld.clone(); assert(vrMonitor.element.hidden); assert(vrMonitor.plane.visible); assert.equal(vrMonitor.state.controller, 'both'); assert(vrMonitor.state.isSelectable()); assert(vr.driving.worldPanel.regions.length <= 6); assert(vr.driving.worldPanel.actions.some(([action]) => action === 'controls'));
-vrMonitor.state.onSelectStart({uv: new THREE.Vector2(680 / 768, 1 - 30 / 432)}); assert.equal(vrMonitor.forkCamera.selectedFeed, 'mirror'); assert.equal(vrMonitor.page, 'alignment');
+const vr = setup(true,true), trackingQ = vr.camera.quaternion.clone(), trackingP = vr.camera.position.clone(); assert(vr.driving.mount(vr.record.id));
+const vrMonitor = vr.driving.docking, rigPose = vr.cameraRig.matrixWorld.clone(); assert(vrMonitor.element.hidden); assert(vrMonitor.plane.visible); assert.equal(vrMonitor.mode,'inspection');assert.equal(vrMonitor.state.controller, 'both'); assert(vrMonitor.state.isSelectable()); assert(vr.driving.worldPanel.regions.length <= 6); assert(vr.driving.worldPanel.actions.some(([action]) => action === 'controls'));
+vrMonitor.state.onSelectStart({uv: new THREE.Vector2(680 / 768, 1 - 30 / 432)}); assert.equal(vrMonitor.forkCamera.selectedFeed, 'mirror'); assert.equal(vrMonitor.mode,'rear');assert.equal(vrMonitor.page, 'alignment');assert.equal(vrMonitor.plane.visible,false,'The rear image replaces the inspection screen without an overlapping diagram.');
+vr.driving.command('rearView');assert.equal(vrMonitor.forkCamera.selectedFeed,'front');assert.equal(vrMonitor.mode,'inspection');assert(vrMonitor.plane.visible,'The console rear-view command returns to automatic inspection.');
+// Moving the actual unheld pallet changes proximity naturally; no private
+// display-mode override substitutes for the navigation/inspection policy.
+const vrPalletPosition=vr.pallet.position.clone(),vrProduct=vr.runtime.products.get(vr.pallet),vrProductParent=vrProduct.object.parent;
+vr.pallet.position.z+=8;vr.scene.updateMatrixWorld(true);vr.driving.holographicGuide.update(true);vrMonitor.update(true);assert.equal(vrMonitor.mode,'layout');assert(vrMonitor.plane.visible);assert(vrMonitor.plane.position.x>0,'A distant target restores the facility map in the right display.');assert.equal(vr.v.entry,null);assert.equal(vrProduct.object.parent,vrProductParent);
+vr.pallet.position.copy(vrPalletPosition);vr.scene.updateMatrixWorld(true);vr.driving.holographicGuide.update(true);vrMonitor.update(true);assert.equal(vrMonitor.mode,'inspection');assert(vrMonitor.plane.visible);
 vr.driving.seat.updateWorldMatrix(true, true);
 const seatInverse = new THREE.Matrix4().getInverse(vr.driving.seat.matrixWorld), panelBounds = plane => {plane.geometry.computeBoundingBox(); return plane.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(seatInverse, plane.matrixWorld));};
 const menuBounds = panelBounds(vr.driving.worldPanel.plane), alignmentBounds = panelBounds(vrMonitor.plane);

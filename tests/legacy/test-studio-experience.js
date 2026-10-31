@@ -4,17 +4,19 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const THREE = require('three');
+const VehicleMissionOverlay = require('../support/load-vehicle-mission-overlay')();
 const code = fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-studio-experience.js"), '../src/studio/StudioExperience.js')), 'utf8')
   .replace(/^import .*;\r?\n/gm, '').replace('export default class StudioExperience', 'class StudioExperience');
 const captures = [], restores = [], calls = [];
 const location = new URL('https://localhost:8080/'); location.assign = url => calls.push(['navigate', url]);
+const windowListeners = new Map();
 const createAvatar = config => { const avatar = new THREE.Group(); avatar.userData.dispose = () => { avatar.userData.disposed = true; }; return avatar; };
 class ImmersiveMenuMock { constructor(studio) { this.studio = studio; } open(page) { calls.push(['immersiveOpen', page]); } close() { calls.push(['immersiveClose']); } setVR(active) { calls.push(['immersiveVR', active]); } identityChanged() { calls.push(['immersiveIdentity']); } }
 class AdministrationMock { close() { calls.push(['administrationClose']); } }
-const Experience = new Function('THREE', 'StudioClient', 'StudioRoomConnection', 'StudioTools', 'EducationRuntime', 'SharedGrabs', 'RemotePresentation', 'createAvatar', 'avatarBadge', 'DEFAULT_AVATAR', 'captureSimulation', 'restoreSimulation', 'window', 'AdminWorkspace', 'ImmersiveStudioMenu', 'document',
+const Experience = new Function('THREE', 'StudioClient', 'StudioRoomConnection', 'StudioTools', 'EducationRuntime', 'SharedGrabs', 'RemotePresentation', 'createAvatar', 'avatarBadge', 'DEFAULT_AVATAR', 'captureSimulation', 'restoreSimulation', 'window', 'AdminWorkspace', 'ImmersiveStudioMenu', 'document', 'VehicleMissionOverlay',
   code + '\nreturn StudioExperience;')(THREE, class {}, class {}, class {}, class {}, class {}, class {}, createAvatar, () => ({}), {},
   (runtime, options) => { captures.push(options); if (runtime.held && !options.allowHeld) throw new Error('Suelta las cargas'); return {version: 1, time: runtime.time}; },
-  (runtime, state, options) => { restores.push({runtime, state, options}); }, {location}, AdministrationMock, ImmersiveMenuMock, {querySelectorAll() { return []; }});
+  (runtime, state, options) => { restores.push({runtime, state, options}); }, {location, addEventListener(type, listener) { windowListeners.set(type, listener); }}, AdministrationMock, ImmersiveMenuMock, {querySelectorAll() { return []; }}, VehicleMissionOverlay);
 
 function setup() {
   const experience = Object.create(Experience.prototype), cameraRig = new THREE.Group(), camera = new THREE.PerspectiveCamera();
@@ -36,6 +38,26 @@ function setup() {
 }
 
 async function run() {
+  // Exercise the real constructor too: prototype-only fixtures cannot detect
+  // an import stripped by the legacy loader or a missing lifecycle binding.
+  class ConstructorExperience extends Experience {
+    build() { this.header = {}; this.controls = {}; this.drawer = {hidden: true}; this.contextHint = {}; }
+    bindSimulation() {}
+    initialize() { return Promise.resolve(); }
+  }
+  const lifecycle = [], constructorCtx = {}, constructorEditor = {ctx: constructorCtx, projectClient: {}, enter() {}, startRuntime() {}, async applyServerProject() {}};
+  constructorCtx.editor = constructorEditor;
+  const constructed = new ConstructorExperience(constructorEditor); await constructed.ready;
+  assert(constructed.missionOverlay instanceof VehicleMissionOverlay, 'The Studio loader must provide the actual lazily mounted mission overlay constructor.');
+  assert.equal(constructed.missionOverlay.panel, undefined, 'Ordinary Studio startup mounts no extra mission surface.');
+  const overlayUpdate = constructed.missionOverlay.update.bind(constructed.missionOverlay);
+  constructed.missionOverlay.update = ctx => { lifecycle.push(['update', ctx]); return overlayUpdate(ctx); };
+  constructed.education.tick = () => {}; constructed.sharedGrabs.tick = () => {}; constructed.tick();
+  assert.deepEqual(lifecycle, [['update', constructorCtx]], 'The Studio frame forwards the current context to the walking coach.');
+  constructed.education.saveProgress = () => lifecycle.push(['progress']); constructed.connection.stop = () => lifecycle.push(['stop']);
+  windowListeners.get('pagehide')();
+  assert.equal(constructed.missionOverlay.disposed, true, 'Page exit disposes the mission panel and its listeners.');
+  assert.deepEqual(lifecycle.slice(1), [['stop'], ['progress']]);
   const home = setup(); location.href = 'https://localhost:8080/editor?libraryScene=vr-robot-turn'; home.editor.dirty = true;
   home.editor.importingFiles = true; home.editor.projectTabs = {hasUnsaved: () => true};
   home.goHome(); const homeNavigation = calls.pop(); assert.deepEqual(homeNavigation, ['navigate', 'https://localhost:8080/']);

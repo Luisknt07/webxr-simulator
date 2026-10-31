@@ -129,7 +129,60 @@ function pallet(config, height = .144) {
   // Entries describe the actual clear spaces between the nine support blocks.
   // Their centers are asymmetric to the edge, rather than simply quarter-width.
   const pockets = Object.assign(productEquipment.forkPockets(height), {minY: bottom, maxY: top, centersX: [-w * .2, w * .2], centersZ: [-d * .195, d * .195], widthX: w * .25, widthZ: d * .23, approachAxes: ['x', 'z']});
+  palletEntryContrast(root, b, {w, d, height, top, bottom, count, boardDepth, pockets});
   root.userData.forkPockets = pockets; return root;
+}
+/** Paint on the existing support/deck faces makes the actual gaps readable.
+ * There is deliberately no backing quad, virtual opening or frame across a
+ * clear entry. These two material batches are decorative, not collision walls. */
+function palletEntryContrast(root, b, {w, d, height, top, bottom, count, boardDepth, pockets}) {
+  const shade = b.mat('Interior de entradas del pallet', '#3d342a', 0, 1);
+  const rim = b.mat('Contorno de entrada del pallet', '#def0e8', .05, .72);
+  [shade, rim].forEach(material => {
+    material.polygonOffset = true; material.polygonOffsetFactor = -1; material.polygonOffsetUnits = -1;
+    material.userData.palletEntryMarking = true;
+  });
+  rim.emissive.set('#55776c'); rim.emissiveIntensity = .12;
+  const paint = (name, width, h, material, p, rotation) => {
+    if (width <= 0 || h <= 0) return;
+    const mesh = b.put(root, name, new THREE.PlaneBufferGeometry(width, h), material, p, rotation);
+    mesh.castShadow = false; mesh.receiveShadow = true;
+  };
+  const openingHeight = top - bottom, midY = (top + bottom) / 2;
+  const tx = Math.min(.008, w * .008), tz = Math.min(.008, d * .01), ty = Math.min(.006, height * .04);
+  for (const center of pockets.centersX) {
+    const left = center - pockets.widthX / 2, right = center + pockets.widthX / 2;
+    // Recessed side walls remain real support-block faces; the tunnel stays open.
+    for (const z of [-d * .39, 0, d * .39]) {
+      paint('Pared interior de entrada Z', d * .16, openingHeight, shade, [left, midY, z], [0, Math.PI / 2, 0]);
+      paint('Pared interior de entrada Z', d * .16, openingHeight, shade, [right, midY, z], [0, -Math.PI / 2, 0]);
+    }
+    for (const side of [-1, 1]) {
+      const rotation = [0, side < 0 ? Math.PI : 0, 0];
+      paint('Marca lateral de entrada Z', tx, openingHeight, rim, [left - tx / 2, midY, side * d * .47], rotation);
+      paint('Marca lateral de entrada Z', tx, openingHeight, rim, [right + tx / 2, midY, side * d * .47], rotation);
+      paint('Marca inferior de entrada Z', pockets.widthX + tx * 2, ty, rim, [center, bottom - ty / 2, side * d * .47], rotation);
+      paint('Marca superior de entrada Z', pockets.widthX + tx * 2, ty, rim, [center, top + ty / 2, side * d / 2], rotation);
+    }
+  }
+  for (const center of pockets.centersZ) {
+    const near = center - pockets.widthZ / 2, far = center + pockets.widthZ / 2;
+    for (const x of [-w * .4, 0, w * .4]) {
+      paint('Pared interior de entrada X', w * .15, openingHeight, shade, [x, midY, near], [0, 0, 0]);
+      paint('Pared interior de entrada X', w * .15, openingHeight, shade, [x, midY, far], [0, Math.PI, 0]);
+    }
+    for (const side of [-1, 1]) {
+      const rotation = [0, side * Math.PI / 2, 0];
+      paint('Marca lateral de entrada X', tz, openingHeight, rim, [side * w * .475, midY, near - tz / 2], rotation);
+      paint('Marca lateral de entrada X', tz, openingHeight, rim, [side * w * .475, midY, far + tz / 2], rotation);
+      // Side entries have no continuous lower runner. Only paint the existing
+      // ends of the upper deck boards, never bridge the spaces between boards.
+      for (let n = 0; n < count; n++) {
+        const z = (n / (count - 1) - .5) * (d - boardDepth), a = Math.max(near, z - boardDepth / 2), end = Math.min(far, z + boardDepth / 2);
+        if (end > a) paint('Marca superior de entrada X', end - a, ty, rim, [side * w / 2, top + ty / 2, (a + end) / 2], rotation);
+      }
+    }
+  }
 }
 function merge(root) {
   root.updateMatrixWorld(true); const inverse = new THREE.Matrix4().getInverse(root.matrixWorld), groups = new Map(), discarded = new Set(), oldMaterials = new Set();
@@ -147,10 +200,14 @@ function merge(root) {
     }
   });
   root.children.slice().forEach(child => root.remove(child));
-  groups.forEach(data => {
+  // Existing physical mesh paths remain stable in authored projects and saved
+  // executions. Decorative batches are appended after every original role.
+  const ordered = [...groups.values()].filter(data => !data.material.userData.palletEntryMarking).concat([...groups.values()].filter(data => data.material.userData.palletEntryMarking));
+  ordered.forEach(data => {
     const material = data.material;
     const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.Float32BufferAttribute(data.positions, 3)); geometry.setAttribute('normal', new THREE.Float32BufferAttribute(data.normals, 3)); geometry.setAttribute('uv', new THREE.Float32BufferAttribute(data.uv, 2)); geometry.computeBoundingBox();
     const mesh = new THREE.Mesh(geometry, material); mesh.name = material.name; mesh.castShadow = mesh.receiveShadow = true; mesh.userData.industrialPart = material.name; mesh.userData.industrialMaterialRole = material.name; root.add(mesh);
+    if (material.userData.palletEntryMarking) { mesh.userData.palletEntryMarking = true; mesh.userData.editorRuntimeHelper = true; mesh.userData.editorCollisionDisabled = true; mesh.castShadow = false; }
   }); discarded.forEach(geometry => geometry.dispose());
   const used = new Set(Array.from(groups.values(), value => value.material)), usedMaps = new Set(Array.from(used, material => material.map).filter(Boolean));
   oldMaterials.forEach(material => { if (!used.has(material)) { if (material.map && !usedMaps.has(material.map) && !(material.map.userData && material.map.userData.sharedIndustrialTexture)) material.map.dispose(); material.dispose(); } });
@@ -169,6 +226,11 @@ function cargo(config, variant, placements, singleSpec) {
         for (let n = 0; n < config.units; n++) { const layer = Math.floor(n / perLayer), cell = n % perLayer, col = cell % columns, row = Math.floor(cell / columns);
           const object = fit(unit(spec, spec.variant), {width: config.width / columns * .96, height: (config.height - baseHeight) / layers, depth: config.depth / rows * .96}); object.position.set((col - (columns - 1) / 2) * config.width / columns, baseHeight + layer * (config.height - baseHeight) / layers, (row - (rows - 1) / 2) * config.depth / rows); root.add(object); }
       }
+      root.updateMatrixWorld(true);
+      root.userData.palletIdentificationAnchors = root.children.filter(child => child !== base).map(child => {
+        const bounds = new THREE.Box3().setFromObject(child), size = bounds.getSize(new THREE.Vector3());
+        return {centerX: (bounds.min.x + bounds.max.x) / 2, frontZ: bounds.max.z, minY: bounds.min.y, maxY: bounds.max.y, width: size.x};
+      });
     } else if (cage) {
       const b = builder(config), mat = b.mat('Jaula de acero galvanizado', config.color, .8, .4), h = config.height - baseHeight;
       for (const side of [-1, 1]) {
@@ -189,6 +251,10 @@ export function createProduct(variant, value = {}) {
     root.userData.forkPockets.centersZ = root.userData.forkPockets.centersZ.map(value => value * visual.scale.z);
     root.userData.forkPockets.widthX *= visual.scale.x; root.userData.forkPockets.widthZ *= visual.scale.z;
   }
+  if (visual.userData.palletIdentificationAnchors) root.userData.palletIdentificationAnchors = visual.userData.palletIdentificationAnchors.map(anchor => ({
+    centerX: anchor.centerX * visual.scale.x + visual.position.x, frontZ: anchor.frontZ * visual.scale.z + visual.position.z,
+    minY: anchor.minY * visual.scale.y + visual.position.y, maxY: anchor.maxY * visual.scale.y + visual.position.y, width: anchor.width * visual.scale.x
+  }));
   root.name = (productEquipment.getDefinition(config.variant) || {}).name || 'Producto';
   root.userData.editorPrefabKey = 'product'; root.userData.editorPrefabVariant = config.variant;
   root.userData.editorDefaultBehaviors = [Object.assign({type: 'product', enabled: true, sourceId: '', initialVelocity: 0}, config)];

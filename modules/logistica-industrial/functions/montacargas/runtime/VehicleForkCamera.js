@@ -139,7 +139,25 @@ export default class VehicleForkCamera {
     for (let node = element; node; node = node.parentNode) if (node.hidden || node.style && (node.style.display === 'none' || node.style.visibility === 'hidden')) return null;
     const canvas = this.renderer.domElement, rect = element.getBoundingClientRect && element.getBoundingClientRect(), canvasRect = canvas && canvas.getBoundingClientRect && canvas.getBoundingClientRect();
     if (!rect || !canvasRect || rect.width <= 0 || rect.height <= 0 || canvasRect.width <= 0 || canvasRect.height <= 0) return null;
-    const left = Math.max(rect.left, canvasRect.left), right = Math.min(rect.right === undefined ? rect.left + rect.width : rect.right, canvasRect.left + canvasRect.width), top = Math.max(rect.top, canvasRect.top), bottom = Math.min(rect.bottom === undefined ? rect.top + rect.height : rect.bottom, canvasRect.top + canvasRect.height);
+    let left = Math.max(rect.left, canvasRect.left), right = Math.min(rect.right === undefined ? rect.left + rect.width : rect.right, canvasRect.left + canvasRect.width), top = Math.max(rect.top, canvasRect.top), bottom = Math.min(rect.bottom === undefined ? rect.top + rect.height : rect.bottom, canvasRect.top + canvasRect.height);
+    // The video is composited underneath the DOM. CSS overflow does not clip
+    // that WebGL pass, so intersect each clipping ancestor in screen space.
+    // Preserve the full viewport rectangle: clipping changes scissor only,
+    // never the image aspect ratio or its source crop while a panel scrolls.
+    const document = element.ownerDocument || this.driving.document, view = document && document.defaultView, clips = /^(hidden|clip|auto|scroll)$/;
+    if (view && typeof view.getComputedStyle === 'function') {
+      for (let node = element.parentNode, depth = 0; node && depth++ < 32; node = node.parentNode) {
+        if (typeof node.getBoundingClientRect !== 'function') continue;
+        let style; try { style = view.getComputedStyle(node); } catch (_) { continue; }
+        if (!style) continue;
+        const clipX = clips.test(style.overflowX || style.overflow), clipY = clips.test(style.overflowY || style.overflow);
+        if (!clipX && !clipY) continue;
+        const box = node.getBoundingClientRect();
+        if (clipX) { left = Math.max(left, box.left); right = Math.min(right, box.right === undefined ? box.left + box.width : box.right); }
+        if (clipY) { top = Math.max(top, box.top); bottom = Math.min(bottom, box.bottom === undefined ? box.top + box.height : box.bottom); }
+        if (right <= left || bottom <= top) return null;
+      }
+    }
     return right > left && bottom > top ? {rect, canvasRect, left, right, top, bottom} : null;
   }
   screenVisible(plane) {
@@ -198,7 +216,9 @@ export default class VehicleForkCamera {
   }
   frameIsometric(record, forks, product, load) {
     const config = record.components.vehicle.config, center = new THREE.Vector3(0, .04, config.forkLength * .52), distance = Math.max(1.5, config.forkLength + .6, config.forkSpread + .6);
-    const eyeLocal = center.clone().add(new THREE.Vector3(this.side * distance, distance, -distance)), aimLocal = center;
+    // A low three-quarter angle exposes the entry mouths under the deck;
+    // the former high view mainly showed boards and the top of the load.
+    const eyeLocal = center.clone().add(new THREE.Vector3(this.side * distance * .6, distance * .18, -distance)), aimLocal = center;
     const camera = this.camera = this.isometricCamera, eye = eyeLocal.clone().applyMatrix4(forks.matrixWorld), aim = aimLocal.clone().applyMatrix4(forks.matrixWorld);
     camera.position.copy(eye); camera.up.copy(UP).transformDirection(forks.matrixWorld); camera.lookAt(aim); camera.updateMatrixWorld(true);
     const visible = this.workArea(config).map(point => point.applyMatrix4(forks.matrixWorld)), height = this.fit(camera, visible);
@@ -234,8 +254,15 @@ export default class VehicleForkCamera {
     const session = xr && xr.isPresenting && xr.getSession && xr.getSession(), layer = session && session.renderState && session.renderState.baseLayer; if (renderer.setFramebuffer && layer && layer.framebuffer) renderer.setFramebuffer(layer.framebuffer);
     renderer.setRenderTarget(saved.target, saved.cube, saved.mip); renderer.setViewport(saved.viewport); renderer.setScissor(saved.scissor); renderer.setScissorTest(saved.scissorTest);
   }
-  hideHelpers() {
-    const ray = this.ctx.raycontrol, values = [this.plane, this.mirrorPlane, this.ctx.cameraRig, ray && ray.raycasterContext, this.driving.worldPanel && this.driving.worldPanel.plane, this.driving.docking && this.driving.docking.plane, this.driving.holographicGuide && this.driving.holographicGuide.label]; if (this.mountOptions.hiddenObjects) values.push(...this.mountOptions.hiddenObjects());
+  hideHelpers(feed = 'front') {
+    const ray = this.ctx.raycontrol, guide = this.driving.holographicGuide, values = [this.plane, this.mirrorPlane, this.ctx.cameraRig, ray && ray.raycasterContext, this.driving.worldPanel && this.driving.worldPanel.plane, this.driving.docking && this.driving.docking.plane, guide && guide.root, guide && guide.label]; if (this.mountOptions.hiddenObjects) values.push(...this.mountOptions.hiddenObjects());
+    // This external inspection view needs the entering blades and real cargo,
+    // not an opaque wheel, roof, heel or ghost silhouette in front of them.
+    if(feed==='front'){
+      const record=this.driving.record(),entry=record&&record.components.vehicle.entry,cargo=entry&&entry.product.object,root=this.driving.visualRoot;
+      const insideCargo=node=>{for(let p=node;p;p=p.parent)if(p===cargo)return true;return false;};
+      if(root&&root.traverse)root.traverse(node=>{if((node.isMesh||node.isLineSegments)&&!node.userData.vehicleForkBlade&&!insideCargo(node))values.push(node);});
+    }
     const seen = new Set(); this.hidden = []; for (const node of values) if (node && !seen.has(node)) { seen.add(node); this.hidden.push([node, node.visible]); node.visible = false; }
   }
   syncScreenVisibility() {
@@ -255,7 +282,7 @@ export default class VehicleForkCamera {
     const saved = this.saveState(), started = typeof performance === 'undefined' ? Date.now() : performance.now();
     try {
       this.resources(profile, name); const camera = name === 'front' ? (this.frame(this.driving.docking && this.driving.docking.snapshot), this.camera) : (this.frameMirror(), this.mirrorCamera);
-      this.hideHelpers(); if (renderer.xr) renderer.xr.enabled = false; renderer.autoClear = true; if (renderer.shadowMap) { renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; } if (renderer.info) renderer.info.autoReset = false;
+      this.hideHelpers(name); if (renderer.xr) renderer.xr.enabled = false; renderer.autoClear = true; if (renderer.shadowMap) { renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; } if (renderer.info) renderer.info.autoReset = false;
       renderer.setRenderTarget(name === 'front' ? this.target : this.mirrorTarget); renderer.setScissorTest(false); renderer.render(scene, camera); this.elapsed = 0; this.rendered.add(name); this.stats.frames++; this.stats[name === 'front' ? 'frontFrames' : 'mirrorFrames']++; this.stats.lastFeed = name; this.stats.status = 'active'; return true;
     } catch (_) { this.stats.failures++; this.failed = true; this.release('unavailable'); this.elapsed = 0; return false; }
     finally {

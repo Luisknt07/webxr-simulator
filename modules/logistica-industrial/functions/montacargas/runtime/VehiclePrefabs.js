@@ -6,8 +6,11 @@ const RIGS=new WeakMap(), UP=new THREE.Vector3(0,1,0);
 function aging(amount,seed) { const data=new Uint8Array(64*64*4);let random=seed;for(let i=0;i<data.length;i+=4){random=(Math.imul(random,1664525)+1013904223)>>>0;const n=random/4294967296,p=i/4,x=p%64,y=Math.floor(p/64);let value=.97+n*.03;value-=amount*.16*Math.max(0,Math.sin(x*.11+Math.cos(y*.14))-.2);value-=amount*.12*Math.max(0,Math.sin(y*.065+x*.018));if(n>1-amount*.008)value*=.76;data[i]=data[i+1]=data[i+2]=Math.floor(value*255);data[i+3]=255;}const map=new THREE.DataTexture(data,64,64,THREE.RGBAFormat);map.wrapS=map.wrapT=THREE.RepeatWrapping;map.generateMipmaps=true;map.minFilter=THREE.LinearMipmapLinearFilter;map.needsUpdate=true;return map; }
 function builder(c) {
   const cache=new Map(), maps=[],wearMap=aging(c.wear,1327); maps.push(wearMap); const mat=(name,color,metalness,roughness)=>{const material=new THREE.MeshStandardMaterial({color,metalness,roughness,map:wearMap});material.name=name;return material;};
-  const forkColor=c.forkColor.toLowerCase()==='#677682'?'#9eacb5':c.forkColor;
-  const materials={frame:mat('Carrocería',c.frameColor,c.finish==='polymer'?.05:.5,c.finish==='steel'?.35:.57),accent:mat('Protecciones',c.accentColor,.2,.7),steel:mat('Mecanizado','#677682',.85,.36),forkSteel:mat('Horquillas · acero satinado',forkColor,.55,.38),rubber:mat('Neumáticos','#252b2b',.02,.9),seat:mat('Asiento','#303639',0,.85),glass:new THREE.MeshStandardMaterial({color:'#a9c8d3',metalness:.05,roughness:.16,transparent:true,opacity:.23}),light:new THREE.MeshStandardMaterial({color:'#e8ead3',emissive:'#e8ead3',emissiveIntensity:.1}),red:new THREE.MeshStandardMaterial({color:'#9a3335',emissive:'#c43428',emissiveIntensity:.05})};
+  const standardFork=['#677682','#9eacb5'].includes(c.forkColor.toLowerCase()),forkColor=standardFork?'#c2cfd8':c.forkColor;
+  const materials={frame:mat('Carrocería',c.frameColor,c.finish==='polymer'?.05:.5,c.finish==='steel'?.35:.57),accent:mat('Protecciones',c.accentColor,.2,.7),steel:mat('Mecanizado','#677682',.85,.36),forkSteel:mat('Horquillas · acero satinado',forkColor,.45,.36),rubber:mat('Neumáticos','#252b2b',.02,.9),seat:mat('Asiento','#303639',0,.85),glass:new THREE.MeshStandardMaterial({color:'#a9c8d3',metalness:.05,roughness:.16,transparent:true,opacity:.23}),light:new THREE.MeshStandardMaterial({color:'#e8ead3',emissive:'#e8ead3',emissiveIntensity:.1}),red:new THREE.MeshStandardMaterial({color:'#9a3335',emissive:'#c43428',emissiveIntensity:.05})};
+  // A small material fill keeps the working steel readable in shadow without
+  // adding a light, replacing room illumination or changing an authored color.
+  if(standardFork){materials.forkSteel.emissive.set('#627581');materials.forkSteel.emissiveIntensity=.08;}
   Object.entries(materials).forEach(([role,material])=>{material.color.convertSRGBToLinear();if(material.emissive)material.emissive.convertSRGBToLinear();material.userData.studioColorSpace='linear';material.userData.industrialMaterialRole=role;});
   const geometry=(key,create)=>{if(!cache.has(key))cache.set(key,create());return cache.get(key);};
   const mesh=(name,geo,role,parent,position)=>{const object=new THREE.Mesh(geo,materials[role]);object.name=name;object.castShadow=role!=='glass';object.receiveShadow=true;Object.assign(object.userData,{materialPart:role,materialPartLabel:{frame:'Carrocería',accent:'Protecciones',steel:'Mástil y mecanismos',forkSteel:'Horquillas de acero satinado',rubber:'Rodadura',seat:'Puesto de operador',glass:'Cristales',light:'Luces',red:'Pilotos'}[role],industrialMaterialPart:role,industrialMaterialRole:role,industrialPart:name});if(role==='forkSteel')object.userData.vehicleForkTine=true;if(position)object.position.fromArray(position);parent.add(object);return object;};
@@ -127,6 +130,39 @@ function forkAssembly(b,rig,c,parent) {
   for(const side of [-1,1])b.rod('Marco de respaldo',[side*c.width*.31,.2,-.1],[side*c.width*.31,.9,-.1],.018,'steel',forks);
   b.rod('Borde superior de respaldo',[-c.width*.31,.9,-.1],[c.width*.31,.9,-.1],.018,'steel',forks);
   for(let i=-2;i<=2;i++)b.box('Rejilla de respaldo',[.012,.55,.018],'steel',forks,[i*c.width*.11,.58,-.1]);
+}
+/** Two tiny, shared-per-tool presentation draws. Every vertex stays inside the
+ * existing blade envelope; these marks never become a collider or a false tine. */
+function forkEntryContrast(rig,c,parent) {
+  const edgeVertices=[],paintVertices=[],paintColors=[],edge=new THREE.Color('#1b2b35'),tip=new THREE.Color('#ffd477');
+  edge.convertSRGBToLinear();tip.convertSRGBToLinear();
+  const half=c.forkWidth/2,body=c.forkLength-.12,inset=Math.min(.001,c.forkWidth*.01),stripe=Math.min(.007,c.forkWidth*.08);
+  // Exact face coordinates plus polygon offset keep the painted tips visible
+  // at both close and far depth without enlarging the physical blade envelope.
+  const top=z=>z<=body?0:-(z-body)/.12*c.forkThickness*.6;
+  const quad=(points,color)=>{[0,1,2,0,2,3].forEach(index=>{paintVertices.push(...points[index]);paintColors.push(color.r,color.g,color.b);});};
+  for(const side of [-1,1]){
+    const x=side*c.forkSpread/2,lo=x-half,hi=x+half;
+    const profile=[[0,0],[body,0],[c.forkLength,-c.forkThickness*.6],[c.forkLength,-c.forkThickness],[0,-c.forkThickness]];
+    for(const lateral of [lo,hi])profile.forEach((p,index)=>{const next=profile[(index+1)%profile.length];edgeVertices.push(lateral,p[1],p[0],lateral,next[1],next[0]);});
+    profile.forEach(p=>edgeVertices.push(lo,p[1],p[0],hi,p[1],p[0]));
+    // Dark top borders define the silver blade width even against light wood.
+    for(const lateral of [lo+inset,hi-inset-stripe]){
+      quad([[lateral,top(0),0],[lateral+stripe,top(0),0],[lateral+stripe,top(body),body],[lateral,top(body),body]],edge);
+      quad([[lateral,top(body),body],[lateral+stripe,top(body),body],[lateral+stripe,top(c.forkLength),c.forkLength],[lateral,top(c.forkLength),c.forkLength]],edge);
+    }
+    // The band lies on the existing bevel, not a larger simulated entry point.
+    const start=c.forkLength-.062,end=c.forkLength-.008;
+    quad([[lo+inset,top(start),start],[hi-inset,top(start),start],[hi-inset,top(end),end],[lo+inset,top(end),end]],tip);
+  }
+  const lines=new THREE.BufferGeometry();lines.setAttribute('position',new THREE.Float32BufferAttribute(edgeVertices,3));
+  const lineMaterial=new THREE.LineBasicMaterial({color:'#1b2b35',depthTest:true,depthWrite:false,toneMapped:false});lineMaterial.color.convertSRGBToLinear();
+  const outline=new THREE.LineSegments(lines,lineMaterial);outline.name='Contorno de las dos uñas de entrada';
+  const paint=new THREE.BufferGeometry();paint.setAttribute('position',new THREE.Float32BufferAttribute(paintVertices,3));paint.setAttribute('color',new THREE.Float32BufferAttribute(paintColors,3));
+  const paintMaterial=new THREE.MeshBasicMaterial({vertexColors:THREE.VertexColors,depthTest:true,depthWrite:false,toneMapped:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+  const marks=new THREE.Mesh(paint,paintMaterial);marks.name='Bordes y puntas de inserción de las uñas';
+  [outline,marks].forEach(object=>{Object.assign(object.userData,{vehicleForkBlade:true,vehicleForkEntryContrast:true,vehiclePreserve:true,editorHelper:true,editorRuntimeHelper:true});object.castShadow=false;object.receiveShadow=false;object.raycast=()=>{};parent.add(object);});
+  rig.forkEntryContrast={outline,marks};
 }
 function mast(b,rig,c,parent) {
   const d=rig.detail;
@@ -291,6 +327,9 @@ function build(root,c) {
   if(!rig.controls)rig.controls={wheel:null,levers:[]};
   if(rig.tiller){const head=rig.tillerGripPosition||[0,.70,-.33],grip=group(rig.tiller,'Agarre de timón',head);rig.controls.wheel={id:'steering',object:rig.tiller,pivot:rig.tiller,grip,gripOnly:true,axis:[0,1,0],inputSign:1,pivotLocal:[0,0,0],radius:.22,maxAngle:c.steerLimit,restQuaternion:rig.tiller.quaternion.clone()};rig.controls.steering=rig.controls.wheel;const lever=group(rig.tiller,'Mando de elevación',[.11,head[1]-.01,head[2]]);d.solid('Gatillo de elevación',[.06,.03,.08],'red',lever,[0,0,0],.005);rig.controls.levers.push({id:'lift',object:lever,pivot:lever,grip:group(lever,'Agarre lift'),axis:[0,0,1],rotationAxis:[1,0,0],pivotLocal:[0,0,0],travel:.04,maxAngle:.25,restQuaternion:lever.quaternion.clone()});}
   d.batch(visual);
+  // Append presentation children after batching so existing generated node
+  // paths used by saved material parts and checkpoints keep their identities.
+  if(f.forks&&rig.forks)forkEntryContrast(rig,c,rig.forks);
   Object.defineProperty(root.userData,'vehicleRig',{value:rig,configurable:true,enumerable:false});RIGS.set(root,rig);return rig;
 }
 function dispose(root) {const geometries=new Set(),materials=new Set(),textures=new Set();root.traverse(node=>{if(node.geometry)geometries.add(node.geometry);(Array.isArray(node.material)?node.material:[node.material]).filter(Boolean).forEach(m=>{materials.add(m);Object.values(m).forEach(v=>{if(v&&v.isTexture)textures.add(v);});});});textures.forEach(v=>v.dispose());materials.forEach(v=>v.dispose());geometries.forEach(v=>v.dispose());}

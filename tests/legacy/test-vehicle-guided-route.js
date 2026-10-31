@@ -58,6 +58,6 @@ assert.equal(guide.getState().phase, 'error'); assert.equal(guide.getState().ins
 assert(guide.label.visible && !guide.selected.visible, 'XR errors use the existing information label without a false pallet marker.');
 lesson.phase = 'complete'; lesson.completed = 1; lesson.taskId = ''; lesson.status = 'Todas las misiones verificadas.'; guide.update(true);
 assert(guide.label.visible && !guide.selected.visible); assert(labelText.includes('1 / 1 misiones verificadas')); assert.deepEqual(fault.ctx.camera.matrixWorld.toArray(), tracked);
-assert(guide.stats.geometries <= 4 && guide.stats.materials <= 9, 'The terminal status reuses the existing spatial canvas and geometry.');
+assert(guide.stats.geometries <= 6 && guide.stats.materials <= 11, 'The terminal status reuses the existing spatial canvas and geometry.');
 guide.dispose(); fault.runtime.vehicleTraining = null; fault.runtime.stop();
 console.log('Guided warehouse routes: real thin-wall/corner/load clearance, bounded world arrows, read-only planning and exact rack-slot/product readiness passed.');

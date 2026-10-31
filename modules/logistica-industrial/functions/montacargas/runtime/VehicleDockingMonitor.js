@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import VehicleForkCamera from './VehicleForkCamera.js';
+import VehicleMissionPanel from './VehicleMissionPanel.js';
+import VehicleFacilityLayout from './VehicleFacilityLayout.js';
+import VehicleInspectionMode from './VehicleInspectionMode.js';
 
 const WIDTH = 768, HEIGHT = 432;
 const COLORS = {ready: '#71e6b3', near: '#f1c66c', blocked: '#ff8f93'};
@@ -11,10 +14,10 @@ const measure = (value, scale, suffix) => finite(value) ? (value * scale).toFixe
 /** Read-only contour guidance plus an optional, bounded real-camera feed. Both
  * use the runtime's physical pickup/release data and never mutate custody. */
 export default class VehicleDockingMonitor {
-  constructor(driving) { this.driving = driving; this.ctx = driving.ctx; this.visible = true; this.page = 'alignment'; this.lastUpdate = -Infinity; this.forkCamera = new VehicleForkCamera(driving); }
+  constructor(driving) { this.driving = driving; this.ctx = driving.ctx; this.visible = true; this.page = 'alignment'; this.lastUpdate = -Infinity; this.forkCamera = new VehicleForkCamera(driving); this.inspectionMode = new VehicleInspectionMode(); this.facilityLayout = null; this.forceLayout = false; this.mode = 'layout'; }
   get cameraEnabled() { return this.forkCamera.enabled && this.cameraSupported; }
-  toggleCamera() { if (!this.cameraSupported) return false; const enabled = this.forkCamera.setEnabled(!this.forkCamera.enabled); this.update(true); return enabled; }
-  toggleRearView() { if (!this.cameraSupported || this.driving.blocked()) return false; const rear = this.forkCamera.toggleRearView(); this.update(true); return rear; }
+  toggleCamera() { if (!this.cameraSupported) return false; const enabled = this.forkCamera.setEnabled(this.forceLayout || !this.forkCamera.enabled); this.forceLayout = false; this.update(true); return enabled; }
+  toggleRearView() { if (!this.cameraSupported || this.driving.blocked()) return false; this.forceLayout = false; this.forkCamera.setEnabled(true); const rear = this.forkCamera.toggleRearView(); this.update(true); return rear; }
   guidance() { return this.driving.holographicGuide || null; }
   guidanceModel() {
     const guide = this.guidance(), model = guide && guide.getState ? guide.getState() : null;
@@ -38,14 +41,18 @@ export default class VehicleDockingMonitor {
     this.canvas = dom.createElement('canvas'); this.canvas.width = WIDTH; this.canvas.height = HEIGHT;
     this.canvas.setAttribute('aria-label', 'Plano de alineación de horquillas y pallet');
     this.context = this.canvas.getContext && this.canvas.getContext('2d'); if (!this.context) return;
-    this.element = dom.createElement('section'); this.element.className = 'vehicle-docking-monitor'; this.element.dataset.vehicleDockingMonitor = '';
-    this.element.setAttribute('aria-label', 'Ayuda de alineación');
+    this.element = dom.createElement('section'); this.element.className = 'vehicle-docking-monitor vehicle-navigation-display'; this.element.dataset.vehicleDockingMonitor = '';
+    this.element.setAttribute('aria-label', 'Plano de instalación e inspección de carga');
+    this.navigationHeader = dom.createElement('div'); this.navigationHeader.className = 'vehicle-navigation-header';
+    this.navigationTitle = dom.createElement('strong'); this.navigationTitle.className = 'vehicle-navigation-title';
+    this.navigationActions = dom.createElement('div'); this.navigationActions.className = 'vehicle-navigation-actions';
+    this.navigationHeader.appendChild(this.navigationTitle); this.navigationHeader.appendChild(this.navigationActions);
     this.summary = dom.createElement('p'); this.summary.className = 'vehicle-docking-summary'; this.summary.setAttribute('aria-live', 'polite');
     this.coach = dom.createElement('p'); this.coach.className = 'vehicle-guidance-instruction'; this.coach.setAttribute('aria-live', 'polite');
     this.metrics = dom.createElement('p'); this.metrics.className = 'vehicle-docking-metrics'; this.metrics.setAttribute('aria-label', 'Medidas físicas de alineación');
     this.guidanceBar = dom.createElement('div'); this.guidanceBar.className = 'vehicle-guidance-controls';
     this.guidancePanel = dom.createElement('section'); this.guidancePanel.className = 'vehicle-guidance-panel'; this.guidancePanel.dataset.vehicleGuidancePanel = ''; this.guidancePanel.setAttribute('aria-label', 'Objetivos de carga y descarga');
-    this.trainingPanel = dom.createElement('div'); this.trainingPanel.className = 'vehicle-training-progress'; this.trainingPanel.dataset.vehicleTraining = ''; this.trainingPanel.setAttribute('aria-live', 'polite'); this.trainingPanel.hidden = true;
+    this.missionPanel = new VehicleMissionPanel(dom); this.trainingPanel = this.missionPanel.mount();
     this.hologramButton = dom.createElement('button'); this.hologramButton.type = 'button'; this.hologramButton.textContent = 'Holograma · Shift+G'; this.hologramButton.dataset.vehicleHolographicGuide = '';
     this.targetLabel = dom.createElement('label'); this.targetLabel.className = 'vehicle-guidance-target'; this.targetLabel.textContent = 'Objetivo';
     this.targetSelect = dom.createElement('select'); this.targetSelect.dataset.vehicleGuidanceTarget = ''; this.targetSelect.setAttribute('aria-label', 'Lugar donde recoger o descargar el pallet'); this.targetLabel.appendChild(this.targetSelect);
@@ -57,7 +64,7 @@ export default class VehicleDockingMonitor {
     this.cameraButton = dom.createElement('button'); this.cameraButton.type = 'button'; this.cameraButton.textContent = 'Cámara horquillas · C'; this.cameraButton.dataset.vehicleForkCameraToggle = '';
     this.sideButton = dom.createElement('button'); this.sideButton.type = 'button'; this.sideButton.textContent = 'Cambiar lado · Shift+N'; this.sideButton.dataset.vehicleForkCameraSide = '';
     this.cameraModeButton = dom.createElement('button'); this.cameraModeButton.type = 'button'; this.cameraModeButton.textContent = 'Vista: Isométrica'; this.cameraModeButton.dataset.vehicleForkCameraMode = '';
-    this.planButton = dom.createElement('button'); this.planButton.type = 'button'; this.planButton.className = 'vehicle-docking-plan-toggle'; this.planButton.textContent = 'Plano y medidas'; this.planButton.dataset.vehicleDockingPlanToggle = ''; this.planVisible = true;
+    this.planButton = dom.createElement('button'); this.planButton.type = 'button'; this.planButton.className = 'vehicle-navigation-plan-toggle'; this.planButton.textContent = 'Plano'; this.planButton.dataset.vehicleDockingPlanToggle = ''; this.planVisible = true;
     this.rearButton = dom.createElement('button'); this.rearButton.type = 'button'; this.rearButton.dataset.vehicleRearViewToggle = ''; this.rearButton.textContent = 'Retrovisor · Shift+R';
     this.feedViewport = dom.createElement('div'); this.feedViewport.className = 'vehicle-fork-camera-viewport'; this.feedViewport.dataset.vehicleForkCameraViewport = ''; this.feedViewport.setAttribute('aria-label', 'Cámara real de inspección de horquillas y pallet');
     this.cameraViews = dom.createElement('div'); this.cameraViews.className = 'vehicle-camera-views'; this.cameraViews.appendChild(this.feedViewport);
@@ -65,23 +72,31 @@ export default class VehicleDockingMonitor {
     const rearTitle = dom.createElement('span'); rearTitle.className = 'vehicle-rear-camera-label'; rearTitle.textContent = 'RETROVISOR';
     this.rearViewport = dom.createElement('div'); this.rearViewport.className = 'vehicle-rear-camera-viewport'; this.rearViewport.dataset.vehicleRearCameraViewport = ''; this.rearViewport.setAttribute('aria-label', 'Imagen real trasera reflejada');
     this.rear.appendChild(rearTitle); this.rear.appendChild(this.rearViewport); this.rear.hidden = true;
-    header.appendChild(this.cameraButton); header.appendChild(this.cameraModeButton); header.appendChild(this.sideButton); header.appendChild(this.rearButton); this.feed.appendChild(header); this.feed.appendChild(this.cameraViews);
+    this.navigationActions.appendChild(this.cameraButton); this.navigationActions.appendChild(this.planButton); this.navigationActions.appendChild(this.rearButton);
+    header.appendChild(this.cameraModeButton); header.appendChild(this.sideButton); this.feed.appendChild(header); this.feed.appendChild(this.cameraViews);
     this.cameraClick = () => { if (!this.driving.blocked()) this.toggleCamera(); };
     this.sideClick = () => { if (!this.driving.blocked()) {this.forkCamera.switchSide(); this.update(true);} };
     this.cameraModeClick = () => { if (!this.driving.blocked()) { this.forkCamera.toggleMode(); this.update(true); } };
-    this.planClick = () => { if (!this.driving.blocked()) { this.planVisible = true; this.page = 'alignment'; this.update(true); } };
+    this.planClick = () => { if (!this.driving.blocked()) { this.forceLayout = !this.forceLayout; this.update(true); } };
     this.rearClick = () => this.toggleRearView(); this.rearButton.addEventListener('click', this.rearClick);
     this.cameraButton.addEventListener('click', this.cameraClick); this.sideButton.addEventListener('click', this.sideClick);
     this.cameraModeButton.addEventListener('click', this.cameraModeClick);
     this.planButton.addEventListener('click', this.planClick);
     this.hologramClick = () => this.toggleHologram(); this.hologramButton.addEventListener('click', this.hologramClick);
     this.targetChange = () => {const guide = this.guidance(); if (!guide || this.driving.blocked()) return; guide.setTarget(this.targetSelect.value); if (this.driving.resetInput) this.driving.resetInput(); if (this.driving.updateGuide) this.driving.updateGuide(true); if (this.driving.updateHUD) this.driving.updateHUD(); this.update(true);}; this.targetSelect.addEventListener('change', this.targetChange);
-    this.body.appendChild(this.plan); this.body.appendChild(this.feed); this.element.appendChild(this.body); this.element.appendChild(this.summary); this.element.appendChild(this.metrics);
+    this.body.appendChild(this.plan); this.body.appendChild(this.feed); this.element.appendChild(this.navigationHeader); this.element.appendChild(this.body); this.element.appendChild(this.summary); this.element.appendChild(this.metrics);
     this.guidancePanel.appendChild(this.trainingPanel); this.guidancePanel.appendChild(this.guidanceBar); this.guidancePanel.appendChild(this.coach);
-    if (dom.body) {dom.body.appendChild(this.element); dom.body.appendChild(this.guidancePanel);}
+    this.panels = dom.createElement('div'); this.panels.className = 'vehicle-operation-panels'; this.panels.id = 'vehicle-operation-panels';
+    this.operatorColumn = dom.createElement('div'); this.operatorColumn.className = 'vehicle-operator-column';
+    this.operatorColumn.appendChild(this.guidancePanel);
+    // Keep the existing console and its commands; the shared layout only owns
+    // placement while seated, so objectives cannot overlap the controls.
+    if (this.driving.hud) this.operatorColumn.appendChild(this.driving.hud);
+    this.panels.appendChild(this.operatorColumn); this.panels.appendChild(this.element);
+    if (dom.body) dom.body.appendChild(this.panels);
     this.click = event => {
       if (event.stopPropagation) event.stopPropagation();
-      if (this.driving.blocked()) return;
+      if (!this.ctx.vrMode || this.driving.blocked()) return;
       const rect = this.canvas.getBoundingClientRect && this.canvas.getBoundingClientRect();
       if (!rect || !rect.width || !rect.height) return;
       this.select((event.clientX - rect.left) * WIDTH / rect.width, (event.clientY - rect.top) * HEIGHT / rect.height);
@@ -104,19 +119,48 @@ export default class VehicleDockingMonitor {
       isSelectable: (hit, controller) => !!this.driving.id && !!this.ctx.vrMode && !!this.plane && this.plane.visible && !this.driving.blocked() && this.driving.panelSelectable(controller),
       onSelectStart: (hit, controller) => { if (this.state.isSelectable(hit, controller) && hit && hit.uv) this.select(hit.uv.x * WIDTH, (1 - hit.uv.y) * HEIGHT); }};
     if (input) { input.addState(this.stateName, this.state); input.activateState(this.stateName); }
-    this.lastUpdate = -Infinity; this.update(true);
+    this.facilityLayout = new VehicleFacilityLayout(this.driving);
+    this.inspectionMode.reset(); this.forceLayout = false; this.mode = 'layout'; this.planeMode = null; this.lastUpdate = -Infinity; this.update(true);
+  }
+  targetForInspection(record,data,lesson) {
+    const simulation=this.driving.simulation,training=simulation.vehicleTraining,vehicle=record.components.vehicle,guide=this.guidance();
+    const center=(matrix,bounds)=>bounds&&matrix?bounds.getCenter(new THREE.Vector3()).applyMatrix4(matrix).toArray():null;
+    if(vehicle.entry){
+      // A loaded truck is always close to its own pallet: only the actual
+      // receiving position can activate the unloading camera.
+      const chosen=guide&&guide.enabled&&guide.currentTarget;
+      const matches= !lesson || chosen&&chosen.targetId===lesson.destinationId&&(!lesson.locationCode||chosen.locationCode===lesson.locationCode)&&(!Number.isInteger(lesson.destinationSlot)||chosen.slotIndex===lesson.destinationSlot);
+      if(chosen&&chosen.allowed&&chosen.kind==='drop'&&matches)return {id:chosen.id,position:center(chosen.matrix,chosen.bounds)};
+      const destination=training&&lesson&&training.destination(record);
+      if(destination){const product=vehicle.entry.product;return {id:'drop:'+destination.targetId,position:center(destination.matrix,product.bounds)};}
+      if((data.destination||data.support)&&polygon(data.geometry&&data.geometry.target))return {id:'drop:'+(data.destination&&data.destination.id||'floor'),position:this.polygonCenter(data.geometry.target)};
+      return null;
+    }
+    if(lesson&&['complete','error','withdraw'].includes(lesson.phase))return null;
+    const chosen=guide&&guide.enabled&&guide.currentTarget;
+    const product=training&&lesson?training.product(lesson.productId):chosen&&chosen.kind==='pickup'&&chosen.allowed&&chosen.product||this.forkCamera.product&&this.forkCamera.product(record,data);
+    if(product){product.object.updateWorldMatrix(true,false);return {id:lesson&&lesson.productId||product.record&&product.record.id||data.targetId,position:center(product.object.matrixWorld,product.bounds)};}
+    if(polygon(data.geometry&&data.geometry.target))return {id:data.targetId,position:this.polygonCenter(data.geometry.target)};
+    return null;
+  }
+  polygonCenter(points) { const p=[0,0,0];points.forEach(q=>q.forEach((v,i)=>{p[i]+=v/points.length;}));return p; }
+  displayMode(record,data,lesson,available) {
+    const rig=this.driving.visualRoot&&this.driving.visualRoot.userData.vehicleRig,forks=rig&&rig.forks;
+    const position=forks&&forks.getWorldPosition?forks.getWorldPosition(new THREE.Vector3()).toArray():null;
+    return this.inspectionMode.update({available,automatic:this.cameraEnabled,forceLayout:this.forceLayout,mirror:this.forkCamera.selectedFeed==='mirror',position,target:this.targetForInspection(record,data,lesson),entryId:record.components.vehicle.entry&&record.components.vehicle.entry.id||''});
   }
   select(x, y) {
+    if(y>=15&&y<=57){
+      if(x>=16&&x<=246){this.toggleCamera();return true;}
+      if(x>=264&&x<=494){if(!this.driving.blocked()){this.forceLayout=!this.forceLayout;this.update(true);}return true;}
+      if(x>=512&&x<=752){this.toggleRearView();return true;}
+    }
     if (this.page === 'guide' && y >= 374 && y <= 420) {
       if (x >= 16 && x <= 208 && this.guidance()) {this.toggleHologram(); return true;}
       if (x >= 224 && x <= 454 && this.guidance() && this.guidance().nextTarget && !this.driving.blocked()) {if (this.driving.command) this.driving.command('guidanceNext'); else this.guidance().nextTarget(); this.update(true); return true;}
       if (x >= 470 && x <= 752 && this.cameraSupported && this.forkCamera.mode === 'isometric' && !this.driving.blocked()) {this.forkCamera.switchSide(); this.update(true); return true;}
     }
-    if (y >= 15 && y <= 57) {
-      if (x >= WIDTH - 320 && x <= WIDTH - 168 && this.cameraSupported) { this.toggleCamera(); return true; }
-      if (x >= WIDTH - 488 && x <= WIDTH - 332 && this.cameraSupported) { this.forkCamera.toggleMode(); this.update(true); return true; }
-      if (x >= WIDTH - 156 && x <= WIDTH - 16) { this.toggleRearView(); return true; }
-    } return false;
+    return false;
   }
   toggle() { this.visible = !this.visible; this.update(true); return this.visible; }
   update(force = false) {
@@ -124,22 +168,31 @@ export default class VehicleDockingMonitor {
     const driving = this.driving, record = driving.record(), available = !!record && this.visible && !(this.ctx.editor && this.ctx.editor.active);
     this.element.hidden = !available || !!this.ctx.vrMode;
     if (this.guidancePanel) this.guidancePanel.hidden = !available || !!this.ctx.vrMode;
-    if (this.plane) this.plane.visible = available && !!this.ctx.vrMode;
-    this.forkCamera.setAvailable(available && !this.driving.blocked());
-    this.feed.hidden = !this.cameraSupported || !this.cameraEnabled; this.cameraButton.setAttribute('aria-pressed', String(!!this.cameraEnabled));
-    const rearView = this.forkCamera.selectedFeed === 'mirror';
-    this.cameraModeButton.textContent = 'Vista: ' + (rearView ? 'Posterior' : {isometric: 'Isométrica', entry: 'Frontal', tips: 'Puntas'}[this.forkCamera.mode] || 'Isométrica') + ' · Shift+C';
-    this.sideButton.hidden = rearView || this.forkCamera.mode !== 'isometric'; this.sideButton.textContent = 'Lado: ' + (this.forkCamera.side === 1 ? 'Der.' : 'Izq.') + ' · Shift+N';
-    this.rearButton.textContent = (rearView ? 'Horquillas' : 'Retrovisor') + ' · Shift+R'; this.rearButton.setAttribute('aria-pressed', String(rearView)); this.feedViewport.setAttribute('aria-label', rearView ? 'Retrovisor real posterior reflejado' : 'Inspección real de horquillas'); this.element.dataset.feed = rearView ? 'mirror' : 'front';
-    this.element.dataset.camera = this.cameraEnabled ? 'on' : 'off';
-    const showPlan = true;
-    this.plan.hidden = !showPlan; this.element.dataset.plan = showPlan ? 'open' : 'closed'; this.planButton.setAttribute('aria-expanded', String(showPlan));
-    if (!available) return;
+    if (this.plane) this.plane.visible = available && !!this.ctx.vrMode && this.mode !== 'rear';
+    if(!available){this.forkCamera.setAvailable(false);this.inspectionMode.reset();return;}
     const now = typeof performance === 'undefined' ? Date.now() : performance.now();
     if (!force && now - this.lastUpdate < 100) return; this.lastUpdate = now;
     const runtime = driving.simulation.vehicleRuntime;
     this.snapshot = (runtime && runtime.getDockingState && runtime.getDockingState(record)) || {ready: false, reason: 'Esperando datos de alineación', severity: 'blocked'};
-    const data = this.snapshot, blocked = driving.blocked();
+    const data = this.snapshot, blocked = driving.blocked(),training=driving.simulation.vehicleTraining,lesson=training&&training.guidance(record);
+    this.mode=this.displayMode(record,data,lesson,available);
+    this.page=this.mode==='layout'?'layout':'alignment';
+    this.forkCamera.setAvailable(available && !blocked && this.mode!=='layout');
+    this.feed.hidden = this.mode==='layout'; this.cameraButton.setAttribute('aria-pressed', String(!!this.cameraEnabled));
+    this.cameraButton.textContent='Cámara auto '+(this.cameraEnabled?'ON':'OFF')+' · C';
+    this.cameraButton.title='La cámara aparece cerca de la recogida o del destino; durante el trayecto se muestra el plano.';
+    this.navigationTitle.textContent=this.mode==='layout'?'Plano de la instalación':this.mode==='rear'?'Retrovisor':'Inspección de carga';
+    this.planButton.setAttribute('aria-pressed',String(this.forceLayout));
+    const rearView = this.forkCamera.selectedFeed === 'mirror';
+    this.cameraModeButton.textContent = 'Vista: ' + (rearView ? 'Posterior' : {isometric: 'Isométrica', entry: 'Frontal', tips: 'Puntas'}[this.forkCamera.mode] || 'Isométrica') + ' · Shift+C';
+    this.sideButton.hidden = rearView || this.forkCamera.mode !== 'isometric'; this.sideButton.textContent = 'Lado: ' + (this.forkCamera.side === 1 ? 'Der.' : 'Izq.') + ' · Shift+N';
+    this.rearButton.textContent = (rearView ? 'Horquillas' : 'Retrovisor') + ' · Shift+R'; this.rearButton.setAttribute('aria-pressed', String(rearView)); this.feedViewport.setAttribute('aria-label', rearView ? 'Retrovisor real posterior reflejado' : 'Inspección real de horquillas'); this.element.dataset.feed = rearView ? 'mirror' : 'front';
+    this.element.dataset.camera = this.mode!=='layout' ? 'on' : 'off'; this.element.dataset.display=this.mode;
+    const showPlan = true;
+    this.plan.hidden = !showPlan; this.element.dataset.plan = showPlan ? 'open' : 'closed'; this.planButton.setAttribute('aria-expanded', String(showPlan));
+    this.plan.hidden=this.mode==='rear';
+    if(this.planeMode!==this.mode&&this.plane){const layout=driving.cabPanelLayout();driving.placeCabPanel(this.plane,this.mode==='layout'?layout.front.position:layout.alignment);this.planeMode=this.mode;}
+    if(this.plane)this.plane.visible=available&&!!this.ctx.vrMode&&this.mode!=='rear';
     this.severity = data.ready && !blocked ? 'ready' : data.severity === 'near' && !blocked ? 'near' : 'blocked';
     let reason = blocked ? 'Controles bloqueados: cierra el menú o reanuda la simulación.' : data.reason || 'Ajusta la posición y la altura de las horquillas.';
     const guide = this.guidance(), guided = guide && guide.getState ? guide.getState() : null;
@@ -156,27 +209,22 @@ export default class VehicleDockingMonitor {
     [this.cameraButton, this.cameraModeButton, this.sideButton, this.planButton, this.rearButton].forEach(button => {button.disabled = blocked;});
     this.summary.textContent = (withdrawing ? 'RETIRADA · ' : this.severity === 'ready' ? 'LISTO · ' : this.severity === 'near' ? 'AJUSTAR · ' : 'NO DISPONIBLE · ') + reason;
     this.updateGuidance(data, blocked);
-    this.element.dataset.state = this.severity; this.canvas.setAttribute('aria-label', phase + '. ' + this.summary.textContent);
+    if(this.mode==='layout'){
+      const model=this.guidanceModel(),rawGuide=this.guidance(),layout=this.facilityLayout.update(record,{lesson,guide:rawGuide&&rawGuide.enabled?model:null,snapshot:data});
+      this.summary.textContent=lesson?lesson.phase==='complete'?'Práctica completada · todas las entregas verificadas.':(lesson.phase==='pickup'?'Recoger: ':'Llevar a: ')+(lesson.phase==='pickup'?lesson.sourceLocationCode||lesson.title:lesson.locationCode||lesson.title):'Vista en tiempo real · la cámara se activa al acercarse a una carga o receptor.';
+      this.metrics.hidden=true;this.element.dataset.state=layout&&layout.mission&&layout.mission.blocked?'blocked':'navigation';
+      this.canvas.setAttribute('aria-label','Plano de la instalación en tiempo real. '+this.summary.textContent);
+      this.paintLayout(layout);this.texture.needsUpdate=true;return;
+    }
+    if(this.mode==='rear'){this.summary.textContent='Retrovisor · comprueba que el recorrido esté libre.';this.metrics.hidden=true;this.element.dataset.state='navigation';}
+    this.element.dataset.state = this.mode==='rear'?'navigation':this.severity; this.canvas.setAttribute('aria-label', phase + '. ' + this.summary.textContent);
     this.paint(data, phase, reason); this.texture.needsUpdate = true;
   }
   updateGuidance(data, blocked) {
     const guide = this.guidance(), model = this.guidanceModel(), targets = guide && guide.getTargets ? guide.getTargets() : model && model.targets || [];
     const record = this.driving.record(), simulation = this.driving.simulation, training = simulation && simulation.vehicleTraining, lesson = training && training.guidance(record);
-    if (this.trainingPanel) {
-      this.trainingPanel.hidden = !lesson;
-      if (lesson) {
-        const tasks = training.tasks(record), state = training.state(record), signature = JSON.stringify([lesson.taskId, lesson.phase, lesson.waypointIndex, lesson.status, lesson.completed, lesson.routeComplete]);
-        if (signature !== this.trainingSignature) {
-          while (this.trainingPanel.firstChild) this.trainingPanel.removeChild(this.trainingPanel.firstChild);
-          const heading = this.driving.document.createElement('strong'); heading.textContent = 'Misiones de almacén · ' + lesson.completed + ' / ' + lesson.total; this.trainingPanel.appendChild(heading);
-          const list = this.driving.document.createElement('ol');
-          tasks.forEach((task, index) => {const item = this.driving.document.createElement('li'); item.textContent = (index < state.index ? '✓ ' : index === state.index ? '➜ ' : '') + task.name.replace(/^\d+\s*·\s*/, ''); if (index === state.index) item.setAttribute('aria-current', 'step'); list.appendChild(item);});
-          this.trainingPanel.appendChild(list);
-          const status = this.driving.document.createElement('p'); status.textContent = (lesson.phase === 'pickup' ? 'RECOGIDA' : lesson.phase === 'drop' ? 'DEPÓSITO' : lesson.phase === 'withdraw' ? 'RETIRADA' : lesson.phase === 'complete' ? 'COMPLETADO' : 'REVISAR') + ' · ' + (lesson.route.length ? 'Ruta ' + Math.min(lesson.waypointIndex, lesson.route.length) + '/' + lesson.route.length + ' · ' : '') + lesson.status; this.trainingPanel.appendChild(status);
-          this.trainingSignature = signature;
-        }
-      }
-    }
+    if (this.missionPanel) this.missionPanel.update(lesson, lesson ? training.tasks(record) : []);
+    this.guidancePanel.dataset.training = lesson ? 'active' : 'off';
     this.guidanceBar.hidden = !guide || !this.cameraSupported && !targets.length;
     this.hologramButton.setAttribute('aria-pressed', String(!!guide && guide.enabled)); this.hologramButton.disabled = blocked || !guide;
     this.hologramButton.textContent = 'Holograma ' + (guide && guide.enabled ? 'ON' : 'OFF') + ' · Shift+G';
@@ -198,28 +246,46 @@ export default class VehicleDockingMonitor {
     this.metrics.hidden = false;
     this.metrics.textContent = 'Lateral ' + measure(errors.lateralM, 100, ' cm') + ' · Altura ' + measure(errors.verticalM, 100, ' cm') + ' · Ángulo ' + measure(errors.yawRad, 180 / Math.PI, '°') + ' · Inserción ' + measure(insertion.actualM, 100, ' cm') + ' / ' + measure(insertion.requiredM, 100, ' cm');
   }
+  paintScreenActions(c) {
+    const labels = ['CÁMARA AUTO ' + (this.cameraEnabled ? 'ON' : 'OFF'), 'PLANO', this.forkCamera.selectedFeed === 'mirror' ? 'HORQUILLAS' : 'RETROVISOR'];
+    labels.forEach((label,index)=>{const x=16+index*248;c.fillStyle=index===0&&this.cameraEnabled?'#226856':'#294551';c.fillRect(x,15,230,42);c.fillStyle='#eff8fa';c.font='bold 20px sans-serif';c.fillText(label,x+12,43);});
+  }
+  paintLayout(model) {
+    const c=this.context;
+    let height=HEIGHT;
+    const win=this.canvas.ownerDocument&&this.canvas.ownerDocument.defaultView;
+    if(!this.ctx.vrMode&&win&&win.innerWidth>720&&win.innerHeight<=600){
+      const rect=this.canvas.getBoundingClientRect();
+      if(rect.width>0&&rect.height>0)height=Math.max(180,Math.min(HEIGHT,Math.round(WIDTH*rect.height/rect.width)));
+    }
+    // Repaint to the real landscape slot rather than squeezing a tall bitmap;
+    // the map keeps readable type and correct world proportions on short screens.
+    if(this.canvas.height!==height)this.canvas.height=height;
+    if(this.ctx.vrMode&&c.save&&c.translate){
+      c.fillStyle='#0b1d28';c.fillRect(0,0,WIDTH,HEIGHT);this.paintScreenActions(c);
+      c.save();c.translate(0,66);try{this.facilityLayout.paint(c,WIDTH,HEIGHT-66,model);}finally{c.restore();}
+    }else this.facilityLayout.paint(c,WIDTH,height,model);
+  }
   paint(data, phase, reason) {
-    const c = this.context, accent = COLORS[this.severity];
-    c.fillStyle = '#0b1d28'; c.fillRect(0, 0, WIDTH, HEIGHT); c.fillStyle = accent; c.font = 'bold 26px sans-serif'; c.fillText(phase === 'RETIRADA' ? 'RETIRADA' : (data.phase === 'drop' ? 'DEPÓSITO' : 'TOMA') + ' · ' + (this.severity === 'ready' ? 'LISTO' : this.severity === 'near' ? 'AJUSTAR' : 'REVISAR'), 20, 40);
-    if (this.cameraSupported) { c.fillStyle = this.cameraEnabled ? '#226856' : '#294551'; c.fillRect(WIDTH - 320, 15, 152, 42); c.fillStyle = '#eff8fa'; c.font = '17px sans-serif'; c.fillText(this.cameraEnabled ? this.forkCamera.selectedFeed === 'mirror' ? 'RETROVISOR' : 'HORQUILLAS ON' : 'CÁMARA OFF', WIDTH - 312, 43); }
-    if (this.cameraSupported) { c.fillStyle = '#294551'; c.fillRect(WIDTH - 488, 15, 156, 42); c.fillStyle = '#eff8fa'; c.font = '20px sans-serif'; c.fillText({isometric: 'ISOMÉTRICA', entry: 'FRONTAL', tips: 'PUNTAS'}[this.forkCamera.mode] || 'ISOMÉTRICA', WIDTH - 474, 43); }
-    c.fillStyle = this.forkCamera.selectedFeed === 'mirror' ? '#226856' : '#294551'; c.fillRect(WIDTH - 156, 15, 140, 42); c.fillStyle = '#eff8fa'; c.font = '17px sans-serif'; c.fillText(this.forkCamera.selectedFeed === 'mirror' ? 'HORQUILLAS' : 'RETROVISOR', WIDTH - 148, 43);
-    // Minimal DOM fixtures do not implement paths; production canvas always
-    // does. Measurements and accessible state remain available independently.
-    if (!c.beginPath) return;
-    if (this.page === 'guide') { this.paintGuide(c); return; }
-    const box = {x: 18, y: 72, w: 423, h: 287}; c.fillStyle = '#132b37'; c.fillRect(box.x, box.y, box.w, box.h);
-    this.paintContours(c, data.geometry || {}, box);
-    const x = 462, errors = data.errors || {}, insertion = data.insertion || {}, stability = data.stability || {};
-    c.fillStyle = '#e4f4f9'; c.font = 'bold 21px sans-serif'; this.text(c, data.targetName || (data.phase === 'drop' ? 'Sin receptor próximo' : 'Sin pallet próximo'), x, 95, 280);
-    const lines = [
-      ['Desvío lateral', measure(errors.lateralM, 100, ' cm')], ['Altura', measure(errors.verticalM, 100, ' cm')],
-      ['Ángulo', measure(errors.yawRad, 180 / Math.PI, '°')], ['Inserción', measure(insertion.actualM, 100, ' cm') + ' / ' + measure(insertion.requiredM, 100, ' cm')],
-      ['Carga / capacidad', measure(stability.loadKg, 1, ' kg') + ' / ' + measure(stability.capacityKg, 1, ' kg')]
-    ];
-    lines.forEach(([label, value], index) => { const y = 128 + index * 39; c.font = '17px sans-serif'; c.fillStyle = '#a9c5cf'; c.fillText(label, x, y); c.font = 'bold 21px sans-serif'; c.fillStyle = '#edf8fa'; c.fillText(value, x, y + 23); });
-    c.fillStyle = '#aac6ce'; c.font = '15px sans-serif'; c.fillText('VISTA SUPERIOR · metros · frente ↑', 29, 348);
-    c.fillStyle = accent; c.font = 'bold 20px sans-serif'; this.text(c, reason, 20, 389, WIDTH - 40, 24, 2);
+    const c=this.context,accent=COLORS[this.severity],xr=!!this.ctx.vrMode;
+    if(this.canvas.height!==HEIGHT)this.canvas.height=HEIGHT;
+    c.fillStyle='#0b1d28';c.fillRect(0,0,WIDTH,HEIGHT);
+    if(xr)this.paintScreenActions(c);
+    c.fillStyle=accent;c.font='bold 32px sans-serif';
+    c.fillText(phase==='RETIRADA'?'RETIRADA':(data.phase==='drop'?'DEPÓSITO':'TOMA')+' · '+(this.severity==='ready'?'LISTO':this.severity==='near'?'AJUSTAR':'REVISAR'),20,xr?100:40);
+    if(!c.beginPath)return;
+    // The diagram has its own column. Large contours replace the tiny nested
+    // dashboard; desktop measurements live below both views, never over them.
+    const area={x:18,y:xr?112:62,w:WIDTH-36,h:xr?242:330};
+    c.fillStyle='#132b37';c.fillRect(area.x,area.y,area.w,area.h);
+    this.paintContours(c,data.geometry||{},area);
+    c.fillStyle='#bdd2d9';c.font='22px sans-serif';
+    c.fillText('PLANO DE INSERCIÓN · frente ↑',26,xr?343:417);
+    if(xr){
+      const e=data.errors||{},i=data.insertion||{};c.fillStyle=accent;c.font='bold 23px sans-serif';
+      this.text(c,'Lateral '+measure(e.lateralM,100,' cm')+' · Altura '+measure(e.verticalM,100,' cm')+' · Ángulo '+measure(e.yawRad,180/Math.PI,'°'),20,385,WIDTH-40);
+      c.fillStyle='#d6e8ed';c.font='21px sans-serif';this.text(c,'Inserción '+measure(i.actualM,100,' cm')+' / '+measure(i.requiredM,100,' cm'),20,418,WIDTH-40);
+    }
   }
   paintContours(c, geometry, area) {
     const frame = geometry.frame || {}, origin = point(frame.position) ? frame.position : [0, 0, 0], yaw = finite(frame.yaw) ? frame.yaw : 0;
@@ -270,6 +336,8 @@ export default class VehicleDockingMonitor {
   }
   unmount() {
     this.forkCamera.unmount();
+    if(this.facilityLayout)this.facilityLayout.dispose();this.facilityLayout=null;this.inspectionMode.reset();
+    if (this.missionPanel) { this.missionPanel.unmount(); this.missionPanel = null; }
     const input = this.ctx.raycontrol;
     if (input && this.stateName) { if (input.deactivateState) input.deactivateState(this.stateName); if (input.removeState) input.removeState(this.stateName); else if (input.states && input.states[this.stateName] === this.state) delete input.states[this.stateName]; }
     if (this.plane) { if (this.plane.parent) this.plane.parent.remove(this.plane); this.plane.geometry.dispose(); this.plane.material.dispose(); }
@@ -281,6 +349,8 @@ export default class VehicleDockingMonitor {
     if (this.hologramButton) this.hologramButton.removeEventListener('click', this.hologramClick); if (this.targetSelect) this.targetSelect.removeEventListener('change', this.targetChange);
     if (this.element) { ['pointerdown', 'mousedown', 'mouseup'].forEach(type => this.element.removeEventListener(type, this.stopEvent)); this.element.remove(); }
     if (this.guidancePanel) {['pointerdown', 'mousedown', 'mouseup'].forEach(type => this.guidancePanel.removeEventListener(type, this.stopEvent)); this.guidancePanel.remove();}
+    if(this.panels){if(this.driving.hud&&this.driving.document.body)this.driving.document.body.appendChild(this.driving.hud);this.panels.remove();}
+    this.panels=this.operatorColumn=this.navigationHeader=this.navigationActions=this.navigationTitle=this.planeMode=null;
     this.body = this.plan = this.feed = this.feedViewport = this.cameraViews = this.rear = this.rearViewport = this.cameraButton = this.sideButton = this.cameraModeButton = this.planButton = this.rearButton = this.guidancePanel = null; this.cameraSupported = false;
     this.guidanceBar = this.hologramButton = this.targetLabel = this.targetSelect = this.coach = this.metrics = this.targetSignature = this.trainingPanel = this.trainingSignature = null;
     this.plane = this.texture = this.element = this.canvas = this.context = this.state = this.stateName = this.snapshot = null;

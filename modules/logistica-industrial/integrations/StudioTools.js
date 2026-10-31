@@ -7,6 +7,7 @@ import {retrofitCediRobotics} from '../scenarios/IndustrialCediRobotics.js';
 import {compileStudyProject, compileBlankProject} from '../scenarios/StudySceneProject.js';
 import {STUDY_SCENES, studyScene} from '../scenarios/StudySceneCatalog.js';
 import {applyIndustrialAging} from '../functions/presentacion/runtime/IndustrialAgingPresentation.js';
+import {addWarehouseMissionExperience} from '../scenarios/WarehouseMissionEnhancement.js';
 
 const uid = prefix => prefix + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -389,6 +390,16 @@ export default class StudioTools {
       if (editor.entities) editor.entities.sync(); editor.renderTree(); editor.renderInspector();
       const message = result.changed ? result.robots.length + ' robots y ' + result.vehicles.length + ' vehículos integrados. Pulsa Probar para operar.' : result.warnings.length ? 'No se agregaron equipos.' : 'La escena ya está equipada.';
       editor.toast(message + (result.warnings.length ? ' ' + result.warnings.join(' ') : ''));
+      return result;
+    });
+  }
+  async addWarehouseMissionExperience(options = {}) {
+    this.assertStudyReady(); const editor = this.editor;
+    return editor.perform(() => {
+      const result = addWarehouseMissionExperience(editor.document, editor.roomId, options);
+      if (editor.entities) editor.entities.sync(); editor.renderTree(); editor.renderInspector();
+      editor.lastWarehouseMissionReport = result;
+      editor.toast(result.changed ? 'Almacén listo: 3 misiones progresivas, pallets y ubicaciones asignadas. Guarda y pulsa Probar.' : 'Esta sala ya contiene la práctica de almacén. Pulsa Probar para continuar.');
       return result;
     });
   }

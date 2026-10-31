@@ -6,7 +6,10 @@ module.exports = THREE => {
   const Labels = require('./load-vehicle-cab-labels')(THREE);
   const Interaction = new Function('THREE', 'vehicles', 'VehicleCabLabels', read('VehicleCabInteraction.js').replace('export default class VehicleCabInteraction', 'return class VehicleCabInteraction'))(THREE, require('../../modules/logistica-industrial/functions/montacargas/schema/vehicles'), Labels);
   const ForkCamera = new Function('THREE', read('VehicleForkCamera.js').replace('export default class VehicleForkCamera', 'return class VehicleForkCamera'))(THREE);
-  const Monitor = new Function('THREE', 'VehicleForkCamera', read('VehicleDockingMonitor.js').replace('export default class VehicleDockingMonitor', 'return class VehicleDockingMonitor'))(THREE, ForkCamera);
+  const MissionPanel = require('../../modules/logistica-industrial/functions/montacargas/runtime/VehicleMissionPanel.js').default;
+  const FacilityLayout = require('../../modules/logistica-industrial/functions/montacargas/runtime/VehicleFacilityLayout.js').default;
+  const InspectionMode = require('../../modules/logistica-industrial/functions/montacargas/runtime/VehicleInspectionMode.js').default;
+  const Monitor = new Function('THREE', 'VehicleForkCamera', 'VehicleMissionPanel', 'VehicleFacilityLayout', 'VehicleInspectionMode', read('VehicleDockingMonitor.js').replace('export default class VehicleDockingMonitor', 'return class VehicleDockingMonitor'))(THREE, ForkCamera, MissionPanel, FacilityLayout, InspectionMode);
   const Guide = new Function(read('VehicleControlGuide.js').replace('export default class VehicleControlGuide', 'return class VehicleControlGuide'))();
   // Node 24 loads the actual portable ESM helper; no second guidance model is
   // substituted by the legacy DOM/keyboard fixtures.

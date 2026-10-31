@@ -8,6 +8,7 @@ import SharedGrabs from '../../../packages/tools/collaboration/src/SharedGrabs.j
 import RemotePresentation from '../../../packages/tools/collaboration/src/RemotePresentation.js';
 import AdminWorkspace from './AdminWorkspace.js';
 import ImmersiveStudioMenu from './ImmersiveStudioMenu.js';
+import VehicleMissionOverlay from '../../../packages/tools/editor/src/VehicleMissionOverlay.js';
 
 const ROOM_IDS = ['hall', 'sound', 'photogrammetry', 'vertigo', 'panoramastereo', 'panorama1', 'panorama2', 'panorama3', 'panorama4', 'panorama5'];
 function el(tag, text, parent, className) { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; if (parent) parent.appendChild(node); return node; }
@@ -26,6 +27,7 @@ export default class StudioExperience {
     editor.enter = () => { if (this.room) { this.message('Sal de la sala compartida para editar el proyecto.'); return; } if (this.client.configured && (!this.client.user || !this.client.user.permissions.editor)) { this.open('account'); return; } this.close(); return this.originalEnter(); };
     this.build(vrButton); this.bindSimulation(); this.sharedGrabs = new SharedGrabs(this); this.presentation = new RemotePresentation();
     this.immersiveMenu = new ImmersiveStudioMenu(this);
+    this.missionOverlay = new VehicleMissionOverlay();
     const startRuntime = editor.startRuntime.bind(editor);
     editor.startRuntime = () => { if (this.sharedGrabs) this.sharedGrabs.detach(); startRuntime(); this.applySpawn(); };
     const applyProject = editor.applyServerProject.bind(editor);
@@ -35,7 +37,7 @@ export default class StudioExperience {
       const result = await applyProject(project, ...options); this.tools.refreshLabels(); await this.education.restoreProgress(); return result;
     };
     this.ready = this.initialize();
-    window.addEventListener('pagehide', () => { this.connection.stop(); this.education.saveProgress(); });
+    window.addEventListener('pagehide', () => { this.connection.stop(); this.education.saveProgress(); this.missionOverlay.dispose(); });
     this.connection = new StudioRoomConnection(this.client, {interval: 250, getPose: () => this.pose(), onRoom: room => this.receiveRoom(room), onEvents: (events, room) => this.applyEvents(events, room), onError: error => { this.roomError = error.message; this.message('Sala: ' + error.message); }});
   }
   async initialize() {
@@ -474,6 +476,7 @@ export default class StudioExperience {
     this.header.hidden = this.editor.active || this.ctx.vrMode; this.controls.hidden = true;
     if (this.ctx.vrMode && !this.drawer.hidden) this.close();
     this.education.tick();
+    if (this.missionOverlay) this.missionOverlay.update(this.ctx);
     if (this.sharedGrabs) {
       this.sharedGrabs.tick();
       if (this.pendingRoomState && !this.sharedGrabs.holding && this.room && this.room.role !== 'host') { const state = this.pendingRoomState; this.pendingRoomState = null; try { this.applyRemoteState(state); } catch (error) { this.message(error.message); } }

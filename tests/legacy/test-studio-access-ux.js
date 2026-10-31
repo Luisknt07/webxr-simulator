@@ -12,7 +12,7 @@ const document = {createElement: tag => new Element(tag), createTextNode: text =
 let navigated; const location = new URL('https://localhost:8080/'); location.assign = value => { navigated = new URL(value); };
 class ImmersiveMenuMock { open(page) { this.page = page; } identityChanged() { this.identities = (this.identities || 0) + 1; } setVR(active) { this.active = active; } }
 class AdministrationMock { close() { this.closed = true; } async openModal() { this.modalOpened = true; } }
-const Experience = new Function('THREE', 'document', 'window', 'localStorage', 'avatarBadge', 'DEFAULT_AVATAR', 'AdminWorkspace', 'ImmersiveStudioMenu', code)(THREE, document, {location}, {getItem() { return null; }}, () => new Element('avatar'), {}, AdministrationMock, ImmersiveMenuMock);
+const Experience = new Function('THREE', 'document', 'window', 'localStorage', 'avatarBadge', 'DEFAULT_AVATAR', 'AdminWorkspace', 'ImmersiveStudioMenu', 'VehicleMissionOverlay', code)(THREE, document, {location}, {getItem() { return null; }}, () => new Element('avatar'), {}, AdministrationMock, ImmersiveMenuMock, require('../support/load-vehicle-mission-overlay')());
 const walk = root => [root].concat(root.children.flatMap(walk));
 const labels = root => walk(root).filter(value => value.tag === 'button').map(value => value.textContent);
 const account = {id: 'u1', displayName: 'Ana', avatar: {}, permissions: {editor: true, manageUsers: true}};
