@@ -3,6 +3,8 @@ import {createHost} from '../../../packages/core/index.js';
 import {workspaceModule} from '../../../modules/logistica-industrial/application/workspace.js';
 import {createVoiceModule} from '../../../packages/voice-assistant/index.js';
 import {voicePort} from '../../../modules/logistica-industrial/integrations/VoiceAssistantBridge.js';
+import {createAssistantModule} from '../../../packages/assistant-core/module.js';
+import {assistantPort} from '../../../modules/logistica-industrial/integrations/AssistantExperience.js';
 import ProjectModuleManager from '../../../packages/tools/editor/src/ProjectModuleManager.js';
 import {catalog as projectModuleCatalog,defaultFunctions as projectModuleDefaults} from '../../../data/build/workspace-catalog.mjs';
 
@@ -595,7 +597,7 @@ export function init() {
 }
 
 function onKeyDown(event) {
-  if (context.voicePanelOpen || context.editor && context.editor.active || context.drivingVehicle) return;
+  if ((context.voicePanelOpen || context.assistantPanelOpen) || context.editor && context.editor.active || context.drivingVehicle) return;
   const target = event.target;
   if (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || '')) {
     return;
@@ -654,7 +656,7 @@ function setupDesktopPointer() {
 }
 
 function onDesktopCanvasClick(event) {
-  if (context.voicePanelOpen) return;
+  if ((context.voicePanelOpen || context.assistantPanelOpen)) return;
   // Selecting the operator zone can mount a truck during mousedown. Keep the
   // cursor that mount just released so this same click cannot hide its HUD.
   // A later canvas press made from inside the cockpit can capture look again.
@@ -663,7 +665,7 @@ function onDesktopCanvasClick(event) {
 }
 
 function onDesktopSelectStart(event) {
-  if (context.voicePanelOpen) return;
+  if ((context.voicePanelOpen || context.assistantPanelOpen)) return;
   desktopVehicleAtMouseDown = context.drivingVehicle || null;
   if (context.vrMode || (context.editor && context.editor.active) || !desktopControllerData) return;
   if (event.button === 2) {
@@ -922,7 +924,7 @@ function animate(time, frame) {
     if (context.editor && context.editor.conveyorViewer) context.editor.conveyorViewer.tick(delta);
     if (context.frameworkHost) context.frameworkHost.step(delta);
     if(context.editor&&context.editor.projectModules){const modules=context.editor.projectModules;modules.sync({viewer:!context.editor.active}).catch(()=>{});if(modules.graphicsLayer)modules.graphicsLayer.visible=!modules.busy&&!context.editor.loadingProject&&!context.roomTransition;modules.step(delta);}
-    if (context.voicePanelOpen) clearKeyboardState();
+    if ((context.voicePanelOpen || context.assistantPanelOpen)) clearKeyboardState();
     if (context.editor && context.editor.active && !context.vrMode) {
       context.editor.render(delta);
       return;
@@ -976,10 +978,12 @@ window.onload = async () => {
     dispose() { clearKeyboardState(); if (renderer) renderer.setAnimationLoop(null); if (context.editor && context.editor.simulation) context.editor.simulation.stop(); }
   };
   context.beforeVoicePanelOpen = () => {if (context.studio) {context.studio.close(); if (context.studio.immersiveMenu) context.studio.immersiveMenu.close();} clearKeyboardState(); if (context.vehicleDriving) context.vehicleDriving.resetInput(); if (controls && controls.unlock) controls.unlock();};
-  const framework = createHost({catalog:[workspaceModule,createVoiceModule()],worldId:'world.smarttwin',grants:['domain.industrial-world','platform.voice'],ports:{'domain.industrial-world':world,'platform.voice':voicePort(context,{backendAvailable:true})}});
+  context.beforeAssistantPanelOpen=context.beforeVoicePanelOpen;
+  const framework = createHost({catalog:[workspaceModule,createVoiceModule(),createAssistantModule()],worldId:'world.smarttwin',grants:['domain.industrial-world','platform.voice','platform.assistant'],ports:{'domain.industrial-world':world,'platform.voice':voicePort(context,{backendAvailable:true}),'platform.assistant':assistantPort(context)}});
   try {
     await framework.activate('sector.logistics-industrial',{functions:['logistics.workspace']});
     await framework.activate('shared.assistance',{functions:['assistant.voice']});
+    await framework.activate('shared.intelligence',{functions:['assistant.agent']});
     context.frameworkHost=framework;
     window.addEventListener('pagehide',()=>{framework.dispose({force:true}).catch(()=>{});},{once:true});
   } catch (error) { await framework.dispose({force:true}).catch(()=>{}); window.webxrStartup.fail(error); }

@@ -1,0 +1,7 @@
+{
+  "name": "@smarttwin/assistant-core",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {".": "./AgentController.js", "./actions": "./ActionRegistry.js", "./contracts": "./contracts.js", "./module": "./module.js"},
+  "sideEffects": false
+}

@@ -1,0 +1,7 @@
+{
+  "name": "@smarttwin/assistant-ui",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {".": "./AssistantWorkspacePanel.js", "./style.css": "./assistant-workspace.css"},
+  "sideEffects": ["./assistant-workspace.css"]
+}

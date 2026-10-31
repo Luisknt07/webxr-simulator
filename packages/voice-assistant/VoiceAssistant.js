@@ -83,7 +83,7 @@ export class VoiceAssistant {
     this.value.capabilities.remoteTranscription = remote.transcription === true && typeof this.options.transcribe === 'function' && capture;
     this.value.recognitionSupported = !!this.Recognition || this.value.capabilities.remoteTranscription;
     this.value.capabilities.recognition = this.value.recognitionSupported;
-    return {...this.value, remote:{configured:remote.configured===true,authenticated:remote.authenticated===true,reason:clean(remote.reason)}, voices: this.value.voices.map(voice => ({...voice})), samples: this.samples.slice(), capabilities: {...this.value.capabilities}};
+    return {...this.value, thinking:this.value.thinking||safeCall(this.options.agentBusy)===true, remote:{configured:remote.configured===true,authenticated:remote.authenticated===true,reason:clean(remote.reason)}, voices: this.value.voices.map(voice => ({...voice})), samples: this.samples.slice(), capabilities: {...this.value.capabilities}};
   }
 
   subscribe(callback) {
@@ -175,6 +175,7 @@ export class VoiceAssistant {
     const intent = resolveVoiceIntent(query);
     if (intent === 'stop') { this.stop(); return {intent, text: 'Voz detenida.', spoken: false}; }
     if (intent === 'repeat') return this.repeat();
+    if(typeof this.options.requestAgent==='function'&&(intent==='unknown'||intent==='content'&&normalize(query)!=='content'||/\b(abre|abrir|edita|editar|modifica|modificar|cambia|cambiar|ajusta|selecciona|renombra|mueve|mover|busca|investiga|internet|grafico|grafica|analiza|resume|resumen|video|configura)\b/.test(normalize(query)))){this.setEnabled(true);this.stop(false);this.value.lastIntent='agent';return this.options.requestAgent(clean(query));}
     const snapshot = this.snapshot();
     this.adoptSnapshot(snapshot);
     const guidance = this.guidance(snapshot);
@@ -647,6 +648,7 @@ export class VoiceAssistant {
 
   stop(notify = true) {
     if (this.disposed) return;
+    if(notify)safeCall(this.options.stopAgent);
     this.generation++;
     this.clearTimer();
     for (const key of ['answerAbort', 'speechAbort', 'transcriptionAbort']) { if (this[key]) this[key].abort(); this[key] = null; }
@@ -669,6 +671,7 @@ export class VoiceAssistant {
   }
 
   step(delta = 0) {
+    if(safeCall(this.options.agentBusy)===true)return;
     if (this.disposed || !this.value.enabled && !this.value.speaking && !this.value.listening && !this.value.thinking) return;
     const elapsed = Number.isFinite(delta) && delta >= 0 ? Math.min(delta, 5) : 0;
     this.clock += elapsed; this.elapsed += elapsed;

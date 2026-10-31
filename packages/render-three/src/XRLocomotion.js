@@ -21,7 +21,7 @@ export default class XRLocomotion {
   blocked(session) {
     const ctx = this.ctx, editor = ctx.editor;
     return this.disposed || !ctx.vrMode || !session || !ctx.renderer || !ctx.renderer.xr.isPresenting || ctx.xrEntryPending || ctx.xrExitPending ||
-      ctx.studioMenuOpen || ctx.voicePanelOpen || ctx.drivingVehicle || ctx.roomTransition || ctx.goto !== null && ctx.goto !== undefined ||
+      ctx.studioMenuOpen || (ctx.voicePanelOpen || ctx.assistantPanelOpen) || ctx.drivingVehicle || ctx.roomTransition || ctx.goto !== null && ctx.goto !== undefined ||
       session.visibilityState && session.visibilityState !== 'visible' ||
       editor && (editor.active || editor.initializing || editor.loadingProject || editor.busy || editor.creatingScene || editor.document && editor.document.loading);
   }

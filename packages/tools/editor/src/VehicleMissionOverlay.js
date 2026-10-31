@@ -26,7 +26,7 @@ export default class VehicleMissionOverlay {
     const studio = ctx.studio;
     if (!simulation || !simulation.running || !dom || !dom.body || dom.hidden || ctx.vrMode || ctx.drivingVehicle || driving && driving.id ||
         editor && (editor.active || editor.loadingProject || editor.busy || editor.simulationPaused) || simulation.paused || demo && demo.paused ||
-        ctx.studioMenuOpen || ctx.voicePanelOpen || ctx.publicDialogOpen || ctx.roomTransition || ctx.xrEntryPending || ctx.xrExitPending ||
+        ctx.studioMenuOpen || (ctx.voicePanelOpen || ctx.assistantPanelOpen) || ctx.publicDialogOpen || ctx.roomTransition || ctx.xrEntryPending || ctx.xrExitPending ||
         studio && studio.drawer && !studio.drawer.hidden) return this.hide();
     const training = simulation.vehicleTraining;
     if (!training || typeof training.tasks !== 'function' || typeof training.guidance !== 'function' || !simulation.records) return this.hide();

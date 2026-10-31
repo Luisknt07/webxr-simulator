@@ -48,7 +48,7 @@ export default class VehicleDriving {
     const ctx = this.ctx, editor = ctx.editor, studio = ctx.studio;
     const xr = ctx.renderer && ctx.renderer.xr, session = xr && xr.getSession && xr.getSession();
     return !this.authority() || !this.simulation.running || editor && (editor.active || editor.loadingProject || editor.busy || editor.simulationPaused) ||
-      ctx.studioMenuOpen || ctx.voicePanelOpen || ctx.publicDialogOpen || ctx.roomTransition || ctx.xrEntryPending || ctx.xrExitPending || this.document && this.document.hidden ||
+      ctx.studioMenuOpen || (ctx.voicePanelOpen || ctx.assistantPanelOpen) || ctx.publicDialogOpen || ctx.roomTransition || ctx.xrEntryPending || ctx.xrExitPending || this.document && this.document.hidden ||
       studio && studio.drawer && !studio.drawer.hidden || ctx.vrMode && (!session || session.visibilityState && session.visibilityState !== 'visible' || ctx.raycontrol && ctx.raycontrol.enabled === false);
   }
   panelSelectable(controller) {

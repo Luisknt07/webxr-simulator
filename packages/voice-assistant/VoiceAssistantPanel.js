@@ -152,6 +152,7 @@ export class VoiceAssistantPanel {
     if (!this.element) this.mount();
     if (!this.element) return false;
     if (this.isXR() && !this.ensureXR()) return false;
+    if(this.ctx.assistantWorkspace&&this.ctx.assistantWorkspace.opened)this.ctx.assistantWorkspace.close();
     if (this.ctx.beforeVoicePanelOpen) this.ctx.beforeVoicePanelOpen();
     this.opened = true; this.lastXR = this.isXR(); this.ctx.voicePanelOpen = true;
     this.refresh();
