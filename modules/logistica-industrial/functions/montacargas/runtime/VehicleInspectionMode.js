@@ -7,12 +7,16 @@ export default class VehicleInspectionMode {
   reset() {this.mode='layout';this.target=null;this.entryId='';this.latch=null;}
   update({available=true,automatic=true,forceLayout=false,mirror=false,position,target=null,entryId=''}={}) {
     if(!available){this.reset();return this.mode;}
-    if(this.entryId!==entryId){
+    const custodyChanged=this.entryId!==entryId;
+    if(custodyChanged){
       // Retain the fixed source/destination after custody changes, while the
       // forks withdraw. Do not follow the newly attached moving cargo.
       this.latch=this.target&&point(this.target.position)?{id:this.target.id,position:this.target.position.slice()}:null;
       this.entryId=entryId;
     }
+    // A newly selected bay/slot gets the entry threshold, not the previous
+    // receiver's wider exit threshold. Custody withdrawal latches stay fixed.
+    if(!custodyChanged&&!this.latch&&this.target&&target&&this.target.id!==target.id)this.mode='layout';
     this.target=target&&point(target.position)?target:null;
     if(this.latch&&point(position)&&distance(position,this.latch.position)>this.exitM)this.latch=null;
     if(!automatic||forceLayout){this.mode='layout';return this.mode;}

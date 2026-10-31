@@ -94,7 +94,7 @@ const withdrawalHeader=monitor.canvas.calls.find(call=>call[0]==='fillText'&&cal
 assert.equal(monitor.targetSelect.firstChild.textContent,'Retira las horquillas');assert.equal(monitor.targetSelect.disabled,true);
 assert.equal(monitor.snapshot,snapshot);assert.deepEqual(snapshot,depositedSnapshot,'Withdrawal presentation must preserve physical readiness and all raw docking measurements.');assert(monitor.metrics.textContent.includes('24.0 cm / 60.0 cm'));assert.equal(monitor.cameraButton.disabled,false);
 state.phase='withdraw-source';monitor.update(true);assert.equal(monitor.severity,'near');assert.match(monitor.summary.textContent,/^RETIRADA/,'Source withdrawal also takes precedence over a ready docking snapshot.');
-guide.enabled=false;monitor.update(true);assert.equal(monitor.severity,'ready','Turning off advisory guidance preserves the original physical monitor behavior.');
+guide.enabled=false;monitor.update(true);assert.equal(monitor.severity,'near','Hiding the hologram retains logical withdrawal coaching.');assert.match(monitor.summary.textContent,/^RETIRADA/);
 guide.enabled=true;state.phase='pickup';state.instruction=savedInstruction;targets.push(...savedTargets);
 vehicle.parkingBrake=true;driving.nextStep={stage:'parking',title:'Freno de estacionamiento activo',instruction:'Libera el freno después de revisar el pasillo.',control:'P'};monitor.update(true);assert(monitor.coach.textContent.includes('Libera el freno'));assert(!monitor.coach.textContent.includes('Centra ambas uñas'),'Operational readiness overrides a spatial instruction.');vehicle.parkingBrake=false;
 // Follow real Object3D reparenting at the UI boundary. The loaded pallet stays

@@ -1,0 +1,46 @@
+'use strict';
+// Canvas/DOM ports exercise the real monitor; placement authority is explicit
+// input. Shared-model tests separately validate it against real releasePlan.
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const fixtureSource=fs.readFileSync(path.join(__dirname,'test-vehicle-docking-coach-ui.js'),'utf8');
+const prefix=fixtureSource.slice(0,fixtureSource.indexOf('const monitor=new Monitor(driving);'));
+const f=new Function('require','__dirname',prefix+'\nreturn {THREE,Monitor,ForkCamera,driving,guide,state,snapshot,vehicle,record,pallet,product,installation,forks,document};')(require,__dirname);
+const {THREE,Monitor,ForkCamera,driving,guide,state,snapshot,vehicle,product,installation,forks}=f;
+const footprint=(bounds,matrix)=>[[bounds.min.x,bounds.min.y,bounds.min.z],[bounds.max.x,bounds.min.y,bounds.min.z],[bounds.max.x,bounds.min.y,bounds.max.z],[bounds.min.x,bounds.min.y,bounds.max.z]].map(p=>new THREE.Vector3().fromArray(p).applyMatrix4(matrix).toArray());
+const matrix=new THREE.Matrix4().compose(new THREE.Vector3(4,.15,12),new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),.6),new THREE.Vector3(1,1,1));
+const actualMatrix=new THREE.Matrix4().compose(new THREE.Vector3(4.2,.5,11.7),new THREE.Quaternion().setFromEuler(new THREE.Euler(.03,.8,0)),new THREE.Vector3(1,1,1));
+const placement={phase:'drop',id:'drop:rack:slot2',selectionKey:'rack:slot2',targetId:'rack',targetName:'Estante A',locationCode:'A01-R01-M02-N02-P01',slotIndex:2,entryId:'held',matrix,bounds:product.bounds.clone(),actualMatrix,worldBounds:product.bounds.clone().applyMatrix4(actualMatrix),targetFootprint:footprint(product.bounds,matrix),actualFootprint:footprint(product.bounds,actualMatrix),errors:{lateralM:.2,longitudinalM:-.3,verticalM:.35,yawRad:.2},valid:true,admissible:true,physicallyReady:false,snapshotMatches:false,exactSlotMatch:true,stage:'longitudinal',instruction:'Avanza 30 cm hacia el fondo del destino y comprueba el apoyo.',support:{count:null,total:4,measured:false,corners:[]}};
+let frame=false;ForkCamera.prototype.hasCurrentFrame=()=>frame;ForkCamera.prototype.postRender=()=>frame;
+guide.enabled=false;guide.getDropPlacement=()=>placement;Object.assign(state,{phase:'drop',targetId:'drop:rack:slot2',targetName:placement.targetName});
+vehicle.entry={id:'held',product};Object.assign(snapshot,{phase:'drop',ready:false,destination:null,geometry:{target:placement.actualFootprint},support:{id:'some-floor'},reason:'Baja la carga.'});
+const monitor=new Monitor(driving);monitor.mount();
+try{
+ assert.equal(monitor.mode,'layout','A loaded pallet next to the forks cannot activate the unloading camera.');
+ forks.position.set(4,0,10.2);installation.updateMatrixWorld(true);monitor.update(true);
+ assert.equal(monitor.mode,'inspection','The exact selected receiver activates inspection even with the hologram hidden.');assert.equal(monitor.element.dataset.operation,'drop');
+ assert.equal(monitor.canvas.width,768);assert.equal(monitor.canvas.height,768);assert.equal(monitor.plan.hidden,false);assert.equal(monitor.feed.hidden,false);assert.notEqual(monitor.plan.parentNode,monitor.feedViewport);assert.equal(monitor.guidanceBar.parentNode,monitor.guidancePanel);
+ assert.match(monitor.summary.textContent,/Avanza 30 cm/);assert.match(monitor.metrics.textContent,/Lateral \+20.0 cm/);assert.match(monitor.metrics.textContent,/Fondo -30.0 cm/);assert.match(monitor.metrics.textContent,/Altura \+35.0 cm/);assert.match(monitor.metrics.textContent,/Giro \+11.5°/);assert(!monitor.metrics.textContent.includes('Inserción'));assert.match(monitor.metrics.textContent,/Sin confirmar/);
+ assert(monitor.canvas.calls.some(row=>row[0]==='fillText'&&row[1].includes('VISTA SUPERIOR')));assert(monitor.canvas.calls.some(row=>row[0]==='fillText'&&row[1].includes('VISTA LATERAL')));
+ const projection=monitor.dropProjection;assert(projection&&projection.top&&projection.side);
+ assert(!monitor.canvas.calls.some(row=>row[0]==='fillText'&&row[1].startsWith('Altura ')),'The square plan has one footer legend; live altitude stays in DOM metrics without overlapping text.');
+ for(const polygon of [placement.targetFootprint,placement.actualFootprint])for(const p of polygon){const screen=projection.top.screen(p),a=projection.top.area;assert(screen[0]>=a.x&&screen[0]<=a.x+a.w&&screen[1]>=a.y&&screen[1]<=a.y+a.h,'Every actual and desired corner stays in the top plot.');}
+ for(let i=0;i<4;i++){const a=placement.targetFootprint[i],b=placement.targetFootprint[(i+1)%4],pa=projection.top.screen(a),pb=projection.top.screen(b),world=Math.hypot(a[0]-b[0],a[2]-b[2]);assert(Math.abs(Math.hypot(pa[0]-pb[0],pa[1]-pb[1])/world-projection.top.scale)<1e-6,'Rotated corners retain one metric scale without distortion.');}
+ const bottom=placement.targetFootprint[0],above=[bottom[0],bottom[1]+.35,bottom[2]],a=projection.side.screen(bottom),b=projection.side.screen(above);assert(Math.abs((a[1]-b[1])-.35*projection.side.scale)<1e-6,'Side elevation preserves the signed support gap.');
+ assert.equal(monitor.cameraFallback.hidden,false);assert.match(monitor.cameraFallbackLabel.textContent,/preparando/);assert(monitor.cameraFallbackCanvas.calls.some(row=>row[0]==='fillText'&&row[1].includes('DESCARGA')));
+ frame=true;monitor.postRender();assert.equal(monitor.cameraFallback.hidden,true);frame=false;monitor.forkCamera.failed=true;monitor.postRender();assert.equal(monitor.cameraFallback.hidden,false);assert.match(monitor.cameraFallbackLabel.textContent,/no disponible/);
+ const frozen=JSON.stringify({snapshot,actual:actualMatrix.toArray(),desired:matrix.toArray(),errors:placement.errors});for(let i=0;i<4;i++)monitor.update(true);assert.equal(JSON.stringify({snapshot,actual:actualMatrix.toArray(),desired:matrix.toArray(),errors:placement.errors}),frozen,'Repeated UI reads never rewrite raw geometry, errors or support telemetry.');
+ placement.physicallyReady=true;placement.snapshotMatches=true;snapshot.ready=true;snapshot.destination={id:'another-rack'};snapshot.geometry.target=placement.targetFootprint;monitor.update(true);assert.equal(monitor.severity,'near');assert(!monitor.dropView.ready,'A ready snapshot from another receiver cannot authorize the selected position.');
+ placement.admissible=false;placement.canAlign=true;placement.physicallyReady=false;monitor.update(true);assert.equal(monitor.severity,'near');assert(!monitor.dropView.ready,'A geometrically alignable receiver cannot bypass blocked physical placement.');placement.admissible=true;placement.canAlign=false;placement.physicallyReady=true;
+ snapshot.destination.id='rack';placement.exactSlotMatch=false;monitor.update(true);assert(!monitor.dropView.ready,'The same rack ID is not the same bay/level/pallet slot.');
+ placement.exactSlotMatch=true;placement.support={measured:true,count:2,total:4,corners:[]};monitor.update(true);assert(!monitor.dropView.ready);assert.match(monitor.summary.textContent,/cuatro zonas/);assert.match(monitor.metrics.textContent,/2\/4 zonas/);
+ placement.support={measured:false,count:null,total:4,corners:[]};monitor.update(true);assert(monitor.dropView.ready);assert.equal(monitor.severity,'ready');assert.match(monitor.summary.textContent,/Pulsa K/);assert.match(monitor.metrics.textContent,/Validado por el sistema/);assert(!monitor.metrics.textContent.includes('4/4'),'Stock validation must not invent four measured contacts.');
+ vehicle.actualSpeed=.2;monitor.update(true);assert(!monitor.dropView.ready);assert.match(monitor.summary.textContent,/Frena/);vehicle.actualSpeed=0;
+ state.phase='withdraw-source';monitor.update(true);assert.equal(monitor.dropView,null,'Source withdrawal must not show a future receiving placement.');assert.equal(monitor.element.dataset.operation,'withdraw');assert(!monitor.metrics.textContent.includes('Fondo'));state.phase='drop';monitor.update(true);
+ driving.ctx.vrMode=true;monitor.canvas.calls.length=0;monitor.update(true);assert.equal(monitor.canvas.height,432);assert(monitor.canvas.calls.some(row=>row[0]==='fillText'&&row[1].startsWith('CÁMARA AUTO')&&row[3]===43),'The headset retains its three hit-tested screen controls above the unloading views.');assert(monitor.dropProjection.top.area.y>=178);driving.ctx.vrMode=false;monitor.update(true);
+ // A newly selected farther slot uses entry distance rather than the last
+ // receiver's wider hysteresis. The actual carried pallet remains nearby.
+ placement.selectionKey='rack:slot3';placement.matrix=new THREE.Matrix4().makeTranslation(4,.15,12.7);placement.targetFootprint=footprint(placement.bounds,placement.matrix);monitor.update(true);assert.equal(monitor.mode,'layout');
+ const invalid=Monitor.dropView({...placement,matrix:new THREE.Matrix4().set(...Array(16).fill(NaN))},snapshot,vehicle);assert.equal(invalid.valid,false);assert.equal(invalid.ready,false);
+}finally{monitor.dispose();}
+assert.equal(f.document.body.children.length,0);assert.equal(monitor.cameraFallback,null);assert.equal(monitor.dropProjection,null);
+console.log('Unload monitor: selected-slot proximity with hologramOFF, top/side metric projections, signed correction telemetry, exact authoritative readiness, unknown/partial support, camera loading/failure fallback and clean disposal passed.');

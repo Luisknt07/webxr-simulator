@@ -3,6 +3,8 @@ import * as THREE from 'three';
 const UP = new THREE.Vector3(0, 1, 0), ASPECT = 16 / 9;
 const finite = value => Number.isFinite(value);
 const shown = object => { for (let node = object; node; node = node.parent) if (!node.visible) return false; return true; };
+const vectorPoint = value => Array.isArray(value) && value.length >= 3 && value.slice(0, 3).every(finite);
+const boxPoints = (bounds, matrix) => {const values = []; for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) values.push(new THREE.Vector3(x, y, z).applyMatrix4(matrix)); return values;};
 
 // The original r112 renderer normally uses WebGL1. Its default framebuffer AA
 // does not apply to an offscreen camera texture. Filter that texture while it
@@ -103,7 +105,28 @@ export default class VehicleForkCamera {
   toggleMode() { const modes = ['isometric', 'entry', 'tips']; this.setMode(modes[(modes.indexOf(this.mode) + 1) % modes.length]); return this.mode; }
   setRearView(value) { const next = value ? 'mirror' : 'front'; if (next !== this.selectedFeed) {this.release('switching-view'); this.selectedFeed = next;} this.elapsed = Infinity; return this.selectedFeed === 'mirror'; }
   toggleRearView() { return this.setRearView(this.selectedFeed !== 'mirror'); }
-  getStats() { return Object.assign({}, this.stats, {enabled: this.enabled, targetAllocated: !!this.target, mirrorTargetAllocated: !!this.mirrorTarget, totalFrames: this.stats.frames, mounted: this.mounted, side: this.side, mode: this.mode, selectedFeed: this.selectedFeed}); }
+  getStats() { return Object.assign({}, this.stats, {enabled: this.enabled, targetAllocated: !!this.target, mirrorTargetAllocated: !!this.mirrorTarget, totalFrames: this.stats.frames, mounted: this.mounted, side: this.side, mode: this.mode, selectedFeed: this.selectedFeed, hasCurrentFrame: this.hasCurrentFrame(), framePhase: this.framing && this.framing.phase || '', placementId: this.framing && this.framing.placement && this.framing.placement.targetId || ''}); }
+  dropPlacement(record) {
+    if (!record || !record.components.vehicle.entry) return null;
+    const guide = this.driving.holographicGuide, state = guide && typeof guide.getState === 'function' && guide.getState();
+    if (state && state.phase && state.phase !== 'drop') return null;
+    const value = guide && typeof guide.getDropPlacement === 'function' && guide.getDropPlacement();
+    if (!value || value.valid === false || value.phase !== 'drop' || value.entryId && value.entryId !== record.components.vehicle.entry.id || !value.matrix || !value.bounds || !value.matrix.elements || value.matrix.elements.length !== 16 || !value.matrix.elements.every(finite) || !value.bounds.min || !value.bounds.max || typeof value.bounds.isEmpty !== 'function' || value.bounds.isEmpty()) return null;
+    const coordinates = [value.bounds.min.x, value.bounds.min.y, value.bounds.min.z, value.bounds.max.x, value.bounds.max.y, value.bounds.max.z];
+    if (!coordinates.every(finite)) return null;
+    const rig = this.driving.visualRoot && this.driving.visualRoot.userData.vehicleRig, forks = rig && rig.forks;
+    if (!forks) return null; forks.updateWorldMatrix(true, false);
+    const from = forks.getWorldPosition(new THREE.Vector3()), to = value.bounds.getCenter(new THREE.Vector3()).applyMatrix4(value.matrix);
+    // The monitor may still latch the pickup station while backing out. Never
+    // zoom that close source camera out to a receiving bay across the room.
+    return Math.hypot(from.x - to.x, from.z - to.z) <= 2.85 ? value : null;
+  }
+  logicalPhase(record) {const guide = this.driving.holographicGuide, state = guide && typeof guide.getState === 'function' && guide.getState(); return state && state.phase || (record && record.components.vehicle.entry ? 'drop' : 'pickup');}
+  frameKey() {
+    const record = this.driving.record && this.driving.record(), entry = record && record.components.vehicle.entry, placement = this.selectedFeed === 'front' ? this.dropPlacement(record) : null;
+    return [record && record.id || '', this.logicalPhase(record), this.selectedFeed, this.mode, this.side, entry ? entry.id || entry.product && entry.product.object.uuid || 'loaded' : 'empty', placement && placement.selectionKey || '', placement && placement.targetId || '', placement && placement.locationCode || '', placement && placement.slotIndex !== undefined ? placement.slotIndex : ''].join('|');
+  }
+  hasCurrentFrame() { return !!(this.active() && this.rendered.has(this.selectedFeed) && this.lastFrameKey === this.frameKey() && (this.selectedFeed === 'mirror' ? this.mirrorTarget : this.target)); }
   profile() {
     const graphics = this.ctx.graphics, limits = graphics && graphics.getLimits && graphics.getLimits(), tier = limits && limits.tier;
     const economy = tier === 'economy', high = tier === 'high' || tier === 'ultra', xr = !!this.ctx.vrMode;
@@ -152,7 +175,13 @@ export default class VehicleForkCamera {
         if (!style) continue;
         const clipX = clips.test(style.overflowX || style.overflow), clipY = clips.test(style.overflowY || style.overflow);
         if (!clipX && !clipY) continue;
-        const box = node.getBoundingClientRect();
+        // A fixed application can have a zero-height BODY because every child
+        // is out of flow. Root overflow is propagated to the browser viewport;
+        // its layout box is not the clipping rectangle of that fixed camera.
+        const root = node === document.body || node === document.documentElement;
+        const viewportWidth = view.innerWidth || document.documentElement && document.documentElement.clientWidth;
+        const viewportHeight = view.innerHeight || document.documentElement && document.documentElement.clientHeight;
+        const box = root && viewportWidth > 0 && viewportHeight > 0 ? {left: 0, top: 0, width: viewportWidth, height: viewportHeight} : root ? canvasRect : node.getBoundingClientRect();
         if (clipX) { left = Math.max(left, box.left); right = Math.min(right, box.right === undefined ? box.left + box.width : box.right); }
         if (clipY) { top = Math.max(top, box.top); bottom = Math.min(bottom, box.bottom === undefined ? box.top + box.height : box.bottom); }
         if (right <= left || bottom <= top) return null;
@@ -222,12 +251,26 @@ export default class VehicleForkCamera {
     const camera = this.camera = this.isometricCamera, eye = eyeLocal.clone().applyMatrix4(forks.matrixWorld), aim = aimLocal.clone().applyMatrix4(forks.matrixWorld);
     camera.position.copy(eye); camera.up.copy(UP).transformDirection(forks.matrixWorld); camera.lookAt(aim); camera.updateMatrixWorld(true);
     const visible = this.workArea(config).map(point => point.applyMatrix4(forks.matrixWorld)), height = this.fit(camera, visible);
-    this.framing = {eye, aim, eyeLocal, aimLocal, product, forks, localLoad: load, visible, height, mode: this.mode, side: this.side, direction: 'oblique'}; return this.framing;
+    this.framing = {phase: this.logicalPhase(record), eye, aim, eyeLocal, aimLocal, product, forks, localLoad: load, visible, height, mode: this.mode, side: this.side, direction: 'oblique'}; return this.framing;
+  }
+  frameDrop(record, forks, product, load, placement) {
+    const config = record.components.vehicle.config, desired = boxPoints(placement.bounds, placement.matrix), actual = boxPoints(product.bounds, product.object.matrixWorld), supportValues = Array.isArray(placement.support) ? placement.support : placement.support && Array.isArray(placement.support.corners) ? placement.support.corners.map(corner => corner.point) : [], support = supportValues.slice(0, 16).filter(vectorPoint).map(value => new THREE.Vector3().fromArray(value));
+    const visible = actual.concat(desired, support, this.workArea(config).map(point => point.applyMatrix4(forks.matrixWorld))), bounds = new THREE.Box3().setFromPoints(visible), aim = bounds.getCenter(new THREE.Vector3()), size = bounds.getSize(new THREE.Vector3());
+    const forward = new THREE.Vector3(0, 0, 1).transformDirection(record.object.matrixWorld); forward.y = 0; forward.normalize(); const right = new THREE.Vector3(forward.z, 0, -forward.x), distance = Math.max(2.4, size.length() * 1.4 + 1);
+    // Unloading needs an elevated metric section: both the actual carried
+    // pallet and its intended receiver must remain in view, even at different
+    // heights. The low fixed pickup crop cannot show a bay beneath the load.
+    const eye = aim.clone().addScaledVector(forward, this.mode === 'tips' ? distance : -distance).addScaledVector(right, this.mode === 'isometric' ? this.side * distance * .8 : 0); eye.y += distance * .8;
+    this.camera = this.mode === 'entry' ? this.entryCamera : this.mode === 'tips' ? this.tipCamera : this.isometricCamera;
+    this.camera.position.copy(eye); this.camera.up.copy(UP); this.camera.lookAt(aim); this.camera.updateMatrixWorld(true);
+    const height = this.fit(this.camera, visible), inverse = new THREE.Matrix4().getInverse(forks.matrixWorld);
+    this.framing = {phase: 'drop', eye, aim, eyeLocal: eye.clone().applyMatrix4(inverse), aimLocal: aim.clone().applyMatrix4(inverse), product, forks, localLoad: load, placement, visible, actual, desired, support, height, mode: this.mode, side: this.side, direction: this.mode === 'isometric' ? 'drop-oblique' : this.mode === 'tips' ? 'drop-rear' : 'drop-front'}; return this.framing;
   }
   frame(snapshot) {
     const record = this.driving.record(), config = record.components.vehicle.config, forks = this.driving.visualRoot.userData.vehicleRig.forks; forks.updateWorldMatrix(true, false);
     const inverse = new THREE.Matrix4().getInverse(forks.matrixWorld), product = this.product(record, snapshot); if (product) product.object.updateWorldMatrix(true, false);
     const load = product ? product.bounds.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse, product.object.matrixWorld)) : null;
+    const placement = this.dropPlacement(record); if (placement && product) return this.frameDrop(record, forks, product, load, placement);
     if (this.mode === 'isometric') return this.frameIsometric(record, forks, product, load);
     const entry = this.mode === 'entry', eyeLocal = new THREE.Vector3(0, entry ? .07 : -config.forkThickness * .25,
       entry ? -1.35 : Math.max(config.forkLength, load ? load.max.z : 0) + 1.1);
@@ -236,7 +279,33 @@ export default class VehicleForkCamera {
     const eye = eyeLocal.clone().applyMatrix4(forks.matrixWorld), aim = aimLocal.clone().applyMatrix4(forks.matrixWorld);
     this.camera.position.copy(eye); this.camera.up.copy(UP).transformDirection(forks.matrixWorld); this.camera.lookAt(aim); this.camera.updateMatrixWorld(true);
     const visible = this.workArea(config).map(point => point.applyMatrix4(forks.matrixWorld)), height = this.fit(this.camera, visible);
-    this.framing = {eye, aim, eyeLocal, aimLocal, product, forks, localLoad: load, visible, height, mode: this.mode, direction: entry ? 'forward' : 'rearward'}; return this.framing;
+    this.framing = {phase: this.logicalPhase(record), eye, aim, eyeLocal, aimLocal, product, forks, localLoad: load, visible, height, mode: this.mode, direction: entry ? 'forward' : 'rearward'}; return this.framing;
+  }
+  dropOverlay(scene) {
+    if (!this.dropVisual) {
+      const root = new THREE.Group(); root.name = 'Contorno de depósito · sólo cámara'; root.matrixAutoUpdate = false; root.visible = false; root.userData.editorRuntimeHelper = root.userData.editorHelper = true;
+      const box = new THREE.BoxBufferGeometry(1, 1, 1), edges = new THREE.EdgesGeometry(box); box.dispose();
+      const lineMaterial = new THREE.LineBasicMaterial({color: 0xffca58, transparent: true, opacity: .86, depthTest: false, depthWrite: false, toneMapped: false, fog: false});
+      const outline = new THREE.LineSegments(edges, lineMaterial); outline.matrixAutoUpdate = false; outline.renderOrder = 2000; root.add(outline);
+      const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(32 * 6 * 3), 3)); geometry.setDrawRange(0, 0);
+      const material = new THREE.MeshBasicMaterial({color: 0xffca58, transparent: true, opacity: .98, side: THREE.DoubleSide, depthTest: false, depthWrite: false, toneMapped: false, fog: false});
+      const footprint = new THREE.Mesh(geometry, material); footprint.renderOrder = 2001; footprint.frustumCulled = false; root.add(footprint);
+      [root, outline, footprint].forEach(node => {node.userData.editorRuntimeHelper = node.userData.editorHelper = true; node.raycast = () => {};});
+      this.dropVisual = {root, outline, footprint, geometries: [edges, geometry], materials: [lineMaterial, material]};
+    }
+    const visual = this.dropVisual; if (visual.root.parent !== scene) {if (visual.root.parent) visual.root.parent.remove(visual.root); scene.add(visual.root);} return visual;
+  }
+  prepareDropOverlay(scene) {
+    const frame = this.framing; if (!frame || frame.phase !== 'drop' || !frame.placement) return;
+    const placement = frame.placement, visual = this.dropOverlay(scene), bounds = placement.bounds, center = bounds.getCenter(new THREE.Vector3()), size = bounds.getSize(new THREE.Vector3()), color = placement.admissible === false && !placement.canAlign ? 0xff7d7d : placement.physicallyReady ? 0x6ff4b1 : 0xffca58;
+    scene.updateWorldMatrix(true, false); visual.root.matrix.getInverse(scene.matrixWorld); visual.root.matrixWorldNeedsUpdate = true;
+    visual.outline.matrix.copy(placement.matrix).multiply(new THREE.Matrix4().compose(center, new THREE.Quaternion(), size)); visual.outline.matrixWorldNeedsUpdate = true;
+    visual.materials.forEach(material => {material.color.setHex(color).convertSRGBToLinear();});
+    const footprint = (Array.isArray(placement.targetFootprint) ? placement.targetFootprint : Array.isArray(placement.footprint) ? placement.footprint : []).slice(0, 16).filter(vectorPoint), ring = footprint.length >= 3 ? footprint.map(value => new THREE.Vector3().fromArray(value)) : [[bounds.min.x, bounds.min.z], [bounds.max.x, bounds.min.z], [bounds.max.x, bounds.max.z], [bounds.min.x, bounds.max.z]].map(value => new THREE.Vector3(value[0], bounds.min.y, value[1]).applyMatrix4(placement.matrix));
+    const attribute = visual.footprint.geometry.attributes.position; let count = 0;
+    const vertex = point => {const offset = count++ * 3; attribute.array[offset] = point.x; attribute.array[offset + 1] = point.y + .012; attribute.array[offset + 2] = point.z;};
+    for (let i = 0; i < Math.min(16, ring.length); i++) {const a = ring[i], b = ring[(i + 1) % ring.length], dx = b.x - a.x, dz = b.z - a.z, length = Math.hypot(dx, dz); if (length < .001) continue; const x = -dz / length * .014, z = dx / length * .014, p = [new THREE.Vector3(a.x + x, a.y, a.z + z), new THREE.Vector3(b.x + x, b.y, b.z + z), new THREE.Vector3(b.x - x, b.y, b.z - z), new THREE.Vector3(a.x - x, a.y, a.z - z)]; [p[0], p[1], p[2], p[0], p[2], p[3]].forEach(vertex);}
+    attribute.needsUpdate = true; visual.footprint.geometry.setDrawRange(0, count); visual.root.visible = true; visual.root.updateWorldMatrix(true, true);
   }
   frameMirror() {
     const root = this.driving.visualRoot, config = this.driving.record().components.vehicle.config; root.updateWorldMatrix(true, false);
@@ -276,23 +345,24 @@ export default class VehicleForkCamera {
     // Visibility probes need both candidate surfaces even before their first
     // image exists. Restore display visibility before every early return so a
     // 90 Hz headset never draws the uninitialized white mirror between passes.
-    const visible = this.visibleFeeds(); this.syncScreenVisibility(); if (!visible.length) { this.stats.status = 'hidden'; return false; } if (this.rendered.size && this.elapsed < 1 / profile.fps) return false;
+    const visible = this.visibleFeeds(); this.syncScreenVisibility(); if (!visible.length) { this.stats.status = 'hidden'; return false; }
+    const frameKey = this.frameKey(); if (frameKey !== this.lastFrameKey) this.elapsed = Infinity; if (this.rendered.size && this.elapsed < 1 / profile.fps) return false;
     const renderer = this.renderer, gl = renderer.getContext && renderer.getContext(); if (gl && gl.isContextLost && gl.isContextLost()) { this.release('context-lost'); return false; }
     const name = visible[0];
     const saved = this.saveState(), started = typeof performance === 'undefined' ? Date.now() : performance.now();
     try {
       this.resources(profile, name); const camera = name === 'front' ? (this.frame(this.driving.docking && this.driving.docking.snapshot), this.camera) : (this.frameMirror(), this.mirrorCamera);
-      this.hideHelpers(name); if (renderer.xr) renderer.xr.enabled = false; renderer.autoClear = true; if (renderer.shadowMap) { renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; } if (renderer.info) renderer.info.autoReset = false;
-      renderer.setRenderTarget(name === 'front' ? this.target : this.mirrorTarget); renderer.setScissorTest(false); renderer.render(scene, camera); this.elapsed = 0; this.rendered.add(name); this.stats.frames++; this.stats[name === 'front' ? 'frontFrames' : 'mirrorFrames']++; this.stats.lastFeed = name; this.stats.status = 'active'; return true;
+      this.hideHelpers(name); if (name === 'front') this.prepareDropOverlay(scene); if (renderer.xr) renderer.xr.enabled = false; renderer.autoClear = true; if (renderer.shadowMap) { renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; } if (renderer.info) renderer.info.autoReset = false;
+      renderer.setRenderTarget(name === 'front' ? this.target : this.mirrorTarget); renderer.setScissorTest(false); renderer.render(scene, camera); this.elapsed = 0; this.lastFrameKey = frameKey; this.rendered.add(name); this.stats.frames++; this.stats[name === 'front' ? 'frontFrames' : 'mirrorFrames']++; this.stats.lastFeed = name; this.stats.status = 'active'; return true;
     } catch (_) { this.stats.failures++; this.failed = true; this.release('unavailable'); this.elapsed = 0; return false; }
     finally {
-      if (this.hidden) { this.hidden.forEach(([node, visible]) => { node.visible = visible; }); this.hidden = null; } this.restoreState(saved);
+      if (this.dropVisual) this.dropVisual.root.visible = false; if (this.hidden) { this.hidden.forEach(([node, visible]) => { node.visible = visible; }); this.hidden = null; } this.restoreState(saved);
       this.syncScreenVisibility();
       this.stats.lastRenderMs = (typeof performance === 'undefined' ? Date.now() : performance.now()) - started;
     }
   }
   postRender() {
-    if (this.ctx.vrMode || !this.active()) return false;
+    if (this.ctx.vrMode || !this.hasCurrentFrame()) return false;
     const feeds = [this.selectedFeed === 'mirror' ? {element: this.element, target: this.mirrorTarget, scene: this.mirrorOverlayScene, overlay: this.mirrorOverlay} : {element: this.element, target: this.target, scene: this.overlayScene, overlay: this.overlay}].filter(feed => feed.target && feed.scene && this.desktopRect(feed.element)); if (!feeds.length) return false;
     const renderer = this.renderer, canvas = renderer.domElement, dpr = renderer.getPixelRatio ? renderer.getPixelRatio() : 1, saved = this.saveState();
     try {
@@ -303,6 +373,7 @@ export default class VehicleForkCamera {
     } catch (_) { this.stats.failures++; this.failed = true; this.release('unavailable'); return false; } finally { this.restoreState(saved); }
   }
   release(status = 'inactive') {
+    if (this.dropVisual) this.dropVisual.root.visible = false; this.lastFrameKey = null;
     [this.plane, this.mirrorPlane].filter(Boolean).forEach(plane => { plane.visible = false; if (plane.material.map) { plane.material.map = null; plane.material.needsUpdate = true; } }); [this.overlay, this.mirrorOverlay].filter(Boolean).forEach(overlay => { overlay.material.map = null; });
     for (const key of ['target', 'mirrorTarget']) if (this[key]) { const targets = this.ctx.performanceRenderTargets; if (targets && targets.delete) targets.delete(this[key]); else if (Array.isArray(targets)) { const index = targets.indexOf(this[key]); if (index >= 0) targets.splice(index, 1); } this[key].dispose(); this[key] = null; }
     this.rendered.clear(); this.elapsed = Infinity; this.stats.width = this.stats.height = this.stats.mirrorWidth = this.stats.mirrorHeight = this.stats.estimatedGpuBytes = 0; this.stats.status = status;
@@ -311,6 +382,7 @@ export default class VehicleForkCamera {
     this.release('inactive'); this.mounted = false; this.available = false; this.lastSnapshot = this.lastProduct = this.framing = this.mirrorFraming = null;
     for (const key of ['plane', 'mirrorPlane']) if (this[key]) { if (this[key].parent) this[key].parent.remove(this[key]); this[key].geometry.dispose(); this[key].material.dispose(); this[key] = null; }
     this.state = this.stateName = null; this.element = this.mirrorElement = this.mountOptions = null;
+    if (this.dropVisual) {if (this.dropVisual.root.parent) this.dropVisual.root.parent.remove(this.dropVisual.root); this.dropVisual.geometries.forEach(value => value.dispose()); this.dropVisual.materials.forEach(value => value.dispose()); this.dropVisual = null;}
   }
   dispose() {
     this.unmount(); for (const key of ['overlay', 'mirrorOverlay']) if (this[key]) { this[key].geometry.dispose(); this[key].material.dispose(); this[key] = null; } this.overlayScene = this.mirrorOverlayScene = this.overlayCamera = null;

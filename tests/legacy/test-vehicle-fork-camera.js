@@ -79,6 +79,18 @@ const clippedFrames=feed.stats.frames;xClip.rect.left=1220;assert.equal(feed.des
 let reads=0,node=viewport;for(let i=0;i<40;i++){const parent=new Element('section');parent.rect={left:0,top:0,width:1280,height:780};node.parentNode=parent;node=parent;}
 viewport.ownerDocument.defaultView.getComputedStyle=()=>{reads++;return{overflow:'clip'};};assert(feed.desktopRect(viewport));assert.equal(reads,32,'Style/layout probes are bounded even in a deeply nested host application.');
 viewport.parentNode=oldParent;if(oldOwner===undefined)delete viewport.ownerDocument;else viewport.ownerDocument=oldOwner;assert.deepEqual(baseline(desktop,r),original);
+// Fixed panels do not contribute to BODY's layout height. Browsers propagate
+// its overflow to the viewport, rather than clipping that panel to height zero.
+const rootBody=new Element('body'),rootHtml=new Element('html'),rootClip=new Element('section');
+rootBody.rect={left:0,top:0,width:1280,height:0};rootHtml.rect={left:0,top:0,width:1280,height:0};rootHtml.clientWidth=1280;rootHtml.clientHeight=780;
+rootClip.rect={left:880,top:490,width:300,height:170};viewport.parentNode=rootClip;rootClip.parentNode=rootBody;rootBody.parentNode=rootHtml;
+viewport.ownerDocument={body:rootBody,documentElement:rootHtml,defaultView:{innerWidth:1280,innerHeight:780,getComputedStyle:node=>node===rootHtml?{overflow:'visible'}:{overflow:'hidden'}}};
+const fixedAllocations=feed.stats.allocations;feed.release();assert(!feed.target&&!feed.mirrorTarget);
+const fixedClip=feed.desktopRect(viewport);assert(fixedClip,'A fixed camera remains visible under a zero-height BODY.');assert.deepEqual([fixedClip.left,fixedClip.right,fixedClip.top,fixedClip.bottom],[880,1180,490,660]);
+assert(monitor.renderBefore(desktop.scene,.2),'The first real camera frame must render before the fallback can hide.');assert.equal(feed.stats.allocations,fixedAllocations+1);assert(feed.hasCurrentFrame());assert(monitor.postRender());assert(r.calls[r.calls.length-1].scissor.equals(new THREE.Vector4(880,120,300,170)));
+viewport.ownerDocument.defaultView.innerHeight=620;assert.equal(feed.desktopRect(viewport).bottom,620,'Root overflow still clips at the real viewport edge.');viewport.ownerDocument.defaultView.innerHeight=780;
+rootClip.rect.top=700;assert.equal(feed.desktopRect(viewport),null,'Genuine overflowing panel ancestors still clip the image.');
+viewport.parentNode=oldParent;if(oldOwner===undefined)delete viewport.ownerDocument;else viewport.ownerDocument=oldOwner;
 let disposed=0;const frontTarget=feed.target;frontTarget.addEventListener('dispose',()=>disposed++);
 assert.equal(monitor.toggleRearView(),true); assert.equal(disposed,1); assert(!feed.target&&!feed.mirrorTarget); assert(monitor.renderBefore(desktop.scene,.2));
 assert.equal(feed.selectedFeed,'mirror');assert(!feed.target&&feed.mirrorTarget);assert.equal(feed.mirrorTarget.width,768,'Alternating rear view uses the full working-display resolution.');
