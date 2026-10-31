@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "public-viewer",
-  "revision": "18832af29fff3be65ebb76f49464de145b7750a7",
-  "bundleSha256": "7a3d7999da51b53939b102d24a158e6655fc71dd815be39131c24ffd0ccaeb5b",
+  "revision": "45068bf03122e36ce2b79589fa9b926601df7e76",
+  "bundleSha256": "c8552cefd3a837c973485e4431dda4902d5fa703d3674248364eedbdf8cfcfd3",
   "scenes": [
     "vr-robot-dispatch"
   ],
@@ -18,7 +18,35 @@
     },
     {
       "path": "index.html",
-      "sha256": "25a43f7d384e5fc666411539281152714f1b512accdff57aec52176872c5292d"
+      "sha256": "3b8e650f98b09f6c5d6b72988461939309827daddb56c76143262d714f94b924"
+    },
+    {
+      "path": "packages/voice-assistant/assets/completed.wav",
+      "sha256": "0f238f8f791bea20640a529a40a509273bc4a6b0f381bb266b0124ef0cedd07b"
+    },
+    {
+      "path": "packages/voice-assistant/assets/deposit.wav",
+      "sha256": "8e2b6ebe8d2b639ebc30fbe9d9d69cd4a6ec2c708d93a1cde2236f19f2945e6c"
+    },
+    {
+      "path": "packages/voice-assistant/assets/pickup.wav",
+      "sha256": "5a5a46b216b9b22172fb868417dd7bda952ee7b9b6dbee9d2b00580382fa1fea"
+    },
+    {
+      "path": "packages/voice-assistant/assets/route.wav",
+      "sha256": "66e06ba87b4eab169636c1754771953a8c21a2c958adeb12e130dce6f01a52b0"
+    },
+    {
+      "path": "packages/voice-assistant/assets/safety.wav",
+      "sha256": "b6465fca1bd370a5d35007a88f4d2dab3e9fee6afc0e8311733472fa7f617d9b"
+    },
+    {
+      "path": "packages/voice-assistant/assets/welcome.wav",
+      "sha256": "19b1252d82181bf4f64f5dc1bed7d0d550839cb9dee64016705163ec9db74dfd"
+    },
+    {
+      "path": "packages/voice-assistant/voice-assistant.css",
+      "sha256": "2c5fdd273cd0024e93bdecc755ec0a2f97c096dbeb9e97f5b580c8dc744f7e68"
     },
     {
       "path": "projects/smarttwin/previews/vr-robot-dispatch.png",
@@ -30,15 +58,15 @@
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-dispatch.json",
-      "sha256": "551a19954ede789ef626f89cb9f905f41d55e99dc581388e29817d62aae0ec2d"
+      "sha256": "2378182ecb86ee2e699b5098bc2f534a97d884ed6a52693619298045276560f7"
     },
     {
       "path": "viewer.css",
-      "sha256": "638ac66e83dafe98bb2575c7bf6ea67ce06543986a9ad9aa8be5cb3fdcb3db04"
+      "sha256": "011956db207784f23d2161fe20e7a79cfea7f37a0c66821d0ab1ec8ed1506520"
     },
     {
       "path": "viewer.js",
-      "sha256": "7a3d7999da51b53939b102d24a158e6655fc71dd815be39131c24ffd0ccaeb5b"
+      "sha256": "c8552cefd3a837c973485e4431dda4902d5fa703d3674248364eedbdf8cfcfd3"
     }
   ]
 }

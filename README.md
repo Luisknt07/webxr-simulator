@@ -96,15 +96,17 @@ npm.cmd run test:framework
 npm.cmd run test:api-production
 npm.cmd run test:legacy
 npm.cmd run pages:verify
-npm.cmd run test:browser
 ```
+
+La comprobación de navegador exige el SHA-256 del bundle de Workspace que se haya revisado: `npm.cmd run test:browser -- --expected-workspace-sha256 <hash-revisado>`. Sustituye el marcador por los 64 caracteres de la huella; sin ella se rechaza la ejecución para evitar comprobar un artefacto diferente.
 
 `test:legacy` incluye una prueba de simulación prolongada que puede tardar bastante. Las pruebas gráficas automatizadas usan un navegador de escritorio; la estabilidad y el rendimiento final en Quest 3 necesitan una sesión física en el visor.
 
-- [Arquitectura implementada y compatibilidad](docs/modular-framework-proposal.md)
+- [Referencia histórica de la propuesta modular](docs/modular-framework-proposal.md)
 - [SDK, módulos y composición](docs/framework-modules.md)
 - [Seguridad y despliegue](docs/framework-security.md)
 - [Resultados de validación](docs/framework-validation.md)
+- [Auditoría del 30 de octubre de 2026: correcciones, pruebas y pendientes](docs/audit-2026-10-30.md)
 - [Pantalla inicial e instalaciones compactas de RV](docs/vr-facility-home.md)
 - [Guía del editor](docs/studio-guide.md)
 - [Cuentas y sesiones](docs/studio-service.md)

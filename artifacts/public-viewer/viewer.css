@@ -240,3 +240,176 @@
 .scene-active .xr-browser-touch{bottom:22px}
 @media(max-width:720px){.scene-active .viewer-header{height:auto;min-height:64px;flex-wrap:wrap;gap:6px;padding:8px 12px}.scene-active .header-actions{flex-wrap:wrap;justify-content:flex-end;gap:5px}.scene-active .header-actions button,.scene-active .header-actions a,.scene-active #xr-action button{font-size:10px;min-height:32px;padding:6px 9px}.scene-active .viewer-brand,.scene-active .viewer-brand small{font-size:15px}.scene-active .scene-navigation-hint{bottom:14px;font-size:10px;max-width:90vw}}
 @media(pointer:coarse){.scene-active .scene-navigation-hint{display:none}}
+/* Verified mission coach: compact and independent of the inspection camera. */
+.vehicle-mission-panel{box-sizing:border-box;min-width:0;margin:0 0 8px;padding:10px;border:1px solid #42746e;border-radius:8px;background:linear-gradient(135deg,#153d3c,#142c38 72%);color:#edf8f7;font:12px/1.45 system-ui,sans-serif}
+.vehicle-mission-panel[hidden],.vehicle-mission-panel [hidden]{display:none!important}
+.vehicle-mission-panel .vehicle-mission-scorebar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:5px}
+.vehicle-mission-panel .vehicle-mission-kicker{color:#91ddc5;font-size:10px;font-weight:750;letter-spacing:.05em;text-transform:uppercase}
+.vehicle-mission-panel .vehicle-mission-score{flex:none;padding:2px 7px;border:1px solid #68866a;border-radius:12px;background:#324c36;color:#f5e4a9;font-size:10px;font-weight:750;font-variant-numeric:tabular-nums}
+.vehicle-mission-panel .vehicle-mission-title{display:block;margin:0;color:#f0fbf8;font-size:14px;line-height:1.3;font-weight:750;overflow-wrap:anywhere}
+.vehicle-mission-panel .vehicle-mission-progress-row{display:flex;align-items:center;gap:9px;margin:8px 0}
+.vehicle-mission-panel .vehicle-mission-progress-label{flex:none;color:#b7cfcf;font-size:10px;font-variant-numeric:tabular-nums}
+.vehicle-mission-panel .vehicle-mission-progress{appearance:none;display:block;min-width:20px;width:100%;height:5px;overflow:hidden;border:0;border-radius:8px;background:#0d232d;accent-color:#80e0ba}
+.vehicle-mission-panel .vehicle-mission-progress::-webkit-progress-bar{border-radius:8px;background:#0d232d}
+.vehicle-mission-panel .vehicle-mission-progress::-webkit-progress-value{border-radius:8px;background:linear-gradient(90deg,#4eacb4,#95e8b8)}
+.vehicle-mission-panel .vehicle-mission-progress::-moz-progress-bar{border-radius:8px;background:#80e0ba}
+.vehicle-mission-panel .vehicle-mission-stage-label{margin:0 0 4px;color:#a8e9df;font-size:11px;font-weight:650}
+.vehicle-mission-panel .vehicle-mission-stages{display:flex;gap:4px;list-style:none;margin:0 0 7px;padding:0}
+.vehicle-mission-panel .vehicle-mission-stages li{flex:1;height:4px;border-radius:3px;background:#41606c}
+.vehicle-mission-panel .vehicle-mission-stages li[data-status="completed"]{background:#78cbb0}
+.vehicle-mission-panel .vehicle-mission-stages li[data-status="active"]{background:#f2d28c;box-shadow:0 0 0 1px #f2d28c40}
+.vehicle-mission-panel .vehicle-mission-instruction{margin:0;color:#eff9f7;font-size:12px;line-height:1.5}
+.vehicle-mission-panel .vehicle-mission-recovery{margin:7px 0 0;padding:6px 7px;border-left:2px solid #e7ba79;background:#59442e55;color:#ffe0a6;font-size:11px}
+.vehicle-mission-panel .vehicle-mission-feedback{display:flex;align-items:flex-start;gap:7px;margin-top:8px;padding:7px 8px;border:1px solid #6ac8a366;border-radius:6px;background:#225448;color:#d4ffea;font-size:11px;animation:vehicle-mission-feedback-in .18s ease-out}
+.vehicle-mission-panel .vehicle-mission-feedback[data-kind="error"]{border-color:#e7ad7077;background:#594431;color:#ffe0ad}
+.vehicle-mission-panel .vehicle-mission-feedback-points{flex:none;color:inherit;font-size:12px;line-height:1.45;font-variant-numeric:tabular-nums;white-space:nowrap}
+.vehicle-mission-panel .vehicle-mission-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px}
+.vehicle-mission-panel .vehicle-mission-badge{padding:2px 6px;border:1px solid #b8a46077;border-radius:4px;color:#ffe4a5;background:#65582744;font-size:9px}
+.vehicle-mission-panel .vehicle-mission-drawers{display:flex;align-items:flex-start;flex-wrap:wrap;gap:3px 14px;margin-top:8px;border-top:1px solid #7ca39c33;padding-top:5px}
+.vehicle-mission-panel details{min-width:0;max-width:100%}
+.vehicle-mission-panel details[open]{flex-basis:100%}
+.vehicle-mission-panel summary{padding:3px 0;color:#b9d5d5;font-size:10px;cursor:pointer}
+.vehicle-mission-panel summary:hover{color:#ecfff7}
+.vehicle-mission-panel summary:focus-visible{outline:2px solid #a7f0ce;outline-offset:3px;border-radius:2px}
+.vehicle-mission-panel .vehicle-mission-help p,.vehicle-mission-panel .vehicle-mission-unlock-note{margin:4px 0 3px;color:#bcd7d4;font-size:11px;line-height:1.5}
+.vehicle-mission-panel .vehicle-mission-list ol{display:grid;gap:0;margin:4px 0 0;padding:0;max-height:160px;overflow:auto;list-style:none}
+.vehicle-mission-panel .vehicle-mission-list li{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid #75939033;color:#a6bfc6;font-size:11px}
+.vehicle-mission-panel .vehicle-mission-list li span{min-width:0;overflow-wrap:anywhere}
+.vehicle-mission-panel .vehicle-mission-list li small{flex:none;color:#9eb4bd;font-size:9px}
+.vehicle-mission-panel .vehicle-mission-list li[data-status="active"]{color:#f3e4b7;font-weight:650}
+.vehicle-mission-panel .vehicle-mission-list li[data-status="active"] small{color:#f3d58e}
+.vehicle-mission-panel .vehicle-mission-list li[data-status="completed"]{color:#a2e4ca}
+.vehicle-mission-panel .vehicle-mission-list li[data-status="completed"] small{color:#99d9c0}
+.vehicle-mission-panel .vehicle-mission-unlock-note{font-size:10px;color:#91abb5}
+.vehicle-mission-panel .vehicle-mission-announcement{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.vehicle-mission-panel[data-complete="true"]{border-color:#c9b673;background:linear-gradient(135deg,#394b36,#183c3e)}
+.vehicle-mission-panel[data-mode="walking"]{position:fixed;z-index:31;top:78px;left:12px;width:min(360px,calc(100vw - 24px));max-height:calc(100vh - 160px);overflow:auto;box-shadow:0 8px 30px #061c2866;pointer-events:auto}
+.vehicle-guidance-panel[data-training="active"] .vehicle-guidance-instruction{display:none}
+@keyframes vehicle-mission-feedback-in{from{opacity:0}to{opacity:1}}
+@media(max-width:720px){
+ .vehicle-guidance-panel[data-training="active"]{left:8px;right:auto;top:66px;width:calc(54vw - 12px);padding:4px}
+ .vehicle-guidance-panel[data-training="active"] .vehicle-mission-panel{padding:7px;margin-bottom:5px;max-height:calc(55vh - 110px);overflow:auto}
+ .vehicle-guidance-panel[data-training="active"] .vehicle-guidance-controls{grid-template-columns:minmax(0,1fr);gap:4px}
+ .vehicle-guidance-panel[data-training="active"] .vehicle-guidance-controls button{max-width:none;min-height:30px;width:100%}
+ .vehicle-guidance-panel[data-training="active"] .vehicle-guidance-target{display:none}
+ .vehicle-mission-panel .vehicle-mission-scorebar{flex-wrap:wrap;gap:4px}
+ .vehicle-mission-panel .vehicle-mission-title{font-size:12px}
+ .vehicle-mission-panel .vehicle-mission-instruction{font-size:11px;line-height:1.4}
+ .vehicle-mission-panel .vehicle-mission-progress-row{gap:5px;margin:6px 0}
+ .vehicle-mission-panel .vehicle-mission-progress-label{font-size:9px}
+ .vehicle-mission-panel .vehicle-mission-stage-label{font-size:10px}
+ .vehicle-mission-panel .vehicle-mission-drawers{gap:2px 8px;margin-top:6px}
+ .vehicle-mission-panel .vehicle-mission-feedback{display:block;padding:5px;font-size:10px}
+ .vehicle-mission-panel .vehicle-mission-feedback-points{margin-right:5px;font-size:11px}
+ body:has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-docking-monitor[data-camera="on"][data-plan="open"],body:has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-docking-monitor[data-camera="off"]{top:66px;right:8px;width:calc(46vw - 8px);min-width:0}
+ body:has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-docking-monitor .vehicle-docking-body{grid-template-columns:minmax(0,1fr)!important}
+ body:has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-docking-monitor .vehicle-docking-plan{max-width:58%;margin-left:auto}
+ body:has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-docking-monitor .vehicle-fork-camera-header button{font-size:8px;min-height:27px}
+ .vehicle-mission-panel[data-mode="walking"]{top:74px;left:8px;width:calc(100vw - 16px);max-height:calc(100vh - 160px)}
+}
+@media(min-width:721px) and (max-height:600px){
+ .vehicle-guidance-panel[data-training="active"]{left:35vw;right:auto;top:66px;width:29vw;padding:4px}
+ .vehicle-guidance-panel[data-training="active"] .vehicle-mission-panel{max-height:calc(100vh - 122px);overflow:auto;padding:7px;margin-bottom:5px}
+ .vehicle-guidance-panel[data-training="active"] .vehicle-mission-title{font-size:12px}
+ .vehicle-guidance-panel[data-training="active"] .vehicle-mission-scorebar{flex-wrap:wrap;gap:4px}
+ .vehicle-guidance-panel[data-training="active"] .vehicle-mission-instruction{font-size:11px}
+ .vehicle-guidance-panel[data-training="active"] .vehicle-mission-stage-label{font-size:10px}
+ .vehicle-guidance-panel[data-training="active"] .vehicle-mission-progress-label{font-size:9px}
+ .vehicle-guidance-panel[data-training="active"] .vehicle-guidance-controls{grid-template-columns:minmax(0,1fr)}
+ .vehicle-guidance-panel[data-training="active"] .vehicle-guidance-controls button{max-width:none;width:100%;min-height:30px}
+ .vehicle-guidance-panel[data-training="active"] .vehicle-guidance-target{display:none}
+ body:has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-driving-hud[data-layout="compact"]{left:8px!important;right:auto!important;bottom:8px!important;width:calc(35vw - 16px)!important;max-height:calc(100vh - 74px)}
+ body:has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-driving-hud[data-layout="compact"] .vehicle-control-group{grid-template-columns:repeat(3,minmax(0,1fr))}
+ body:has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-docking-monitor[data-camera="on"][data-plan="open"],body:has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-docking-monitor[data-camera="off"]{top:66px;right:8px;width:calc(36vw - 16px);min-width:0}
+ body:has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-docking-monitor .vehicle-docking-body{grid-template-columns:minmax(0,26%) minmax(0,1fr)!important}
+ body:has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-docking-monitor .vehicle-fork-camera-header button{font-size:9px;min-height:26px}
+ body:has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-docking-monitor .vehicle-docking-metrics:not([hidden]),body:has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-docking-monitor .vehicle-docking-summary{font-size:9px;line-height:1.35;padding:4px 5px}
+ .vehicle-mission-panel[data-mode="walking"]{max-height:calc(100vh - 120px)}
+}
+@media(prefers-reduced-motion:reduce){.vehicle-mission-panel .vehicle-mission-feedback{animation:none}}
+/* Reserve room for the real, complete driving console and editor return action. */
+@media(min-width:721px) and (min-height:601px){
+ .vehicle-guidance-panel[data-training="active"] .vehicle-mission-panel{max-height:250px;overflow:auto}
+ body:has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-driving-hud[data-layout="compact"]{max-height:calc(100vh - 416px)}
+ body:has(#editor-return:not([hidden])) .vehicle-guidance-panel[data-training="active"]{top:128px}
+ body:has(#editor-return:not([hidden])):has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-driving-hud[data-layout="compact"]{max-height:calc(100vh - 468px)}
+}
+body:has(#editor-return:not([hidden])) .vehicle-mission-panel[data-mode="walking"]{top:128px;max-height:calc(100vh - 142px)}
+@media(max-width:720px){
+ body:has(#editor-return:not([hidden])) .vehicle-guidance-panel[data-training="active"]{top:124px}
+ body:has(#editor-return:not([hidden])) .vehicle-mission-panel[data-mode="walking"]{top:124px;max-height:calc(100vh - 138px)}
+}
+@media(min-width:721px) and (max-height:600px){
+ body:has(#editor-return:not([hidden])):has(.vehicle-guidance-panel[data-training="active"]:not([hidden])) .vehicle-driving-hud[data-layout="compact"]{max-height:calc(100vh - 140px)}
+}
+
+/* One owned layout for driving panels; auxiliary video uses transparent slots
+   because it is composited by the existing WebGL renderer beneath this UI. */
+#vehicle-operation-panels{position:fixed;inset:82px 12px 10px;z-index:32;display:grid;grid-template-columns:minmax(280px,350px) minmax(0,min(720px,54vw));justify-content:space-between;align-items:start;gap:16px;pointer-events:none;min-height:0}
+body:has(#editor-return:not([hidden])) #vehicle-operation-panels{top:134px}
+#vehicle-operation-panels .vehicle-operator-column{display:flex;flex-direction:column;gap:8px;min-height:0;height:100%;max-height:100%;overflow:hidden;pointer-events:none}
+#vehicle-operation-panels .vehicle-guidance-panel,#vehicle-operation-panels .vehicle-driving-hud[data-layout="compact"]{position:relative!important;inset:auto!important;transform:none!important;width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;box-sizing:border-box;pointer-events:auto}
+#vehicle-operation-panels .vehicle-guidance-panel{flex:0 1 auto;max-height:40%!important;overflow:auto;padding:7px}
+#vehicle-operation-panels .vehicle-guidance-panel .vehicle-mission-panel{max-height:none!important;overflow:visible;margin-bottom:6px}
+#vehicle-operation-panels .vehicle-guidance-panel .vehicle-guidance-controls{display:grid;grid-template-columns:115px minmax(0,1fr);gap:6px}
+#vehicle-operation-panels .vehicle-guidance-panel .vehicle-guidance-target{display:block;font-size:10px;min-width:0}
+#vehicle-operation-panels .vehicle-guidance-panel .vehicle-guidance-target select{width:100%;font-size:10px;min-height:32px}
+#vehicle-operation-panels .vehicle-guidance-panel .vehicle-guidance-controls button{max-width:none;width:100%;min-height:32px}
+#vehicle-operation-panels .vehicle-driving-hud[data-layout="compact"]{flex:1 1 auto;max-height:none!important;min-height:90px;overflow:auto}
+#vehicle-operation-panels .vehicle-navigation-display{box-sizing:border-box;position:relative!important;inset:auto!important;transform:none!important;width:100%!important;min-width:0!important;max-width:none!important;max-height:100%!important;align-self:start;margin:0!important;padding:6px!important;display:block;background:transparent!important;border:1px solid #547987!important;border-radius:12px;color:#e1f2f5;pointer-events:auto;overflow:hidden;box-shadow:0 8px 30px #0003}
+#vehicle-operation-panels .vehicle-navigation-display[hidden]{display:none!important}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:7px;padding:8px 9px;background:#122a36f5;border-radius:7px 7px 0 0}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-title{font:650 13px/1.4 system-ui,sans-serif;color:#bcece3}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-actions{display:flex;gap:4px;flex-wrap:wrap}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-actions button{min-height:32px;padding:5px 8px;border:1px solid #536f80;border-radius:5px;font:11px/1.3 system-ui,sans-serif;color:#e8f6f8;background:#263f4f;cursor:pointer}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-actions button[aria-pressed="true"]{background:#285c50;border-color:#8dd5bc}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-docking-body{position:relative!important;inset:auto!important;display:grid!important;grid-template-columns:minmax(0,34%) minmax(0,1fr)!important;gap:7px!important;align-items:end!important;width:100%!important;min-width:0!important;background:transparent!important;margin:6px 0 0!important;padding:0!important}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-docking-body .vehicle-docking-plan{position:relative!important;inset:auto!important;display:block!important;width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;padding:0!important;border:1px solid #456572;border-radius:6px;overflow:hidden;background:#10232e}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-docking-body .vehicle-docking-plan canvas{display:block!important;width:100%!important;height:auto!important;max-width:none!important;aspect-ratio:16/9;object-fit:contain}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-docking-body .vehicle-fork-camera{position:relative!important;inset:auto!important;display:block!important;width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;padding:0!important;background:transparent!important;border:0!important;overflow:hidden;border-radius:6px}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-fork-camera-header{display:flex!important;justify-content:space-between;gap:4px;padding:0 0 5px!important;min-height:30px;background:#122a36f5}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-fork-camera-header button{flex:1;min-width:0;min-height:30px;padding:4px 5px;font:10px/1.25 system-ui,sans-serif;background:#263f4f;border:1px solid #536f80;border-radius:4px;color:#e8f6f8;white-space:normal}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-camera-views,#vehicle-operation-panels .vehicle-navigation-display .vehicle-fork-camera-viewport{position:relative!important;inset:auto!important;display:block!important;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0!important;max-height:none!important;aspect-ratio:16/9!important;margin:0!important;padding:0!important;background:transparent!important;border:0!important;overflow:hidden}
+#vehicle-operation-panels .vehicle-navigation-display[data-display="layout"] .vehicle-docking-body,#vehicle-operation-panels .vehicle-navigation-display[data-display="rear"] .vehicle-docking-body{grid-template-columns:minmax(0,1fr)!important}
+#vehicle-operation-panels .vehicle-navigation-display[data-display="layout"] .vehicle-docking-body .vehicle-fork-camera,#vehicle-operation-panels .vehicle-navigation-display[data-display="rear"] .vehicle-docking-body .vehicle-docking-plan,#vehicle-operation-panels .vehicle-navigation-display [hidden]{display:none!important}
+#vehicle-operation-panels .vehicle-navigation-display[data-display="rear"] .vehicle-fork-camera-header{display:none!important}
+#vehicle-operation-panels .vehicle-navigation-display .vehicle-docking-summary,#vehicle-operation-panels .vehicle-navigation-display .vehicle-docking-metrics:not([hidden]){display:block!important;position:relative!important;inset:auto!important;width:auto!important;padding:7px 9px!important;margin:5px 0 0!important;border:0!important;border-radius:5px;background:#122a36f5;color:#deedf2;font:12px/1.45 system-ui,sans-serif!important;overflow-wrap:anywhere}
+#vehicle-operation-panels .vehicle-navigation-display[data-state="ready"] .vehicle-docking-summary{color:#9af0c7}
+#vehicle-operation-panels .vehicle-navigation-display[data-state="blocked"] .vehicle-docking-summary{color:#ffc1b6}
+@media(max-width:720px){
+ #vehicle-operation-panels{inset:128px 8px 8px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:8px}
+ body:has(#editor-return:not([hidden])) #vehicle-operation-panels{top:176px}
+ #vehicle-operation-panels .vehicle-operator-column{display:contents}
+ #vehicle-operation-panels .vehicle-navigation-display{grid-column:1/-1;grid-row:1;padding:4px!important;max-height:42dvh!important}
+ #vehicle-operation-panels .vehicle-guidance-panel{grid-column:1;grid-row:2;height:100%;max-height:100%!important;min-height:0;overflow:auto;padding:5px}
+ #vehicle-operation-panels .vehicle-driving-hud[data-layout="compact"]{grid-column:2;grid-row:2;height:100%;min-height:0;padding:5px;max-height:100%!important}
+ #vehicle-operation-panels .vehicle-guidance-panel .vehicle-guidance-controls{grid-template-columns:minmax(0,1fr)}
+ #vehicle-operation-panels .vehicle-driving-hud[data-layout="compact"] .vehicle-control-group{grid-template-columns:repeat(2,minmax(0,1fr));padding:3px}
+ #vehicle-operation-panels .vehicle-driving-hud[data-layout="compact"] .vehicle-control-group button{min-height:36px}
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-header{gap:4px;padding:5px 6px}
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-title{font-size:12px}
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-actions{gap:3px}
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-actions button{font-size:10px;min-height:30px;padding:4px 6px}
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-docking-summary,#vehicle-operation-panels .vehicle-navigation-display .vehicle-docking-metrics:not([hidden]){font-size:10px!important;line-height:1.35!important;padding:4px 6px!important}
+}
+@media(min-width:721px) and (max-height:600px){
+ #vehicle-operation-panels{inset:76px 8px 8px;grid-template-columns:minmax(0,31%) minmax(0,66%);gap:8px}
+ body:has(#editor-return:not([hidden])) #vehicle-operation-panels{top:128px}
+ #vehicle-operation-panels .vehicle-guidance-panel{max-height:40%!important}
+ #vehicle-operation-panels .vehicle-driving-hud[data-layout="compact"] .vehicle-control-group{grid-template-columns:repeat(3,minmax(0,1fr))}
+ #vehicle-operation-panels .vehicle-navigation-display[data-display="layout"] .vehicle-docking-plan canvas{max-height:calc(100dvh - 200px)!important}
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-header{padding:4px 6px;gap:4px}
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-actions button{min-height:28px;font-size:10px;padding:4px 6px}
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-docking-summary,#vehicle-operation-panels .vehicle-navigation-display .vehicle-docking-metrics:not([hidden]){font-size:10px!important;padding:4px 6px!important}
+}
+
+/* Short landscape screens reserve the measured height of all three regions. */
+@media(min-width:721px) and (max-height:600px){
+ #vehicle-operation-panels{--vehicle-navigation-height:calc(100dvh - 84px)}
+ body:has(#editor-return:not([hidden])) #vehicle-operation-panels{--vehicle-navigation-height:calc(100dvh - 136px)}
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-docking-summary{max-height:36px;overflow:auto}
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-docking-metrics:not([hidden]){font-size:9px!important;line-height:1.3!important;padding:4px 6px!important}
+ #vehicle-operation-panels .vehicle-navigation-display[data-display="layout"] .vehicle-docking-plan canvas{aspect-ratio:auto!important;max-height:max(80px,calc(var(--vehicle-navigation-height) - 100px))!important}
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-camera-views{aspect-ratio:auto!important;height:auto!important}
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-fork-camera-viewport{width:min(100%,calc(max(54px,var(--vehicle-navigation-height) - 170px)*16/9))!important;aspect-ratio:16/9!important;height:auto!important;margin-left:auto!important;margin-right:auto!important}
+}
