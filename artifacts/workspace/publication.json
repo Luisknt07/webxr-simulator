@@ -3,7 +3,7 @@
   "version": 1,
   "application": "workspace",
   "revision": "45068bf03122e36ce2b79589fa9b926601df7e76",
-  "bundleSha256": "05e83ef0820255c3ba3ce2bea7f78aeb6add88dd62e68c460d058bcb5c9e0c35",
+  "bundleSha256": "745c724b54828bb4ec3ebba206d8b58240a9be93d273e6a7fe15f4cc4f973642",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -72,7 +72,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "05e83ef0820255c3ba3ce2bea7f78aeb6add88dd62e68c460d058bcb5c9e0c35"
+      "sha256": "745c724b54828bb4ec3ebba206d8b58240a9be93d273e6a7fe15f4cc4f973642"
     },
     {
       "path": "cad-worker.js",
@@ -84,7 +84,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "91f810517079823abd1c1e28987cda5cbe8fde596f18c1fd990dfff8e41da6e1"
+      "sha256": "a912397f86c7ba5073801c77d829612269c489ebc8ceac6845370c538fb52998"
     },
     {
       "path": "mesh-optimizer-worker.js",
@@ -859,6 +859,10 @@
       "sha256": "1e360aa9a506ee1ded106bbeb4a09d4927f8c246075a63ad0cc8623dd2c0006e"
     },
     {
+      "path": "packages/input-devices/input-device.css",
+      "sha256": "30d54b4f47f449bcb79ad66b8f7dff8e0241c2b21e2de8ba758193be3e5d6868"
+    },
+    {
       "path": "packages/render-three/src/StartupStatus.js",
       "sha256": "791d64692ab21bfaaf8a2013a0f7dd8d504a656eb8a365f73a2e1c604cac50d3"
     },
@@ -988,7 +992,7 @@
     },
     {
       "path": "packages/tools/editor/src/editor.css",
-      "sha256": "f616e327018af4388a54db5299ddaba6ceb6f4f69bdc27c7e931cbf20b0237c7"
+      "sha256": "62b10e31062a19b6cd7cc0753f9ab038ccf1ffddf0ba281de6c0926a4da9faa7"
     },
     {
       "path": "packages/tools/editor/src/floor-plan-editor.css",
@@ -1393,8 +1397,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "f8ba169f8ca7852af6f4",
-    "statsSha256": "88290dd18b1e51949cdc99d3b27d3bb0f3414ba562ec5d2144cc7f7bf7d2c9e3",
+    "hash": "1e2bc7e0d287146ca769",
+    "statsSha256": "d60b4a3a26b5481117b4cf429a35a35b2bfcceb73124b4aee0579916e2b82aed",
     "assets": [
       {
         "path": "0.bundle.js",
@@ -1418,7 +1422,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 3628761
+        "size": 3670413
       }
     ]
   }
