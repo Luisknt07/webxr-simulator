@@ -95,7 +95,7 @@ async function start() {
     documentModel = new SelectedSceneDocument(snapshot, scene); lighting = createIndustrialEnvironment(scene, documentModel, ctx);
     ctx.beforeVoicePanelOpen = () => {closeMenu(); ctx.publicDialogOpen = false; input.reset(); ctx.desktopLook.unlock(); if (ctx.demo) ctx.demo.driving.resetInput();};
     host = createHost({catalog: createLocalCatalog([demoModule,createVoiceModule()]), worldId: VIEWER_WORLD_ID,
-      grants: ['platform.scene', 'platform.document','platform.voice'], ports: {'platform.scene': ctx, 'platform.document': documentModel,'platform.voice':voicePort(ctx,{getDocument:()=>documentModel,getProject:()=>snapshot.project})}});
+      grants: ['platform.scene', 'platform.document','platform.voice'], ports: {'platform.scene': ctx, 'platform.document': documentModel,'platform.voice':voicePort(ctx,{backendAvailable:configuration.backendAvailable===true,getDocument:()=>documentModel,getProject:()=>snapshot.project})}});
     await host.activate(DEMO_MODULE_ID, {functions: [DEMO_FUNCTION_ID]});
     await host.activate('shared.assistance', {functions:['assistant.voice']});
     if (stopped) {await host.dispose({force: true}); return;}

@@ -5,6 +5,7 @@ const {ProjectStore} = require('./storage');
 const {ApiError} = require('./validation');
 const {MAX_TELEMETRY_BYTES} = require('./telemetry');
 const {StudioService} = require('./studio-service');
+const {createVoiceService} = require('./voice-assistant.cjs');
 
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
 
@@ -127,6 +128,7 @@ function createApiHandler(options = {}) {
   const studio = new StudioService({store, json, readBody, verifyWrite, now: options.now,
     allowBootstrapRegistration: options.allowBootstrapRegistration, requireSecureCookies: options.requireSecureCookies,
     publicSceneId: options.publicSceneId, exampleCatalogPath: options.exampleCatalogPath, projectionsDir: options.projectionsDir, frameworkModulesRoot:options.frameworkModulesRoot});
+  const voice = createVoiceService({studio, json, readBody, config:options.voice, fetch:options.voiceFetch, now:options.now});
   // Future maintenance only. Existing installations receive a 30-day grace
   // period during the additive migration, and tests can disable this timer.
   const maintenanceInterval = options.maintenanceIntervalMs === undefined ? 3600000 : options.maintenanceIntervalMs;
@@ -137,7 +139,7 @@ function createApiHandler(options = {}) {
     try { pathname = new URL(req.originalUrl || req.url, 'http://local.invalid').pathname; }
     catch (_) { json(res, 400, {error: 'Ruta inválida.', code: 'invalid_request'}, req.method); return; }
     const full = pathname === '/api' || pathname.startsWith('/api/');
-    const stripped = /^\/(?:health|projects|assets|studio|public|publication|library)(?:\/|$)/.test(pathname);
+    const stripped = /^\/(?:health|projects|assets|studio|public|publication|library|assistant)(?:\/|$)/.test(pathname);
     if (!full && !stripped) {
       if (next) next();
       else json(res, 404, {error: 'Ruta no encontrada.', code: 'not_found'}, req.method);
@@ -161,6 +163,7 @@ function createApiHandler(options = {}) {
           return current;
         };
       }
+      if (await voice.handle(req, res, pathname)) return;
       if (await studio.frameworkProjects.handle(req, res, pathname)) return;
       if (await studio.handle(req, res, pathname)) return;
       const actor = studio.user(req, false), access = studio.access;
@@ -218,7 +221,7 @@ function createApiHandler(options = {}) {
   };
   handler.store = store;
   handler.studio = studio;
-  handler.close = () => { if (maintenanceTimer) clearInterval(maintenanceTimer); store.close(); };
+  handler.close = () => { if (maintenanceTimer) clearInterval(maintenanceTimer); voice.close(); store.close(); };
   return handler;
 }
 

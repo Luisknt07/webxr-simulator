@@ -976,7 +976,7 @@ window.onload = async () => {
     dispose() { clearKeyboardState(); if (renderer) renderer.setAnimationLoop(null); if (context.editor && context.editor.simulation) context.editor.simulation.stop(); }
   };
   context.beforeVoicePanelOpen = () => {if (context.studio) {context.studio.close(); if (context.studio.immersiveMenu) context.studio.immersiveMenu.close();} clearKeyboardState(); if (context.vehicleDriving) context.vehicleDriving.resetInput(); if (controls && controls.unlock) controls.unlock();};
-  const framework = createHost({catalog:[workspaceModule,createVoiceModule()],worldId:'world.smarttwin',grants:['domain.industrial-world','platform.voice'],ports:{'domain.industrial-world':world,'platform.voice':voicePort(context)}});
+  const framework = createHost({catalog:[workspaceModule,createVoiceModule()],worldId:'world.smarttwin',grants:['domain.industrial-world','platform.voice'],ports:{'domain.industrial-world':world,'platform.voice':voicePort(context,{backendAvailable:true})}});
   try {
     await framework.activate('sector.logistics-industrial',{functions:['logistics.workspace']});
     await framework.activate('shared.assistance',{functions:['assistant.voice']});

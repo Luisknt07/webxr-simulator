@@ -88,7 +88,7 @@ async function verifyBrowser(fixture, b, password, report) {
   console.log('Voice production QA: public UI and real local Spanish playback');
   const until = (callback, message) => b.until(callback, message, 60000);
   const click = async selector => {
-    const point = await b.call(selector => { const element = document.querySelector(selector); if (!element || element.disabled) throw new Error('Unavailable voice control: ' + selector); element.scrollIntoView({block: 'nearest'}); const rect = element.getBoundingClientRect(); return {x: rect.x + rect.width / 2, y: rect.y + rect.height / 2}; }, selector);
+    const point = await b.call(selector => { const element = document.querySelector(selector); if (!element || element.disabled) throw new Error('Unavailable voice control: ' + selector); const details=element.closest('details');if(details&&!details.open)details.querySelector('summary').click();element.scrollIntoView({block: 'nearest'}); const rect = element.getBoundingClientRect(); return {x: rect.x + rect.width / 2, y: rect.y + rect.height / 2}; }, selector);
     await b.send('Input.dispatchMouseEvent', {type: 'mousePressed', button: 'left', clickCount: 1, ...point});
     await b.send('Input.dispatchMouseEvent', {type: 'mouseReleased', button: 'left', clickCount: 1, ...point});
   };
@@ -199,7 +199,7 @@ async function verifyBrowser(fixture, b, password, report) {
   report.privatePanelLayout = await panelLayout();
   await click('[data-voice-action="next"]');
   report.nativeNext = await b.call(() => ({utterance: __voiceNativeQA.utterances.at(-1), snapshot: __voiceQA.assistant.snapshot(), state: __voiceQA.assistant.state(), count: __voiceNativeQA.utterances.length}));
-  assert.equal(report.nativeNext.utterance.text, report.nativeNext.snapshot.guidance.text); assert.equal(report.nativeNext.state.lastIntent, 'next'); assert.equal(report.nativeNext.utterance.lang, 'es-MX');
+  assert.equal(report.nativeNext.utterance.text, report.nativeNext.snapshot.guidance.spokenText||report.nativeNext.snapshot.guidance.text); assert.equal(report.nativeNext.state.lastIntent, 'next'); assert.equal(report.nativeNext.utterance.lang, 'es-MX');
   await stop();
   await click('[data-voice-action="repeat"]');
   report.repeated = await b.call(() => __voiceNativeQA.utterances.at(-1)); assert.equal(report.repeated.text, report.nativeNext.utterance.text); await stop();
@@ -209,11 +209,11 @@ async function verifyBrowser(fixture, b, password, report) {
     // A real vehicle power interlock produces a new, authoritative instruction;
     // the task, product and warehouse completion state remain untouched.
     e.simulation.vehicleRuntime.command(vehicle, 'powerOff', true); e.vehicleDriving.holographicGuide.update(true); e.vehicleDriving.updateHUD();
-    const changed = a.snapshot(); a.step(.3); const firstNewKey = __voiceNativeQA.utterances.length; a.step(.3); a.step(.3); const after = __voiceNativeQA.utterances.length, utterance = __voiceNativeQA.utterances.at(-1);
+    const changed = a.snapshot();for(let tick=0;tick<12;tick++)a.step(.3);const firstNewKey = __voiceNativeQA.utterances.length;for(let tick=0;tick<12;tick++)a.step(.3);const after = __voiceNativeQA.utterances.length, utterance = __voiceNativeQA.utterances.at(-1);
     a.setAutomatic(false); e.simulation.vehicleRuntime.command(vehicle, 'powerOn', true); e.simulation.vehicleRuntime.command(vehicle, 'start', true); e.simulation.vehicleRuntime.command(vehicle, 'parkingBrake', false); e.vehicleDriving.holographicGuide.update(true); e.vehicleDriving.updateHUD();
     return {before, afterManualKey, firstNewKey, after, changed, utterance};
   });
-  assert.equal(report.automatic.afterManualKey, report.automatic.before); assert.equal(report.automatic.firstNewKey, report.automatic.before + 1); assert.equal(report.automatic.after, report.automatic.firstNewKey); assert.equal(report.automatic.utterance.text, report.automatic.changed.guidance.text); await stop();
+  assert.equal(report.automatic.afterManualKey, report.automatic.before); assert.equal(report.automatic.firstNewKey, report.automatic.before + 1); assert.equal(report.automatic.after, report.automatic.firstNewKey); assert.equal(report.automatic.utterance.text, report.automatic.changed.guidance.spokenText||report.automatic.changed.guidance.text); await stop();
   for (const intent of ['objective', 'controls', 'content']) {
     await click('[data-voice-action="' + intent + '"]');
     const narration = await b.call(intent => ({utterance: __voiceNativeQA.utterances.at(-1), expected: __voiceQA.assistant.snapshot()[intent], intent: __voiceQA.assistant.state().lastIntent}), intent);
@@ -269,7 +269,7 @@ async function verifyBrowser(fixture, b, password, report) {
     } finally { ctx.vrMode = original.mode; xr.isPresenting = original.presenting; xr.getSession = original.getSession; xr.getCamera = original.getCamera; panel.step(.3); }
     return {...result, releases, stateRemoved: !ctx.raycontrol.states[result.stateName], meshReleased: !panel.xrPanel, panelClosed: !ctx.voicePanelOpen, cameraUnchanged: camera.every((value, index) => Math.abs(value - pose(ctx.camera)[index]) < 1e-9) && rig.every((value, index) => Math.abs(value - pose(ctx.camera.parent)[index]) < 1e-9)};
   });
-  assert(report.xr.launcherVisible && report.xr.visible && report.xr.worldSpace && report.xr.stateRegistered && report.xr.suspendedHidden && report.xr.voiceStoppedOnSuspend && report.xr.speakingBeforeSuspend && report.xr.stateRemoved && report.xr.meshReleased && report.xr.panelClosed && report.xr.cameraUnchanged); assert(report.xr.activeSnapshot.immersiveActive); assert.equal(report.xr.countAfter, report.xr.countBefore + 1); assert.equal(report.xr.utterance.text, report.xr.activeSnapshot.guidance.text); assert(report.xr.firstVolume < report.xr.initialVolume); assert.equal(report.xr.firstVolume, report.xr.heldVolume); assert.deepEqual(report.xr.releases, {geometry: 1, material: 1, texture: 1});
+  assert(report.xr.launcherVisible && report.xr.visible && report.xr.worldSpace && report.xr.stateRegistered && report.xr.suspendedHidden && report.xr.voiceStoppedOnSuspend && report.xr.speakingBeforeSuspend && report.xr.stateRemoved && report.xr.meshReleased && report.xr.panelClosed && report.xr.cameraUnchanged); assert(report.xr.activeSnapshot.immersiveActive); assert.equal(report.xr.countAfter, report.xr.countBefore + 1); assert.equal(report.xr.utterance.text, report.xr.activeSnapshot.guidance.spokenText||report.xr.activeSnapshot.guidance.text); assert(report.xr.firstVolume < report.xr.initialVolume); assert.equal(report.xr.firstVolume, report.xr.heldVolume); assert.deepEqual(report.xr.releases, {geometry: 1, material: 1, texture: 1});
   await b.send('Page.removeScriptToEvaluateOnNewDocument', {identifier: native.identifier});
 
   const unsupported = await b.send('Page.addScriptToEvaluateOnNewDocument', {source: '(' + unsupportedSpeechFixture.toString() + ')();'});

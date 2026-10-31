@@ -3,6 +3,9 @@ import {studyScene} from '../scenarios/StudySceneCatalog.js';
 const text = (value, limit = 1000) => typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, limit) : '';
 const join = (...values) => values.map(value => text(value)).filter(Boolean).join(' ').slice(0, 1200);
 const roomIds = ['hall','sound','photogrammetry','vertigo','panoramastereo','panorama1','panorama2','panorama3','panorama4','panorama5'];
+const finite = value => Number.isFinite(value) ? Math.round(value * 100) / 100 : null;
+const compact = (value, limit = 260) => { const line = text(value, limit + 1); if (line.length <= limit) return line; const cut = line.slice(0, limit), boundary = cut.lastIndexOf('. '); return boundary > 80 ? cut.slice(0, boundary + 1) : cut.slice(0, cut.lastIndexOf(' ')).replace(/[,;:]$/, '') + '.'; };
+const immediate = new Set(['unavailable','emergency','blocked','power','start','paused','parking','energy','waiting','towed','obstacle','capacity','slow','raise-to-travel','lower-to-travel','withdraw','stop-to-dock']);
 
 /** A read-only domain adapter. The portable voice service receives plain text,
  * never the document, machine commands, inventory or education callbacks. */
@@ -36,7 +39,7 @@ export function createVoiceSnapshot(ctx = {}, supplied = {}) {
   if (!record && simulation && simulation.records) record = Array.from(simulation.records.values()).find(record => record.components.vehicle && record.components.vehicle.training);
   if (!record && simulation && simulation.records) record = Array.from(simulation.records.values()).find(record => record.components.vehicle);
   const vehicle = record && record.components.vehicle;
-  const lesson = record && simulation.vehicleTraining && simulation.vehicleTraining.guidance(record);
+  const lesson = record && simulation && simulation.vehicleTraining && simulation.vehicleTraining.guidance(record);
   const guide = driving && driving.id === (record && record.id) && driving.holographicGuide && driving.holographicGuide.getState();
   let next = driving && driving.id === (record && record.id) && driving.nextStep;
   // Opening the help panel blocks movement, but that UI gate is not an
@@ -48,6 +51,16 @@ export function createVoiceSnapshot(ctx = {}, supplied = {}) {
   if (vehicle) base.controls = ctx.vrMode
     ? 'Apunta a los botones con el rayo del mando. Usa los controles del montacargas para el volante y las palancas. Abre la cámara, el plano o el holograma desde Visión y ayuda. El botón Voz permite pedir o repetir instrucciones.'
     : 'F para subir o bajar. B enciende, V habilita la marcha y P libera el freno. W y S avanzan o retroceden; A y D giran. Q y E elevan o bajan. G toma la carga y K la deposita. C activa la cámara; Shift más G alterna el holograma. Espacio frena.';
+  if (vehicle) {
+    const matrix = record.object && record.object.matrixWorld && record.object.matrixWorld.elements, position = record.object && record.object.position;
+    base.vehicle = {id: text(record.id, 100), name: text(record.object && record.object.name, 120), driving: !!(driving && driving.id === record.id),
+      powered: vehicle.powered === true, running: vehicle.running === true, parkingBrake: vehicle.parkingBrake === true, emergency: vehicle.emergency === true, blocked: !!vehicle.blocked,
+      speedMps: finite(vehicle.actualSpeed), liftM: finite(vehicle.pose && vehicle.pose.lift) === null ? finite(vehicle.liftHeight) === null ? finite(vehicle.lift) : finite(vehicle.liftHeight) : finite(vehicle.pose.lift), loaded: !!vehicle.entry,
+      batteryPercent: finite(vehicle.batteryPercent), stage: text(next && next.stage, 60), instruction: text(next && next.instruction, 400), control: text(next && next.control, 80),
+      position: matrix ? {x: finite(matrix[12]), y: finite(matrix[13]), z: finite(matrix[14])} : position ? {x: finite(position.x), y: finite(position.y), z: finite(position.z)} : null};
+    base.recommendation = 'Mantén la carga baja durante el recorrido. Aproxímate despacio y detente antes de recoger o depositar.';
+    base.safety = 'Comprueba el pasillo antes de moverte. No gires bruscamente con la carga elevada. Si hay un obstáculo, detén el vehículo y revisa el entorno.';
+  }
   if (lesson) {
     const completed = lesson.phase === 'complete' && lesson.completed === lesson.total && lesson.total > 0;
     const location = lesson.phase === 'pickup' ? lesson.sourceLocationCode : lesson.locationCode;
@@ -64,14 +77,31 @@ export function createVoiceSnapshot(ctx = {}, supplied = {}) {
     }
     const stage = next && next.stage || guide && guide.phase || lesson.stage || lesson.phase;
     const points = lesson.scoreMax > 0 ? 'Puntuación: ' + lesson.score + ' de ' + lesson.scoreMax + ' puntos.' : '';
+    let spokenText;
+    if (completed) spokenText = join('Muy bien. Todas las misiones están verificadas.', points);
+    else if (!driving || !driving.id) spokenText = 'Acércate al montacargas y sube para comenzar. ' + (ctx.vrMode ? 'Usa el botón de acceso del vehículo.' : 'Pulsa F cuando estés cerca.');
+    else if (next && immediate.has(next.stage)) spokenText = join(next.instruction, next.control && 'Control: ' + next.control + '.');
+    else if (lesson.phase === 'error' || lesson.routeFault) spokenText = instruction;
+    else if (lesson.phase === 'withdraw') spokenText = 'Retrocede lentamente hasta retirar las dos horquillas. El simulador confirmará el depósito.';
+    else if (lesson.phase === 'drop' && !lesson.routeComplete) spokenText = join(targetName && 'Lleva la carga a ' + targetName + '.', 'Sigue las flechas del plano y mantén la carga baja.');
+    else spokenText = join(lesson.instruction || next && next.instruction || guide && guide.instruction || lesson.status, targetName && !lesson.instruction && 'Ubicación: ' + targetName + '.');
+    base.mission = {id: text(lesson.taskId, 120), title: text(lesson.title, 260), phase: text(lesson.phase, 40), stage: text(lesson.stage || stage, 60), stageTitle: text(lesson.stageTitle, 140),
+      instruction: text(lesson.instruction || instruction, 400), pickup: {id: text(lesson.sourceId, 100), code: text(lesson.sourceLocationCode, 120)},
+      delivery: {id: text(lesson.destinationId, 100), code: text(lesson.locationCode || (lesson.phase !== 'pickup' && targetName), 120)},
+      completed: finite(lesson.completed), total: finite(lesson.total), score: finite(lesson.score), maximumScore: finite(lesson.scoreMax), completionVerified: completed};
+    base.route = {instruction: lesson.routeFault ? 'Vuelve al último punto válido y sigue las flechas conduciendo.' : completed ? 'Recorrido completado y verificado.' : 'Sigue las flechas del plano hasta el ' + (lesson.phase === 'pickup' ? 'punto de recogida.' : 'punto de entrega.'),
+      target: text(targetName, 120), waypointIndex: finite(lesson.waypointIndex), routeComplete: lesson.routeComplete === true, fault: lesson.routeFault === true,
+      points: (Array.isArray(lesson.route) ? lesson.route : []).slice(0, 16).map(point => ({x: finite(point.x), y: finite(point.y), z: finite(point.z)}))};
+    base.progress = join(lesson.completed + ' de ' + lesson.total + ' misiones verificadas.', lesson.stageTitle, points);
     base.guidance = {key: [record.id, lesson.taskId, lesson.phase, stage, lesson.stage, !!lesson.routeComplete, !!lesson.routeFault].join(':'),
       text: join(lesson.title, targetName && 'Destino o punto de recogida: ' + targetName + '.', lesson.stageTitle, lesson.instruction, instruction, points),
+      spokenText: compact(spokenText),
       critical: !!(vehicle.emergency || vehicle.blocked || lesson.routeFault || lesson.phase === 'error'),
       completed, completionVerified: completed, sampleId: completed ? 'completed' : lesson.phase === 'error' || lesson.routeFault ? 'safety' : lesson.phase === 'withdraw' || lesson.phase === 'drop' && lesson.routeComplete ? 'deposit' : lesson.phase === 'drop' ? 'route' : 'pickup'};
     return base;
   }
   if (vehicle && next) {
-    base.guidance = {key: record.id + ':' + next.stage + ':' + (guide && guide.phase || ''), text: join(next.title, next.instruction, guide && guide.instruction, next.control && 'Control: ' + next.control), critical: !!(vehicle.emergency || vehicle.blocked), sampleId: /emergency|blocked|parking|energy/.test(next.stage) ? 'safety' : vehicle.entry ? 'deposit' : 'pickup', completed: false, completionVerified: false};
+    base.guidance = {key: record.id + ':' + next.stage + ':' + (guide && guide.phase || ''), text: join(next.title, next.instruction, guide && guide.instruction, next.control && 'Control: ' + next.control), spokenText: compact(join(next.instruction, next.control && 'Control: ' + next.control)), critical: !!(vehicle.emergency || vehicle.blocked), sampleId: /emergency|blocked|parking|energy/.test(next.stage) ? 'safety' : vehicle.entry ? 'deposit' : 'pickup', completed: false, completionVerified: false};
     return base;
   }
   const studio = document && document.studio, education = ctx.studio && ctx.studio.education;

@@ -119,8 +119,8 @@ test('voiceschanged selects Spanish voice without overwriting other listeners', 
   assistant.dispose(); assert.equal(synth.listenerCount(), 1);
 });
 
-test('automatic narration dedupes real phases, waits for speech, resets each run and requires verified completion', () => {
-  const env = setup(); const {assistant, synth} = env;
+test('automatic narration dedupes real phases, resets each run and requires verified completion', () => {
+  const env = setup({guidanceInterval: 0.5}); const {assistant, synth} = env;
   assistant.enable(); assistant.step(1); assert.equal(synth.spoken.length, 1);
   synth.end(); env.snapshot.guidance.text = 'Texto cambiado por distancia, misma fase.';
   assistant.step(1); assert.equal(synth.spoken.length, 1);
@@ -164,9 +164,9 @@ test('missing Spanish voices use recordings until voiceschanged publishes a Span
   assistant.dispose();
 });
 
-test('only host-marked critical guidance interrupts speech; normal changes retain only the latest snapshot', () => {
+test('manual answers keep priority over ordinary automatic changes; urgent host guidance interrupts', () => {
   const env = setup(); const {assistant, synth} = env;
-  assistant.enable(); assistant.step(1); assert.equal(synth.spoken.length, 1);
+  assistant.ask('next'); assert.equal(synth.spoken.length, 1);
   env.snapshot.guidance = {key: 'route-1', text: 'Primera instrucción en ruta.'}; assistant.step(1);
   env.snapshot.guidance = {key: 'route-2', text: 'Última instrucción en ruta.'}; assistant.step(1);
   assert.equal(synth.spoken.length, 1); assert.equal(synth.cancelled, 0);
@@ -176,6 +176,121 @@ test('only host-marked critical guidance interrupts speech; normal changes retai
   assert.equal(synth.cancelled, 1); assert.equal(synth.spoken.at(-1).text, 'Detén el vehículo.');
   assistant.step(1); assert.equal(synth.cancelled, 1, 'same urgent phase is announced only once');
   assistant.dispose();
+});
+
+test('automatic guidance cancels obsolete speech, debounces transient changes and speaks only the current short instruction', () => {
+  const env = setup({guidanceInterval: 0.5}); const {assistant, synth} = env;
+  env.snapshot.guidance.spokenText = 'Alinea las dos entradas.';
+  assistant.enable(); assistant.step(.2); assistant.step(.2); assert.equal(synth.spoken.length, 0);
+  assistant.step(.2); assert.equal(synth.spoken.at(-1).text, 'Alinea las dos entradas.');
+  env.snapshot.guidance = {key: 'align-left', text: 'Información lateral larga.', spokenText: 'Gira un poco a la izquierda.'}; assistant.step(.2);
+  assert.equal(synth.cancelled, 1, 'obsolete automatic speech is canceled at the phase boundary');
+  env.snapshot.guidance = {key: 'align-right', text: 'Información derecha.', spokenText: 'Gira a la derecha.'}; assistant.step(.2);
+  env.snapshot.guidance = {key: 'pickup-ready', text: 'Detalle de carga, ruta, objetivo y puntuación.', spokenText: 'Detén el vehículo y pulsa G para tomar la carga.'}; assistant.step(.2); assistant.step(.2); assistant.step(.2);
+  assert.equal(synth.spoken.length, 2); assert.equal(synth.spoken.at(-1).text, 'Detén el vehículo y pulsa G para tomar la carga.');
+  assert(!synth.spoken.some(row => /Gira/.test(row.text)), 'transient intermediate steps never form a narration queue');
+  synth.end(); for (let i = 0; i < 100; i++) assistant.step(.2); assert.equal(synth.spoken.length, 2, 'being stuck on one step does not repeat it');
+  assistant.dispose();
+});
+
+test('automatic voice prefers natural Spanish voices while preserving explicit device selection', () => {
+  const {assistant, synth} = setup();
+  const basic = {voiceURI: 'basic', name: 'Microsoft Sabina', lang: 'es-MX', localService: true};
+  const natural = {voiceURI: 'natural', name: 'Microsoft Dalia Online Natural', lang: 'es-MX', localService: false};
+  synth.voices = [basic, {voiceURI: 'english-natural', name: 'Natural English', lang: 'en-US'}, natural]; synth.dispatch('voiceschanged');
+  assistant.ask('next'); assert.equal(synth.spoken.at(-1).voice, natural);
+  assistant.setVoice('basic'); assistant.ask('next'); assert.equal(synth.spoken.at(-1).voice, basic); assistant.dispose();
+});
+
+test('AI questions receive read-only live context and late answers cannot cross a mission stage or session', async () => {
+  let reply, request;
+  const env = setup({remoteState: () => ({answer: true}), answerQuestion: options => { request = options; return new Promise(resolve => { reply = resolve; }); }});
+  const {assistant, synth} = env;
+  const answer = assistant.ask('¿Por qué no puedo tomar este pallet?'); assert.equal(assistant.state().thinking, true); assert.equal(request.snapshot, env.snapshot);
+  env.snapshot.guidance = {key: 'next-stage', text: 'Nueva etapa.'}; assistant.step(.2); assert.equal(request.signal.aborted, true);
+  reply({text: 'Respuesta anterior que no se debe leer.', source: 'ai'}); assert.equal(await answer, false); assert.equal(synth.spoken.length, 0);
+  const current = assistant.ask('¿Qué significa esta estantería?'); reply({text: 'Es la ubicación de almacenamiento asignada en esta misión.', source: 'ai'});
+  const result = await current; assert.equal(result.source, 'ai'); assert.equal(synth.spoken.at(-1).text, result.text); assert.equal(assistant.state().thinking, false);
+  const pending = assistant.ask('¿Qué producto es este?'); env.snapshot.sessionKey = 'other-account'; assistant.step(.2); assert.equal(request.signal.aborted, true);
+  reply({text: 'No se debe leer.', source: 'ai'}); assert.equal(await pending, false); assistant.dispose();
+});
+
+test('an unavailable AI falls back to honest bounded local help, never inventing success', async () => {
+  const {assistant, synth} = setup({remoteState: () => ({answer: true}), answerQuestion: async () => { throw Error('offline'); }});
+  const result = await assistant.ask('¿Qué me recomiendas para mejorar?');
+  assert.equal(result.source, 'local'); assert.match(result.text, /Avanza despacio/); assert.match(assistant.state().status, /Ayuda del simulador/);
+  assert.equal(synth.spoken.at(-1).text, result.text); assistant.dispose();
+});
+
+test('cloud speech uses the shared context, aborts stale synthesis and falls back to device voice when unavailable', async () => {
+  let resolveAudio, request, sources = 0, stopped = 0;
+  const context = {state: 'running', destination: {}, async decodeAudioData(bytes) { assert(bytes instanceof ArrayBuffer); return {}; }, createGain() { return {gain: {}, connect() {}, disconnect() {}}; }, createBufferSource() { sources++; return {playbackRate: {}, connect() {}, disconnect() {}, start() {}, stop() { stopped++; }}; }};
+  const {assistant, synth} = setup({remoteState: () => ({speech: true}), getAudioContext: () => context, synthesize: options => { request = options; return new Promise(resolve => { resolveAudio = resolve; }); }});
+  assistant.ask('next'); assert.equal(assistant.state().synthesizing, true); assistant.stop(); assert.equal(request.signal.aborted, true);
+  resolveAudio({audio: new ArrayBuffer(20), contentType: 'audio/mpeg'}); await turn(); assert.equal(sources, 0, 'late audio cannot allocate a shared source');
+  assistant.ask('controls'); resolveAudio({audio: new ArrayBuffer(20), contentType: 'audio/mpeg'}); await turn(); assert.equal(sources, 1); assert.equal(assistant.state().synthesizing, false); assert.equal(synth.spoken.length, 0);
+  assistant.stop(); assert.equal(stopped, 1); assistant.options.synthesize = async () => { throw Error('offline'); }; assistant.ask('next'); await turn(); assert.equal(synth.spoken.length, 1, 'same exact text falls back to the device voice'); assistant.dispose();
+});
+
+test('an explicit device voice bypasses configured cloud synthesis', () => {
+  let remoteCalls = 0;
+  const {assistant, synth} = setup({remoteState: () => ({speech: true}), synthesize: async () => { remoteCalls++; return {audio: new ArrayBuffer(4)}; }});
+  assistant.setVoice('es-default'); assistant.ask('next'); assert.equal(remoteCalls, 0); assert.equal(synth.spoken.at(-1).voice.voiceURI, 'es-default'); assistant.dispose();
+});
+
+test('blocked shared audio resume has a bounded device fallback and a late resume cannot play duplicate cloud audio', async () => {
+  let resume, decoded = 0, sources = 0;
+  const pendingResume = new Promise(resolve => { resume = resolve; });
+  const context = {state: 'suspended', resume: () => pendingResume, async decodeAudioData() { decoded++; return {}; }, createBufferSource() { sources++; return {}; }};
+  const {assistant, synth, timers} = setup({remoteState: () => ({speech: true}), getAudioContext: () => context, synthesize: async () => ({audio: new ArrayBuffer(20), contentType: 'audio/mpeg'})});
+  assistant.ask('next'); await turn(); assert.equal(assistant.state().synthesizing, true); assert.equal(timers.size, 1);
+  const timeout = [...timers.values()][0]; timeout(); assert.equal(assistant.state().synthesizing, false); assert.equal(synth.spoken.length, 1); assert.equal(sources, 0);
+  resume(); await turn(); assert.equal(decoded, 0, 'late resume cannot even begin decoding after fallback'); assert.equal(sources, 0); assert.equal(synth.spoken.length, 1); assistant.dispose();
+});
+
+test('slow shared audio decoding has a bounded device fallback and late decode cannot allocate a source', async () => {
+  let decode, sources = 0;
+  const context = {state: 'running', decodeAudioData: () => new Promise(resolve => { decode = resolve; }), createBufferSource() { sources++; return {}; }};
+  const {assistant, synth, timers} = setup({remoteState: () => ({speech: true}), getAudioContext: () => context, synthesize: async () => ({audio: new ArrayBuffer(20), contentType: 'audio/mpeg'})});
+  assistant.ask('next'); await turn(); assert.equal(typeof decode, 'function'); [...timers.values()][0](); assert.equal(synth.spoken.length, 1); assert.equal(assistant.state().synthesizing, false);
+  decode({}); await turn(); assert.equal(sources, 0); assert.equal(synth.spoken.length, 1); assistant.dispose();
+});
+
+test('recorded microphone questions are explicit, bounded, submitted on toggle and release every media track', async () => {
+  let stopped = 0, opened = 0, recording, transcription;
+  class Recorder {
+    static isTypeSupported(type) { return type === 'audio/webm;codecs=opus'; }
+    constructor(stream, options) { this.stream = stream; this.mimeType = options.mimeType; recording = this; this.state = 'inactive'; }
+    start() { this.state = 'recording'; }
+    stop() { this.state = 'inactive'; this.ondataavailable?.({data: new Blob(['consulta'], {type: this.mimeType})}); this.onstop?.(); }
+  }
+  const env = setup({remoteState: () => ({transcription: true}), MediaRecorder: Recorder, getUserMedia: async options => { assert.equal(options.video, false); opened++; return {getTracks: () => [{stop() { stopped++; }}]}; }, transcribe: async options => { transcription = options; return {text: '¿Cuál es el objetivo?'}; }});
+  const {assistant, synth} = env; assistant.enable(); assistant.step(1); assert.equal(opened, 0);
+  assistant.listen(); await turn(); assert.equal(opened, 1); assert.equal(recording.state, 'recording'); assert.equal(assistant.state().listening, true);
+  assistant.listen(); await turn(); assert.equal(stopped, 1); assert.equal(assistant.state().listening, false); assert(transcription.audio instanceof Blob); assert.equal(transcription.mimeType, 'audio/webm;codecs=opus'); assert.equal(synth.spoken.at(-1).text, 'Traslada dos palés.');
+  assistant.listen(); await turn(); assistant.stop(); assert.equal(stopped, 2); assert.equal(recording.ondataavailable, null); assistant.dispose();
+});
+
+test('microphone permission resolving after disposal stops the late stream without starting recording', async () => {
+  let resolvePermission, stopped = 0, recorders = 0;
+  class Recorder { constructor() { recorders++; } }
+  const {assistant} = setup({remoteState: () => ({transcription: true}), MediaRecorder: Recorder, getUserMedia: () => new Promise(resolve => { resolvePermission = resolve; }), transcribe: async () => ({text: ''})});
+  assistant.listen(); assistant.dispose(); resolvePermission({getTracks: () => [{stop() { stopped++; }}]}); await turn(); assert.equal(stopped, 1); assert.equal(recorders, 0);
+});
+
+test('a shared microphone analyser sends after spoken phrase and silence, without a second loop or closing the host context', async () => {
+  let level = 0, submitted = 0, stopped = 0, sourceDisconnected = 0, analyserDisconnected = 0, closed = 0;
+  class Recorder {
+    static isTypeSupported() { return true; }
+    constructor() { this.state = 'inactive'; this.mimeType = 'audio/webm'; }
+    start() { this.state = 'recording'; }
+    stop() { this.state = 'inactive'; this.ondataavailable?.({data: new Blob(['audio'], {type: 'audio/webm'})}); this.onstop?.(); }
+  }
+  const context = {state: 'running', close() { closed++; }, createMediaStreamSource() { return {connect() {}, disconnect() { sourceDisconnected++; }}; }, createAnalyser() { return {getFloatTimeDomainData(samples) { samples.fill(level); }, disconnect() { analyserDisconnected++; }}; }};
+  const {assistant} = setup({remoteState: () => ({transcription: true}), MediaRecorder: Recorder, getAudioContext: () => context, getUserMedia: async () => ({getTracks: () => [{stop() { stopped++; }}]}), transcribe: async () => { submitted++; return {text: 'objetivo'}; }});
+  assistant.listen(); await turn(); assert(assistant.microphoneMeter); for (let i = 0; i < 10; i++) assistant.step(.2); assert.equal(submitted, 0, 'silence without a spoken phrase never submits automatically');
+  level = .08; assistant.step(.2); level = .001; for (let i = 0; i < 4; i++) assistant.step(.2); assert.equal(submitted, 0); assistant.step(.2); await turn();
+  assert.equal(submitted, 1); assert.equal(stopped, 1); assert.equal(sourceDisconnected, 1); assert.equal(analyserDisconnected, 1); assert.equal(assistant.microphoneMeter, null); assert.equal(closed, 0); assistant.dispose(); assert.equal(closed, 0);
 });
 
 test('pause, hidden document, stop and disposal cancel own audio without stale callbacks', () => {

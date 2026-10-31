@@ -43,7 +43,7 @@ function createApplication(options={}){
  if(allowLocal&&!loopback(host))throw Error('HTTP sin TLS sólo se permite con escucha local explícita.');
  if(!options.tls&&!trusted.size&&!allowLocal)throw Error('Configura TLS o un proxy HTTPS confiable; para desarrollo local usa allowInsecureLocal explícito.');
  const publicBuild=artifact(options.publicDir||path.join(ROOT,'artifacts/public-viewer'),true),workspaceBuild=artifact(options.workspaceDir||path.join(ROOT,'artifacts/workspace'),false);
- const api=createApiHandler({dataDir:options.dataDir||path.join(ROOT,'data'),allowBootstrapRegistration:false,requireSecureCookies:!allowLocal,publicSceneId:PUBLIC_SCENE,
+ const api=createApiHandler({dataDir:options.dataDir||path.join(ROOT,'data'),voice:options.voice,voiceFetch:options.voiceFetch,allowBootstrapRegistration:false,requireSecureCookies:!allowLocal,publicSceneId:PUBLIC_SCENE,
    exampleCatalogPath:options.exampleCatalogPath||path.join(ROOT,'projects/smarttwin/scenes/catalog.json'),projectionsDir:options.projectionsDir||path.join(ROOT,'projects/smarttwin/scenes'),maintenanceIntervalMs:options.maintenanceIntervalMs,onError:options.onError});
  const handler=async(req,res)=>{
   res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Cross-Origin-Resource-Policy','same-origin');res.setHeader('Content-Security-Policy',"frame-ancestors 'self'; base-uri 'self'; object-src 'none'");

@@ -44,7 +44,7 @@ function harness() {
   for (const [method, field] of [['setEnabled', 'enabled'], ['setAutomatic', 'automatic'], ['setVoice', 'voiceId'], ['setVolume', 'volume'], ['setRate', 'rate']]) assistant[method] = value => { calls.push([method, value]); emit({[field]: value}); };
   assistant.ask = intent => { calls.push(['ask', intent]); emit({transcript: 'Ayuda: ' + intent}); };
   assistant.playSample = id => { calls.push(['playSample', id]); emit({speaking: true, transcript: 'Grabación ' + id, status: 'Reproduciendo grabación.'}); };
-  assistant.repeat = () => calls.push(['repeat']); assistant.stop = () => { calls.push(['stop']); emit({listening: false, speaking: false, status: 'Detenido.'}); }; assistant.listen = () => { calls.push(['listen']); emit({listening: true, status: 'Escuchando.'}); };
+  assistant.repeat = () => calls.push(['repeat']); assistant.stop = () => { calls.push(['stop']); emit({listening: false, speaking: false, status: 'Detenido.'}); }; assistant.listen = () => { calls.push(['listen']); emit({listening: !state.listening, status: state.listening?'Pregunta enviada.':'Escuchando.'}); };
   const panel = new Panel({assistant, context: ctx, document}); panel.mount(header);
   return {panel, assistant, emit, ctx, document, header, canvases, obstacles, calls, controllers, head, subscribers};
 }
@@ -72,11 +72,13 @@ f.emit({voiceId:'missing-saved-voice',voices:[]});assert.equal(panel.controls.vo
 f.emit({voiceId:'es-1',voices:[{id:'es-1',name:'Voz española',lang:'es-ES'}]});
 for (const intent of ['next', 'objective', 'controls', 'content']) panel.controls[intent].fire('click'); assert.deepEqual(f.calls.filter(call => call[0] === 'ask').map(call => call[1]), ['next', 'objective', 'controls', 'content']);
 assert.equal(panel.caption.textContent, 'Ayuda: content'); panel.controls.repeat.fire('click'); assert.equal(count(f, 'repeat'), 1);
+panel.questionInput.value='¿Dónde llevo este pallet?';panel.questionInput.parentNode.fire('submit');assert.deepEqual(f.calls[f.calls.length-1],['ask','¿Dónde llevo este pallet?']);assert.equal(panel.questionInput.getAttribute('aria-label'),'Pregunta al asistente');
+f.emit({thinking:true,voiceId:'auto',capabilities:{remoteAnswer:true,remoteSpeech:true}});assert.equal(panel.questionSend.disabled,true);assert.equal(panel.controls.stop.disabled,false);assert.match(panel.provider.textContent,/generada por IA/);f.emit({thinking:false,voiceId:'es-1',capabilities:{}});
 panel.controls.sample.value = 'sample-5'; panel.controls.sample.fire('change'); panel.controls.samplePlay.fire('click'); assert.deepEqual(f.calls[f.calls.length - 1], ['playSample', 'sample-5']);
 panel.controls.stop.fire('click'); assert.equal(panel.controls.stop.disabled, true); assert.equal(panel.status.textContent, 'Detenido.');
 panel.controls.mic.fire('click'); assert.equal(panel.controls.mic.getAttribute('aria-pressed'), 'true'); panel.controls.mic.fire('click'); assert.equal(f.assistant.state().listening, false);
 f.emit({speechSupported: false, recognitionSupported: false, error: '', speaking: false, listening: false, status: 'Solo subtítulos disponibles.', transcript: 'Avanza cuando el pasillo esté libre.'});
-assert.equal(panel.controls.voice.disabled, true); assert.equal(panel.controls.mic.disabled, true); assert.match(panel.hint.textContent, /subtítulos/); assert.equal(panel.status.textContent, 'Solo subtítulos disponibles.'); assert.equal(panel.caption.textContent, 'Avanza cuando el pasillo esté libre.'); assert.equal(panel.controls.samplePlay.disabled, false);
+assert.equal(panel.controls.voice.disabled, true); assert.equal(panel.controls.mic.disabled, true); assert.match(panel.hint.textContent, /subtítulos/i); assert.equal(panel.status.textContent, 'Solo subtítulos disponibles.'); assert.equal(panel.caption.textContent, 'Avanza cuando el pasillo esté libre.'); assert.equal(panel.controls.samplePlay.disabled, false);
 f.emit({samples: []}); assert.equal(panel.controls.sample.disabled, true); assert.equal(panel.controls.samplePlay.disabled, true);
 f.obstacles['.vehicle-docking-monitor'] = {hidden: false, getBoundingClientRect: () => ({left: 750, right: 1428, top: 76, bottom: 410, width: 678, height: 334})};
 f.obstacles['.vehicle-guidance-panel'] = {hidden: false, getBoundingClientRect: () => ({left: 12, right: 372, top: 76, bottom: 180, width: 360, height: 104})};

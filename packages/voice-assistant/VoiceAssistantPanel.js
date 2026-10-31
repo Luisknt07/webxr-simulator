@@ -51,6 +51,8 @@ export class VoiceAssistantPanel {
     this.create('span', '', 'Voz', this.launcher); this.launcher.title = 'Abrir asistente de voz';
     this.listen(this.launcher, 'click', event => { event.stopPropagation(); this.toggle(); });
     ['pointerdown', 'pointerup', 'mousedown', 'mouseup'].forEach(type => this.listen(this.launcher, type, event => event.stopPropagation()));
+    this.microphoneLauncher=this.create('button','voice-assistant-microphone-launcher','🎙',this.anchor||container||body);this.microphoneLauncher.type='button';this.microphoneLauncher.setAttribute('aria-label','Preguntar por voz');this.microphoneLauncher.title='Preguntar por voz';this.microphoneLauncher.dataset.voiceMicrophone='';
+    this.listen(this.microphoneLauncher,'click',event=>{event.stopPropagation();this.open();this.invoke(()=>this.assistant.listen());});['pointerdown','pointerup','mousedown','mouseup'].forEach(type=>this.listen(this.microphoneLauncher,type,event=>event.stopPropagation()));
 
     this.element = this.create('section', 'voice-assistant-panel', '', body); this.element.id = this.stateName; this.element.hidden = true;
     this.element.dataset.voiceAssistantPanel = ''; this.element.setAttribute('role', 'dialog'); this.element.setAttribute('aria-labelledby', this.stateName + '-title');
@@ -61,6 +63,9 @@ export class VoiceAssistantPanel {
 
     this.status = this.create('p', 'voice-assistant-status', '', this.element); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
     this.caption = this.create('p', 'voice-assistant-caption', '', this.element); this.caption.setAttribute('aria-live', 'polite'); this.caption.setAttribute('aria-atomic', 'true');
+    this.provider=this.create('p','voice-assistant-provider','Guía local del simulador',this.element);this.provider.setAttribute('role','status');
+    const question=this.create('form','voice-assistant-question','',this.element);this.questionInput=this.create('input','','',question);this.questionInput.type='text';this.questionInput.maxLength=1024;this.questionInput.placeholder='¿Dónde llevo este pallet?';this.questionInput.setAttribute('aria-label','Pregunta al asistente');this.questionInput.autocomplete='off';this.questionInput.enterKeyHint='send';
+    this.questionSend=this.create('button','voice-assistant-button voice-assistant-primary','Preguntar',question);this.questionSend.type='submit';this.listen(question,'submit',event=>{event.preventDefault();event.stopPropagation();const query=this.questionInput.value.trim();if(!query)return;this.invoke(()=>this.assistant.ask(query));});
     const toggles = this.create('div', 'voice-assistant-toggles', '', this.element);
     this.buttonControl('enabled', 'Activar voz', toggles, () => this.assistant.setEnabled(!this.model.enabled), 'voice-assistant-primary');
     const auto = this.create('label', 'voice-assistant-auto', '', toggles), checkbox = this.create('input', '', '', auto); checkbox.type = 'checkbox';
@@ -70,20 +75,21 @@ export class VoiceAssistantPanel {
     const queries = this.create('div', 'voice-assistant-queries', '', this.element); queries.setAttribute('aria-label', 'Consultar ayuda del simulador');
     [['next', 'Siguiente paso'], ['objective', 'Mi objetivo'], ['controls', 'Controles'], ['content', 'Qué estoy viendo']].forEach(([intent, label]) => this.buttonControl(intent, label, queries, () => this.assistant.ask(intent)));
 
-    const settings = this.create('div', 'voice-assistant-settings', '', this.element), voiceLabel = this.create('label', 'voice-assistant-field', '', settings);
-    this.create('span', '', 'Voz del dispositivo', voiceLabel); this.controls.voice = this.create('select', '', '', voiceLabel); this.controls.voice.setAttribute('aria-label', 'Voz del dispositivo');
+    const settingsDisclosure=this.create('details','voice-assistant-settings-disclosure','',this.element);this.create('summary','','Voz y grabaciones de prueba',settingsDisclosure);
+    const settings = this.create('div', 'voice-assistant-settings', '', settingsDisclosure), voiceLabel = this.create('label', 'voice-assistant-field', '', settings);
+    this.create('span', '', 'Voz natural o del dispositivo', voiceLabel); this.controls.voice = this.create('select', '', '', voiceLabel); this.controls.voice.setAttribute('aria-label', 'Voz del dispositivo');
     this.listen(this.controls.voice, 'change', () => this.assistant.setVoice(this.controls.voice.value));
     const ranges = this.create('div', 'voice-assistant-ranges', '', settings);
     this.range('volume', 'Volumen de voz', 0, 1, .05, ranges, value => this.assistant.setVolume(value));
     this.range('rate', 'Velocidad', .6, 1.5, .05, ranges, value => this.assistant.setRate(value));
 
-    const sampleLabel = this.create('label', 'voice-assistant-field', '', this.element); this.create('span', '', 'Probar grabación', sampleLabel);
+    const sampleLabel = this.create('label', 'voice-assistant-field', '', settingsDisclosure); this.create('span', '', 'Probar grabación', sampleLabel);
     const sampleRow = this.create('div', 'voice-assistant-sample', '', sampleLabel); this.controls.sample = this.create('select', '', '', sampleRow); this.controls.sample.setAttribute('aria-label', 'Grabación de prueba');
     this.listen(this.controls.sample, 'change', () => { this.sampleId = this.controls.sample.value; this.dirty = true; });
     this.buttonControl('samplePlay', 'Escuchar', sampleRow, () => this.assistant.playSample(this.sampleId));
     const actions = this.create('div', 'voice-assistant-actions', '', this.element);
     this.buttonControl('repeat', 'Repetir', actions, () => this.assistant.repeat()); this.buttonControl('stop', 'Detener', actions, () => this.assistant.stop());
-    this.buttonControl('mic', 'Micrófono', actions, () => this.model.listening ? this.assistant.stop() : this.assistant.listen());
+    this.buttonControl('mic', 'Micrófono', actions, () => this.assistant.listen());
     this.hint = this.create('p', 'voice-assistant-hint', 'Consulta por voz o usa los botones de ayuda.', this.element);
 
     // Events are contained at the controls. The surrounding world retains its
@@ -118,12 +124,13 @@ export class VoiceAssistantPanel {
     if (!this.element) return;
     const speech = model.speechSupported !== undefined ? model.speechSupported : model.capabilities && model.capabilities.speech;
     const recognition = model.recognitionSupported !== undefined ? model.recognitionSupported : model.capabilities && model.capabilities.recognition;
+    const remote=model.capabilities||{},natural=remote.remoteSpeech&&(!model.voiceId||model.voiceId==='auto');
     this.status.textContent = model.error || model.status || 'Listo para ayudarte.';
-    this.element.dataset.voiceState = model.error ? 'error' : model.listening ? 'listening' : model.speaking ? 'speaking' : model.enabled ? 'ready' : 'off';
+    this.element.dataset.voiceState = model.error ? 'error' : model.listening ? 'listening' : model.thinking||model.synthesizing ? 'thinking' : model.speaking ? 'speaking' : model.enabled ? 'ready' : 'off';
     this.caption.textContent = model.transcript || 'Escucha una indicación o consulta el siguiente paso.';
     this.controls.enabled.textContent = model.enabled ? 'Voz activada' : 'Activar voz'; this.controls.enabled.setAttribute('aria-pressed', String(!!model.enabled));
     this.controls.automatic.checked = !!model.automatic;
-    const voices = [{id: 'auto', label: 'Automática · español'}].concat((model.voices || []).filter(voice => voice.id !== 'auto').map(voice => ({id: voice.id, label: voice.name + (voice.lang ? ' · ' + voice.lang : '')})));
+    const voices = [{id: 'auto', label: remote.remoteSpeech?'Automática · voz natural IA':'Automática · español'}].concat((model.voices || []).filter(voice => voice.id !== 'auto').map(voice => ({id: voice.id, label: voice.name + (voice.lang ? ' · ' + voice.lang : '')})));
     this.options(this.controls.voice, voices, model.voiceId || 'auto', 'voiceSignature'); this.controls.voice.disabled = !speech;
     const volume = number(model.volume, .8), rate = number(model.rate, 1);
     this.controls.volume.value = String(volume); this.controls.volumeValue.textContent = Math.round(volume * 100) + '%';
@@ -131,10 +138,12 @@ export class VoiceAssistantPanel {
     const samples = model.samples || []; if (!samples.some(sample => sample.id === this.sampleId)) this.sampleId = samples[0] && samples[0].id || '';
     this.options(this.controls.sample, samples.length ? samples : [{id: '', label: 'Sin grabaciones disponibles'}], this.sampleId, 'sampleSignature');
     this.controls.sample.disabled = !samples.length; this.controls.samplePlay.disabled = !samples.length;
-    this.controls.repeat.disabled = !model.transcript; this.controls.stop.disabled = !model.speaking && !model.listening;
-    this.controls.mic.disabled = !recognition; this.controls.mic.textContent = model.listening ? 'Cancelar escucha' : 'Micrófono'; this.controls.mic.setAttribute('aria-pressed', String(!!model.listening));
+    this.controls.repeat.disabled = !model.transcript; this.controls.stop.disabled = !model.speaking && !model.listening&&!model.thinking&&!model.synthesizing;
+    this.provider.textContent=remote.remoteAnswer?(natural?'IA conectada · voz generada por IA':'IA conectada · voz del dispositivo'):model.remote&&model.remote.reason==='sign_in'?'Guía local · abre tu espacio e inicia sesión para usar IA':'Guía local · IA y voz natural pendientes de configurar';this.provider.dataset.connected=String(!!remote.remoteAnswer);this.questionSend.disabled=!!model.thinking;this.questionInput.disabled=!!model.thinking;
+    this.microphoneLauncher.disabled=!recognition;this.microphoneLauncher.setAttribute('aria-pressed',String(!!model.listening));this.microphoneLauncher.title=model.listening?'Terminar pregunta':'Preguntar por voz';
+    this.controls.mic.disabled = !recognition; this.controls.mic.textContent = model.listening ? 'Enviar pregunta' : '🎙 Preguntar'; this.controls.mic.setAttribute('aria-pressed', String(!!model.listening));
     this.controls.mic.title = recognition ? 'Haz una pregunta con el micrófono del dispositivo' : 'El dictado no está disponible en este navegador';
-    this.hint.textContent = !speech ? 'Este navegador muestra subtítulos. Puedes probar las grabaciones.' : !recognition ? 'Micrófono no disponible aquí. Usa las consultas rápidas.' : model.listening ? 'Escuchando tu pregunta. Pulsa de nuevo para cancelar.' : 'El micrófono se activa solo cuando lo pulsas.';
+    this.hint.textContent = model.listening?'Escuchando. Pulsa de nuevo para terminar o Detener para cancelar.':!recognition?(!speech?'Subtítulos disponibles. ':'')+'Puedes escribir tu pregunta o usar la ayuda rápida. El micrófono requiere un navegador compatible y permiso.':remote.remoteTranscription?'Pulsa el micrófono y pregunta. La grabación breve se envía al servidor; Detener cancela.':'El micrófono se activa al pulsarlo; el dictado puede usar el servicio del navegador.';
     if (this.isXR() && this.xrPanel) this.opened ? this.paintXR() : this.paintXRLauncher();
   }
 
@@ -145,6 +154,7 @@ export class VoiceAssistantPanel {
     if (this.isXR() && !this.ensureXR()) return false;
     if (this.ctx.beforeVoicePanelOpen) this.ctx.beforeVoicePanelOpen();
     this.opened = true; this.lastXR = this.isXR(); this.ctx.voicePanelOpen = true;
+    this.refresh();
     if (this.ctx.desktopLook) { if (this.ctx.desktopLook.unlock) this.ctx.desktopLook.unlock(); if (this.ctx.desktopLook.reset) this.ctx.desktopLook.reset(); }
     if (this.ctx.editor && this.ctx.editor.hooks && this.ctx.editor.hooks.clearKeyboard) this.ctx.editor.hooks.clearKeyboard();
     this.updateVisibility();
@@ -165,6 +175,7 @@ export class VoiceAssistantPanel {
   updateVisibility() {
     const xr = this.isXR(); if (this.element) this.element.hidden = !this.opened || xr;
     if (this.launcher) { this.launcher.hidden = xr; this.launcher.setAttribute('aria-expanded', String(this.opened)); }
+    if(this.microphoneLauncher)this.microphoneLauncher.hidden=xr;
     if (this.xrPanel) this.xrPanel.visible = xr && !this.xrSuspended;
   }
   placeDesktop() {
@@ -307,8 +318,8 @@ export class VoiceAssistantPanel {
     const voice = (m.voices || []).find(value => value.id === m.voiceId);
     this.xrButton('voice', speech ? 'Voz: ' + short(voice ? voice.name : 'Automática · español', 46) : 'Subtítulos y grabaciones', 40, 777, 816, 54, () => this.cycleVoice(), {disabled: !speech, size: 24});
     this.xrButton('repeat', 'Repetir', 40, 850, 396, 58, () => this.assistant.repeat(), {disabled: !m.transcript});
-    this.xrButton('stop', 'Detener', 460, 850, 396, 58, () => this.assistant.stop(), {disabled: !m.speaking && !m.listening});
-    this.xrButton('mic', m.listening ? 'Cancelar escucha' : recognition ? 'Preguntar con micrófono' : 'Micrófono no disponible · usa las consultas', 40, 928, 816, 58, () => m.listening ? this.assistant.stop() : this.assistant.listen(), {disabled: !recognition, size: 24});
+    this.xrButton('stop', 'Detener', 460, 850, 396, 58, () => this.assistant.stop(), {disabled: !m.speaking && !m.listening&&!m.thinking&&!m.synthesizing});
+    this.xrButton('mic', m.listening ? 'Terminar y enviar pregunta' : recognition ? 'Preguntar con micrófono' : 'Micrófono no disponible · usa las consultas', 40, 928, 816, 58, () => this.assistant.listen(), {disabled: !recognition, size: 24});
     this.xrTexture.needsUpdate = true; this.dirty = false;
   }
 
@@ -337,7 +348,7 @@ export class VoiceAssistantPanel {
     if (this.disposed) return;
     this.close(); this.releaseXRResources(); if (typeof this.unsubscribe === 'function') this.unsubscribe(); this.unsubscribe = null;
     this.listeners.splice(0).forEach(remove => remove());
-    [this.element, this.launcher].forEach(node => { if (node && node.parentNode) node.parentNode.removeChild(node); });
+    [this.element, this.launcher,this.microphoneLauncher].forEach(node => { if (node && node.parentNode) node.parentNode.removeChild(node); });
     this.element = this.launcher = null; this.controls = {}; this.presses.clear(); this.hovers.clear(); this.disposed = true;
   }
 }

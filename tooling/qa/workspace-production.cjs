@@ -21,14 +21,14 @@ function request(origin, route, method = 'GET', data, cookie, expectedUser) {
     }); req.on('error', reject); req.end(bytes || undefined);
   });
 }
-async function startFixture(password) {
+async function startFixture(password, options = {}) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), PREFIX + 'data-')), errors = [];
   const bootstrap = spawnSync(process.execPath, [path.join(ROOT, 'apps/api/admin.cjs'), 'bootstrap', '--data-dir', directory, '--username', 'qa_production_owner', '--display-name', 'QA production owner', '--open-registration'], {cwd: ROOT, input: password, encoding: 'utf8', windowsHide: true});
   if (bootstrap.status !== 0) { cleanup(directory); throw new Error('Local owner bootstrap failed: ' + (bootstrap.stderr || bootstrap.stdout)); }
   const certificate = fs.readFileSync(path.join(ROOT, 'node_modules/webpack-dev-server/ssl/server.pem'));
   let application;
   try {
-    application = createApplication({host: '127.0.0.1', tls: {key: certificate, cert: certificate}, dataDir: directory, maintenanceIntervalMs: 0, onError: error => errors.push(error.stack || String(error))});
+    application = createApplication({host: '127.0.0.1', tls: {key: certificate, cert: certificate}, dataDir: directory, voice:options.voice, voiceFetch:options.voiceFetch, maintenanceIntervalMs: 0, onError: error => errors.push(error.stack || String(error))});
     await new Promise((resolve, reject) => { application.server.once('error', reject); application.server.listen(0, '127.0.0.1', resolve); });
   } catch (error) { if (application) await application.close(); cleanup(directory); throw error; }
   return {application, certificate, errors, origin: 'https://localhost:' + application.server.address().port, async close() { await application.close(); cleanup(directory); }};
