@@ -1,0 +1,34 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const source=fs.readFileSync(path.resolve(__dirname,'../../modules/logistica-industrial/integrations/VoiceContext.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
+const {createVoiceSnapshot}=new Function('studyScene',source+'\nreturn {createVoiceSnapshot};')(()=>({title:'Almacén',objective:'Traslada el pallet exacto.',description:'Tres misiones verificadas.'}));
+const record={id:'truck',components:{vehicle:{entry:null,training:{}}},object:{name:'Montacargas'}},sourceRecord={object:{name:'Rack A01'}},target={object:{name:'SALIDA S01'}};
+const lesson={taskId:'t1',title:'Retira WH-001.',phase:'pickup',sourceId:'rack',sourceLocationCode:'A01-R01-N02',destinationId:'floor',locationCode:'',completed:0,total:3,routeComplete:false,status:'Sigue las flechas.'};
+const simulation={roomId:'hall',runSequence:'run-1',running:true,records:new Map([['truck',record],['rack',sourceRecord],['floor',target]]),vehicleTraining:{guidance:()=>({...lesson})},vehicleRuntime:{getDockingState:()=>({ready:false})}};
+const physical={stage:'parking',instruction:'Libera el freno después de comprobar el pasillo.'};
+const driving={id:'truck',record:()=>record,features:()=>({}),nextStep:{instruction:'UI bloqueada'},controlGuide:{evaluate:options=>{assert.equal(options.blocked,false);return physical;}},holographicGuide:{getState:()=>({phase:'pickup',instruction:'Alinea las dos horquillas.'})}};
+const document={studio:{},getObjects:()=>[],getBehaviors:()=>[]};
+const editor={simulation,vehicleDriving:driving,document,roomId:'hall',currentProject:{id:'p',librarySceneId:'vr-warehouse-missions'}};
+const ctx={editor,voicePanelOpen:true};
+let snapshot=createVoiceSnapshot(ctx);assert(snapshot.guidance.text.includes('A01-R01-N02'));assert(snapshot.guidance.text.includes(physical.instruction));assert(snapshot.guidance.text.includes('Alinea las dos horquillas.'));assert.equal(snapshot.guidance.completed,false);assert.equal(snapshot.paused,false);assert(snapshot.objective.includes('WH-001'));assert(!snapshot.guidance.text.includes('UI bloqueada'));
+const key=snapshot.guidance.key;snapshot=createVoiceSnapshot(ctx);assert.equal(snapshot.guidance.key,key,'A read cannot advance or renumber a mission.');assert.equal(lesson.phase,'pickup');assert.equal(record.components.vehicle.entry,null);
+lesson.phase='drop';snapshot=createVoiceSnapshot(ctx);assert(snapshot.guidance.text.includes('SALIDA S01'));assert.equal(snapshot.guidance.completed,false);
+lesson.phase='withdraw';snapshot=createVoiceSnapshot(ctx);assert(snapshot.guidance.text.includes('después de liberar'));assert.equal(snapshot.guidance.completionVerified,false);
+lesson.phase='complete';lesson.completed=2;snapshot=createVoiceSnapshot(ctx);assert.equal(snapshot.guidance.completionVerified,false,'A phase alone cannot invent total progress.');
+lesson.completed=3;snapshot=createVoiceSnapshot(ctx);assert.equal(snapshot.guidance.completed,true);assert.equal(snapshot.guidance.completionVerified,true);assert.equal(snapshot.guidance.sampleId,'completed');
+const session=snapshot.sessionKey;simulation.runSequence='run-2';assert.notEqual(createVoiceSnapshot(ctx).sessionKey,session);editor.simulationPaused=true;assert.equal(createVoiceSnapshot(ctx).paused,true);
+editor.simulationPaused=false;
+Object.assign(lesson,{phase:'withdraw',stage:'withdraw',stageTitle:'Retira las horquillas',instruction:'Retrocede lentamente hasta liberar el pallet.',completed:1,score:130,scoreMax:495,feedback:{id:4,kind:'error',points:-10,score:130}});
+record.components.vehicle.training={index:1,completed:['t1'],phase:'withdraw',scoring:{score:130,earned:140,deducted:10,errorCount:2,rewardKeys:['t1:pickup','t1:route','t1:complete']}};
+const authoritative=JSON.stringify({lesson,training:record.components.vehicle.training});
+for(let index=0;index<30;index++){
+  const scored=createVoiceSnapshot(ctx);assert(scored.guidance.text.includes('Puntuación: 130 de 495 puntos.'));assert(scored.guidance.text.includes(lesson.stageTitle));assert(scored.guidance.text.includes(lesson.instruction));assert.equal(scored.guidance.completed,false);assert.equal(scored.guidance.completionVerified,false);assert.equal(scored.guidance.sampleId,'deposit');
+}
+assert.equal(JSON.stringify({lesson,training:record.components.vehicle.training}),authoritative,'Reading score and stage cannot award points, consume rewards or advance authoritative training.');
+const scoreKey=createVoiceSnapshot(ctx).guidance.key;lesson.score=125;snapshot=createVoiceSnapshot(ctx);assert(snapshot.guidance.text.includes('Puntuación: 125 de 495 puntos.'));assert(!snapshot.guidance.text.includes('130 de 495'));assert.equal(snapshot.guidance.key,scoreKey,'A changed score updates spoken text without advancing the stage.');
+lesson.stage='complete';lesson.score=495;lesson.completed=2;snapshot=createVoiceSnapshot(ctx);assert.equal(snapshot.guidance.completed,false);assert.equal(snapshot.guidance.completionVerified,false);assert.notEqual(snapshot.guidance.sampleId,'completed','A perfect score and claimed stage cannot replace verified withdrawal and total mission count.');
+lesson.phase='complete';snapshot=createVoiceSnapshot(ctx);assert.equal(snapshot.guidance.completionVerified,false,'A perfect score and terminal phase still require every mission.');
+lesson.completed=3;lesson.score=430;snapshot=createVoiceSnapshot(ctx);assert.equal(snapshot.guidance.completed,true);assert.equal(snapshot.guidance.completionVerified,true);assert(snapshot.guidance.text.includes('Puntuación: 430 de 495 puntos.'),'Confirmed completion speaks the actual earned score, including errors.');
+editor.simulationPaused=false;editor.selected={name:'Cartel',userData:{editorId:'sign'}};document.getBehaviors=()=>[{type:'info',title:'Práctica',text:'Lee el contenido propio de este proyecto.'}];assert(createVoiceSnapshot(ctx).content.includes('contenido propio'));
+const blank=createVoiceSnapshot({},{document:{roomId:'hall',studio:{},getObjects:()=>[]}});assert(blank.guidance.text&&blank.controls&&!blank.guidance.completionVerified);
+console.log('Voice context: read-only exact mission/source/destination/score/stage, current spoken points, physical help under UI gate, verified completion, session identity and authored content passed.');

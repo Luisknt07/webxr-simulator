@@ -297,7 +297,8 @@ export default class ImmersiveStudioMenu {
   paintSettings() {
     const audio = this.editor.industrialAudio, volume = audio ? audio.volume : .7;
     this.text('Sonido del dispositivo', 46, 190, 32); this.text('Volumen ' + Math.round(volume * 100) + '%', 46, 244, 28, C.dim);
-    this.button('mute', audio && audio.muted ? 'Activar sonido' : 'Silenciar sonido', 46, 275, 932, 66, () => this.run(async () => { if (audio) { audio.setMuted(!audio.muted); if (!audio.muted && audio.activate) await audio.activate(); } this.dirty = true; }));
+    this.button('mute', audio && audio.muted ? 'Activar sonido' : 'Silenciar sonido', 46, 275, this.ctx.voicePanel ? 445 : 932, 66, () => this.run(async () => { if (audio) { audio.setMuted(!audio.muted); if (!audio.muted && audio.activate) await audio.activate(); } this.dirty = true; }));
+    if (this.ctx.voicePanel) this.button('voice-assistant', 'Voz e instrucciones', 514, 275, 464, 66, () => {this.close(); this.ctx.voicePanel.open();}, {size: 25});
     this.button('volume-down', '− Volumen', 46, 365, 445, 66, () => { if (audio) audio.setVolume(Math.max(0, volume - .1)); this.dirty = true; });
     this.button('volume-up', '+ Volumen', 514, 365, 464, 66, () => { if (audio) audio.setVolume(Math.min(1, volume + .1)); this.dirty = true; });
     this.text('Controles en realidad virtual', 46, 505, 32);

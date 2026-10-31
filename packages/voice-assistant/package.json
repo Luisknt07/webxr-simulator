@@ -1,0 +1,8 @@
+{
+  "name": "@smarttwin/voice-assistant",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {".": "./index.js", "./service": "./VoiceAssistant.js", "./module": "./module.js", "./panel": "./VoiceAssistantPanel.js", "./style.css": "./voice-assistant.css"},
+  "sideEffects": ["./voice-assistant.css"],
+  "scripts": {"test": "node --test tests/*.test.mjs"}
+}

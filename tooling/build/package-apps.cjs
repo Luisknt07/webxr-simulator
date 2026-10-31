@@ -7,7 +7,7 @@ const {spawnSync} = require('node:child_process');
 const ROOT = path.resolve(__dirname, '../..');
 const FORMAT = 'smarttwin.publication', PUBLIC_SCENE = 'vr-robot-dispatch';
 const PROFILES = ['public-viewer', 'core-empty', 'workspace'];
-const ASSET_ROOTS = ['modules/turismo/assets', 'modules/logistica-industrial/assets', 'packages/tools/ai/assets', 'packages/tools/editor/assets', 'projects/smarttwin/branding', 'projects/smarttwin/scenes', 'projects/smarttwin/previews'];
+const ASSET_ROOTS = ['modules/turismo/assets', 'modules/logistica-industrial/assets', 'packages/tools/ai/assets', 'packages/tools/editor/assets', 'packages/voice-assistant/assets', 'projects/smarttwin/branding', 'projects/smarttwin/scenes', 'projects/smarttwin/previews'];
 const VENDOR_FILES = ['basis_transcoder.js', 'basis_transcoder.wasm', 'draco_decoder.js', 'draco_wasm_wrapper.js', 'draco_decoder.wasm'].map(file => 'packages/render-three/vendor/' + file);
 const ASSET_CODE = new Set(['packages/tools/ai/assets/native-texture-ai-worker.js', 'packages/tools/ai/assets/onnxruntime-1.30.0/ort.wasm.min.js', 'packages/tools/ai/assets/onnxruntime-1.30.0/ort-wasm-simd-threaded.mjs']);
 const COMPILED = {'public-viewer': ['viewer.js'], 'core-empty': ['core-empty.js'], workspace: ['bundle.js', 'mesh-optimizer-worker.js', 'collision-worker.js', 'cad-worker.js']};
@@ -73,6 +73,10 @@ function makePlan(root, application, compilation) {
   let scenes = [];
   if (application === 'public-viewer') {
     add('viewer.css', 'apps/public-viewer/viewer.css'); add('config.js', 'apps/public-viewer/config.js');
+    add('packages/voice-assistant/voice-assistant.css','packages/voice-assistant/voice-assistant.css');
+    for (const id of ['welcome','pickup','route','deposit','completed','safety']) {
+      const file='packages/voice-assistant/assets/'+id+'.wav'; add(file,file);
+    }
     add('cover.jpg', 'modules/turismo/assets/smart-twin-cover.jpg');
     const previewPath = 'projects/smarttwin/previews/' + PUBLIC_SCENE + '.png';
     add(previewPath, previewPath);

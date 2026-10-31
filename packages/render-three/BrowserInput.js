@@ -79,7 +79,7 @@ export default class BrowserInput {
     const drag = this.drag; this.drag = null;
     if (drag && this.canvas.hasPointerCapture && this.canvas.hasPointerCapture(drag.id)) this.canvas.releasePointerCapture(drag.id);
   }
-  lookAllowed() {return !this.disposed && !this.ctx.vrMode && !this.ctx.publicDialogOpen && !this.ctx.studioMenuOpen;}
+  lookAllowed() {return !this.disposed && !this.ctx.vrMode && !this.ctx.publicDialogOpen && !this.ctx.studioMenuOpen && !this.ctx.voicePanelOpen;}
   disablePointerLock() {this.pointerLockUnavailable = true; this.clearDrag(); this.lockPress = null;}
   lockLook() {
     if (!this.lookAllowed() || this.pointerLockUnavailable || this.canvas.isConnected === false) return;
@@ -98,7 +98,7 @@ export default class BrowserInput {
     this.ctx.camera.quaternion.setFromEuler(this.euler);
   }
   select() {
-    if (this.ctx.vrMode || this.options.canInteract && !this.options.canInteract()) return;
+    if (this.ctx.vrMode || this.ctx.voicePanelOpen || this.options.canInteract && !this.options.canInteract()) return;
     this.ctx.scene.updateMatrixWorld(true); this.ray.execute(this.ctx, 0, 0);
     this.ray.onSelectStart({target: this.desktop}); this.ray.onSelectEnd({target: this.desktop});
   }
@@ -123,7 +123,7 @@ export default class BrowserInput {
     if (this.options.onReset) this.options.onReset();
   }
   xrChanged(active) {this.reset(); this.ctx.desktopControllerData.enabled = !active; if (active) this.ctx.desktopLook.unlock();}
-  walkAllowed() {return !this.options.canWalk || this.options.canWalk();}
+  walkAllowed() {return !this.ctx.voicePanelOpen && (!this.options.canWalk || this.options.canWalk());}
   step(delta, frame) {
     const ctx = this.ctx, session = ctx.renderer.xr.getSession();
     if (ctx.vrMode && session) {

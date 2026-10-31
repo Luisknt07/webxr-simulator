@@ -439,7 +439,7 @@ export default class RayControl extends EventDispatcher {
     return entries;
   }
 
-  allowedState(state) { return Boolean(state && (!(this.ctx && this.ctx.vrMode && this.ctx.studioMenuOpen) || state.xrMenu === true)); }
+  allowedState(state) { return Boolean(state && (!(this.ctx && this.ctx.vrMode && this.ctx.voicePanelOpen) || state.voiceAssistantPanel === true) && (!(this.ctx && this.ctx.vrMode && this.ctx.studioMenuOpen) || state.xrMenu === true)); }
 
   getIntersections( controller, colliderMesh ) {
     let raycasterContext = controller.getObjectByName('raycasterContext');

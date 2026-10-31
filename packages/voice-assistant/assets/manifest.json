@@ -1,0 +1,82 @@
+{
+    "version":  1,
+    "language":  "es-MX",
+    "voice":  "Microsoft Sabina Desktop",
+    "format":  {
+                   "container":  "wav",
+                   "encoding":  "PCM",
+                   "sampleRate":  22050,
+                   "channels":  1,
+                   "bitsPerSample":  16
+               },
+    "generatedWith":  "Windows System.Speech.Synthesis (installed desktop voice; offline)",
+    "purpose":  "Bounded local Spanish speech fixtures for SmartTwin voice-assistant testing",
+    "samples":  [
+                    {
+                        "id":  "welcome",
+                        "title":  "Bienvenida",
+                        "text":  "Hola. Soy el asistente de SmartTwin. Puedo leer las instrucciones y ayudarte con tus misiones.",
+                        "file":  "welcome.wav",
+                        "duration":  7.982993,
+                        "sha256":  "19b1252d82181bf4f64f5dc1bed7d0d550839cb9dee64016705163ec9db74dfd",
+                        "bytes":  352096,
+                        "language":  "es-MX",
+                        "voice":  "Microsoft Sabina Desktop"
+                    },
+                    {
+                        "id":  "pickup",
+                        "title":  "Recoger pallet",
+                        "text":  "Introduce ambas horquillas en los huecos del pallet. Comprueba la altura y avanza despacio.",
+                        "file":  "pickup.wav",
+                        "duration":  6.438095,
+                        "sha256":  "5a5a46b216b9b22172fb868417dd7bda952ee7b9b6dbee9d2b00580382fa1fea",
+                        "bytes":  283966,
+                        "language":  "es-MX",
+                        "voice":  "Microsoft Sabina Desktop"
+                    },
+                    {
+                        "id":  "route",
+                        "title":  "Transportar carga",
+                        "text":  "Sigue las flechas del pasillo hasta el destino indicado. Transporta la carga a baja altura.",
+                        "file":  "route.wav",
+                        "duration":  6.578322,
+                        "sha256":  "66e06ba87b4eab169636c1754771953a8c21a2c958adeb12e130dce6f01a52b0",
+                        "bytes":  290150,
+                        "language":  "es-MX",
+                        "voice":  "Microsoft Sabina Desktop"
+                    },
+                    {
+                        "id":  "deposit",
+                        "title":  "Depositar pallet",
+                        "text":  "Alinea el pallet con la ubicación marcada. Baja hasta confirmar el apoyo y retira ambas horquillas.",
+                        "file":  "deposit.wav",
+                        "duration":  7.062902,
+                        "sha256":  "8e2b6ebe8d2b639ebc30fbe9d9d69cd4a6ec2c708d93a1cde2236f19f2945e6c",
+                        "bytes":  311520,
+                        "language":  "es-MX",
+                        "voice":  "Microsoft Sabina Desktop"
+                    },
+                    {
+                        "id":  "completed",
+                        "title":  "Misión completada",
+                        "text":  "Misión completada. La carga está confirmada en su ubicación.",
+                        "file":  "completed.wav",
+                        "duration":  5.173605,
+                        "sha256":  "0f238f8f791bea20640a529a40a509273bc4a6b0f381bb266b0124ef0cedd07b",
+                        "bytes":  228202,
+                        "language":  "es-MX",
+                        "voice":  "Microsoft Sabina Desktop"
+                    },
+                    {
+                        "id":  "safety",
+                        "title":  "Comprobación de seguridad",
+                        "text":  "Detén el montacargas y comprueba que el pasillo esté libre antes de continuar.",
+                        "file":  "safety.wav",
+                        "duration":  5.053333,
+                        "sha256":  "b6465fca1bd370a5d35007a88f4d2dab3e9fee6afc0e8311733472fa7f617d9b",
+                        "bytes":  222898,
+                        "language":  "es-MX",
+                        "voice":  "Microsoft Sabina Desktop"
+                    }
+                ]
+}

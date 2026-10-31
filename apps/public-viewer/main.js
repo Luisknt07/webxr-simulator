@@ -6,6 +6,8 @@ import {demoModule, DEMO_MODULE_ID, DEMO_FUNCTION_ID} from './DemoRuntime.js';
 import {mountGallery} from './Gallery.js';
 import {createWelcomeNavigation} from './WelcomeNavigation.mjs';
 import createIndustrialEnvironment from './IndustrialEnvironment.js';
+import {createVoiceModule} from '../../packages/voice-assistant/index.js';
+import {voicePort} from '../../modules/logistica-industrial/integrations/VoiceAssistantBridge.js';
 
 const byId = id => document.getElementById(id);
 const configuration = window.SMARTTWIN_PUBLIC_VIEWER_CONFIG || {};
@@ -91,9 +93,11 @@ async function start() {
     // project loader or a URL-selectable project gallery.
     if (!snapshot.project || snapshot.project.id !== VIEWER_WORLD_ID) throw new Error('Este archivo no es la demostración pública autorizada.');
     documentModel = new SelectedSceneDocument(snapshot, scene); lighting = createIndustrialEnvironment(scene, documentModel, ctx);
-    host = createHost({catalog: createLocalCatalog([demoModule]), worldId: VIEWER_WORLD_ID,
-      grants: ['platform.scene', 'platform.document'], ports: {'platform.scene': ctx, 'platform.document': documentModel}});
+    ctx.beforeVoicePanelOpen = () => {closeMenu(); ctx.publicDialogOpen = false; input.reset(); ctx.desktopLook.unlock(); if (ctx.demo) ctx.demo.driving.resetInput();};
+    host = createHost({catalog: createLocalCatalog([demoModule,createVoiceModule()]), worldId: VIEWER_WORLD_ID,
+      grants: ['platform.scene', 'platform.document','platform.voice'], ports: {'platform.scene': ctx, 'platform.document': documentModel,'platform.voice':voicePort(ctx,{getDocument:()=>documentModel,getProject:()=>snapshot.project})}});
     await host.activate(DEMO_MODULE_ID, {functions: [DEMO_FUNCTION_ID]});
+    await host.activate('shared.assistance', {functions:['assistant.voice']});
     if (stopped) {await host.dispose({force: true}); return;}
     pose(ctx, 'walk');
     browser.mountXR(byId('xr-action'), {className: 'viewer-xr-button', spawn: [4, 0, 8],
@@ -129,7 +133,7 @@ async function start() {
     window.smartTwinViewer = Object.freeze({
       getStats: () => ({app: 'public-viewer', sceneId: 'vr-robot-dispatch', frameCount: browser.stats().frames, primaryRenders: browser.stats().primaryRenders, contextLost: browser.stats().contextLost,
         render: {...renderer.info.render}, memory: {...renderer.info.memory}, graphics: graphics.getStats(), simulation: ctx.demo.stats(),
-        activeFunctions: [DEMO_FUNCTION_ID], requestsAPI: configuration.backendAvailable === true, immersive: ctx.vrMode}),
+        activeFunctions: [DEMO_FUNCTION_ID,'assistant.voice'], requestsAPI: configuration.backendAvailable === true, immersive: ctx.vrMode}),
       dispose,
       // Explicit QA facade: no editor or networking object is constructed.
       context: ctx, host, document: documentModel, THREE

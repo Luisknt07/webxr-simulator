@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import {createHost} from '../../../packages/core/index.js';
 import {workspaceModule} from '../../../modules/logistica-industrial/application/workspace.js';
+import {createVoiceModule} from '../../../packages/voice-assistant/index.js';
+import {voicePort} from '../../../modules/logistica-industrial/integrations/VoiceAssistantBridge.js';
 import SmoothPointerLockControls from '../../../packages/render-three/src/SmoothPointerLockControls.js';
 import AdaptiveGraphics from '../../../packages/render-three/src/AdaptiveGraphics.js';
 import PreparedMaterialTextures from '../../../packages/render-three/src/PreparedMaterialTextures.js';
@@ -581,7 +583,7 @@ export function init() {
 }
 
 function onKeyDown(event) {
-  if (context.editor && context.editor.active || context.drivingVehicle) return;
+  if (context.voicePanelOpen || context.editor && context.editor.active || context.drivingVehicle) return;
   const target = event.target;
   if (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || '')) {
     return;
@@ -640,6 +642,7 @@ function setupDesktopPointer() {
 }
 
 function onDesktopCanvasClick(event) {
+  if (context.voicePanelOpen) return;
   // Selecting the operator zone can mount a truck during mousedown. Keep the
   // cursor that mount just released so this same click cannot hide its HUD.
   // A later canvas press made from inside the cockpit can capture look again.
@@ -648,6 +651,7 @@ function onDesktopCanvasClick(event) {
 }
 
 function onDesktopSelectStart(event) {
+  if (context.voicePanelOpen) return;
   desktopVehicleAtMouseDown = context.drivingVehicle || null;
   if (context.vrMode || (context.editor && context.editor.active) || !desktopControllerData) return;
   if (event.button === 2) {
@@ -904,6 +908,8 @@ function animate(time, frame) {
     if (context.studio) context.studio.tick();
     if (context.editor && context.editor.entities) context.editor.entities.tick(delta);
     if (context.editor && context.editor.conveyorViewer) context.editor.conveyorViewer.tick(delta);
+    if (context.frameworkHost) context.frameworkHost.step(delta);
+    if (context.voicePanelOpen) clearKeyboardState();
     if (context.editor && context.editor.active && !context.vrMode) {
       context.editor.render(delta);
       return;
@@ -956,9 +962,11 @@ window.onload = async () => {
     capture() { return context.studio ? context.studio.captureExecution() : null; },
     dispose() { clearKeyboardState(); if (renderer) renderer.setAnimationLoop(null); if (context.editor && context.editor.simulation) context.editor.simulation.stop(); }
   };
-  const framework = createHost({catalog:[workspaceModule],worldId:'world.smarttwin',grants:['domain.industrial-world'],ports:{'domain.industrial-world':world}});
+  context.beforeVoicePanelOpen = () => {if (context.studio) {context.studio.close(); if (context.studio.immersiveMenu) context.studio.immersiveMenu.close();} clearKeyboardState(); if (context.vehicleDriving) context.vehicleDriving.resetInput(); if (controls && controls.unlock) controls.unlock();};
+  const framework = createHost({catalog:[workspaceModule,createVoiceModule()],worldId:'world.smarttwin',grants:['domain.industrial-world','platform.voice'],ports:{'domain.industrial-world':world,'platform.voice':voicePort(context)}});
   try {
     await framework.activate('sector.logistics-industrial',{functions:['logistics.workspace']});
+    await framework.activate('shared.assistance',{functions:['assistant.voice']});
     context.frameworkHost=framework;
     window.addEventListener('pagehide',()=>{framework.dispose({force:true}).catch(()=>{});},{once:true});
   } catch (error) { await framework.dispose({force:true}).catch(()=>{}); window.webxrStartup.fail(error); }

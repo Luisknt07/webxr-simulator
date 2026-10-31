@@ -90,7 +90,8 @@ export default class IndustrialAudioSystem {
   _save() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({volume: this.volume, muted: this.muted})); } catch (_) { /* Nonessential local setting. */ } }
   setVolume(value) { this.volume = clamp(Number(value)); this._save(); this._master(); if (this.onChange) this.onChange(); }
   setMuted(value) { this.muted = !!value; this._save(); this._master(); if (this.muted) { this._disarmUnlock(); this._silence(); } else if (!this.activated) { this._armUnlock(); this._autoActivate(); } if (this.onChange) this.onChange(); }
-  _master() { if (this.master) setParam(this.master.gain, this.activated && !this.muted && !this.hidden() ? this.volume * .55 : 0, this.context.currentTime); }
+  setNarrationDucking(active) { this.narrationDucking = !!active; this._master(); }
+  _master() { if (this.master) setParam(this.master.gain, this.activated && !this.muted && !this.hidden() ? this.volume * .55 * (this.narrationDucking ? .32 : 1) : 0, this.context.currentTime); }
 
   start(roomId) {
     this.stop(); this.roomId = String(roomId); this.running = true;
