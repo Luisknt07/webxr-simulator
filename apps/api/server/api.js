@@ -41,8 +41,11 @@ function readBody(req, maximum, limitMessage = 'El proyecto supera el límite de
     });
     req.on('end', () => {
       if (rejected) return;
-      try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
-      catch (_) { reject(new ApiError(400, 'El cuerpo de la solicitud debe ser JSON válido.')); }
+      try {
+        const value = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        if (req.studioWriteGuard) req.studioWriteGuard();
+        resolve(value);
+      } catch (error) { reject(error instanceof ApiError ? error : new ApiError(400, 'El cuerpo de la solicitud debe ser JSON válido.')); }
     });
     req.on('error', () => reject(new ApiError(400, 'No se pudo recibir el proyecto.')));
     req.on('aborted', () => reject(new ApiError(400, 'La solicitud se interrumpió.')));
@@ -145,7 +148,19 @@ function createApiHandler(options = {}) {
     try {
       if (studio.requireSecureCookies && !(req.socket && req.socket.encrypted) && req.studioSecure !== true) throw new ApiError(426, 'La API requiere HTTPS.', 'https_required');
       const assetUpload = parts[0] === 'assets' && parts.length === 1 && req.method === 'POST';
-      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) verifyWrite(req, assetUpload);
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+        verifyWrite(req, assetUpload);
+        const initial = studio.user(req, false);
+        // Body reads and streamed uploads yield to logout/role changes. Bind
+        // their later commits to the account and authority that began them.
+        if (initial) req.studioWriteGuard = () => {
+          const current = studio.user(req);
+          studio._expectedUser(req, current);
+          if (current.id !== initial.id) throw new ApiError(409, 'La cuenta cambió durante la solicitud.', 'session_changed');
+          if (initial.role === 'creator' && current.role !== 'creator') throw new ApiError(403, 'Tu cuenta ya no tiene permiso para editar.', 'editor_forbidden');
+          return current;
+        };
+      }
       if (await studio.frameworkProjects.handle(req, res, pathname)) return;
       if (await studio.handle(req, res, pathname)) return;
       const actor = studio.user(req, false), access = studio.access;
@@ -181,7 +196,7 @@ function createApiHandler(options = {}) {
         else if (parts.length === 3 && parts[2] === 'revisions' && req.method === 'GET') { access.require(actor, id); json(res, 200, {revisions: store.listRevisions(id)}); }
         else if (parts.length === 3 && parts[2] === 'runs' && req.method === 'GET') { access.require(actor, id); json(res, 200, {runs: store.listSimulationRuns(id)}); }
         else if (parts.length === 3 && parts[2] === 'runs' && req.method === 'POST') {
-          access.require(actor, id, 'edit'); const data = await readBody(req, Math.min(maximum, MAX_TELEMETRY_BYTES), 'La analítica supera el límite de 16 MiB por ejecución.'); access.checkQuota(access.owner(id) || actor.id, Buffer.byteLength(JSON.stringify(data)));
+          access.require(actor, id, 'edit'); const data = await readBody(req, Math.min(maximum, MAX_TELEMETRY_BYTES), 'La analítica supera el límite de 16 MiB por ejecución.'); access.require(actor, id, 'edit'); access.checkQuota(access.owner(id) || actor.id, Buffer.byteLength(JSON.stringify(data)));
           json(res, 201, {run: store.saveSimulationRun(id, data)});
         } else if (parts.length === 4 && parts[2] === 'runs' && /^[a-zA-Z0-9-]{1,100}$/.test(parts[3]) && req.method === 'GET') {
           access.require(actor, id); json(res, 200, {run: store.getSimulationRun(id, parts[3])});

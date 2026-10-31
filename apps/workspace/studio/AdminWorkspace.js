@@ -173,7 +173,7 @@ export default class AdminWorkspace {
       } catch (error) { if (this.isScope(scope) && token === this.detailGeneration) reportHost.textContent = error.message; }
       finally { if (this.isScope(scope) && token === this.detailGeneration) load.disabled = false; }
     }));
-    el('p', 'Las cuentas normales sin actividad durante más de 30 días pierden sus archivos según la política automática. La cuenta administradora y los proyectos protegidos se conservan.', card, 'studio-muted studio-admin-retention');
+    el('p', 'La limpieza por más de 30 días de inactividad se aplica a proyectos y recursos del editor, con período de gracia y protección de la cuenta administradora y los proyectos protegidos. Los proyectos del framework modular no se eliminan automáticamente.', card, 'studio-muted studio-admin-retention');
   }
   async codesView(body) {
     el('h2', 'Registro con códigos', body); const groups = (await this.request('GET', '/groups')).groups;

@@ -27,7 +27,7 @@ export function cloneData(value, options = {}) {
       if (!property || !Object.hasOwn(property, 'value')) fail('invalid_data', 'Data accessors are not allowed.');
       output[key] = visit(property.value, depth + 1);
     }
-    if (Array.isArray(input) && output.length !== input.length) fail('invalid_data', 'Sparse arrays are not allowed.');
+    if (Array.isArray(input) && (output.length !== input.length || Object.keys(output).length !== input.length)) fail('invalid_data', 'Sparse arrays are not allowed.');
     seen.delete(input); return output;
   };
   return visit(value, 0);

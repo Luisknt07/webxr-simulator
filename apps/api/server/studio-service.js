@@ -502,7 +502,14 @@ class StudioService {
         const context = this._room(room.id, user);
         send(200, {room: this._roomResult(context.room, context.member)});
       } else if (parts.length >= 2 && parts[0] === 'rooms') {
-        const context = this._room(parts[1], user), room = context.room, member = context.member;
+        let {room, member} = this._room(parts[1], user);
+        const roomBody = async limit => {
+          const data = await body(limit), current = this.user(req);
+          this._expectedUser(req, current);
+          if (current.id !== user.id) fail(409, 'La cuenta cambió durante la solicitud.', 'session_changed');
+          ({room, member} = this._room(parts[1], current));
+          return data;
+        };
         if (parts.length === 2 && method === 'GET') {
           const cursor = url.searchParams.get('after') || '0';
           if (!/^\d{1,16}$/.test(cursor)) fail(400, 'Cursor inválido.');
@@ -510,23 +517,30 @@ class StudioService {
           if (after > room.next_sequence - 1) fail(409, 'El cursor de la sala se reinició. Recupera su estado.', 'room_cursor_invalid');
           send(200, {room: this._roomResult(room, member, after)});
         } else if (parts.length === 3 && parts[2] === 'pose' && method === 'POST') {
-          const data = await body(4096);
+          const data = await roomBody(4096);
           this.db.prepare('UPDATE studio_members SET pose=?,seen_at=? WHERE room_id=? AND user_id=?').run(JSON.stringify(pose(data)), this.now(), room.id, user.id);
           send(200, {ok: true});
         } else if (parts.length === 3 && parts[2] === 'state' && method === 'PUT') {
-          if (member.role !== 'host') fail(403, 'Solo el anfitrión puede guardar el estado compartido.', 'host_required');
-          const data = await body(MAX_STATE_BYTES + 16384);
-          if (integer(data.expectedRevision) !== room.revision) fail(409, 'El estado compartido cambió; vuelve a consultarlo.', 'room_revision_conflict');
-          const appliedSequence = integer(data.appliedSequence, room.state_sequence, room.next_sequence - 1);
+          const data = await roomBody(MAX_STATE_BYTES + 16384);
           const state = object(data.state);
-          this.access.checkQuota(user.id, Buffer.byteLength(state) - Buffer.byteLength(room.state) + 1024);
-          this.db.prepare('UPDATE studio_rooms SET state=?,state_sequence=?,revision=revision+1 WHERE id=? AND revision=?').run(state, appliedSequence, room.id, room.revision);
-          const sequence = this._event(room.id, user.id, 'state', {revision: room.revision + 1});
+          this.db.exec('BEGIN IMMEDIATE');
+          let sequence;
+          try {
+            ({room, member} = this._room(parts[1], user));
+            if (member.role !== 'host') fail(403, 'Solo el anfitrión puede guardar el estado compartido.', 'host_required');
+            if (integer(data.expectedRevision) !== room.revision) fail(409, 'El estado compartido cambió; vuelve a consultarlo.', 'room_revision_conflict');
+            const appliedSequence = integer(data.appliedSequence, room.state_sequence, room.next_sequence - 1);
+            this.access.checkQuota(user.id, Buffer.byteLength(state) - Buffer.byteLength(room.state) + 1024);
+            const updated = this.db.prepare('UPDATE studio_rooms SET state=?,state_sequence=?,revision=revision+1 WHERE id=? AND revision=?').run(state, appliedSequence, room.id, room.revision);
+            if (updated.changes !== 1) fail(409, 'El estado compartido cambió; vuelve a consultarlo.', 'room_revision_conflict');
+            sequence = this._event(room.id, user.id, 'state', {revision: room.revision + 1});
+            this.db.exec('COMMIT');
+          } catch (error) { this.db.exec('ROLLBACK'); throw error; }
           send(200, {revision: room.revision + 1, sequence});
         } else if (parts.length === 3 && parts[2] === 'action' && method === 'POST') {
-          if (member.role === 'observer') fail(403, 'Los observadores no manipulan objetos.', 'observer_readonly');
           this._limit(req, 'room-action-' + user.id, 240, 10000);
-          const data = await body(16384);
+          const data = await roomBody(16384);
+          if (member.role === 'observer') fail(403, 'Los observadores no manipulan objetos.', 'observer_readonly');
           this.access.checkQuota(room.host_id, Buffer.byteLength(JSON.stringify(data)) + 1024);
           if (!['control', 'grab', 'release', 'pose-object', 'simulation'].includes(data.type)) fail(400, 'Acción de sala no compatible.');
           const payload = {type: data.type};

@@ -1,6 +1,6 @@
 import {defineFunction} from '../../../../packages/module-sdk/index.js';
 import {cloneData, fail} from '../../../../packages/contracts/index.js';
-import {assessmentManifest} from '../../manifest.js';
+import {assessmentManifest} from './manifest.js';
 import {validateAssessment, validateSubmission} from './schema.js';
 import {authorizeAssessmentEdit} from './server.js';
 import {migrateAssessmentState} from './migrations.js';

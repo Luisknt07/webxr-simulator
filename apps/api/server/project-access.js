@@ -119,7 +119,8 @@ class ProjectAccess {
   }
   metadata(user, project) {
     const role = this.role(user, project.id);
-    return Object.assign({}, project, {access: {role, ownerId: this.owner(project.id), canEdit: ['admin','owner','editor'].includes(role), canShare: ['admin','owner'].includes(role)}});
+    const editor = !!user && user.role === 'creator';
+    return Object.assign({}, project, {access: {role, ownerId: this.owner(project.id), canEdit: editor && ['admin','owner','editor'].includes(role), canShare: editor && ['admin','owner'].includes(role)}});
   }
   list(user) { if (!user) fail(401, 'Inicia sesión para ver tus proyectos.', 'authentication_required'); return this.store.listProjects().filter(project => this.canRead(user, project.id)).map(project => this.metadata(user, project)); }
   get(user, projectId, revision) { this.require(user, projectId); return this.metadata(user, this.store.getProject(projectId, revision)); }
@@ -209,6 +210,7 @@ class ProjectAccess {
     let asset;
     try {
       asset = await this.store.receiveAsset(req);
+      if (req.studioWriteGuard) req.studioWriteGuard();
       this.db.exec('BEGIN IMMEDIATE');
       try { this.grantAsset(user.id, asset.sha256); this.checkQuota(user.id); this.db.exec('COMMIT'); }
       catch (error) { this.db.exec('ROLLBACK'); throw error; }

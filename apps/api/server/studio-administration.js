@@ -112,6 +112,7 @@ class StudioAdministration {
       const groupId = data.groupId ? text(data.groupId, 200) : null;
       if (groupId && !this.db.prepare('SELECT 1 FROM studio_class_groups WHERE id=?').get(groupId)) fail(404, 'El grupo no existe.', 'not_found');
       const accessCode = randomBytes(15).toString('base64url'), salt = randomBytes(32).toString('hex'), passwordHash = (await derive(accessCode, salt)).toString('hex'), userId = randomUUID();
+      if (req.studioWriteGuard) req.studioWriteGuard();
       this.db.exec('BEGIN IMMEDIATE');
       try {
         if (this.db.prepare('SELECT 1 FROM studio_users WHERE username=?').get(username)) fail(409, 'Este usuario ya existe.', 'username_unavailable');

@@ -66,6 +66,8 @@ Cada alumno consulta sus grupos, prácticas y evaluaciones propias. El superadmi
 
 La política examina las cuentas normales con más de 30 días sin actividad y cuyo período de gracia también haya terminado. La revisión automática se programa para el futuro, cada hora; iniciar el servidor no ejecuta una purga inmediata.
 
+Su alcance actual son los proyectos y recursos del editor SmartTwin. Los proyectos genéricos creados mediante la API del framework modular no se incluyen en esta limpieza automática, aunque sí cuentan para las cuotas de almacenamiento. Esta distinción no cambia la política ni elimina datos adicionales.
+
 Se protegen:
 
 - La cuenta superadministradora y los proyectos anteriores sin propietario.
@@ -73,7 +75,7 @@ Se protegen:
 - Los propietarios cuyos proyectos tienen colaboradores activos dentro del período de 30 días.
 - Las salas con otros participantes activos; su anfitrión no se limpia mientras se usan.
 
-Para una cuenta elegible se eliminan sus proyectos y revisiones, archivos propios que dejan de estar referenciados, progreso, sesiones guardadas y salas alojadas inactivas. También se revocan sus sesiones de acceso. Se conserva la cuenta, su pertenencia a grupos y las evaluaciones docentes. Una práctica que apuntaba a un proyecto eliminado conserva sus instrucciones y notas, con la referencia de proyecto vacía.
+Para una cuenta elegible se eliminan sus proyectos del editor y sus revisiones, archivos propios que dejan de estar referenciados, progreso, sesiones guardadas y salas alojadas inactivas. También se revocan sus sesiones de acceso. Se conserva la cuenta, su pertenencia a grupos y las evaluaciones docentes. Una práctica que apuntaba a un proyecto eliminado conserva sus instrucciones y notas, con la referencia de proyecto vacía.
 
 Un binario todavía referenciado por otro proyecto o perfil no se elimina del almacén global. La limpieza valida que las rutas pertenezcan al espacio de usuarios antes de quitar carpetas. Existe un modo de inspección `maintenance({dryRun:true})` que informa candidatos sin borrar datos y un registro de las limpiezas efectuadas. Las pruebas usan exclusivamente bases temporales.
 

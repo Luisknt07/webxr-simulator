@@ -68,6 +68,25 @@ test('copy CLI copies actual schema/runtime/UI/server/tests under a new namespac
   }
 });
 
+test('a copied Education function runs from its own manifest and keeps commands and state in the new namespace', async () => {
+  const folder = 'assessment-copy-' + randomUUID(); let receipt, host;
+  try {
+    receipt = await copyFunction({functionId: 'education.assessment', sector: 'agricultura', folder, id: 'agriculture.assessment-copy'});
+    const copyDescriptor = (await import(pathToFileURL(receipt.descriptor).href)).default;
+    const copyModule = defineModule({id: 'sector.copied-assessment', version: '1.0.0', functions: [copyDescriptor]});
+    host = createHost({catalog: [copyModule]}); await host.activate(copyModule.id);
+    await host.dispatch('agriculture.assessment-copy:configure', {id: 'harvest-safety', questions: [{id: 'q1', answer: true, weight: 1}]});
+    const result = await host.dispatch('agriculture.assessment-copy:submit', {assessmentId: 'harvest-safety', learnerId: 'learner-1', answers: {q1: true}});
+    assert.equal(result.score, 1);
+    assert.deepEqual(host.status().functions.map(entry => entry.id), ['agriculture.assessment-copy']);
+    assert.deepEqual(host.exportState().functions.map(entry => entry.id), ['agriculture.assessment-copy']);
+    await assert.rejects(host.dispatch('education.assessment:report', {assessmentId: 'harvest-safety'}), {code: 'inactive_command'});
+  } finally {
+    if (host) await host.dispose({force: true});
+    if (receipt) { const base = await realpath(fileURLToPath(new URL('../../modules/agricultura/functions/', import.meta.url))), destination = await realpath(receipt.destination), relative = path.relative(base, destination); assert.equal(path.dirname(relative), '.'); assert.equal(path.basename(destination), folder); await rm(destination, {recursive: true}); }
+  }
+});
+
 test('approved project compositions boot and perform real sector operations', async () => {
   const agriculture = await runSectorExample('agricultura'); assert.equal(agriculture.result[0].locationId, 'cold-room'); assert.equal(agriculture.result[0].quantity, 12); assert.equal(agriculture.status.modules.length, 1); assert.equal(agriculture.status.modules[0].id, 'sector.agriculture');
   const tourism = await runSectorExample('turismo'); assert.equal(tourism.result.completed, true); assert.equal(tourism.status.functions.length, 1);

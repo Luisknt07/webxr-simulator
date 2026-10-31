@@ -4,6 +4,22 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), path = re
 const {DatabaseSync} = require('node:sqlite'), schema = require('../../modules/logistica-industrial/contracts/behaviors'), {validateDocument} = require('../../apps/api/server/validation');
 const migration = require('../../tooling/maintenance/upgrade-industrial-equipment-presentation'), floorMigration = require('../../tooling/maintenance/upgrade-industrial-floor'), publication = require('../../tooling/maintenance/publish-study-projects'), presentation = require('../../tooling/maintenance/upgrade-industrial-presentation');
 const clone = value => JSON.parse(JSON.stringify(value)), hash = presentation.hash, identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+function sourceFingerprintGuards() {
+  const root = __layout.root, sources = migration.sourceState();
+  assert.deepEqual(migration.sourceState(), sources, 'The same canonical sources produce a stable review fingerprint.');
+  assert(sources.files.every(row => !/^(?:shared|src)\//.test(row.file)));
+  for (const file of ['modules/logistica-industrial/contracts/behaviors.js', 'modules/logistica-industrial/functions/bandas/schema/conveyors.js', 'modules/logistica-industrial/functions/robots/schema/package.json', 'packages/render-three/schema/materials.js', 'packages/project-model/shared/studio-document.js']) assert(sources.files.some(row => row.file === file), 'Missing canonical source guard: ' + file);
+  const temporary = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'smarttwin-equipment-sources-')));
+  try {
+    for (const row of sources.files) { const output = path.join(temporary, row.file); fs.mkdirSync(path.dirname(output), {recursive: true}); fs.copyFileSync(path.join(root, row.file), output); assert.equal(row.hash, publication.bytesHash(fs.readFileSync(output))); }
+    assert.deepEqual(migration.sourceState({root: temporary}), sources);
+    const changed = path.join(temporary, 'modules/logistica-industrial/functions/bandas/schema/conveyors.js'); fs.appendFileSync(changed, '\n// Source review regression fixture.\n');
+    assert.notEqual(migration.sourceState({root: temporary}).hash, sources.hash, 'A changed module schema invalidates reviewed candidates.');
+    const missing = path.join(temporary, 'packages/render-three/schema'); fs.renameSync(missing, path.join(temporary, 'packages/render-three/schema-missing'));
+    assert.throws(() => migration.sourceState({root: temporary}), {code: 'ENOENT'}, 'A missing schema directory must fail instead of weakening source checks.');
+  } finally { assert.equal(path.dirname(temporary), fs.realpathSync(os.tmpdir())); assert(path.basename(temporary).startsWith('smarttwin-equipment-sources-')); fs.rmSync(temporary, {recursive: true, force: true}); }
+  console.log('Equipment migration source guards: canonical module/package paths, stable hashes, schema mutation detection and strict missing-input rejection passed.');
+}
 async function fixtureGuards() {
   const cpu = migration.loadCPU(), empty = {rooms: Object.fromEntries(schema.studio.ROOM_IDS.map(id => [id, {overrides: [], additions: []}]))}, workspace = migration.nativeRoots(empty), document = new cpu.SceneDocument({scene: workspace.scene}); Object.entries(workspace.roots).forEach(([id, root]) => document.registerRoom(id, root));
   const roomId = 'sound', add = (name, color, position, scale) => { const object = document.addPrimitive(roomId, 'box', color); document.setProperty(object, 'name', name); document.setTransform(object, {position, scale}); return object; };
@@ -64,4 +80,5 @@ async function sqliteCopies() {
     console.log('Temporary SQLite: atomic Lab16→17/studies3→4, preserved original and complete history, no-write repeat, exports only on apply and third-project rollback passed.');
   } finally { assert.equal(path.dirname(__layout.map(path.resolve(temporary))), __layout.map(path.resolve(os.tmpdir()))); fs.rmSync(temporary, {recursive: true, force: true}); }
 }
+sourceFingerprintGuards();
 fixtureGuards().then(() => process.argv.includes('--fixtures-only') ? undefined : sqliteCopies()).catch(error => { console.error(error); process.exitCode = 1; });

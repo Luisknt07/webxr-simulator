@@ -147,6 +147,17 @@ test('JSON boundaries reject accessors, prototype pollution, nonfinite values an
   assert.throws(() => cloneData({x: Infinity}), {code: 'invalid_data'}); assert.throws(() => cloneData({x() {}}), {code: 'invalid_data'}); const array = [1]; array.extra = 2; assert.throws(() => cloneData(array), {code: 'invalid_data'}); assert.throws(() => cloneData(new Array(2)), {code: 'invalid_data'});
 });
 
+test('JSON data rejects leading, interior and trailing array holes before they can serialize as null', () => {
+  for (const index of [0, 1, 2]) {
+    const values = [1, 2, 3]; delete values[index];
+    assert.throws(() => cloneData({values}), {code: 'invalid_data'}, `Missing array item ${index} must be rejected.`);
+    assert.equal(Object.hasOwn(values, index), false, 'Validation must not fill a missing item.');
+  }
+  const dense = {values: [null, 2, null]};
+  assert.deepEqual(cloneData(dense), dense);
+  assert.equal(JSON.stringify(cloneData(dense)), JSON.stringify(dense));
+});
+
 test('a failed new consumer start restores its existing provider to the previous paused state', async () => {
   const events = []; let running = false;
   const provider = fn('shared.provider', () => {}, {start() { running = true; }, pause() { running = false; events.push('pause'); }, resume() { running = true; events.push('resume'); }});

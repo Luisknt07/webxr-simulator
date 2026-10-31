@@ -270,6 +270,7 @@ class ProjectStore {
       }
       await handle.close();
       handle = null;
+      if (req.studioWriteGuard) req.studioWriteGuard();
       const digest = hash.digest('hex'); req.committedNewAsset = !this.sql.asset.get(digest);
       return this._commitAsset(temporary, digest, mime, bytes);
     } catch (error) {

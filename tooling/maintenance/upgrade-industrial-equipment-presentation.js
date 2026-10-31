@@ -6,16 +6,32 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), path = re
 const {DatabaseSync, backup} = require('node:sqlite');
 const schema = require('../../modules/logistica-industrial/contracts/behaviors'), materials = require('../../packages/render-three/schema/materials'), {validateDocument} = require('../../apps/api/server/validation');
 const publication = require('./publish-study-projects'), presentation = require('./upgrade-industrial-presentation'), floorMigration = require('./upgrade-industrial-floor');
-const ROOT = __layout.map(path.resolve(__layout.oldDir("scripts/upgrade-industrial-equipment-presentation.js"), '..')), clone = value => JSON.parse(JSON.stringify(value)), hash = presentation.hash;
+const ROOT = __layout.root, clone = value => JSON.parse(JSON.stringify(value)), hash = presentation.hash;
 const TARGETS = presentation.TARGETS.map((target, index) => Object.assign({}, target, {baseRevision: [16, 3, 3][index], nextRevision: [17, 4, 4][index], baseHash: ['124a4b3e0ab275fdb9144b76474c0e84dba5635b951a59f03a179c1c999c4060', 'f83c66aeece14c0b11397d75623bb93ef0902551567119646486e619cb734fe6', '316371e58946a39c6259b702cc32ab87c821a2dd66221600393283c2fc1f3983'][index], candidateFile: 'equipment-' + target.key + '-candidate.json'}));
 const MACHINE_TYPES = ['source', 'conveyor', 'processor', 'palletQueue'], FINISH_TYPES = ['surfaceMaterial', 'surfaceWear'];
 const INFO_FIELDS = ['presentation', 'revealDistance', 'fadeDistance', 'fadeTime', 'gazeAngle', 'width'];
 const BOARD_NAMES = /^(?:(?:\d{2} · )?Rótulo ·|Guía ·|Guía de red ·|Etiqueta de destino ·|CEDI · guía del proceso)/;
 const MONITOR_NAMES = /^(?:\d{2} · )?(?:Monitor 2D · |Monitor · |Supervisión CEDI · )/;
 const LEGACY_NAMES = /^(?:\d{2} · )?(?:Soporte de monitor · .+|Base de monitor · .+|Pedestal del monitor(?: CEDI)?|Base del monitor CEDI)$/;
-const sourceFiles = ["modules/logistica-industrial/functions/presentacion/runtime/IndustrialMessages.js", "modules/logistica-industrial/functions/presentacion/runtime/IndustrialAgingPresentation.js", "modules/logistica-industrial/functions/presentacion/runtime/IndustrialFinishes.js", "modules/logistica-industrial/functions/presentacion/runtime/IndustrialMonitorLayout.js", "modules/logistica-industrial/functions/presentacion/runtime/IndustrialFloorPresentation.js", "modules/logistica-industrial/functions/presentacion/runtime/IndustrialPrefabs.js", "packages/project-model/src/SceneDocument.js", "tests/support/load-industrial-aging.js", "tests/support/load-industrial-monitor-layout.js", "tests/support/load-industrial-floor.js", "tooling/maintenance/upgrade-industrial-equipment-presentation.js"].concat(fs.readdirSync(__layout.map(path.join(ROOT, 'shared'))).filter(file => file.endsWith('.js')).map(file => 'shared/' + file));
-function sourceState() { const files = sourceFiles.map(file => ({file, hash: publication.bytesHash(fs.readFileSync(__layout.map(path.join(ROOT, file))))})); return {files, hash: publication.hash(files)}; }
-function readSource(file) { return fs.readFileSync(__layout.map(path.join(ROOT, 'src/editor', file)), 'utf8').replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, ''); }
+const PRESENTATION_RUNTIME = 'modules/logistica-industrial/functions/presentacion/runtime/';
+const sourceFiles = ['IndustrialMessages.js', 'IndustrialAgingPresentation.js', 'IndustrialFinishes.js', 'IndustrialMonitorLayout.js', 'IndustrialFloorPresentation.js', 'IndustrialPrefabs.js'].map(file => PRESENTATION_RUNTIME + file).concat([
+  'packages/project-model/src/SceneDocument.js', 'projects/smarttwin/public-scenes.js',
+  'tests/support/load-industrial-aging.js', 'tests/support/load-industrial-monitor-layout.js', 'tests/support/load-industrial-floor.js',
+  'tooling/layout.cjs', 'tooling/layout-map.json', 'tooling/maintenance/publish-study-projects.js', 'tooling/maintenance/upgrade-industrial-presentation.js',
+  'tooling/maintenance/upgrade-industrial-floor.js', 'tooling/maintenance/upgrade-industrial-equipment-presentation.js'
+]);
+// The former shared schemas now live with their owning function or package.
+// Enumerate those real directories on every snapshot, including module-type
+// boundaries, so additions and missing inputs cannot evade the review guard.
+const sourceDirectories = ['modules/logistica-industrial/contracts', ...['almacenamiento', 'bandas', 'flujo-materiales', 'montacargas', 'presentacion', 'procesamiento', 'robots'].map(folder => 'modules/logistica-industrial/functions/' + folder + '/schema'),
+  'packages/project-model/shared', 'packages/render-three/schema', 'packages/tools/cad/schema'];
+function sourceState({root = ROOT} = {}) {
+  const names = new Set(sourceFiles);
+  for (const directory of sourceDirectories) for (const file of fs.readdirSync(path.join(root, directory))) if (file.endsWith('.js') || file === 'package.json') names.add(directory + '/' + file);
+  const files = [...names].sort().map(file => ({file, hash: publication.bytesHash(fs.readFileSync(path.join(root, file)))}));
+  return {files, hash: publication.hash(files)};
+}
+function readSource(file) { return fs.readFileSync(path.join(ROOT, PRESENTATION_RUNTIME, file), 'utf8').replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, ''); }
 function loadCPU() {
   const base = floorMigration.loadCPU(), aging = require('../../tests/support/load-industrial-aging')(THREE), monitor = require('../../tests/support/load-industrial-monitor-layout')(THREE, schema);
   const applyIndustrialMessages = new Function('schema', readSource('IndustrialMessages.js') + '\nreturn applyIndustrialMessages;')(schema);

@@ -8,7 +8,7 @@ const {harness, releaseGeometry} = new Function('require', '__dirname', linesFil
 const code = file => fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-industrial-cedi-environment.js"), '../src', file)), 'utf8').replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
 const build = new Function('THREE', 'schema', code('editor/IndustrialCediEnvironment.js') + '\nreturn buildCediEnvironment;')(THREE, schema);
 const SurfaceMaterials = new Function('THREE', 'materialSchema', code('editor/SurfaceMaterialSystem.js').replace('default class SurfaceMaterialSystem', 'return class SurfaceMaterialSystem'))(THREE, materials);
-const Environment = new Function('THREE', 'schema', code('studio/SceneEnvironment.js').replace('default class SceneEnvironment', 'return class SceneEnvironment'))(THREE, schema.studio);
+const Environment = new Function('THREE', 'schema', 'industrialLighting', 'industrialSurfaces', code('studio/SceneEnvironment.js').replace('default class SceneEnvironment', 'return class SceneEnvironment'))(THREE, schema.studio, require('../../packages/render-three/schema/industrial-lighting.js'), require('../../packages/render-three/schema/industrial-surfaces.js'));
 const Entities = new Function('THREE', 'SceneEnvironment', code('studio/SceneEntities.js').replace('default class SceneEntities', 'return class SceneEntities'))(THREE, Environment);
 async function run() {
   const f = harness.setup(), camera = f.document.addPrimitive('hall', 'box');

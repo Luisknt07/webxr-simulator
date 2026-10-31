@@ -9,10 +9,12 @@ import {buildProject, selectedAssetPlan, validateCompilationClosure} from '../..
 import {panelModel} from '../../apps/project-viewer/models.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
-test('real browser builds include only Agriculture harvest+storage or Tourism routes', () => {
+test('real browser builds include only each sector selection and its declared dependencies', () => {
   for (const [sector, expected, prefixes] of [
     ['agricultura',['agriculture.harvest','logistics.storage'],['modules/agricultura/functions/cosecha/','modules/logistica-industrial/functions/almacenamiento/']],
-    ['turismo',['tourism.routes'],['modules/turismo/functions/recorridos/']]
+    ['turismo',['tourism.routes'],['modules/turismo/functions/recorridos/']],
+    ['educacion',['education.assessment'],['modules/educacion/functions/evaluacion/']],
+    ['alimentos',['food.traceability','logistics.storage'],['modules/alimentos/functions/trazabilidad/','modules/logistica-industrial/functions/almacenamiento/']]
   ]) {
     const result = buildProject({root, projectPath: `projects/${sector}/project.json`, name: 'proof-' + sector});
     assert.deepEqual(result.functions.sort(), expected.sort());
