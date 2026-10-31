@@ -98,7 +98,21 @@ export function validateProject(input) {
   const data = cloneData(input);
   if (!plain(data) || data.format !== PROJECT_FORMAT || data.version !== 1 || typeof data.worldId !== 'string' || !data.worldId || data.worldId.length > 180 || !Array.isArray(data.entities) || !Array.isArray(data.modules)) fail('invalid_project', 'Invalid project envelope.');
   const modules = new Set(), entities = new Set();
-  data.modules.forEach(item => { if (!plain(item)) fail('invalid_project', 'Invalid module reference.'); identifier(item.id); version(item.version); if (modules.has(item.id)) fail('duplicate_id', 'Duplicate project module.'); modules.add(item.id); });
+  data.modules.forEach(item => {
+    if (!plain(item)) fail('invalid_project', 'Invalid module reference.'); identifier(item.id); version(item.version);
+    if (item.enabled !== undefined && typeof item.enabled !== 'boolean' || item.optional !== undefined && typeof item.optional !== 'boolean') fail('invalid_project', 'Module flags must be boolean.');
+    if (modules.has(item.id)) fail('duplicate_id', 'Duplicate project module.'); modules.add(item.id);
+    if (item.functions !== undefined) {
+      if (!Array.isArray(item.functions) || item.functions.length > 512) fail('invalid_selection', 'Project functions must be an array.');
+      const functions = new Set();
+      item.functions.forEach(reference => {
+        const id = typeof reference === 'string' ? reference : plain(reference) && reference.id;
+        identifier(id);
+        if (functions.has(id)) fail('duplicate_id', 'Duplicate project function.'); functions.add(id);
+        if (plain(reference) && (reference.enabled !== undefined && typeof reference.enabled !== 'boolean' || reference.optional !== undefined && typeof reference.optional !== 'boolean')) fail('invalid_project', 'Function flags must be boolean.');
+      });
+    }
+  });
   data.entities.forEach(entity => {
     if (!plain(entity) || typeof entity.id !== 'string' || !entity.id || entity.id.length > 240 || entities.has(entity.id) || !Array.isArray(entity.components)) fail('invalid_project', 'Invalid or duplicate entity.');
     entities.add(entity.id); const types = new Set();

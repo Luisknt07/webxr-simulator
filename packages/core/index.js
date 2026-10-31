@@ -1,5 +1,7 @@
 export {createHost} from './host.js';
 export {createLocalCatalog} from './catalog.js';
+export {resolveProjectSelection} from './project-selection.js';
+export {createProjectSession} from './project-session.js';
 import {createHost} from './host.js';
 import {fail} from '../contracts/index.js';
 import {createLocalCatalog} from './catalog.js';
