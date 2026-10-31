@@ -3,7 +3,7 @@
   "version": 1,
   "application": "workspace",
   "revision": "45068bf03122e36ce2b79589fa9b926601df7e76",
-  "bundleSha256": "be677a2c31c5a09ffb3f8d64534816cc39d52721f16022d1c92e1343f7c1ea00",
+  "bundleSha256": "cd703cffb668594959e828b277c251208d3b96de27831fc98482140ea21cebc3",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -43,8 +43,24 @@
   ],
   "files": [
     {
-      "path": "1.bundle.js",
-      "sha256": "4dcbfc16bdaad0613bd6c83b07b640f1f1d10e3267fced3b8c89069f681fe8e1"
+      "path": "0.bundle.js",
+      "sha256": "66e59f5f65b46e548aea729c1f2f1d5eb837a8e1d78ac3e2645bddfccfb9f710"
+    },
+    {
+      "path": "2.bundle.js",
+      "sha256": "97e63ed193e0012880c2eb8bfaeb1426e9ab940fe4522998f57b525b27f2986c"
+    },
+    {
+      "path": "3.bundle.js",
+      "sha256": "8a3efa94261250a1520c3577907c1cb105f2c6e7a672050d274de5cc01af621f"
+    },
+    {
+      "path": "4.bundle.js",
+      "sha256": "abd45af96632f93a9a64ff2e63d8f6615733217a77bc728382a2da6e5fa1b347"
+    },
+    {
+      "path": "5.bundle.js",
+      "sha256": "027c54009ac13670609ee4bfd2e59f7a8a16d81a310edaea72bf597315375eb5"
     },
     {
       "path": "apps/workspace/studio/admin-workspace.css",
@@ -56,7 +72,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "be677a2c31c5a09ffb3f8d64534816cc39d52721f16022d1c92e1343f7c1ea00"
+      "sha256": "cd703cffb668594959e828b277c251208d3b96de27831fc98482140ea21cebc3"
     },
     {
       "path": "cad-worker.js",
@@ -68,7 +84,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "d3c90532094c255e06e033b85dff200c523d708792fadaf393bf75bed0653d97"
+      "sha256": "c1ca7d48ec27270f4bd45ba4e7936783162e5b66d6e378c9983a678adf74662d"
     },
     {
       "path": "mesh-optimizer-worker.js",
@@ -975,6 +991,10 @@
       "sha256": "5c34739ac2d2b2ece38b51bdbc623565ed8576af9761f1a466f6b4d97ef7337b"
     },
     {
+      "path": "packages/tools/editor/src/project-content.css",
+      "sha256": "69a2fa40c0e5ac5a33cbe83cf7bd7733c232cefb7b2765c55cc288a3ecce6434"
+    },
+    {
       "path": "packages/tools/editor/src/projects.css",
       "sha256": "5e3d1d3a67c4351e6427d0c79956b4205817f5c22ca82f3a0b9f1fa02add88a6"
     },
@@ -1369,16 +1389,32 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "a1c1217e2e2e5aa5d569",
-    "statsSha256": "58a809a646ad3ec8bf6bfaf4b2009e5dd1efa9a71bf37726c134eaa33675295d",
+    "hash": "640c4718bb46d9116a25",
+    "statsSha256": "a1a08d96ff38e668079edbc41193aa46848fc6d59199505bcefc3fa85db58167",
     "assets": [
       {
-        "path": "1.bundle.js",
-        "size": 7452
+        "path": "0.bundle.js",
+        "size": 7713
+      },
+      {
+        "path": "2.bundle.js",
+        "size": 2045
+      },
+      {
+        "path": "3.bundle.js",
+        "size": 2048
+      },
+      {
+        "path": "4.bundle.js",
+        "size": 3388
+      },
+      {
+        "path": "5.bundle.js",
+        "size": 3311
       },
       {
         "path": "bundle.js",
-        "size": 3455560
+        "size": 3529188
       }
     ]
   }
