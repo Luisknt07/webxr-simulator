@@ -3,6 +3,16 @@ import {createHost} from '../../../packages/core/index.js';
 import {workspaceModule} from '../../../modules/logistica-industrial/application/workspace.js';
 import {createVoiceModule} from '../../../packages/voice-assistant/index.js';
 import {voicePort} from '../../../modules/logistica-industrial/integrations/VoiceAssistantBridge.js';
+import ProjectModuleManager from '../../../packages/tools/editor/src/ProjectModuleManager.js';
+import {catalog as projectModuleCatalog,defaultFunctions as projectModuleDefaults} from '../../../data/build/workspace-catalog.mjs';
+
+function projectModulesFor(editor){
+  const layer=new THREE.Group();layer.name='Contenido de módulos del proyecto';editor.hooks.renderScene.add(layer);
+  const manager=new ProjectModuleManager(editor,{catalog:projectModuleCatalog,defaultFunctions:projectModuleDefaults,grants:['platform.scene'],ports:{'platform.scene':Object.freeze({scene:layer,root:layer,renderer:editor.ctx.renderer,camera:editor.ctx.camera,cameraRig:editor.ctx.cameraRig})},onFilterChanged:()=>editor.applyModuleFilter().catch(error=>editor.toast(error.message))});
+  manager.graphicsLayer=layer;const dispose=manager.dispose.bind(manager);
+  manager.dispose=async()=>{try{await dispose();}finally{if(layer.parent)layer.parent.remove(layer);}};
+  return manager;
+}
 import SmoothPointerLockControls from '../../../packages/render-three/src/SmoothPointerLockControls.js';
 import AdaptiveGraphics from '../../../packages/render-three/src/AdaptiveGraphics.js';
 import PreparedMaterialTextures from '../../../packages/render-three/src/PreparedMaterialTextures.js';
@@ -560,9 +570,11 @@ export function init() {
       renderScene: scene,
       gotoRoom,
       unlock: () => controls.unlock(),
-      clearKeyboard: clearKeyboardState
+      clearKeyboard: clearKeyboardState,
+      createProjectModules: projectModulesFor
     });
     context.editor.ready.then(async () => {
+      window.addEventListener('pagehide',()=>{if(context.editor.projectModules)context.editor.projectModules.dispose().catch(()=>{});if(context.editor.contentBrowser)context.editor.contentBrowser.dispose();},{once:true});
       context.editor.entities = new SceneEntities(context.editor);
       if (context.editor.editorEnabled) context.editor.conveyorViewer = new ConveyorViewer(context.editor);
       const studio = new StudioExperience(context.editor, vrButton);
@@ -909,6 +921,7 @@ function animate(time, frame) {
     if (context.editor && context.editor.entities) context.editor.entities.tick(delta);
     if (context.editor && context.editor.conveyorViewer) context.editor.conveyorViewer.tick(delta);
     if (context.frameworkHost) context.frameworkHost.step(delta);
+    if(context.editor&&context.editor.projectModules){const modules=context.editor.projectModules;modules.sync({viewer:!context.editor.active}).catch(()=>{});if(modules.graphicsLayer)modules.graphicsLayer.visible=!modules.busy&&!context.editor.loadingProject&&!context.roomTransition;modules.step(delta);}
     if (context.voicePanelOpen) clearKeyboardState();
     if (context.editor && context.editor.active && !context.vrMode) {
       context.editor.render(delta);

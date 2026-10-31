@@ -301,8 +301,9 @@ export default class ImmersiveStudioMenu {
     if (this.ctx.voicePanel) this.button('voice-assistant', 'Voz e instrucciones', 514, 275, 464, 66, () => {this.close(); this.ctx.voicePanel.open();}, {size: 25});
     this.button('volume-down', '− Volumen', 46, 365, 445, 66, () => { if (audio) audio.setVolume(Math.max(0, volume - .1)); this.dirty = true; });
     this.button('volume-up', '+ Volumen', 514, 365, 464, 66, () => { if (audio) audio.setVolume(Math.min(1, volume + .1)); this.dirty = true; });
-    this.text('Controles en realidad virtual', 46, 505, 32);
-    this.text('Stick izquierdo: caminar · Derecho: giro de 30°', 46, 555, 27, C.dim);
+    if(this.editor.projectModules)this.button('project-modules','Módulos y niveles del proyecto',46,435,932,46,()=>this.navigate('modules'),{size:25});
+    this.text('Controles en realidad virtual', 46, 522, 28);
+    this.text('Stick izquierdo: caminar · Derecho: giro de 30°', 46, 565, 25, C.dim);
     this.button('movement', this.ctx.studioLocomotion === 'teleport' ? 'Movimiento: solo teletransporte' : 'Movimiento: stick izquierdo y teletransporte', 46, 585, 932, 64, () => this.setPreferences({locomotion: this.ctx.studioLocomotion === 'teleport' ? 'smooth' : 'teleport'}), {size: 25});
     this.button('hand', 'Mano preferida: ' + (this.ctx.handedness === 'left' ? 'izquierda' : 'derecha'), 46, 665, 932, 66, () => this.setPreferences({handedness: this.ctx.handedness === 'left' ? 'right' : 'left'}));
     this.button('recenter', 'Recentrar el menú frente a mí', 46, 765, 932, 66, () => this.placePanel());
@@ -317,6 +318,17 @@ export default class ImmersiveStudioMenu {
       if (this.client.user) await this.client.updateProfile({preferences}); this.studio.applyPreferences(preferences); this.notice = 'Ajustes aplicados.';
     });
   }
+  paintModules(){
+    const manager=this.editor.projectModules,profile=manager&&manager.profile;
+    if(!profile||!profile.modules.length){this.text('Este proyecto utiliza su experiencia principal.',46,220,29,C.dim);return;}
+    const rows=profile.modules.filter(row=>row.viewerEnabled&&(profile.mode!=='specialized'||row.id===profile.selectedModuleId)),metadata=manager.availableModules();
+    const all=profile.mode!=='specialized';this.text(all?'Selecciona los contenidos que deseas explorar.':'Proyecto especializado en un módulo.',46,185,27,C.dim);
+    if(all)this.button('module-all','Todos los módulos disponibles',46,225,932,64,()=>this.run(async()=>{await manager.selectModule('');this.dirty=true;}));
+    const pages=Math.max(1,Math.ceil(rows.length/6));this.listPage=Math.min(this.listPage,pages-1);
+    rows.slice(this.listPage*6,this.listPage*6+6).forEach((row,index)=>{const meta=metadata.find(item=>item.id===row.id),label=(manager.activeModuleId===row.id?'● ':'')+(meta&&meta.title||row.id);this.button('module:'+row.id,label,46,320+index*83,932,64,()=>this.run(async()=>{await manager.selectModule(row.id);this.dirty=true;}),{accent:manager.activeModuleId===row.id,size:28});});
+    if(pages>1){this.button('module-prev','Anterior',46,835,445,58,()=>{this.listPage=Math.max(0,this.listPage-1);this.dirty=true;});this.button('module-next','Siguiente',514,835,464,58,()=>{this.listPage=Math.min(pages-1,this.listPage+1);this.dirty=true;});}
+    if(!rows.length)this.text('No hay módulos habilitados para esta vista.',46,350,28,C.dim);
+  }
   paintControls() {
     const lines = ['X (izquierdo) / A (derecho): abrir o cerrar el menú.', 'Salir de RV: botón rojo en la parte superior del menú.', 'Stick izquierdo: caminar según la dirección de la mirada.', 'Stick derecho: girar 30°; céntralo para volver a girar.', 'Gatillo: seleccionar a distancia y usar el teclado.', 'Botones físicos: acerca la punta del mando al frente.', 'Retira el mando antes de volver a pulsar por contacto.', 'Grip lateral: agarrar y soltar productos.', 'Teletransporte: apunta al suelo con tu mano preferida.', 'El menú pausa las interacciones y el desplazamiento.', 'Puedes iniciar sesión sin salir de la realidad virtual.', 'El botón del sistema Meta pertenece al visor.'];
     lines.forEach((line, index) => this.text(line, 46, 183 + index * 51, index === 0 ? 26 : 24, index === 0 ? C.accent : C.text));
@@ -330,7 +342,7 @@ export default class ImmersiveStudioMenu {
     this.button('exit-vr', this.exiting ? 'Saliendo…' : 'Salir de RV', 500, 28, 184, 64, () => this.exitVR(), {size: 23, danger: true, disabled: this.exiting});
     this.button('close', '×', 886, 24, 92, 72, () => this.close(), {size: 42});
     if (this.page !== 'home') this.button('home', '← Menú', 704, 28, 158, 64, () => this.navigate('home'), {size: 25});
-    if (this.page === 'home') this.paintHome(); else if (this.page === 'account' || this.page === 'register') this.paintAccount(); else if (this.page === 'settings') this.paintSettings(); else if (this.page === 'controls') this.paintControls(); else this.paintList();
+    if (this.page === 'home') this.paintHome(); else if (this.page === 'account' || this.page === 'register') this.paintAccount(); else if (this.page === 'settings') this.paintSettings(); else if (this.page === 'modules') this.paintModules(); else if (this.page === 'controls') this.paintControls(); else this.paintList();
     if (this.error || this.notice) { d.fillStyle = '#10212d'; d.fillRect(32, 918, WIDTH - 64, 38); this.text(short(this.error || this.notice, 90), 46, 945, 23, this.error ? C.error : C.accent); }
     this.texture.needsUpdate = true; this.dirty = false;
   }

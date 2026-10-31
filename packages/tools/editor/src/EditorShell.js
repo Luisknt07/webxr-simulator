@@ -156,6 +156,7 @@ export default class EditorShell {
     this.sceneNavigation.setAttribute('aria-label', 'Proyecto y nivel activos');
     if (!editor.projectButton) editor.projectButton = button('Proyecto: Sin guardar ▾', () => editor.projectLibrary.open('levels'), 'ed-project-current');
     this.sceneNavigation.appendChild(editor.projectButton);
+    editor.projectPath=node('button','ed-project-path');editor.projectPath.type='button';editor.projectPath.setAttribute('aria-label','Ver carpeta y contenido del proyecto');editor.projectPath.addEventListener('click',()=>editor.openProjectContent());this.sceneNavigation.appendChild(editor.projectPath);
     const levelRow = node('div', 'ed-scene-navigation-level');
     levelRow.appendChild(editor.roomSelect);
     this.browseProjectsButton = button('Otros proyectos…', () => editor.projectLibrary.open('levels'), 'ed-project-browse');
@@ -178,6 +179,8 @@ export default class EditorShell {
         ['Nuevo proyecto…', () => e.projectLibrary.open('new')], ['Abrir proyecto…', () => e.projectLibrary.open()],
         ['Guardar', mutate(() => e.saveProject()), 'Ctrl S'], ['Guardar como…', () => e.projectLibrary.open('saveAs')],
         ['Guardar todo', mutate(() => e.saveProject()), '', () => !e.busy], null,
+        ['Contenido y niveles del proyecto…', () => e.openProjectContent()], ['Módulos del proyecto…', () => e.projectModules&&e.projectModules.open()],
+        ['Descargar proyecto independiente', () => e.exportContentProject()], ['Guardar carpeta de proyecto…', () => e.exportContentFolder()], ['Abrir carpeta de proyecto…', () => e.openContentFolder()], null,
         ['Importar archivos…', () => e.assetInput.click()], ['Importar proyecto JSON…', () => e.projectInput.click()],
         ['Exportar proyecto JSON', () => e.exportProject()], ['Compartir enlace', mutate(() => e.shareProject())],
         ['Proyectos recientes y versiones', () => e.projectLibrary.open()], ['Actualizar versión guardada', () => e.refreshRemoteProject(), '', () => Boolean(e.remoteProject)]
@@ -214,6 +217,7 @@ export default class EditorShell {
         ['Integrar robótica y vehículos en este nivel', () => this.studio('integrateRobotics'), '', canStudio],
         ['Añadir almacén con misiones y recompensas', () => this.studio('addWarehouseMissionExperience'), '', canStudio],
         ['Renombrar escenario…', () => this.studio('renameScene'), '', canStudio], ['Usar como escenario inicial', () => this.studio('setStartScene'), '', canStudio],
+        ['Administrar o eliminar niveles…', () => e.openProjectContent()],
         ['Configurar entorno', () => this.studio('configureEnvironment'), '', canStudio], null,
         ['Conectar equipos…', () => this.studio('connect'), '', canStudio], ['Ajuste de ensamblaje', () => e.assemblyButton.click(), '', () => true, () => e.assembly.enabled],
         ['Crear base vacía', () => e.emptyRoom()], ['Restaurar sala original', mutate(() => { e.document.resetRoom(e.roomId); e.select(null); })]

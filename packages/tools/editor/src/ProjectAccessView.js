@@ -18,11 +18,14 @@ export default class ProjectAccessView {
     return Boolean(user && user.permissions && user.permissions.editor && (!access || access.canEdit === true));
   }
   canVisit(roomId) {
+    if (this.editor.active && this.editor.creatingScene && this.editor.authoringRoomId === roomId && ROOMS.includes(roomId) && this.canEdit()) return true;
+    if ((this.editor.document.studio && this.editor.document.studio.deletedScenes || []).includes(roomId)) return false;
+    const level=(this.editor.document.studio&&this.editor.document.studio.scenes||[]).find(scene=>scene.id===roomId);
+    if(!this.editor.active&&this.editor.projectModules&&level&&!this.editor.projectModules.canShowLevel(level.moduleId))return false;
     if (!this.enabled) return true;
     if (this.editor.accessLoadFailed && !this.editor.loadingProject) return false;
     // Creating a level prepares its destination before the scene metadata is
     // committed. This one room is reachable only during an authorized edit.
-    if (this.editor.active && this.editor.creatingScene && this.editor.authoringRoomId === roomId && ROOMS.includes(roomId) && this.canEdit()) return true;
     const editor = this.editor, allowed = editor.loadingAllowedRoomIds || editor.currentProject && editor.currentProject.allowedRoomIds;
     if (allowed) return allowed.includes(roomId);
     const scenes = editor.document.studio && editor.document.studio.scenes;

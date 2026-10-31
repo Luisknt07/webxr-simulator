@@ -40,6 +40,7 @@ export default class SceneCatalogBrowser {
     const footer = node('div', 'ed-scene-catalog-footer'); footer.appendChild(node('span', '', 'Hasta diez niveles por proyecto. Al crear un proyecto se aplican los permisos y la cuota de tu cuenta.'));
     footer.appendChild(button('+ Nuevo escenario', () => { this.close(); editor.studioTools.guard(() => editor.studioTools.newScene()); }, 'primary'));
     footer.appendChild(button('Otros proyectos…', () => { this.close(); editor.projectLibrary.open('levels'); })); dialog.appendChild(footer);
+    footer.appendChild(button('Contenido y niveles…',()=>{this.close();if(editor.openProjectContent)editor.openProjectContent();}));
     dialog.addEventListener('cancel', event => { event.preventDefault(); this.close(); });
     dialog.addEventListener('keydown', event => { event.stopPropagation(); if (event.code === 'Escape') { event.preventDefault(); this.close(); } else if (event.code === 'Tab') {
       const fields = Array.from(dialog.querySelectorAll('button,input,select')).filter(control => !control.disabled && !control.hidden); const index = fields.indexOf(document.activeElement);

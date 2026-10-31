@@ -44,7 +44,9 @@ export default class ProjectWorkspaceTabs {
     entry.name = editor.projectName; entry.project = editor.currentProject && Object.assign({}, editor.currentProject); entry.dirty = editor.dirty; this.activeKey = key; this.render();
   }
   async stash() {
-    const editor = this.editor, key = this.key(), generation = editor.projectGeneration, version = editor.changeVersion, scope = this.scope(); this.assertScope(scope);
+    const editor = this.editor, key = this.key(), generation = editor.projectGeneration, scope = this.scope(); this.assertScope(scope);
+    if(editor.projectModules)editor.projectModules.flush();
+    const version=editor.changeVersion;
     const snapshot = editor.document.capture(), undo = editor.document.undoStack.slice(), redo = editor.document.redoStack.slice();
     const serialized = await editor.document.serialize();
     this.assertScope(scope);

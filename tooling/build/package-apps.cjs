@@ -91,6 +91,13 @@ function makePlan(root, application, compilation) {
   } else if (application === 'core-empty') add('core.css', 'apps/core-empty/core.css');
   else {
     ASSET_ROOTS.forEach(folder => walk(root, folder, name => { if (allowedAsset(name)) add(name, name); }, {skipPrivate: true}));
+    const moduleMetadata=safePath(root,'data/build/workspace-catalog.json',false);
+    if(fs.existsSync(moduleMetadata)){
+      if(fs.statSync(moduleMetadata).size>8*1024*1024)error('module_assets','The workspace module metadata is too large.');
+      const metadata=JSON.parse(fs.readFileSync(moduleMetadata,'utf8')),catalogSource=safePath(root,'data/build/workspace-catalog.mjs');
+      if(metadata.format!=='smarttwin.workspace-catalog'||metadata.version!==1||!Array.isArray(metadata.assets)||metadata.assets.length>4096||digest(fs.readFileSync(catalogSource))!==metadata.catalogSha256)error('module_assets','The workspace module catalog does not match its receipt.');
+      for(const name of metadata.assets){if(typeof name!=='string'||!/^modules\/[a-z][a-z0-9-]*\/functions\/[a-z][a-z0-9-]*\//.test(name)||!allowedAsset(name))error('module_assets','A module asset is not publishable data or media.');add(name,name);}
+    }
     // Other applications own their styles and their relative media. They are
     // separate distributions, never dependencies of the private Workspace.
     for (const folder of ['packages', 'modules', 'apps']) walk(root, folder, name => { if (/\.css$/i.test(name) && allowedAsset(name) && (folder !== 'apps' || name.startsWith('apps/workspace/'))) add(name, name); }, {skipPrivate: true});

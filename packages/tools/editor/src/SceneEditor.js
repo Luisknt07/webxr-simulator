@@ -40,6 +40,9 @@ import ProjectSync from './ProjectSync.js';
 import resolveProject from './ProjectResolver.js';
 import ProjectAccessView from './ProjectAccessView.js';
 import ProjectSharing from './ProjectSharing.js';
+import ProjectContentBrowser from './ProjectContentBrowser.js';
+import {createContentProject,readContentProject,CONTENT_PACKAGE_FORMAT} from '../../../project-format/index.js';
+import {writeContentFolderToHandle,readContentFolderFromHandle} from '../../../project-format/browser-folder.js';
 import {describeNative, prepareNativeEdit, syncNativeTransforms} from './NativeBindings.js';
 
 const STORAGE_KEY = 'hello-webxr-editor-v1';
@@ -208,6 +211,8 @@ export default class SceneEditor {
     });
     if (!this.editorEnabled && this.projectLibrary.overlay) this.projectLibrary.overlay.remove();
     this.buildUI();
+    this.contentBrowser = typeof ProjectContentBrowser === 'function' ? new ProjectContentBrowser(this) : null;
+    this.projectModules = typeof this.hooks.createProjectModules === 'function' ? this.hooks.createProjectModules(this) : null;
     this.assetThumbnails = new AssetThumbnails(this.library, this.assetGrid);
     if (this.editorEnabled) {
       this.resourceBrowser = new ResourceBrowser({
@@ -397,7 +402,17 @@ export default class SceneEditor {
 
   get roomId() { return ROOM_IDS[this.ctx.room]; }
   get root() { return this.document.getRoot(this.roomId); }
-  getSceneEntries() { return behaviorSchema.studio.sceneEntries(this.document).filter(entry => !this.accessView || this.accessView.canVisit(entry.id || entry.roomId || ROOM_IDS[entry.index])); }
+  getSceneEntries({allModules=false} = {}) { return behaviorSchema.studio.sceneEntries(this.document).filter(entry => (!this.accessView || this.accessView.canVisit(entry.id || entry.roomId || ROOM_IDS[entry.index])) && (allModules || !this.projectModules || this.projectModules.canShowLevel(entry.moduleId))); }
+  openProjectContent(){if(this.contentBrowser)this.contentBrowser.open();}
+  async applyModuleFilter(){
+    const generation=this.projectGeneration,current=behaviorSchema.studio.sceneEntries(this.document).find(level=>level.id===this.roomId);
+    if(!this.projectModules||!current||this.projectModules.canShowLevel(current.moduleId)){
+      if(this.moduleHiddenRoot){if(this.moduleHiddenRoot===this.root)this.moduleHiddenRoot.visible=true;this.moduleHiddenRoot=null;}return;
+    }
+    const levels=this.getSceneEntries();
+    if(levels.length){await this.hooks.gotoRoom(levels[0].index);if(this.projectGeneration!==generation)return;}
+    else{this.simulation.stop();if(this.root){this.moduleHiddenRoot=this.root;this.root.visible=false;}this.toast('No hay niveles disponibles para este módulo. Selecciona otro desde Módulos.');}
+  }
   canEditDocument() { return !this.accessView || this.accessView.canEdit(); }
   scopedStorageKey(key) { const user = this.ctx.studio && this.ctx.studio.client.user || this.accessView && this.accessView.user; return this.accessView && this.accessView.enabled ? key + ':' + (user ? user.id : 'guest') : key; }
 
@@ -597,28 +612,15 @@ export default class SceneEditor {
     this.toastNode.hidden = true;
     this.toastNode.setAttribute('role', 'status');
     this.projectInput = el('input');
-    this.projectInput.type = 'file'; this.projectInput.accept = '.json'; this.projectInput.hidden = true;
+    this.projectInput.type = 'file'; this.projectInput.accept = '.json,.stproject'; this.projectInput.hidden = true;
     this.projectInput.addEventListener('change', async () => {
       const file = this.projectInput.files[0];
       if (file) await this.perform(async () => {
         if (this.busy || this.loadingProject || this.pastingObject) throw new Error('Espera a que termine la operación actual.');
-        const data = JSON.parse(await file.text());
-        if (this.currentProject) await this.keepCurrentProject();
-        this.projectGeneration++;
-        this.clearAssetPreview();
-        this.assetThumbnails.dispose();
-        this.cancelDecalPlacement(); this.decals.dispose();
-        this.infoPreview.dispose();
-        await this.document.load(data, {activeRoomId: this.roomId});
-        await this.prepareRoom(this.roomId);
-        this.clearObjectClipboard();
-        this.currentProject = null;
-        this.projectName = file.name.replace(/\.json$/i, '') || 'Escenario importado';
-        this.rememberProject(null);
-        this.entries = await this.library.getCatalog();
-        this.renderAssets();
-        this.select(null);
-        this.toast('Escenario importado. Pulsa Guardar para crear su proyecto en el servidor.');
+        if(file.size>512*1024*1024)throw new Error('El archivo de proyecto supera el límite de importación.');
+        const generation=this.projectGeneration,identity=this.accessView&&this.accessView.identityGeneration,text=await file.text();
+        if(generation!==this.projectGeneration||identity!==(this.accessView&&this.accessView.identityGeneration))throw new Error('La cuenta o el proyecto cambió durante la lectura.');
+        await this.importProjectContent(JSON.parse(text),file.name.replace(/(?:\.stproject)?\.json$|\.stproject$/i,''));
       });
       this.projectInput.value = '';
     });
@@ -2794,10 +2796,12 @@ export default class SceneEditor {
   }
 
   async applyServerProject(project, options = {}) {
+    if(this.contentBrowser)this.contentBrowser.close(true);if(this.projectModules)this.projectModules.close();
     if (!this.accessView || !this.accessView.enabled) return this.applyServerProjectNow(project, options);
     const generation = options.accessGeneration === undefined ? this.accessView.identityGeneration : options.accessGeneration;
     const execute = async () => {
       if (generation !== this.accessView.identityGeneration) throw new Error('La cuenta cambió durante la apertura del proyecto.');
+      if(options.expectedProjectGeneration!==undefined&&options.expectedProjectGeneration!==this.projectGeneration)throw new Error('El proyecto cambió antes de abrir el archivo.');
       return this.applyServerProjectNow(project, Object.assign({}, options, {accessGeneration: generation}));
     };
     const task = (this.projectApplicationTail || Promise.resolve()).catch(() => {}).then(execute);
@@ -2891,7 +2895,8 @@ export default class SceneEditor {
       await this.prepareRoom(targetRoomId, preparation);
       assertCurrent();
       if (this.accessView && this.accessView.enabled && options.accessGeneration !== this.accessView.identityGeneration) throw new Error('La cuenta cambió durante la preparación.');
-      this.currentProject = {id: project.id, name: project.name, revision: project.revision, access: project.access, allowedRoomIds: project.allowedRoomIds, publicSceneId: project.publicSceneId, librarySceneId: project.librarySceneId};
+      if(this.contentBrowser)this.contentBrowser.close(true);
+      this.currentProject = project.localImport?null:{id: project.id, name: project.name, revision: project.revision, access: project.access, storage:project.storage, allowedRoomIds: project.allowedRoomIds, publicSceneId: project.publicSceneId, librarySceneId: project.librarySceneId};
       this.publicView = Boolean(project.access && project.access.canEdit === false);
       this.clearObjectClipboard();
       this.projectName = project.name;
@@ -2907,9 +2912,9 @@ export default class SceneEditor {
       this.renderAssets();
       this.syncNative();
       if (this.ctx.roomAssets && this.ctx.roomAssets.setActiveRoom) this.ctx.roomAssets.setActiveRoom(targetRoomId, this.document.getRoot(targetRoomId));
-      this.dirty = Boolean(project.historicalRevision);
+      this.dirty = Boolean(project.historicalRevision||project.localImport);
       this.storageAvailable = true;
-      this.rememberProject(project);
+      this.rememberProject(project.localImport?null:project);
       this.markRemoteProject(null);
       this.updateStatus();
       projectReady = true;
@@ -2926,6 +2931,7 @@ export default class SceneEditor {
   }
 
   async keepCurrentProject() {
+    if(this.projectModules)this.projectModules.flush();
     if (!this.dirty) return false;
     const result = await this.saveProject();
     if (!result) throw new Error('Espera a que termine de guardarse el proyecto actual.');
@@ -2966,6 +2972,7 @@ export default class SceneEditor {
     const assertScope = () => { if (identityGeneration !== (this.accessView && this.accessView.identityGeneration) || projectGeneration !== this.projectGeneration) throw Object.assign(new Error('La cuenta o el proyecto cambió durante el guardado. El resultado anterior no se aplicó.'), {status: 409, code: 'session_changed'}); };
     this.updateStatus();
     try {
+      if(this.projectModules)this.projectModules.flush();
       const document = await this.document.serialize();
       assertScope();
       const version = this.changeVersion;
@@ -2978,7 +2985,7 @@ export default class SceneEditor {
       // request while replacing saved base64 data with lightweight server URLs.
       const references = new Map(saved.document.imports.map(record => [record.id, record]));
       this.library.restoreImports(this.library.exportImports().map(record => references.get(record.id) || record));
-      this.currentProject = {id: saved.id, name: saved.name, revision: saved.revision, access: saved.access};
+      this.currentProject = {id: saved.id, name: saved.name, revision: saved.revision, access: saved.access,storage:saved.storage};
       this.projectName = saved.name;
       this.historicalRevision = null;
       this.storageAvailable = true;
@@ -3003,6 +3010,7 @@ export default class SceneEditor {
     this.busy = true;
     const identityGeneration = this.accessView && this.accessView.identityGeneration, projectGeneration = this.projectGeneration, key = this.scopedStorageKey(STORAGE_KEY);
     try {
+      if(this.projectModules)this.projectModules.flush();
       const project = await this.document.serialize();
       const version = this.changeVersion;
       const wasDirty = this.dirty;
@@ -3018,6 +3026,7 @@ export default class SceneEditor {
   async exportProject() {
     const scope = this.accessView && this.accessView.identityGeneration, generation = this.projectGeneration;
     try {
+      if(this.projectModules)this.projectModules.flush();
       const project = await this.document.serialize();
       project.imports = await this.library.exportPortableImports();
       if (scope !== (this.accessView && this.accessView.identityGeneration) || generation !== this.projectGeneration) throw new Error('La cuenta o el proyecto cambió. Vuelve a solicitar la exportación.');
@@ -3026,6 +3035,50 @@ export default class SceneEditor {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       this.toast('Escenario descargado. Incluye los archivos que importaste.');
     } catch (error) { this.toast(error.message); }
+  }
+
+  async importProjectContent(input,name='Proyecto importado'){
+    if(this.busy||this.loadingProject||this.pastingObject)throw new Error('Termina la operación antes de abrir otro proyecto.');
+    const generation=this.projectGeneration,identity=this.accessView&&this.accessView.identityGeneration;
+    const assertSource=()=>{if(generation!==this.projectGeneration||identity!==(this.accessView&&this.accessView.identityGeneration))throw new Error('La cuenta o el proyecto cambió durante la importación.');};
+    let data=input,moduleState;
+    if(input&&input.format===CONTENT_PACKAGE_FORMAT){const unpacked=readContentProject(input);data=unpacked.document;name=unpacked.descriptor.name;moduleState=unpacked.moduleState;}
+    if(data&&data.format==='smarttwin.project-session'){moduleState=data.state;data=data.project;}
+    if(data&&data.format==='smarttwin.project'){
+      const source=data,worldId=source.worldId,profile={version:1,mode:'mixed',selectedModuleId:'',worldId,project:source,modules:source.modules.map(row=>({...row,editorEnabled:row.enabled!==false,viewerEnabled:row.enabled!==false}))};
+      if(moduleState)profile.state=moduleState;
+      data={format:'hello-webxr-editor',version:1,rooms:Object.fromEntries(ROOM_IDS.map(id=>[id,{overrides:[],additions:[]} ])),imports:[],studio:{version:1,startRoomId:'hall',scenes:[{id:'hall',name:'Nivel principal'}],moduleProfile:profile}};
+    }
+    if(!data||data.format!=='hello-webxr-editor')throw new Error('Selecciona un proyecto completo. Para project.stproject utiliza Abrir carpeta de proyecto.');
+    this.document._validate(data);
+    if(this.currentProject)await this.keepCurrentProject();assertSource();
+    const roomId=data.studio&&data.studio.startRoomId||this.roomId;
+    await this.applyServerProject({document:data,name:name||'Proyecto importado',revision:0,localImport:true,access:{canEdit:true,role:'owner'}},{roomId,accessGeneration:identity,expectedProjectGeneration:generation});
+    if(identity!==(this.accessView&&this.accessView.identityGeneration))throw new Error('La cuenta cambió durante la importación.');
+    if(this.projectModules)await this.projectModules.sync({viewer:!this.active});
+    this.toast('Proyecto independiente abierto. Guarda para crear una copia propia con Content y sus niveles.');
+  }
+  async contentProjectPackage(){
+    const scope=this.accessView&&this.accessView.identityGeneration,generation=this.projectGeneration;if(this.projectModules)this.projectModules.flush();
+    const data=await this.document.serialize();data.imports=await this.library.exportPortableImports();
+    if(scope!==(this.accessView&&this.accessView.identityGeneration)||generation!==this.projectGeneration)throw new Error('La cuenta o el proyecto cambió durante la exportación.');
+    return createContentProject(data,{id:this.currentProject&&this.currentProject.id||'project.local',name:this.projectName,kind:'studio'});
+  }
+  async exportContentProject(){
+    const bundle=await this.contentProjectPackage(),url=URL.createObjectURL(new Blob([JSON.stringify(bundle)],{type:'application/json'}));
+    const link=el('a');link.href=url;link.download=this.projectName.replace(/[<>:"/\\|?*\x00-\x1f]/g,'-')+'.stproject.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);this.toast('Proyecto descargado con Content/Maps, recursos y configuración.');return bundle;
+  }
+  async exportContentFolder(){
+    if(typeof window.showDirectoryPicker!=='function')throw new Error('Este navegador permite descargar el proyecto independiente. Para guardar una carpeta usa Chrome o Edge en el equipo.');
+    const generation=this.projectGeneration,identity=this.accessView&&this.accessView.identityGeneration,parent=await window.showDirectoryPicker({mode:'readwrite'});
+    if(generation!==this.projectGeneration||identity!==(this.accessView&&this.accessView.identityGeneration))throw new Error('La cuenta o el proyecto cambió al seleccionar la carpeta.');
+    const bundle=await this.contentProjectPackage(),name=(this.projectName.replace(/[<>:"/\\|?*\x00-\x1f]/g,'-').trim().slice(0,70)||'Proyecto')+'-'+Date.now();
+    await writeContentFolderToHandle(parent,bundle,{folderName:name});this.toast('Carpeta local creada: '+parent.name+'/'+name+' · project.stproject');return name;
+  }
+  async openContentFolder(){
+    if(typeof window.showDirectoryPicker!=='function')throw new Error('Usa Importar proyecto para abrir el archivo .stproject.json, o Chrome/Edge para seleccionar una carpeta.');
+    const generation=this.projectGeneration,identity=this.accessView&&this.accessView.identityGeneration,folder=await window.showDirectoryPicker({mode:'read'}),bundle=await readContentFolderFromHandle(folder);
+    if(generation!==this.projectGeneration||identity!==(this.accessView&&this.accessView.identityGeneration))throw new Error('La cuenta o el proyecto cambió al leer la carpeta.');return this.importProjectContent(bundle,folder.name);
   }
 
   updateStatus() {
@@ -3039,6 +3092,7 @@ export default class SceneEditor {
       this.projectButton.setAttribute('aria-label', 'Proyecto actual: ' + (this.currentProject ? this.projectName : 'Sin guardar') + '. Abrir proyectos y niveles');
       this.projectButton.title = this.currentProject ? 'Proyecto: ' + this.projectName + ' · ID ' + this.currentProject.id + ' · Abrir biblioteca' : 'Abrir, crear y recuperar proyectos de SQLite';
     }
+    if(this.projectPath){const storage=this.currentProject&&this.currentProject.storage;this.projectPath.textContent=storage&&storage.relativePath?storage.relativePath+'/Content':this.currentProject?'Proyecto guardado en SQLite':'Guarda para crear la carpeta del proyecto';this.projectPath.title=storage&&storage.descriptorPath||this.projectPath.textContent;}
     if (this.projectUpdateButton) {
       this.projectUpdateButton.hidden = !this.remoteProject;
       this.projectUpdateButton.textContent = this.remoteProject ? 'Actualizar · v' + this.remoteProject.revision : 'Actualizar proyecto';

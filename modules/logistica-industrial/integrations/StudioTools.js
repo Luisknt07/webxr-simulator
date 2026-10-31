@@ -183,15 +183,45 @@ export default class StudioTools {
     this.selection = new Set(copies); this.extendingSelection = true; editor.select(copies[0] || null); this.extendingSelection = false;
     return copies;
   }
-  async renameScene() {
-    const editor = this.editor, roomId = editor.roomId, generation = editor.projectGeneration;
+  async renameScene(requestedRoomId = this.editor.roomId) {
+    const editor = this.editor, roomId = requestedRoomId, generation = editor.projectGeneration;
+    if (roomId !== editor.roomId) throw new Error('Abre el nivel antes de renombrarlo.');
     const name = editor.shell && editor.shell.requestSceneName ? await editor.shell.requestSceneName({title: 'Renombrar nivel', value: this.nameScene(roomId), confirmLabel: 'Renombrar'}) : window.prompt('Nombre del escenario', this.nameScene(roomId));
     if (!name || !name.trim()) return;
     if (editor.projectGeneration !== generation || editor.roomId !== roomId || !editor.active) throw new Error('El escenario cambió. Vuelve a seleccionar el nivel que quieres renombrar.');
-    const scenes = (editor.document.studio && editor.document.studio.scenes || []).filter(scene => scene.id !== roomId).concat({id: roomId, name: name.trim()});
+    const old=(editor.document.studio && editor.document.studio.scenes || []).find(scene=>scene.id===roomId);
+    const scenes = (editor.document.studio && editor.document.studio.scenes || []).filter(scene => scene.id !== roomId).concat(Object.assign({},old||{id:roomId},{name:name.trim()}));
     editor.document.setStudio({scenes}); this.refreshLabels();
   }
   setStartScene() { this.editor.document.setStudio({startRoomId: this.editor.roomId}); this.editor.toast('Escenario inicial guardado en la configuración del proyecto.'); }
+  async deleteScene(roomId = this.editor.roomId, options = {}) {
+    const editor=this.editor,document=editor.document;
+    if(!options.confirmed)throw new Error('Confirma la eliminación desde Contenido del proyecto.');
+    if(!editor.active||editor.canEditDocument&&!editor.canEditDocument())throw new Error('Abre un proyecto editable antes de eliminar un nivel.');
+    if(editor.busy||editor.loadingProject||editor.importingFiles||editor.creatingScene||editor.pastingObject||document.transaction||editor.ctx.studio&&editor.ctx.studio.room)throw new Error('Termina la operación o sal de la sala compartida antes de eliminar el nivel.');
+    const entries=(editor.getSceneEntries?editor.getSceneEntries({allModules:true}):schema.studio.sceneEntries(document)).filter(scene=>scene.custom||schema.studio.hasSceneContent(document,scene.id)||scene.id===editor.roomId);
+    if(!entries.some(scene=>scene.id===roomId))throw new Error('El nivel ya no está disponible.');
+    const remaining=entries.filter(scene=>scene.id!==roomId);if(!remaining.length)throw new Error('Conserva al menos un nivel en el proyecto.');
+    const generation=editor.projectGeneration,before=document.capture(),undo=document.undoStack.slice(),redo=document.redoStack.slice(),previousRoom=editor.roomId;
+    if(previousRoom===roomId)await editor.hooks.gotoRoom(remaining[0].index);
+    if(editor.projectGeneration!==generation||!editor.active||editor.roomId===roomId)throw new Error('No se pudo abrir otro nivel antes de eliminar.');
+    let completed=false,failure;
+    try{
+      await editor.perform(()=>{
+        document.begin();
+        try{
+          document.resetRoom(roomId);
+          const studio=document.studio||{},scenes=(studio.scenes||[]).filter(scene=>scene.id!==roomId);
+          const patch={scenes,deletedScenes:Array.from(new Set((studio.deletedScenes||[]).concat(roomId)))};
+          if(studio.startRoomId===roomId)patch.startRoomId=remaining[0].id;
+          document.setStudio(patch);document.commit();completed=true;
+        }catch(error){document.cancel();failure=error;throw error;}
+      });
+      if(failure)throw failure;if(!completed)throw new Error('No se pudo completar la eliminación.');
+      if(editor.entities)editor.entities.sync();editor.select(null);this.refreshLabels();
+      editor.toast('Nivel eliminado. Puedes deshacer; guarda para actualizar Content/Maps.');return true;
+    }catch(error){document.transaction=null;document._restore(before);document.undoStack=undo;document.redoStack=redo;if(editor.projectGeneration===generation&&editor.roomId!==previousRoom)await editor.hooks.gotoRoom(schema.studio.ROOM_IDS.indexOf(previousRoom));throw error;}
+  }
   refreshLabels() {
     const editor = this.editor, entries = editor.getSceneEntries ? editor.getSceneEntries() : schema.studio.sceneEntries(editor.document);
     if (editor.roomSelect.appendChild) {
@@ -278,7 +308,9 @@ export default class StudioTools {
         document.resetRoom(roomId);
         document.getObjects(roomId).filter(object => document.isNative(object)).forEach(object => document.setProperty(object, 'visible', false));
         if (options.defaults !== false) this.createSceneBase(roomId);
-        document.setStudio({scenes: scenes.concat({id: roomId, name: name.trim()})});
+        const patch={scenes: scenes.concat({id: roomId, name: name.trim()})};
+        if(document.studio&&document.studio.deletedScenes)patch.deletedScenes=document.studio.deletedScenes.filter(id=>id!==roomId);
+        document.setStudio(patch);
         document.commit();
         completed = true;
       } catch (error) { document.cancel(); failure = error; throw error; }

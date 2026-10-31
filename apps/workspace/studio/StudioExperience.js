@@ -216,6 +216,7 @@ export default class StudioExperience {
     button(content, '⌂   Inicio   ›', () => this.goHome(), 'studio-action');
     if (user && this.editor.simulationPaused && !this.room) button(content, '▶ Reanudar simulación', () => { this.editor.simulationPaused = false; this.close(); }, 'studio-primary');
     button(content, '▦   Escenarios   ›', () => this.open('scenes'), 'studio-action');
+    if(this.editor.projectModules)button(content,'◇   Módulos del proyecto   ›',()=>{this.close();this.editor.projectModules.open({viewer:!this.editor.active}).catch(error=>this.message(error.message));},'studio-action');
     const entries = user ? [['◎', 'Mi avatar', 'avatar'], ['♧', 'Sesiones multiusuario', 'rooms'], ['▣', 'Sesiones guardadas', 'sessions'], ['▥', 'Mi progreso', 'progress'], ['▤', 'Mis prácticas y evaluaciones', 'classroom']] : [];
     entries.forEach(([icon, label, page]) => button(content, icon + '   ' + label + '   ›', () => this.open(page), 'studio-action'));
     el('hr', undefined, content);

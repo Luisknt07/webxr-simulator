@@ -250,6 +250,7 @@ export default class ProjectLibrary {
       metadata.appendChild(element('dd', '', pair[1]));
     });
     this.details.appendChild(metadata);
+    const storage=project.storage;if(storage&&storage.relativePath){const location=element('p','ed-project-hint');location.appendChild(element('strong','','Carpeta en datos del servidor: '));location.appendChild(element('code','',storage.relativePath+'/Content'));this.details.appendChild(location);}
     const open = button('Abrir proyecto', 'primary');
     open.addEventListener('click', () => this.openProject(project.id));
     open.disabled = this.busy;

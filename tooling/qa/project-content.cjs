@@ -1,0 +1,62 @@
+'use strict';
+// Real authenticated application with disposable SQLite/HTTPS/Chrome only.
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),{createHash,randomBytes}=require('node:crypto');
+const {startFixture,withBrowser,request}=require('./workspace-production.cjs');
+const ROOT=path.resolve(__dirname,'../..'),OUT=path.join(ROOT,'data/qa-project-content/browser'),hash=bytes=>createHash('sha256').update(bytes).digest('hex');
+async function run({expectedWorkspaceSha256}={}){
+  assert.match(expectedWorkspaceSha256||'',/^[a-f0-9]{64}$/);assert.equal(hash(fs.readFileSync(path.join(ROOT,'artifacts/workspace/bundle.js'))),expectedWorkspaceSha256);
+  fs.mkdirSync(OUT,{recursive:true});fs.mkdirSync(path.join(ROOT,'data/qa-studio/workspace-production'),{recursive:true});
+  const password='Disposable-Content-'+randomBytes(16).toString('hex'),fixture=await startFixture(password),report={startedAt:new Date().toISOString(),workspaceSha256:expectedWorkspaceSha256,temporaryDataOnly:true,exceptions:[],consoleErrors:[],failedRequests:[],responses:[],screenshots:[]};
+  try{
+    await withBrowser(fixture,report,async browser=>{
+      await browser.send('Page.navigate',{url:fixture.origin+'/editor'});await browser.until(()=>browser.evaluate('Boolean(document.getElementById("login"))'),'Login did not load.');
+      await browser.call(password=>{const form=document.getElementById('login');form.elements.username.value='qa_production_owner';form.elements.password.value=password;form.requestSubmit();},password);
+      await browser.until(()=>browser.evaluate('Boolean(window.context&&context.editor&&context.studio&&!context.editor.initializing&&!context.editor.loadingProject)'),'Workspace did not start.');await browser.evaluate('context.studio.ready');
+      const idle=()=>browser.until(()=>browser.evaluate('!context.editor.busy&&!context.editor.loadingProject&&!context.editor.creatingScene&&!context.editor.projectModules.busy'),'An editor operation did not settle.');
+      await browser.call(async()=>{await context.editor.createServerProject('QA Content independiente');await context.editor.studioTools.newScene({name:'Almacén'});});await idle();
+      await browser.call(async()=>{const editor=context.editor,bytes=Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7X8AAAAASUVORK5CYII='),letter=>letter.charCodeAt(0));await editor.importFiles([new File([bytes],'qa-content.png',{type:'image/png'})]);await editor.saveProject();});await idle();
+      const initial=await browser.evaluate('({id:context.editor.currentProject.id,storage:context.editor.currentProject.storage,levels:context.editor.getSceneEntries({allModules:true})})');assert(initial.storage.materialized);assert.match(initial.storage.relativePath,/^data\/users\/[a-zA-Z0-9-]+\/projects\/[a-zA-Z0-9-]+$/);assert.equal(initial.levels.length,2);
+      await browser.evaluate('context.editor.openProjectContent()');assert.equal(await browser.call(location=>document.querySelector('.ed-content-location').textContent.includes(location),initial.storage.relativePath),true);
+      assert.equal(await browser.evaluate('document.querySelectorAll(".ed-content-map[data-level-id]").length'),2);
+      await browser.call(()=>{const row=document.querySelector('.ed-content-map[data-level-id="hall"]');[...row.querySelectorAll('button')].find(button=>button.textContent==='Renombrar').click();});
+      await browser.until(()=>browser.evaluate('Boolean(document.querySelector(".ed-scene-name-dialog[open]"))'),'Level rename dialog did not open.');
+      await browser.call(()=>{const dialog=document.querySelector('.ed-scene-name-dialog[open]');dialog.querySelector('input').value='Recepción';dialog.querySelector('form').requestSubmit();});
+      await browser.until(()=>browser.evaluate('(context.editor.document.studio.scenes||[]).some(row=>row.id==="hall"&&row.name==="Recepción")'),'Level rename did not persist.');
+      await browser.call(async()=>{await context.editor.projectModules.open();const card=[...document.querySelectorAll('.ed-project-modules section')].find(node=>node.querySelector('h3')&&node.querySelector('h3').textContent==='Agricultura');[...card.querySelectorAll('button')].find(button=>button.textContent==='Añadir al proyecto').click();});
+      await browser.until(()=>browser.evaluate('!context.editor.projectModules.busy&&context.editor.document.studio.moduleProfile.modules.some(row=>row.id==="sector.agriculture")'),'Module was not added.');
+      await browser.call(async()=>{const manager=context.editor.projectModules;await manager.session.dispatch('logistics.storage:transaction',{operations:[{type:'add-location',location:{id:'field',capacityKg:100,maxLoads:4}}]});await manager.session.dispatch('agriculture.harvest:record',{id:'qa-lot',crop:'mango',lot:'qa-lot',harvestDate:'2026-10-30',locationId:'field',quantity:8,massKg:12});manager.close();context.editor.openProjectContent();});
+      await browser.call(()=>{const select=document.querySelector('.ed-content-map[data-level-id="sound"] select');select.value='sector.agriculture';select.dispatchEvent(new Event('change'));});await idle();
+      assert.equal(await browser.evaluate('context.editor.document.studio.scenes.find(row=>row.id==="sound").moduleId'),'sector.agriculture');
+      await browser.evaluate('context.editor.contentBrowser.close()');await browser.call(async()=>{await context.editor.saveProject();window.__contentQA=await context.editor.contentProjectPackage();});await idle();
+      const bundle=await browser.evaluate('({format:__contentQA.format,maps:__contentQA.descriptor.maps,assets:__contentQA.descriptor.assets,modules:__contentQA.descriptor.modules,portable:__contentQA.files.some(file=>file.path.startsWith("Content/Assets/")&&!!file.data.dataUrl)})');
+      report.beforeCopyState=await browser.evaluate('context.editor.document.studio.moduleProfile.state');
+      assert.equal(bundle.format,'smarttwin.content-package');assert.equal(bundle.maps.length,2);assert.equal(bundle.assets.length,1);assert(bundle.portable);assert(bundle.modules.some(row=>row.id==='sector.agriculture'));
+      await browser.call(async()=>{await context.editor.importProjectContent(__contentQA);await context.editor.saveProject('QA copia independiente');});await idle();
+      const copy=await browser.evaluate('({id:context.editor.currentProject.id,storage:context.editor.currentProject.storage,profile:context.editor.document.studio.moduleProfile,imports:context.editor.library.exportImports().length})');assert.notEqual(copy.id,initial.id);assert(copy.storage.materialized);assert.equal(copy.imports,1);assert(copy.profile.modules.some(row=>row.id==='sector.agriculture'));
+      report.afterCopyState=copy.profile.state;
+      assert.equal(await browser.call(async()=>(await context.editor.projectModules.session.dispatch('agriculture.harvest:harvests'))[0].quantity),8);
+      await browser.call(async()=>{await context.editor.projectModules.session.dispatch('agriculture.harvest:record',{id:'qa-late-lot',crop:'mango',lot:'qa-late-lot',harvestDate:'2026-10-30',locationId:'field',quantity:1,massKg:1});});
+      await browser.call(async sourceId=>{const source=await context.editor.projectClient.getProject(sourceId);await context.editor.openServerProject(source);await context.editor.projectModules.sync({viewer:false});},initial.id);await idle();
+      assert.equal(await browser.call(async()=>(await context.editor.projectModules.session.dispatch('agriculture.harvest:harvests')).length),1);
+      await browser.call(async copyId=>{const saved=await context.editor.projectClient.getProject(copyId);await context.editor.openServerProject(saved);await context.editor.projectModules.sync({viewer:false});},copy.id);await idle();
+      assert.equal(await browser.call(async()=>(await context.editor.projectModules.session.dispatch('agriculture.harvest:harvests')).length),2);report.unsavedModuleStateSurvivedProjectSwitch=true;
+      await browser.evaluate('context.editor.openProjectContent()');await browser.call(()=>{const row=document.querySelector('.ed-content-map[data-level-id="sound"]');[...row.querySelectorAll('button')].find(button=>button.textContent==='Eliminar').click();});
+      assert.equal(await browser.evaluate('document.querySelectorAll(".ed-content-map[data-level-id]").length'),0);await browser.call(()=>{[...document.querySelectorAll('.ed-content-list button')].find(button=>button.textContent==='Eliminar nivel').click();});await idle();
+      assert.equal(await browser.evaluate('context.editor.document.studio.deletedScenes.includes("sound")'),true);
+      await browser.evaluate('context.editor.contentBrowser.close()');await browser.call(()=>context.editor.historyStep('undo'));assert.equal(await browser.evaluate('(context.editor.document.studio.scenes||[]).some(row=>row.id==="sound")'),true);
+      await browser.call(()=>context.editor.historyStep('redo'));await browser.call(async()=>{await context.editor.saveProject();const manager=context.editor.projectModules;await manager.setModuleEnabled('sector.agriculture',{viewerEnabled:false});await context.editor.saveProject();});await idle();
+      const authored=await browser.evaluate('JSON.stringify(context.editor.document.studio.moduleProfile)');await browser.evaluate('context.editor.leave()');await browser.call(async()=>context.editor.projectModules.sync({viewer:true}));
+      assert.equal(await browser.evaluate('context.editor.projectModules.canShowLevel("sector.agriculture")'),false);assert.equal(await browser.evaluate('context.editor.projectModules.session.host.status().functions.length'),0);
+      assert.equal(await browser.call(async()=>{try{await context.editor.projectModules.setModuleEnabled('sector.agriculture',{viewerEnabled:true});return false;}catch(_){return true;}}),true);
+      assert.equal(await browser.evaluate('JSON.stringify(context.editor.document.studio.moduleProfile)'),authored);
+      await browser.call(()=>context.editor.enter());await idle();await browser.evaluate('context.editor.openProjectContent()');
+      const assertLayout=async()=>{const layout=await browser.call(()=>{const dialog=document.querySelector('.ed-content-browser'),header=dialog.querySelector('.ed-content-header'),location=dialog.querySelector('.ed-content-location'),a=dialog.getBoundingClientRect(),b=header.getBoundingClientRect(),c=location.getBoundingClientRect();return {dialog:{left:a.left,right:a.right},header:{left:b.left,right:b.right,bottom:b.bottom},location:{left:c.left,top:c.top},scrollLeft:dialog.scrollLeft,width:innerWidth};});assert(layout.dialog.left>=0&&layout.dialog.right<=layout.width);assert(layout.header.left>=layout.dialog.left&&layout.header.right<=layout.dialog.right);assert(layout.location.top>=layout.header.bottom);assert.equal(layout.scrollLeft,0);};
+      const screenshot=async name=>{await assertLayout();const shot=await browser.send('Page.captureScreenshot',{format:'png'}),filename=path.join(OUT,name+'.png');fs.writeFileSync(filename,Buffer.from(shot.data,'base64'));report.screenshots.push(filename);};await screenshot('content-desktop');
+      await browser.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await screenshot('content-mobile');
+      report.workflow={storageLocation:true,stableLevelFiles:true,rename:true,portableAsset:true,moduleAdd:true,levelModuleAssignment:true,independentCopy:true,moduleStatePreserved:true,deleteUndoRedo:true,viewerAvailability:true,viewerCannotAuthor:true,mobileDialogFits:true};
+    });
+    assert.deepEqual(report.exceptions,[]);assert.deepEqual(report.consoleErrors,[]);assert.deepEqual(report.failedRequests,[]);assert.equal(report.responses.some(row=>row.status>=400),false);assert.deepEqual(fixture.errors,[]);report.passed=true;console.log(JSON.stringify({passed:true,workspaceSha256:expectedWorkspaceSha256,...report.workflow}));return report;
+  }catch(error){report.passed=false;report.failure=error.stack||String(error);throw error;}
+  finally{report.completedAt=new Date().toISOString();fs.writeFileSync(path.join(OUT,'report.json'),JSON.stringify(report,null,2));await fixture.close();}
+}
+module.exports={run};if(require.main===module){const index=process.argv.indexOf('--expected-workspace-sha256');run({expectedWorkspaceSha256:index<0?null:process.argv[index+1]}).catch(error=>{console.error(error);process.exitCode=1;});}
