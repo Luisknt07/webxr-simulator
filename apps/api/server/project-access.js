@@ -6,6 +6,7 @@ const {createHash} = require('node:crypto');
 const {ApiError, plain} = require('./validation');
 const {ROOM_IDS} = require('../../../packages/project-model/shared/studio-document');
 const publicExamples = require('../../../projects/smarttwin/public-scenes');
+const {ProjectContentProjection} = require('./project-content');
 const DEFAULT_BYTES = 20 * 1024 * 1024, DAY = 86400000;
 const fail = (status, message, code) => { throw new ApiError(status, message, code); };
 const hashPattern = /^[a-f0-9]{64}$/;
@@ -15,6 +16,7 @@ class ProjectAccess {
   constructor(service) {
     this.service = service; this.store = service.store; this.db = service.db; this.now = service.now; this.inflight = new Map();
     this.usersDir = path.join(this.store.dataDir, 'users');
+    this.contentProjection = new ProjectContentProjection(this.store);
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS studio_user_resources (
         user_id TEXT PRIMARY KEY REFERENCES studio_users(id) ON DELETE CASCADE,
@@ -117,13 +119,18 @@ class ProjectAccess {
     if (!role || permission === 'edit' && !['admin','owner','editor'].includes(role) || permission === 'owner' && !['admin','owner'].includes(role)) fail(403, 'Tu cuenta no tiene permiso sobre este proyecto.', 'project_forbidden');
     return role;
   }
-  metadata(user, project) {
+  metadata(user, project, storage) {
     const role = this.role(user, project.id);
     const editor = !!user && user.role === 'creator';
-    return Object.assign({}, project, {access: {role, ownerId: this.owner(project.id), canEdit: editor && ['admin','owner','editor'].includes(role), canShare: editor && ['admin','owner'].includes(role)}});
+    const ownerId = this.owner(project.id);
+    return Object.assign({}, project, {access: {role, ownerId, canEdit: editor && ['admin','owner','editor'].includes(role), canShare: editor && ['admin','owner'].includes(role)}, ...(role ? {storage:storage || this.contentProjection.describe(project, ownerId)} : {})});
   }
   list(user) { if (!user) fail(401, 'Inicia sesión para ver tus proyectos.', 'authentication_required'); return this.store.listProjects().filter(project => this.canRead(user, project.id)).map(project => this.metadata(user, project)); }
-  get(user, projectId, revision) { this.require(user, projectId); return this.metadata(user, this.store.getProject(projectId, revision)); }
+  get(user, projectId, revision) {
+    this.require(user, projectId); const project = this.store.getProject(projectId, revision), ownerId = this.owner(projectId);
+    const storage = revision === undefined ? this.materializeProject(project, ownerId) : this.contentProjection.describe(project, ownerId);
+    return this.metadata(user, project, storage);
+  }
   shares(user, projectId) {
     this.require(user, projectId, 'owner'); return this.db.prepare('SELECT s.user_id AS userId,u.username,u.display_name AS displayName,s.permission FROM studio_project_shares s JOIN studio_users u ON u.id=s.user_id WHERE s.project_id=? ORDER BY u.username').all(projectId);
   }
@@ -151,12 +158,20 @@ class ProjectAccess {
     this.db.prepare('INSERT OR IGNORE INTO studio_asset_owners VALUES(?,?,?)').run(userId, hash, this.now());
   }
   linkAssets(userId, imports) {
-    const folder = path.join(this.userFolder(userId), 'assets'); fs.mkdirSync(folder, {recursive: true});
+    const folder = this.contentProjection.assetFolder(userId); fs.mkdirSync(folder, {recursive: true});
     for (const record of imports) {
       if (!hashPattern.test(record.sha256 || '')) continue;
       const source = this.store.asset(record.sha256).filename, destination = path.join(folder, record.sha256 + '.blob');
       if (!fs.existsSync(destination)) { try { fs.linkSync(source, destination); } catch (_) { fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL); } }
     }
+  }
+  materializeProject(project, ownerId) {
+    if (!ownerId) return this.contentProjection.describe(project, null);
+    const assets = [];
+    try {
+      for (const item of project.document.imports || []) if (hashPattern.test(item.sha256 || '')) assets.push({sha256:item.sha256,filename:this.store.asset(item.sha256).filename});
+    } catch (_) {return {...this.contentProjection.describe(project, ownerId),materialized:false,warning:'projection_unavailable'};}
+    return this.contentProjection.materialize(project, ownerId, {kind:'studio',assets});
   }
   save(user, projectId, payload) {
     if (!user || user.role !== 'creator' && !this.admin(user)) fail(user ? 403 : 401, 'Inicia sesión con permiso de edición.', 'editor_forbidden');
@@ -186,12 +201,11 @@ class ProjectAccess {
           this.checkQuota(chargedId);
         }
       });
-      const folder = path.join(this.userFolder(chargedId), 'projects', result.id); fs.mkdirSync(folder, {recursive: true});
-      // SQLite is authoritative; folders expose ownership without a second full
-      // history or duplicate model payloads. Assets use same-volume hard links.
-      fs.writeFileSync(path.join(folder, 'project.json'), JSON.stringify({id: result.id, name: result.name, revision: result.revision, ownerId}, null, 2));
-      this.linkAssets(chargedId, result.document.imports || []);
-      return this.metadata(user, result);
+      // A derived Content folder is repairable. Never report a committed SQLite
+      // save as failed because a disk projection or hard link was unavailable.
+      const storage = this.materializeProject(result, ownerId);
+      try {this.linkAssets(chargedId, result.document.imports || []);} catch (_) {storage.materialized = false; storage.warning = 'projection_unavailable';}
+      return this.metadata(user, result, storage);
     } catch (error) {
       for (const hash of newHashes) if (!this.store.sql.asset.get(hash)) try { fs.unlinkSync(path.join(this.store.uploadDir, hash + '.blob')); } catch (_) { /* Failed uploads are never exposed by API. */ }
       throw error;

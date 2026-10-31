@@ -25,24 +25,34 @@ class FrameworkProjects {
  }
  actor(req,write=false){const user=write?this.service.requireEditor(req):this.service.user(req);this.service._expectedUser(req,user);return user;}
  row(user,id){const row=this.db.prepare('SELECT * FROM framework_projects WHERE id=? AND owner_id=?').get(id,user.id);if(!row)fail(404,'El proyecto no existe.','not_found');return row;}
- result(row,user,full=true){return {id:row.id,name:row.name,revision:row.revision,createdAt:new Date(row.created_at).toISOString(),updatedAt:new Date(row.updated_at).toISOString(),access:{role:'owner',canEdit:!!user&&user.id===row.owner_id&&user.role==='creator'},...(full?{document:JSON.parse(row.document),moduleState:JSON.parse(row.module_state)}:{})};}
+ result(row,user,full=true){const project={id:row.id,name:row.name,revision:row.revision,createdAt:new Date(row.created_at).toISOString(),updatedAt:new Date(row.updated_at).toISOString(),access:{role:'owner',canEdit:!!user&&user.id===row.owner_id&&user.role==='creator'},...(full?{document:JSON.parse(row.document),moduleState:JSON.parse(row.module_state)}:{})};return {...project,storage:this.service.access.contentProjection.describe(project,row.owner_id)};}
+ materialize(project,user){return {...project,storage:this.service.access.contentProjection.materialize(project,user.id,{kind:'framework',moduleState:project.moduleState})};}
  transaction(callback){this.db.exec('BEGIN IMMEDIATE');try{const result=callback();this.db.exec('COMMIT');return result;}catch(error){this.db.exec('ROLLBACK');throw error;}}
  async prepare(document,moduleState){
   const {core,contracts,discovery}=await trusted(),discovered=discovery.discoverLocalModules({root:this.service.frameworkModulesRoot}),{catalog}=discovered;
-  const localModules=new Map(discovered.modules.map(value=>[value.id,value]));
+  const defaultFunctions=Object.fromEntries(discovered.modules.map(local=>[local.id,local.defaultFunctions.concat(local.imports.map(value=>value.id))]));
   const project=contracts.validateProject(document),state=contracts.validateState(moduleState===undefined?{format:contracts.STATE_FORMAT,version:1,worldId:project.worldId,functions:[]}:moduleState);
   if(state.worldId!==project.worldId)fail(422,'El estado pertenece a otro mundo.','world_mismatch');
   const host=core.createHost({catalog,worldId:project.worldId,ports:{},grants:[]});
   try{
    host.importState(state);const stateById=new Map(state.functions.map(value=>[value.id,value]));
    for(const selection of project.modules){
+    if(selection.enabled===false)continue;
     const installed=catalog.getModule(selection.id);
     // Unknown versions and future state remain opaque, with no loader invoked.
     if(!installed||installed.version!==selection.version)continue;
-    const local=localModules.get(selection.id),functions=selection.functions===undefined?local.defaultFunctions.concat(local.imports.map(value=>value.id)):selection.functions;
-    const plan=catalog.plan(selection.id,functions);
-    if(plan.functions.some(entry=>{const saved=stateById.get(entry.id);return saved&&(saved.version!==entry.version||saved.schemaVersion!==entry.stateVersion);} ))continue;
-    await host.activate(selection.id,{functions});
+    const plan=core.resolveProjectSelection({catalog,project:{...project,modules:[selection]},defaultFunctions,allowOptionalMissing:true});
+    for(const selected of plan.selections){
+     const serverRoots=selected.functions.filter(id=>{
+      const closure=catalog.plan(selected.moduleId,[id]).functions;
+      // This API installs no browser/scene/voice capability adapters. Inspect
+      // trusted metadata before calling a loader: visual functions and their
+      // state remain opaque data rather than being imported into Node.
+      if(closure.some(entry=>entry.capabilities.length))return false;
+      return !closure.some(entry=>{const saved=stateById.get(entry.id);return saved&&(saved.version!==entry.version||saved.schemaVersion!==entry.stateVersion);});
+     });
+     if(serverRoots.length)await host.activate(selected.moduleId,{functions:serverRoots});
+    }
    }
    const inspection=host.inspectProject(project);
    for(const entry of inspection.components)if(entry.status==='ready')host.readComponent(entry.component);
@@ -58,13 +68,13 @@ class FrameworkProjects {
   try{
    const document=encoded(prepared.document),moduleState=encoded(prepared.moduleState);
    if(Buffer.byteLength(document)+Buffer.byteLength(moduleState)>MAX_BYTES)fail(413,'El proyecto y su estado superan 16 MiB.','payload_too_large');
-   return this.transaction(()=>{
+   const saved=this.transaction(()=>{
     const current=this.actor(req,true);if(current.id!==actor.id)fail(409,'La cuenta cambió.','session_changed');
     const now=this.service.now(),projectId=id||randomUUID();
     if(id){const row=this.row(current,id);if(row.revision!==expected)fail(409,'El proyecto cambió. Recarga su revisión.','revision_conflict');this.db.prepare('UPDATE framework_projects SET name=?,document=?,module_state=?,revision=revision+1,updated_at=? WHERE id=? AND owner_id=? AND revision=?').run(name,document,moduleState,now,id,current.id,expected);}
     else this.db.prepare('INSERT INTO framework_projects VALUES(?,?,?,1,?,?,?,?)').run(projectId,current.id,name,document,moduleState,now,now);
     this.service.access.checkQuota(current.id);return this.result(this.row(current,projectId),current);
-   });
+   });return this.materialize(saved,actor);
   }finally{await prepared.host.dispose({force:true});}
  }
  async commands(req,id,payload,metadataOnly=false){
@@ -88,7 +98,8 @@ class FrameworkProjects {
    const {contracts}=await trusted(),result=contracts.cloneData(await prepared.host.dispatch(entry.key,input));
    if(readonly){this.row(this.actor(req),id);return {result,revision:row.revision,readOnly:true};}
    const moduleState=encoded(prepared.host.exportState());
-   return this.transaction(()=>{const current=this.actor(req,true),latest=this.row(current,id);if(current.id!==actor.id||latest.revision!==expected)fail(409,'El proyecto cambió. Recarga su revisión.','revision_conflict');this.db.prepare('UPDATE framework_projects SET module_state=?,revision=revision+1,updated_at=? WHERE id=? AND owner_id=? AND revision=?').run(moduleState,this.service.now(),id,current.id,expected);this.service.access.checkQuota(current.id);return {result,project:this.result(this.row(current,id),current),revision:expected+1,readOnly:false};});
+   const changed=this.transaction(()=>{const current=this.actor(req,true),latest=this.row(current,id);if(current.id!==actor.id||latest.revision!==expected)fail(409,'El proyecto cambió. Recarga su revisión.','revision_conflict');this.db.prepare('UPDATE framework_projects SET module_state=?,revision=revision+1,updated_at=? WHERE id=? AND owner_id=? AND revision=?').run(moduleState,this.service.now(),id,current.id,expected);this.service.access.checkQuota(current.id);return {result,project:this.result(this.row(current,id),current),revision:expected+1,readOnly:false};});
+   changed.project=this.materialize(changed.project,actor);return changed;
   }catch(error){throw frameworkError(error);}finally{await prepared.host.dispose({force:true});}
  }
  async handle(req,res,pathname){
@@ -100,9 +111,9 @@ class FrameworkProjects {
    if(parts.length===2&&method==='GET'){send(200,{projects:this.db.prepare('SELECT id,owner_id,name,revision,created_at,updated_at FROM framework_projects WHERE owner_id=? ORDER BY updated_at DESC,id LIMIT 200').all(actor.id).map(row=>this.result(row,actor,false))});return true;}
    if(parts.length===2&&method==='POST'){this.actor(req,true);send(201,{project:await this.save(req,null,await body())});return true;}
    const id=parts[2];if(typeof id!=='string'||!/^[a-zA-Z0-9-]{1,100}$/.test(id))fail(404,'Ruta no encontrada.','not_found');
-   if(parts.length===3&&method==='GET'){send(200,{project:this.result(this.row(actor,id),actor)});return true;}
+   if(parts.length===3&&method==='GET'){send(200,{project:this.materialize(this.result(this.row(actor,id),actor),actor)});return true;}
    if(parts.length===3&&method==='PUT'){this.actor(req,true);send(200,{project:await this.save(req,id,await body())});return true;}
-   if(parts.length===3&&method==='DELETE'){this.actor(req,true);const expected=expectedRevision((await body()).expectedRevision);this.transaction(()=>{const row=this.row(this.actor(req,true),id);if(row.revision!==expected)fail(409,'El proyecto cambió.','revision_conflict');this.db.prepare('DELETE FROM framework_projects WHERE id=? AND owner_id=? AND revision=?').run(id,actor.id,expected);});send(200,{ok:true});return true;}
+   if(parts.length===3&&method==='DELETE'){this.actor(req,true);const expected=expectedRevision((await body()).expectedRevision);this.transaction(()=>{const row=this.row(this.actor(req,true),id);if(row.revision!==expected)fail(409,'El proyecto cambió.','revision_conflict');this.db.prepare('DELETE FROM framework_projects WHERE id=? AND owner_id=? AND revision=?').run(id,actor.id,expected);});let storageWarning;try{this.service.access.contentProjection.delete(id,actor.id);}catch(_){storageWarning='content_preserved';}send(200,{ok:true,...(storageWarning?{storageWarning}:{})});return true;}
    if(parts.length===4&&parts[3]==='commands'&&['GET','POST'].includes(method)){send(200,await this.commands(req,id,method==='POST'?await body():null,method==='GET'));return true;}
    fail(404,'Ruta no encontrada.','not_found');
   }catch(error){throw frameworkError(error);}
