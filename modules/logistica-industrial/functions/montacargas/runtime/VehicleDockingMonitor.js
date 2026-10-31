@@ -53,7 +53,7 @@ export default class VehicleDockingMonitor {
     this.metrics = dom.createElement('p'); this.metrics.className = 'vehicle-docking-metrics'; this.metrics.setAttribute('aria-label', 'Medidas físicas de alineación');
     this.guidanceBar = dom.createElement('div'); this.guidanceBar.className = 'vehicle-guidance-controls';
     this.guidancePanel = dom.createElement('section'); this.guidancePanel.className = 'vehicle-guidance-panel'; this.guidancePanel.dataset.vehicleGuidancePanel = ''; this.guidancePanel.setAttribute('aria-label', 'Objetivos de carga y descarga');
-    this.missionPanel = new VehicleMissionPanel(dom); this.trainingPanel = this.missionPanel.mount();
+    this.missionPanel = new VehicleMissionPanel(dom, {expanded: !!(dom.defaultView && dom.defaultView.innerWidth >= 1440 && dom.defaultView.innerHeight >= 800 && !this.ctx.vrMode)}); this.trainingPanel = this.missionPanel.mount();
     this.hologramButton = dom.createElement('button'); this.hologramButton.type = 'button'; this.hologramButton.textContent = 'Holograma · Shift+G'; this.hologramButton.dataset.vehicleHolographicGuide = '';
     this.targetLabel = dom.createElement('label'); this.targetLabel.className = 'vehicle-guidance-target'; this.targetLabel.textContent = 'Objetivo';
     this.targetSelect = dom.createElement('select'); this.targetSelect.dataset.vehicleGuidanceTarget = ''; this.targetSelect.setAttribute('aria-label', 'Lugar donde recoger o descargar el pallet'); this.targetLabel.appendChild(this.targetSelect);

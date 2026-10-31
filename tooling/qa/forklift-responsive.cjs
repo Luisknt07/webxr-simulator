@@ -35,9 +35,13 @@ function createFixture({css, sources}) {
   const root=document.createElement('div'); root.id='vehicle-operation-panels';
   const column=document.createElement('div'); column.className='vehicle-operator-column'; root.append(column); document.body.append(root); column.append(d.hud);
   const guidance=document.createElement('section'); guidance.className='vehicle-guidance-panel'; guidance.dataset.training='active'; column.prepend(guidance);
-  const panel=new Mission(document); panel.mount(guidance);
+  // Match VehicleDockingMonitor's desktop mission default; shared mission views
+  // elsewhere intentionally retain their own compact default.
+  const panel=new Mission(document,{expanded:innerWidth>=1440&&innerHeight>=800}); panel.mount(guidance);
   panel.update({title:'Retirar WH-001 del nivel superior y entregar en SALIDA S01',taskId:'first',stage:'approach',phase:'pickup',stageTitle:'Acércate al pallet',instruction:'Acércate al pallet asignado; las flechas orientan el recorrido de recogida.',score:0,scoreMax:495,total:3,completed:0});
-  const bar=document.createElement('div'); bar.className='vehicle-guidance-controls'; bar.textContent='Holograma · Objetivo de la misión'; guidance.append(bar);
+  const bar=document.createElement('div'); bar.className='vehicle-guidance-controls';
+  bar.innerHTML='<button type="button">Holograma ON · Shift+G</button><label class="vehicle-guidance-target">Objetivo<select aria-label="Lugar donde recoger o descargar el pallet"><option>Recoger · Aprendizaje almacén · WH-001</option></select></label>';
+  guidance.append(bar);
   const navigation=document.createElement('section'); navigation.className='vehicle-docking-monitor vehicle-navigation-display'; navigation.dataset.display='layout'; navigation.dataset.expanded='false'; navigation.dataset.plan='open';
   navigation.innerHTML='<div class="vehicle-navigation-header"><strong class="vehicle-navigation-title">Plano de la instalación</strong><div class="vehicle-navigation-actions"><button>Cámara auto</button><button>Plano</button><button>Retrovisor</button><button>⛶ Ampliar</button></div></div><div class="vehicle-docking-body"><section class="vehicle-docking-plan"><canvas width="1024" height="576"></canvas></section><section class="vehicle-fork-camera"><div class="vehicle-fork-camera-header"><button>Vista: Isométrica · Shift+C</button><button>Lado: Izq. · Shift+N</button></div><div class="vehicle-camera-views"><div class="vehicle-fork-camera-viewport"><canvas width="1024" height="576" style="display:block;width:100%;height:100%;object-fit:contain"></canvas></div></div></section></div><p class="vehicle-docking-summary">Recoger: A01-R01-B01-N02-P01</p><p class="vehicle-docking-metrics" hidden>Lateral: −3.2 cm · Altura: 0.5 cm · Inserción: 53 cm</p>';
   root.append(navigation);
@@ -55,12 +59,16 @@ function measure() {
   const visible=node=>!node.hidden && getComputedStyle(node).display!=='none';
   return {
     viewport:{width:innerWidth,height:innerHeight}, defaultMode:d.hud.dataset.viewport,
-    hud:rect(d.hud), mission:rect(__responsive.panel.element), guidance:rect(root.querySelector('.vehicle-guidance-panel')), map:rect(navigation),
+    hud:rect(d.hud), mission:rect(__responsive.panel.element), missionExpanded:__responsive.panel.element.dataset.expanded,
+    missionInstruction:{rect:rect(__responsive.panel.instruction),visible:getComputedStyle(__responsive.panel.instruction).display!=='none'},
+    guidance:rect(root.querySelector('.vehicle-guidance-panel')), map:rect(navigation),
     plan:rect(navigation.querySelector('.vehicle-docking-plan')), camera:rect(navigation.querySelector('.vehicle-fork-camera-viewport')),
     visibleGroups:d.controlGroups.filter(visible).map(node=>node.dataset.group),
-    groups:d.controlGroups.filter(visible).map(node=>({group:node.dataset.group,rect:rect(node),headingVisible:getComputedStyle(node.heading).display!=='none'})),
+    groups:d.controlGroups.filter(visible).map(node=>({group:node.dataset.group,rect:rect(node),columns:getComputedStyle(node).gridTemplateColumns.trim().split(/\s+/).length,headingVisible:getComputedStyle(node.heading).display!=='none'})),
     buttons:d.controlGroups.filter(visible).flatMap(group=>group.controls.filter(visible).map(button=>({action:button.dataset.vehicleAction,rect:rect(button),labelOverflow:button.controlLabel.scrollWidth>button.controlLabel.clientWidth+1}))),
     hudScrolls:d.hud.scrollHeight>d.hud.clientHeight+1,
+    hudClientHeight:d.hud.clientHeight,hudScrollHeight:d.hud.scrollHeight,hudScrollPixels:Math.max(0,d.hud.scrollHeight-d.hud.clientHeight),
+    sampleButton:(()=>{const button=d.controlButtons.get('driveForward'),style=getComputedStyle(button),label=getComputedStyle(button.controlLabel),key=getComputedStyle(button.querySelector('.vehicle-control-key'));return {rect:rect(button),rows:style.gridTemplateRows,padding:style.padding,lineHeight:style.lineHeight,labelHeight:rect(button.controlLabel).height,labelLineHeight:label.lineHeight,keyHeight:rect(button.querySelector('.vehicle-control-key')).height,keyLineHeight:key.lineHeight};})(),
     unsupportedVisible:[...d.controlButtons].filter(([,button])=>button.hidden&&getComputedStyle(button).display!=='none').map(([action])=>action),
     center, centerBlocked:!!document.elementFromPoint(innerWidth*.5,innerHeight*.5).closest('#vehicle-operation-panels'),
     overflow:document.documentElement.scrollWidth>innerWidth
@@ -79,12 +87,21 @@ function verifyGeometry(result, wide) {
   if(wide) {
     assert.equal(result.defaultMode,'wide');
     assert.deepEqual(result.visibleGroups,['drive','cargo','view','safety']);
-    assert.equal(result.hudScrolls,false,'All wide-screen controls fit without an internal scrollbar.');
-    for(const group of result.groups) {assert(group.headingVisible);assert(inRect(group.rect,result.hud),'Control group is clipped: '+group.group);}
-    for(const button of result.buttons) {assert(inRect(button.rect,result.hud),'Control button is clipped: '+button.action);assert.equal(button.labelOverflow,false,'Control label is horizontally clipped: '+button.action);}
-    const requiredWidth=result.viewport.width>=2560?760:result.viewport.width>=1920?620:560;
-    assert(result.map.width>=requiredWidth,'The default navigation display must use wide-screen space.');
-    for(const name of ['hud','guidance','map']) assert(intersection(result[name],result.center)<=1,'Wide instruments must leave the central 20% of both axes clear: '+name);
+    assert(result.hud.width>=320&&result.hud.width<=400,'The left console must remain a narrow vertical instrument.');
+    assert.equal(result.missionExpanded,'true','The wide mission starts expanded above the controls.');
+    assert(result.missionInstruction.visible&&inRect(result.missionInstruction.rect,result.guidance),'The mission instruction must be readable.');
+    assert(Math.abs(result.hud.x-result.guidance.x)<=1&&Math.abs(result.hud.width-result.guidance.width)<=1,'Mission and controls share one aligned left column.');
+    const scrollAllowed=result.viewport.width<2560;
+    if(!scrollAllowed) assert.equal(result.hudScrolls,false,'All controls fit without scrolling on the largest desktop.');
+    for(let index=0;index<result.groups.length;index++) {
+      const group=result.groups[index],previous=result.groups[index-1];
+      assert(group.headingVisible);assert.equal(group.columns,4,'Each category uses four compact button columns.');
+      if(previous) {assert(Math.abs(previous.rect.x-group.rect.x)<=1&&Math.abs(previous.rect.width-group.rect.width)<=1,'Control categories must stack in one vertical column.');assert(previous.rect.bottom<=group.rect.y+1,'Stacked control categories must not overlap.');}
+      if(!scrollAllowed)assert(inRect(group.rect,result.hud),'Control group is clipped: '+group.group);
+    }
+    for(const button of result.buttons) {if(!scrollAllowed)assert(inRect(button.rect,result.hud),'Control button is clipped: '+button.action);assert.equal(button.labelOverflow,false,'Control label is horizontally clipped: '+button.action);}
+    assert(result.map.width>=560&&result.map.width<=740,'The right monitor must remain readable without occupying a large portion of the view.');
+    for(const name of ['hud','guidance','map']) assert(intersection(result[name],result.center)<=1,'Wide instruments must leave the central driving corridor clear: '+name);
   } else {
     assert.deepEqual(result.visibleGroups,['drive']);
     assert(result.hud.height<=Math.min(300,result.viewport.height*.65));
@@ -104,6 +121,10 @@ async function run() {
           await b.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile});
           await b.send('Page.navigate',{url:'about:blank'});await b.call(createFixture,{css,sources});
           const result=await b.call(measure); report.currentCase={file,width,height,state:'layout',...result};verifyGeometry(result,wide);
+          if(wide&&result.hudScrolls) {
+            const reachable=await b.call(()=>{const hud=__responsive.d.hud;hud.scrollTop=hud.scrollHeight;const buttons=[...hud.querySelectorAll('[data-vehicle-action]')].filter(node=>!node.hidden),last=buttons.at(-1),a=last.getBoundingClientRect(),b=hud.getBoundingClientRect();const visible=a.top>=b.top&&a.bottom<=b.bottom+1;hud.scrollTop=0;return visible;});
+            assert(reachable,'A bounded console scrollbar must reach its final control.');
+          }
           const name=(file.startsWith('apps/')?'public':'workspace')+'-'+width+'x'+height;
           const screenshot=async suffix=>{const shot=await b.send('Page.captureScreenshot',{format:'png'}),filename=path.join(OUT,name+suffix+'.png');fs.writeFileSync(filename,Buffer.from(shot.data,'base64'));report.screenshots.push(filename);};
           await screenshot('');

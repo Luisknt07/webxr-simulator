@@ -15,12 +15,18 @@ function verify(state){
  assert.equal(state.viewport,'wide');assert.equal(state.expanded,true);assert.equal(state.minimized,false);
  assert.deepEqual(state.groups.map(group=>group.name),['drive','cargo','view','safety']);
  assert(state.groups.every(group=>group.buttons>0&&group.headingVisible),'Every supported control category must be open and labelled.');
+ const firstGroup=state.groups[0].rect;
+ state.groups.forEach((group,index)=>{assert(group.rect&&Math.abs(group.rect.left-firstGroup.left)<=1&&Math.abs(group.rect.width-firstGroup.width)<=1,'Control categories must share the same narrow column.');if(index)assert(group.rect.top>=state.groups[index-1].rect.bottom-1,'Control categories must stack vertically without overlap.');});
  assert(state.buttons.length>=30,'The mounted truck must expose its complete supported controls.');
  assert.deepEqual(state.clippedLabels,[],'Control labels must fit their buttons without ellipsis.');
- assert.deepEqual(state.hiddenControls,[],'Supported controls must remain visible inside the full desktop console.');
+ assert.deepEqual(state.missingControls,[],'Every supported control must be available in the expanded console.');
+ if(width>=2560)assert.deepEqual(state.hiddenControls,[],'Supported controls must remain visible inside the full desktop console.');
  assert.deepEqual(state.unsupportedDisplayed,[],'Unsupported controls marked hidden must not consume console space.');
- assert(state.hudScrollHeight<=state.hudClientHeight+1,'All wide desktop controls must fit without scrolling.');
+ if(width>=2560)assert(state.hudScrollHeight<=state.hudClientHeight+1,'All large desktop controls must fit without scrolling.');
+ assert(state.endControlReachable,'The final supported control must remain reachable by scrolling inside the bounded console.');
  assert(state.hudScrollWidth<=state.hudClientWidth+1,'Control content must fit horizontally.');
+ assert.equal(state.mission.expanded,true,'The mission must show its instructions and progress above the controls by default.');
+ assert(state.mission.instructionVisible&&state.mission.progressVisible,'The expanded mission must expose its instruction and progress.');
  assert.equal(state.centerBlocked,false,'The central driving view must remain free.');
  assert.equal(state.pageOverflow,false);assert.equal(state.mode,'inspection');
  assert.equal(state.gl,0);assert.equal(state.camera.failures,0);assert(state.camera.frontFrames>1&&state.camera.targetAllocated,'The real inspection feed must render frames.');
@@ -34,9 +40,10 @@ function verify(state){
  assert.equal(overlap(rects.plan,rects.feed),0,'The insertion plan must have its own column beside the video.');
  assert(Math.abs(rects.feed.width/rects.feed.height-16/9)<.02,'The camera opening must preserve its optical aspect ratio.');
  assert(state.camera.width>=rects.feed.width,'The enlarged camera must receive enough rendered pixels for its displayed width.');
- assert(rects.plan.width>=165);assert(rects.hud.width>=500);
- assert(rects.monitor.width>=(width>=2560?940:width>=1920?700:550));
- assert(rects.feed.width>=(width>=2560?680:width>=1920?500:350),'The wide camera must be larger than the former compact feed.');
+ assert(rects.plan.width>=165);assert(rects.hud.width>=300&&rects.hud.width<=400,'The complete console must retain a narrow left column.');
+ assert(rects.guidance.width<=400&&Math.abs(rects.guidance.left-rects.hud.left)<=1,'The full mission belongs above the same narrow control column.');
+ assert(rects.monitor.width>=(width>=1920?600:500)&&rects.monitor.width<=780,'The default monitor must remain readable without dominating the viewport.');
+ assert(rects.feed.width>=(width>=1920?380:350),'The camera opening must remain readable beside the separate plan.');
  assert(state.stock.sameEntry&&state.stock.samePockets&&!state.stock.truckHasLoad,'UI verification must retain original pallet custody.');
 }
 
@@ -47,7 +54,7 @@ async function run(){
  const prepared=await prepare(fixtureDocument),workspaceSha256=hash(fs.readFileSync(path.join(ROOT,'artifacts/workspace/bundle.js'))),publicSha256=hash(fs.readFileSync(path.join(ROOT,'artifacts/public-viewer/viewer.js')));
  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT,'artifacts/workspace/publication.json'))).bundleSha256,workspaceSha256,'Compile the reviewed Workspace before running QA.');
  assert.equal(JSON.parse(fs.readFileSync(path.join(ROOT,'artifacts/public-viewer/publication.json'))).bundleSha256,publicSha256);
- const report={startedAt:new Date().toISOString(),workspaceSha256,publicSha256,temporaryDatabaseOnly:true,sourceSha256:sourceHash,fixture:prepared.evidence,exceptions:[],consoleErrors:[],failedRequests:[],responses:[],screenshots:[],viewports:[]};
+ const report={startedAt:new Date().toISOString(),workspaceSha256,publicSha256,temporaryDatabaseOnly:true,sourceSha256:sourceHash,fixture:prepared.evidence,exceptions:[],consoleErrors:[],failedRequests:[],responses:[],screenshots:[],viewports:[],layouts:[]};
  const password='Disposable-Wide-Forklift-'+randomBytes(16).toString('hex'),fixture=await startFixture(password);
  try{
   await withBrowser(fixture,report,async b=>{
@@ -81,12 +88,16 @@ async function run(){
     await b.call(()=>{const q=__wideForklift;q.s.execute=q.execute;q.d.follow();q.d.docking.update(true);q.d.updateHUD();});
     await until(()=>b.evaluate('__wideForklift.d.docking.forkCamera.getStats().frontFrames>1'),'The actual auxiliary camera did not render.');
     const state=await b.call(()=>{
-     const q=__wideForklift,{d,s,v}=q,m=d.docking,rect=node=>{if(!node||node.hidden||!node.getClientRects().length)return null;const r=node.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};},hud=rect(d.hud),clippedLabels=[],hiddenControls=[],unsupportedDisplayed=[],buttons=[];
-     for(const [name,button]of d.controlButtons){if(button.hidden){if(button.getClientRects().length&&getComputedStyle(button).display!=='none')unsupportedDisplayed.push(name);continue;}const r=rect(button),label=button.controlLabel,c=label&&getComputedStyle(label);buttons.push(name);if(!r||r.top<hud.top-1||r.bottom>hud.bottom+1)hiddenControls.push(name);if(label&&(label.scrollWidth>label.clientWidth+1||label.scrollHeight>label.clientHeight+1||c.textOverflow==='ellipsis'))clippedLabels.push(name);}
+     const q=__wideForklift,{d,s,v}=q,m=d.docking,rect=node=>{if(!node||node.hidden||!node.getClientRects().length)return null;const r=node.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};},hud=rect(d.hud),clippedLabels=[],hiddenControls=[],missingControls=[],unsupportedDisplayed=[],buttons=[];
+     for(const [name,button]of d.controlButtons){if(button.hidden){if(button.getClientRects().length&&getComputedStyle(button).display!=='none')unsupportedDisplayed.push(name);continue;}const r=rect(button),label=button.controlLabel,c=label&&getComputedStyle(label);buttons.push(name);if(!r||r.width<=0||r.height<=0)missingControls.push(name);if(!r||r.top<hud.top-1||r.bottom>hud.bottom+1)hiddenControls.push(name);if(label&&(label.scrollWidth>label.clientWidth+1||label.scrollHeight>label.clientHeight+1||c.textOverflow==='ellipsis'))clippedLabels.push(name);}
      const center=document.elementFromPoint(innerWidth/2,innerHeight/2);
-     return {width:innerWidth,height:innerHeight,viewport:d.hud.dataset.viewport,expanded:d.controlsExpanded,minimized:d.controlsMinimized,mode:m.mode,camera:m.forkCamera.getStats(),groups:d.controlGroups.filter(g=>!g.hidden&&getComputedStyle(g).display!=='none').map(g=>({name:g.dataset.group,buttons:g.controls.filter(b=>!b.hidden).length,headingVisible:getComputedStyle(g.heading).display!=='none'})),buttons,clippedLabels,hiddenControls,unsupportedDisplayed,hudScrollHeight:d.hud.scrollHeight,hudClientHeight:d.hud.clientHeight,hudScrollWidth:d.hud.scrollWidth,hudClientWidth:d.hud.clientWidth,centerBlocked:!!(center&&center.closest('#vehicle-operation-panels')),centerElement:center&&center.className,pageOverflow:document.documentElement.scrollWidth>innerWidth,separateObjectives:!m.element.contains(m.guidancePanel),rects:{hud,guidance:rect(m.guidancePanel),monitor:rect(m.element),plan:rect(m.plan),feed:rect(m.feedViewport),metrics:rect(m.metrics)},stock:{sameEntry:q.product.sourceEntry===q.entry,samePockets:JSON.stringify(s.vehicleRuntime.productPockets(q.product))===q.pockets,truckHasLoad:!!v.entry},lesson:s.vehicleTraining.guidance(q.record),gl:context.renderer.getContext().getError()};
+     const mission=m.guidancePanel.querySelector('.vehicle-mission-panel'),visible=node=>!!(node&&node.getClientRects().length&&getComputedStyle(node).display!=='none');
+     const previousScroll=d.hud.scrollTop;d.hud.scrollTop=d.hud.scrollHeight;const end=rect(d.controlButtons.get(buttons[buttons.length-1])),endControlReachable=!!end&&end.top>=hud.top-1&&end.bottom<=hud.bottom+1;d.hud.scrollTop=previousScroll;
+     return {width:innerWidth,height:innerHeight,viewport:d.hud.dataset.viewport,expanded:d.controlsExpanded,minimized:d.controlsMinimized,mode:m.mode,camera:m.forkCamera.getStats(),groups:d.controlGroups.filter(g=>!g.hidden&&getComputedStyle(g).display!=='none').map(g=>({name:g.dataset.group,buttons:g.controls.filter(b=>!b.hidden).length,headingVisible:getComputedStyle(g.heading).display!=='none',rect:rect(g)})),buttons,clippedLabels,hiddenControls,missingControls,unsupportedDisplayed,endControlReachable,hudScrollHeight:d.hud.scrollHeight,hudClientHeight:d.hud.clientHeight,hudScrollWidth:d.hud.scrollWidth,hudClientWidth:d.hud.clientWidth,centerBlocked:!!(center&&center.closest('#vehicle-operation-panels')),centerElement:center&&center.className,pageOverflow:document.documentElement.scrollWidth>innerWidth,separateObjectives:!m.element.contains(m.guidancePanel),mission:{expanded:!!mission&&mission.dataset.expanded==='true',instructionVisible:visible(mission&&mission.querySelector('.vehicle-mission-instruction')),progressVisible:visible(mission&&mission.querySelector('.vehicle-mission-progress-row'))},rects:{hud,guidance:rect(m.guidancePanel),monitor:rect(m.element),plan:rect(m.plan),feed:rect(m.feedViewport),metrics:rect(m.metrics)},stock:{sameEntry:q.product.sourceEntry===q.entry,samePockets:JSON.stringify(s.vehicleRuntime.productPockets(q.product))===q.pockets,truckHasLoad:!!v.entry},lesson:s.vehicleTraining.guidance(q.record),gl:context.renderer.getContext().getError()};
     });
     state.approach=approach;report.viewports.push(state);await shot('wide-driving-'+width+'x'+height);verify(state);
+    const layout=await b.call(()=>{const q=__wideForklift,m=q.d.docking;m.planButton.click();m.update(true);const rect=node=>{const r=node.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};},model=m.facilityLayout.model,center=document.elementFromPoint(innerWidth/2,innerHeight/2);return {width:innerWidth,height:innerHeight,mode:m.mode,monitor:rect(m.element),canvas:rect(m.canvas),actors:model.actors.length,products:model.products.length,racks:model.actors.filter(actor=>actor.rack).length,hasLiveTruck:!!model.vehicle,hasMission:!!(model.mission&&model.mission.target&&model.mission.plannedRoute.length),centerBlocked:!!(center&&center.closest('#vehicle-operation-panels'))};});
+    report.layouts.push(layout);assert.equal(layout.mode,'layout');assert(layout.actors>0&&layout.products>0&&layout.racks>0&&layout.hasLiveTruck&&layout.hasMission,'The real facility plan must show its warehouse, stock, truck and active route.');assert.equal(layout.centerBlocked,false);assert(layout.monitor.width>=(width>=1920?600:500)&&layout.monitor.width<=780);assert(layout.monitor.top>=0&&layout.monitor.bottom<=height+1);assert(layout.canvas.width>=layout.monitor.width*.9,'The installation layout should use the available monitor width.');await shot('narrow-layout-'+width+'x'+height);
    }
    report.environmentalFontRequests=report.failedRequests.filter(row=>{try{const u=new URL(row.url);return u.hostname==='code.cdn.mozilla.net'&&u.pathname.startsWith('/fonts/');}catch(_){return false;}});
    assert.deepEqual(report.failedRequests.filter(row=>!report.environmentalFontRequests.includes(row)),[]);assert.deepEqual(report.exceptions,[]);assert.deepEqual(report.consoleErrors,[]);assert.deepEqual(report.responses.filter(row=>row.url.startsWith(fixture.origin+'/')&&row.status>=400),[]);assert.deepEqual(fixture.errors,[]);
