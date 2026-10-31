@@ -23,7 +23,7 @@ test('real browser builds include only each sector selection and its declared de
     assert(!result.graph.some(file => /apps\/workspace|packages\/tools|IndustrialPrefabs|SceneEditor|SimulationRuntime|modules\/catalog/.test(file)));
     const manifest = JSON.parse(fs.readFileSync(path.join(result.output, 'publication.json')));
     assert.equal(manifest.referenceScene, true); assert.equal(manifest.statePersistence, 'memory');
-    assert.deepEqual(manifest.files.map(file => file.path).sort(), ['index.html','project.js','viewer.css']);
+    assert.deepEqual(manifest.files.map(file => file.path).sort(), ['index.html','modules.css','project.js','viewer.css']);
     for (const file of manifest.files) {const bytes = fs.readFileSync(path.join(result.output, file.path)); assert.equal(bytes.length, file.size); assert.equal(createHash('sha256').update(bytes).digest('hex'), file.sha256);}
     fs.mkdirSync(path.join(root, 'data/qa-modular'), {recursive: true});
     fs.writeFileSync(path.join(root, `data/qa-modular/project-build-${sector}.json`), JSON.stringify(result, null, 2));
@@ -36,6 +36,12 @@ test('project publications reject unsafe media paths, foreign dependencies and n
   }
   assert.throws(() => validateCompilationClosure({root,generated:{output:path.join(root,'data/build/test')},functions:[],stats:{modules:[{identifier:path.join(root,'modules/turismo/functions/recorridos/index.js')}]}}), {code:'project_dependency'});
   assert.throws(() => buildProject({root,projectPath:'projects/agricultura/project.json',name:'../workspace'}), {code:'project_name'});
+});
+
+test('a new framework base publishes without any sector code, data or assets', () => {
+  const result=buildProject({root,projectPath:'projects/framework-base/project.json',name:'proof-framework-base'});
+  assert.deepEqual(result.functions,[]);assert.equal(result.graph.some(file=>file.startsWith('modules/')),false);
+  assert.deepEqual(result.files.map(file=>file.path).sort(),['index.html','modules.css','project.js','viewer.css']);
 });
 
 test('declarative panels never dispatch another function or interpret action code', () => {
@@ -54,4 +60,16 @@ test('a project host resolving after browser disposal is immediately retired', a
   await browser.dispose();
   resolveHost({async dispose(options){assert.equal(options.force,true);disposed++;}});
   assert.equal(await loading,null);assert.equal(disposed,1,'Late module resources must not outlive their disposed browser host.');
+});
+
+test('the shared project scene releases its GPU resources even if an installed module cleanup fails', async () => {
+  const THREE=createRequire(import.meta.url)('three');let cleanup,disposed=0;
+  const context={scene:new THREE.Scene(),input:{reset(){}},cameraRig:new THREE.Group(),camera:new THREE.PerspectiveCamera()};
+  const browser={context,onDispose(callback){cleanup=callback;},async dispose(){await cleanup();}};
+  const document={getElementById:()=>({addEventListener(){},removeEventListener(){}})};
+  const source=fs.readFileSync(path.join(root,'apps/project-viewer/boot.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
+  const mount=new Function('THREE','createBrowserHost','renderPanel','renderModuleManager','mountProjectTransfer','document','window',source+'\nreturn mountProject;')(THREE,()=>browser,()=>{},()=>{throw Error('UI could not mount');},()=>{},document,{});
+  const operation=mount({createComposedSession:async()=>({host:{},async dispose(){throw Error('Module cleanup failed');}}),project:{}});
+  for(const mesh of context.scene.children.filter(node=>node.isMesh))for(const resource of [mesh.geometry,mesh.material])resource.addEventListener('dispose',()=>disposed++);
+  await assert.rejects(operation,/Project shell cleanup failed/);assert.equal(disposed,4,'Both geometry/material pairs must retire independently of module errors.');
 });

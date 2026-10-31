@@ -3,6 +3,7 @@ import path from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
 import {createLocalCatalog} from '../../packages/core/index.js';
+import {resolveProjectSelection} from '../../packages/core/project-selection.js';
 import {cloneData, functionManifest, identifier, plain, version, versionSatisfies, validateProject, fail, deepFreeze} from '../../packages/contracts/index.js';
 
 export const REPOSITORY = fileURLToPath(new URL('../../', import.meta.url));
@@ -28,10 +29,20 @@ function functionEntry(root, folder, row, localPackage) {
   const packageRoot = manifest.metadata && manifest.metadata.packageRoot;
   if (typeof packageRoot !== 'string' || !packageRoot.startsWith('functions/') || localPackage && packageRoot !== localPackage) fail('invalid_function_entry', 'A portable function must declare its own package root.');
   const packageDirectory = checkedPath(root, `${moduleDirectory}/${packageRoot}`); if (!within(packageDirectory, absolute)) fail('invalid_function_entry', 'A function entry must remain inside its package.');
-  if (!Array.isArray(manifest.metadata.files) || !manifest.metadata.files.length) fail('nonportable_function', `Function ${manifest.id} needs its complete file allowlist.`);
+  if (!Array.isArray(manifest.metadata.files) || !manifest.metadata.files.length || manifest.metadata.files.length > 2048 || manifest.metadata.files.some(filename => typeof filename !== 'string') || new Set(manifest.metadata.files.map(filename => filename.toLowerCase())).size !== manifest.metadata.files.length) fail('nonportable_function', `Function ${manifest.id} needs a bounded file allowlist without case-colliding names.`);
   const declaredEntry = checkedPath(root, `${moduleDirectory}/${packageRoot}/${manifest.metadata.entry}`);
   if (declaredEntry !== absolute || !manifest.metadata.files.includes(manifest.metadata.entry)) fail('invalid_function_entry', 'The portable entry must match the validated entry and belong to its file allowlist.');
   for (const filename of manifest.metadata.files) { const file = checkedPath(root, `${moduleDirectory}/${packageRoot}/${filename}`); if (!fs.statSync(file).isFile()) fail('missing_manifest_file', 'A package allowlist entry is not a regular file.'); }
+  const files = new Set(manifest.metadata.files);
+  for (const field of ['schema', 'server', 'ui', 'migration']) {
+    const filename = manifest.metadata[field];
+    if (filename !== undefined && (typeof filename !== 'string' || !files.has(filename))) fail('nonportable_function', `Function ${manifest.id} must include its ${field} in metadata.files so a copy remains complete.`);
+  }
+  for (const field of ['assets', 'tests']) {
+    const filenames = manifest.metadata[field];
+    if (filenames === undefined) continue;
+    if (!Array.isArray(filenames) || filenames.length > 256 || new Set(filenames).size !== filenames.length || filenames.some(filename => typeof filename !== 'string' || !files.has(filename))) fail('nonportable_function', `Function ${manifest.id} must include every distinct ${field} entry in metadata.files so a copy remains complete.`);
+  }
   return {...manifest, entry: slash(path.relative(root, absolute)), sectorEntry: slash(path.relative(path.join(root, moduleDirectory), absolute)), moduleDirectory, packageDirectory: slash(path.relative(root, packageDirectory))};
 }
 
@@ -72,29 +83,14 @@ export function discoverLocalModules({root = REPOSITORY} = {}) {
 
 export function resolveProjectComposition({root = REPOSITORY, projectPath, project, allowOptionalMissing = false} = {}) {
   const discovery = discoverLocalModules({root}); root = discovery.root;
-  const input = project === undefined ? readJSON(root, projectPath).value : project, document = validateProject(input), selections = [], missing = [], selected = new Set();
-  const byModule = new Map(discovery.modules.map(module => [module.id, module]));
-  for (const reference of document.modules) {
-    const module = byModule.get(reference.id), optionalModule = allowOptionalMissing && reference.optional === true;
-    if (!module) { if (optionalModule) { missing.push({moduleId: reference.id, code: 'missing_module'}); continue; } fail('missing_module', `Project needs local module ${reference.id}.`); }
-    if (!versionSatisfies(module.version, reference.version)) fail('incompatible_version', `Project module ${reference.id} needs migration from ${reference.version}.`);
-    const requested = reference.functions === undefined ? module.defaultFunctions.concat(module.imports.map(entry => entry.id)) : reference.functions;
-    if (!Array.isArray(requested) || requested.length > 512) fail('invalid_selection', 'Project functions must be an array.');
-    const roots = [];
-    for (const request of requested) {
-      const id = typeof request === 'string' ? request : request && request.id, optional = optionalModule || allowOptionalMissing && plain(request) && request.optional === true; identifier(id);
-      const available = module.functions.some(entry => entry.id === id) || module.imports.some(entry => entry.id === id);
-      if (!available && optional) { missing.push({moduleId: reference.id, functionId: id, code: 'missing_function'}); continue; }
-      try { const plan = discovery.catalog.plan(module.id, [id]); plan.functions.forEach(entry => selected.add(entry.id)); roots.push(id); }
-      catch (error) { if (optional && ['missing_module', 'missing_function'].includes(error.code)) missing.push({moduleId: reference.id, functionId: id, code: error.code}); else throw error; }
-    }
-    if (new Set(roots).size !== roots.length) fail('duplicate_id', 'A composition selects the same root function twice.');
-    if (roots.length) selections.push({moduleId: module.id, functions: roots});
-  }
+  const input = project === undefined ? readJSON(root, projectPath).value : project;
+  const defaultFunctions = Object.fromEntries(discovery.modules.map(module => [module.id, module.defaultFunctions.concat(module.imports.map(entry => entry.id))]));
+  const selection = resolveProjectSelection({catalog: discovery.catalog, project: input, allowOptionalMissing, defaultFunctions});
+  const document = selection.project, selections = selection.selections, missing = selection.missing, selected = new Set(selection.functions.map(entry => entry.id));
   const neededOwners = new Set(selections.map(selection => selection.moduleId)); for (const module of discovery.modules) if (module.functions.some(entry => selected.has(entry.id))) neededOwners.add(module.id);
   const modules = discovery.modules.filter(module => neededOwners.has(module.id)).map(module => ({...module, functions: module.functions.filter(entry => selected.has(entry.id)), imports: module.imports.filter(entry => selected.has(entry.id))}));
   const functions = modules.flatMap(module => module.functions.map(entry => ({...entry, moduleId: module.id}))), selectedSources = new Set(modules.map(module => module.manifestPath).concat(functions.map(entry => entry.packageDirectory + '/function-manifest.json')));
-  return {root, project: document, selections, missing, modules, functions, sources: discovery.sources.filter(source => selectedSources.has(source.path))};
+  return {root, project: document, selections, missing, modules, functions, defaultFunctions, sources: discovery.sources.filter(source => selectedSources.has(source.path))};
 }
 
 export function writeProjectComposition(options = {}) {
@@ -108,8 +104,11 @@ export function writeProjectComposition(options = {}) {
     const metadata = {id: module.id, version: module.version, coreApi: module.coreApi, metadata: module.metadata, imports: module.imports};
     return `{...${JSON.stringify(metadata)},functions:[${module.functions.map(entry => `{...${JSON.stringify(functionManifest(entry))},load:()=>import(${JSON.stringify(importPath(path.join(root, entry.entry)))})}`).join(',')} ]}`;
   }).join(',\n');
-  const catalog = `// Generated from validated local JSON. No remote code, no all-sector barrel.\nexport const project=${JSON.stringify(resolved.project)};\nexport const selections=${JSON.stringify(resolved.selections)};\nexport const missing=${JSON.stringify(resolved.missing)};\nexport const catalog=[${catalogSource}];\n`;
-  const bootstrap = `import {composeSelection} from ${JSON.stringify(importPath(path.join(root, 'packages/core/index.js')))};\nimport {catalog,project,selections} from './catalog.mjs';\nexport {project,selections,missing} from './catalog.mjs';\nexport function createComposedHost({ports={},grants=[],...options}={}){return composeSelection({...options,worldId:project.worldId,ports,grants,catalog,selections});}\n`;
+  const defaults = Object.fromEntries(resolved.modules.map(module => [module.id, resolved.defaultFunctions[module.id].filter(id => resolved.functions.some(entry => entry.id === id))]));
+  const catalog = `// Generated from validated local JSON. No remote code, no all-sector barrel.\nexport const project=${JSON.stringify(resolved.project)};\nexport const selections=${JSON.stringify(resolved.selections)};\nexport const missing=${JSON.stringify(resolved.missing)};\nexport const defaultFunctions=${JSON.stringify(defaults)};\nexport const catalog=[${catalogSource}];\n`;
+  const coreImport = JSON.stringify(importPath(path.join(root, 'packages/core/index.js')));
+  const sessionImport = JSON.stringify(importPath(path.join(root, 'packages/core/project-session.js')));
+  const bootstrap = `import {composeSelection} from ${coreImport};\nimport {createProjectSession} from ${sessionImport};\nimport {catalog,project,selections,defaultFunctions} from './catalog.mjs';\nexport {project,selections,missing} from './catalog.mjs';\nexport function createComposedHost({ports={},grants=[],...options}={}){return composeSelection({...options,worldId:project.worldId,ports,grants,catalog,selections});}\nexport async function createComposedSession({ports={},grants=[],...options}={}){const session=createProjectSession({...options,ports,grants,catalog,defaultFunctions});try{await session.open(project,{allowOptionalMissing:true});return session;}catch(error){await session.dispose({force:true});throw error;}}\n`;
   const receipt = cloneData({format: 'smarttwin.composition', version: 1, worldId: resolved.project.worldId, selections: resolved.selections, missing: resolved.missing, functions: resolved.functions.map(entry => ({id: entry.id, version: entry.version, entry: entry.entry, moduleId: entry.moduleId})), manifests: resolved.sources});
   // Never follow a pre-existing file link or overwrite an unrelated file name.
   for (const [filename, contents] of [['catalog.mjs', catalog], ['bootstrap.mjs', bootstrap], ['selection.json', JSON.stringify(receipt, null, 2) + '\n']]) { const relative = `data/build/compositions/${name}/${filename}`; checkedPath(root, relative, {missing:true}); fs.writeFileSync(path.join(output, filename), contents); }

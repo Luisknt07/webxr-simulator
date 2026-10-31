@@ -104,6 +104,7 @@ La comprobación de navegador exige el SHA-256 del bundle de Workspace que se ha
 
 - [Referencia histórica de la propuesta modular](docs/modular-framework-proposal.md)
 - [SDK, módulos y composición](docs/framework-modules.md)
+- [Organización reutilizable, gestor de módulos y nuevos proyectos](docs/modular-projects.md)
 - [Seguridad y despliegue](docs/framework-security.md)
 - [Resultados de validación](docs/framework-validation.md)
 - [Auditoría del 30 de octubre de 2026: correcciones, pruebas y pendientes](docs/audit-2026-10-30.md)

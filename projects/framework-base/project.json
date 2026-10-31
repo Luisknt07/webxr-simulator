@@ -1,0 +1,9 @@
+{
+  "format": "smarttwin.project",
+  "version": 1,
+  "id": "project.framework-base",
+  "worldId": "world.framework-base",
+  "title": "Nuevo proyecto WebXR",
+  "modules": [],
+  "entities": []
+}

@@ -50,6 +50,12 @@ export function validateCompilationClosure({root, generated, functions, stats}) 
   for (const filename of files) {
     if (slash(filename).includes('/node_modules/')) continue;
     if (!allowed.some(directory => within(directory, filename))) fail('project_dependency', 'The selected project imports an unselected package: ' + slash(path.relative(root, filename)));
+    const owner = functions.find(entry => within(path.join(root, entry.packageDirectory), filename));
+    if (owner) {
+      const relative = slash(path.relative(path.join(root, owner.packageDirectory), filename));
+      if (!Array.isArray(owner.metadata.files) || !owner.metadata.files.includes(relative)) fail('project_dependency', `Function ${owner.id} imports an undeclared package file: ${relative}. Add it to metadata.files before building or copying the function.`);
+      checkedPath(root, slash(path.relative(root, filename)));
+    }
   }
   return files.filter(filename => within(root, filename)).map(filename => slash(path.relative(root, filename))).sort();
 }
@@ -68,7 +74,7 @@ export function buildProject({root = REPOSITORY, projectPath, name} = {}) {
   const staged = ensureDirectory(root, slash(path.relative(root, generated.output)) + '/site');
   const importPath = filename => {const relative = slash(path.relative(generated.output, filename)); return relative.startsWith('.') ? relative : './' + relative;};
   const entry = path.join(generated.output, 'browser.mjs');
-  fs.writeFileSync(entry, `import {createComposedHost,project,missing} from './bootstrap.mjs';\nimport {mountProject} from ${JSON.stringify(importPath(path.join(root, 'apps/project-viewer/boot.js')))};\nmountProject({createComposedHost,project,missing}).catch(error=>{document.getElementById('status').textContent=error.message;console.error(error);});\n`);
+  fs.writeFileSync(entry, `import {createComposedHost,createComposedSession,project,missing} from './bootstrap.mjs';\nimport {mountProject} from ${JSON.stringify(importPath(path.join(root, 'apps/project-viewer/boot.js')))};\nmountProject({createComposedHost,createComposedSession,project,missing}).catch(error=>{document.getElementById('status').textContent=error.message;console.error(error);});\n`);
   const config = path.join(generated.output, 'webpack.cjs'), webpackModule = require.resolve('webpack');
   const settings = {name: buildName, mode: 'production', target: 'web', context: root, entry, output: {filename: 'project.js', path: staged, publicPath: '', globalObject: 'self'}, devtool: false,
     module: {rules: [{test: {regex: '[\\\\/]three[\\\\/]build[\\\\/]three(?:\\.module)?\\.js$'}, use: {loader: path.join(root, 'tooling/build/loaders/three-r112-instancing.js')}},
@@ -90,6 +96,7 @@ export function buildProject({root = REPOSITORY, projectPath, name} = {}) {
   const bundle = fs.readFileSync(path.join(staged, 'project.js')); files.push({path: 'project.js', size: bundle.length, sha256: digest(bundle)});
   add('index.html', fs.readFileSync(checkedPath(root, 'apps/project-viewer/index.html')));
   add('viewer.css', fs.readFileSync(checkedPath(root, 'apps/project-viewer/viewer.css')));
+  add('modules.css', fs.readFileSync(checkedPath(root, 'apps/project-viewer/modules.css')));
   for (const asset of assets) add(asset.path, fs.readFileSync(asset.filename));
   const manifest = {format: 'smarttwin.project-publication', version: 1, application: 'project-viewer', worldId: resolved.project.worldId,
     projectSha256: projectHash, bundleSha256: digest(bundle), selections: generated.composition.selections, functions: generated.composition.functions,

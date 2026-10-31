@@ -1,5 +1,7 @@
 # Guía de implementación: sectores, funciones y composiciones
 
+Para la organización actual, creación de sectores y controles de activación por proyecto, véase [Proyectos y módulos reutilizables](modular-projects.md). `createProjectSession` añade gestión de proyectos con estado, y el visor genérico actualiza sus paneles al pausar o retirar funciones. Los sectores o raíces con `enabled: false` permanecen en el documento y quedan fuera de la composición, salvo dependencias todavía requeridas.
+
 El núcleo ejecutable está en [`packages/core`](../packages/core/index.js), sus contratos de datos en [`packages/contracts`](../packages/contracts/index.js) y el SDK en [`packages/module-sdk`](../packages/module-sdk/index.js). Estos paquetes no importan Three.js, DOM, clases industriales ni el editor. La aplicación proporciona los adaptadores de render, entrada y servicios autorizados.
 
 Los módulos que administra el usuario son sectores grandes: `logistica-industrial`, `agricultura`, `turismo`, `educacion` y `alimentos`. Cada sector puede contener muchas funciones. La unidad que se exporta, reutiliza o copia es una función completa, con su runtime, esquemas, interfaz, validadores de servidor, migraciones, assets y pruebas aplicables.

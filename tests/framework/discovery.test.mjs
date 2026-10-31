@@ -65,6 +65,19 @@ test('optional absent modules/functions retain opaque project data; required dep
   fs.unlinkSync(path.join(root, 'modules/logistica-industrial/manifest.json')); assert.throws(() => resolveProjectComposition({root, project: project('sector.agriculture', ['agriculture.harvest'])}), {code: 'missing_function'});
 });
 
+test('disabled sectors and roots stay in the document but leave the selected publication and generated loaders', async t => {
+  const root=fixture(t), input=project('sector.agriculture',['agriculture.harvest']);
+  input.modules.push({id:'sector.tourism',version:'1.0.0',enabled:false,functions:['tourism.routes']});
+  input.modules.push({id:'sector.future',version:'1.0.0',enabled:false});
+  const resolved=resolveProjectComposition({root,project:input});
+  assert.deepEqual(resolved.project,input);assert.deepEqual(resolved.functions.map(entry=>entry.id).sort(),['agriculture.harvest','logistics.storage']);
+  const generated=writeProjectComposition({root,project:input,name:'disabled'}), source=fs.readFileSync(generated.catalog,'utf8');
+  assert.doesNotMatch(source,/import\([^)]*turismo/);
+  const session=await (await import(pathToFileURL(generated.bootstrap).href)).createComposedSession();
+  assert.equal(session.status().modules.find(entry=>entry.id==='sector.tourism').installed,false);
+  assert.equal(globalThis.discoveryPoison,undefined);await session.dispose();
+});
+
 test('remote/traversal entry paths, malformed schemas and duplicate function identities are rejected before imports', t => {
   const root = fixture(t), filename = path.join(root, 'modules/agricultura/manifest.json'), original = JSON.parse(fs.readFileSync(filename));
   write(root, 'modules/agricultura/manifest.json', {...original, functions: [{...original.functions[0], entry: 'https://host.invalid/code.js'}]}); assert.throws(() => discoverLocalModules({root}), {code: 'discovery_path'});
