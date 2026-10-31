@@ -44,7 +44,7 @@ export function compilationFiles(stats) {
 }
 
 export function validateCompilationClosure({root, generated, functions, stats}) {
-  const allowed = ['packages/core','packages/contracts','packages/module-sdk','packages/render-three','apps/project-viewer'].map(name => path.join(root, name))
+  const allowed = ['packages/core','packages/contracts','packages/module-sdk','packages/render-three','packages/project-format','apps/project-viewer'].map(name => path.join(root, name))
     .concat(generated.output, functions.map(entry => path.join(root, entry.packageDirectory)));
   const files = compilationFiles(stats);
   for (const filename of files) {

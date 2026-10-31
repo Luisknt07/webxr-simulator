@@ -1,10 +1,12 @@
 import {cloneData, validateProject, validateState, fail, plain} from '../../packages/contracts/index.js';
+import {readContentProject,CONTENT_PACKAGE_FORMAT} from '../../packages/project-format/index.js';
 
 /** Import data only. The installed catalog, capabilities and local code are
  * supplied by the application and cannot be changed by a project file. */
 export function parseSessionDocument(text) {
   if (typeof text !== 'string' || text.length > 16000000) fail('data_limit', 'El archivo de proyecto es demasiado grande.');
-  const value = cloneData(JSON.parse(text));
+  let value = cloneData(JSON.parse(text));
+  if(value&&value.format===CONTENT_PACKAGE_FORMAT){const content=readContentProject(value);if(content.descriptor.kind==='studio')fail('invalid_project','Abre este proyecto de niveles en el editor de SmartTwin.');value=content.moduleState?{format:'smarttwin.project-session',version:1,project:content.document,state:content.moduleState}:content.document;}
   if (!plain(value)) fail('invalid_project', 'El archivo debe contener un proyecto o una sesión válida.');
   if (value.format === 'smarttwin.project-session') {
     if (value.version !== 1) fail('invalid_project', 'Versión de sesión no compatible.');

@@ -8,7 +8,8 @@ const ROOM_NAMES = ['Sala principal', 'Sala de sonido', 'Fotogrametría', 'Vért
 // Native and legacy rooms remain available before their assets are activated.
 function sceneEntries(document = {}) {
   const studio = document.studio || {}, names = new Map((studio.scenes || []).map(scene => [scene.id, scene.name]));
-  return ROOM_IDS.map((id, index) => ({id, index, name: names.get(id) || ROOM_NAMES[index], custom: names.has(id), initial: studio.startRoomId === id}));
+  const deleted = new Set(studio.deletedScenes || []), modules = new Map((studio.scenes || []).filter(scene => scene.moduleId).map(scene => [scene.id,scene.moduleId]));
+  return ROOM_IDS.map((id, index) => ({id, index, name: names.get(id) || ROOM_NAMES[index], custom: names.has(id), initial: studio.startRoomId === id, ...(modules.has(id) ? {moduleId:modules.get(id)} : {})})).filter(scene => !deleted.has(scene.id));
 }
 function hasSceneContent(document = {}, roomId) {
   const studio = document.studio || {};
@@ -104,8 +105,18 @@ function normalize(value) {
   safe(value);
   if (!plain(value) || value.version !== 1 || JSON.stringify(value).length > 8 * 1024 * 1024) throw new Error('Extensión de Studio incompatible o demasiado grande.');
   const result = {version: 1};
+  if(value.moduleProfile!==undefined)result.moduleProfile=require('./project-module-profile.js').normalizeModuleProfile(value.moduleProfile);
   if (value.startRoomId !== undefined) result.startRoomId = choice(value.startRoomId, ROOM_IDS);
-  if (value.scenes !== undefined) result.scenes = unique(list(value.scenes, 10, item => ({id: choice(item.id, ROOM_IDS), name: text(item.name)})), 'id', 'Escenarios');
+  if (value.scenes !== undefined) result.scenes = unique(list(value.scenes, 10, item => {
+    const scene={id:choice(item.id,ROOM_IDS),name:text(item.name)};
+    if(item.moduleId!==undefined){if(typeof item.moduleId!=='string'||!/^sector\.[a-z][a-z0-9-]{0,119}$/.test(item.moduleId))throw new Error('Módulo del nivel inválido.');scene.moduleId=item.moduleId;}
+    return scene;
+  }), 'id', 'Escenarios');
+  if (value.deletedScenes !== undefined) {
+    if(!Array.isArray(value.deletedScenes)||value.deletedScenes.length>10)throw new Error('Niveles eliminados inválidos.');
+    result.deletedScenes=Array.from(new Set(value.deletedScenes.map(room=>choice(room,ROOM_IDS))));
+    if(result.scenes&&result.scenes.some(scene=>result.deletedScenes.includes(scene.id))||result.deletedScenes.includes(result.startRoomId))throw new Error('Un nivel activo no puede estar eliminado.');
+  }
   if (value.environments !== undefined) result.environments = unique(list(value.environments, 10, environmentValue), 'roomId', 'Entornos de niveles');
   if (value.organization !== undefined) {
     const source = value.organization;

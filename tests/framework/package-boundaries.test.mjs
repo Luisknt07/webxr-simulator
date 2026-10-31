@@ -26,7 +26,7 @@ function fixture(t, {browser = false} = {}) {
     if (fs.existsSync(dependencies)) {assert.equal(fs.lstatSync(dependencies).isSymbolicLink(), true); fs.unlinkSync(dependencies);}
     fs.rmSync(absolute, {recursive:true});
   });
-  for (const folder of ['core','contracts','module-sdk']) fs.cpSync(path.join(SOURCE, 'packages', folder), path.join(root, 'packages', folder), {recursive:true});
+  for (const folder of ['core','contracts','module-sdk','project-format']) fs.cpSync(path.join(SOURCE, 'packages', folder), path.join(root, 'packages', folder), {recursive:true});
   write(root, 'modules/package.json', {type:'module'});
   if (browser) {
     fs.cpSync(path.join(SOURCE, 'packages/render-three'), path.join(root, 'packages/render-three'), {recursive:true, filter:filename => !filename.split(path.sep).includes('vendor')});

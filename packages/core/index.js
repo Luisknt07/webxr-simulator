@@ -14,10 +14,10 @@ export function requireClosure(catalog, moduleId, functions) {
 }
 
 /** Application-owned local loader table only. Project JSON never reaches imports. */
-export async function composeSelection({catalog = [], selections = [], ...options} = {}) {
+export async function composeSelection({catalog = [], selections = [], state, ...options} = {}) {
   if (!Array.isArray(selections)) fail('invalid_selection', 'Selections must be an array.');
   const host = createHost({...options, catalog});
-  try { for (const selection of selections) { if (typeof selection === 'string') await host.activate(selection); else if (selection && typeof selection.moduleId === 'string') await host.activate(selection.moduleId, {functions: selection.functions}); else fail('invalid_selection', 'Select a local module identifier.'); } }
+  try { if(state!==undefined&&state!==null)host.importState(state);for (const selection of selections) { if (typeof selection === 'string') await host.activate(selection); else if (selection && typeof selection.moduleId === 'string') await host.activate(selection.moduleId, {functions: selection.functions}); else fail('invalid_selection', 'Select a local module identifier.'); } }
   catch (error) { try { await host.dispose({force: true}); } catch (cleanup) { throw new AggregateError([error, cleanup], 'Composition and cleanup failed.'); } throw error; }
   return host;
 }

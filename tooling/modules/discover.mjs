@@ -4,6 +4,8 @@ import {fileURLToPath, pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
 import {createLocalCatalog} from '../../packages/core/index.js';
 import {resolveProjectSelection} from '../../packages/core/project-selection.js';
+import {readContentProject, CONTENT_PROJECT_FILE, CONTENT_PACKAGE_FORMAT} from '../../packages/project-format/index.js';
+import {readContentFolder} from '../projects/content-project.mjs';
 import {cloneData, functionManifest, identifier, plain, version, versionSatisfies, validateProject, fail, deepFreeze} from '../../packages/contracts/index.js';
 
 export const REPOSITORY = fileURLToPath(new URL('../../', import.meta.url));
@@ -19,6 +21,25 @@ function readJSON(root, relative) {
   const filename = checkedPath(root, relative), stat = fs.statSync(filename); if (!stat.isFile() || stat.size > 4 * 1024 * 1024) fail('invalid_local_manifest', 'A manifest must be a bounded JSON file.');
   const bytes = fs.readFileSync(filename); let value; try { value = JSON.parse(bytes); } catch (_) { fail('invalid_local_manifest', `Invalid JSON manifest: ${relative}`); }
   return {value: cloneData(value), relative, sha256: createHash('sha256').update(bytes).digest('hex')};
+}
+function projectInput(input,{moduleState,contentDescriptor}={}) {
+  let value=input;
+  if(value&&value.format===CONTENT_PACKAGE_FORMAT){const restored=readContentProject(value);value=restored.document;moduleState=restored.moduleState;contentDescriptor=restored.descriptor;}
+  if(value&&value.format==='hello-webxr-editor')fail('project_editor_required','Este proyecto contiene niveles del editor industrial. Ábrelo con Contenido → Abrir carpeta de proyecto; el compilador genérico solo publica proyectos modulares.');
+  if(value&&value.format==='smarttwin.project-session'){if(value.version!==1)fail('invalid_project','This modular project session uses an unsupported version.');if(moduleState===undefined&&value.state!==undefined)moduleState=value.state;value=value.project;}
+  return {project:validateProject(value),...(moduleState===undefined?{}:{moduleState}),...(contentDescriptor===undefined?{}:{contentDescriptor})};
+}
+
+/** Recognize a bounded installed project document or independent Content
+ * folder. Reading a descriptor verifies every JSON file and imports no code. */
+export function readLocalProject({root=REPOSITORY,projectPath}={}) {
+  root=fs.realpathSync(path.resolve(root));
+  const filename=checkedPath(root,projectPath),stat=fs.statSync(filename);
+  if(stat.isDirectory()||path.basename(filename)===CONTENT_PROJECT_FILE){
+    const descriptor=stat.isDirectory()?checkedPath(root,slash(path.relative(root,path.join(filename,CONTENT_PROJECT_FILE)))):filename;
+    return projectInput(readContentFolder(descriptor));
+  }
+  return projectInput(readJSON(root,projectPath).value);
 }
 function functionEntry(root, folder, row, localPackage) {
   const manifest = functionManifest(row), moduleDirectory = `modules/${folder}`;
@@ -83,14 +104,14 @@ export function discoverLocalModules({root = REPOSITORY} = {}) {
 
 export function resolveProjectComposition({root = REPOSITORY, projectPath, project, allowOptionalMissing = false} = {}) {
   const discovery = discoverLocalModules({root}); root = discovery.root;
-  const input = project === undefined ? readJSON(root, projectPath).value : project;
+  const input = project === undefined ? readLocalProject({root, projectPath}) : projectInput(project);
   const defaultFunctions = Object.fromEntries(discovery.modules.map(module => [module.id, module.defaultFunctions.concat(module.imports.map(entry => entry.id))]));
-  const selection = resolveProjectSelection({catalog: discovery.catalog, project: input, allowOptionalMissing, defaultFunctions});
+  const selection = resolveProjectSelection({catalog: discovery.catalog, project: input.project, allowOptionalMissing, defaultFunctions});
   const document = selection.project, selections = selection.selections, missing = selection.missing, selected = new Set(selection.functions.map(entry => entry.id));
   const neededOwners = new Set(selections.map(selection => selection.moduleId)); for (const module of discovery.modules) if (module.functions.some(entry => selected.has(entry.id))) neededOwners.add(module.id);
   const modules = discovery.modules.filter(module => neededOwners.has(module.id)).map(module => ({...module, functions: module.functions.filter(entry => selected.has(entry.id)), imports: module.imports.filter(entry => selected.has(entry.id))}));
   const functions = modules.flatMap(module => module.functions.map(entry => ({...entry, moduleId: module.id}))), selectedSources = new Set(modules.map(module => module.manifestPath).concat(functions.map(entry => entry.packageDirectory + '/function-manifest.json')));
-  return {root, project: document, selections, missing, modules, functions, defaultFunctions, sources: discovery.sources.filter(source => selectedSources.has(source.path))};
+  return {root, project: document, selections, missing, modules, functions, defaultFunctions, sources: discovery.sources.filter(source => selectedSources.has(source.path)),...(input.moduleState===undefined?{}:{moduleState:input.moduleState}),...(input.contentDescriptor===undefined?{}:{contentDescriptor:input.contentDescriptor})};
 }
 
 export function writeProjectComposition(options = {}) {
@@ -105,10 +126,10 @@ export function writeProjectComposition(options = {}) {
     return `{...${JSON.stringify(metadata)},functions:[${module.functions.map(entry => `{...${JSON.stringify(functionManifest(entry))},load:()=>import(${JSON.stringify(importPath(path.join(root, entry.entry)))})}`).join(',')} ]}`;
   }).join(',\n');
   const defaults = Object.fromEntries(resolved.modules.map(module => [module.id, resolved.defaultFunctions[module.id].filter(id => resolved.functions.some(entry => entry.id === id))]));
-  const catalog = `// Generated from validated local JSON. No remote code, no all-sector barrel.\nexport const project=${JSON.stringify(resolved.project)};\nexport const selections=${JSON.stringify(resolved.selections)};\nexport const missing=${JSON.stringify(resolved.missing)};\nexport const defaultFunctions=${JSON.stringify(defaults)};\nexport const catalog=[${catalogSource}];\n`;
+  const catalog = `// Generated from validated local JSON. No remote code, no all-sector barrel.\nexport const project=${JSON.stringify(resolved.project)};\nexport const selections=${JSON.stringify(resolved.selections)};\nexport const missing=${JSON.stringify(resolved.missing)};\nexport const defaultFunctions=${JSON.stringify(defaults)};\nexport const moduleState=${JSON.stringify(resolved.moduleState||null)};\nexport const catalog=[${catalogSource}];\n`;
   const coreImport = JSON.stringify(importPath(path.join(root, 'packages/core/index.js')));
   const sessionImport = JSON.stringify(importPath(path.join(root, 'packages/core/project-session.js')));
-  const bootstrap = `import {composeSelection} from ${coreImport};\nimport {createProjectSession} from ${sessionImport};\nimport {catalog,project,selections,defaultFunctions} from './catalog.mjs';\nexport {project,selections,missing} from './catalog.mjs';\nexport function createComposedHost({ports={},grants=[],...options}={}){return composeSelection({...options,worldId:project.worldId,ports,grants,catalog,selections});}\nexport async function createComposedSession({ports={},grants=[],...options}={}){const session=createProjectSession({...options,ports,grants,catalog,defaultFunctions});try{await session.open(project,{allowOptionalMissing:true});return session;}catch(error){await session.dispose({force:true});throw error;}}\n`;
+  const bootstrap = `import {composeSelection} from ${coreImport};\nimport {createProjectSession} from ${sessionImport};\nimport {catalog,project,selections,defaultFunctions,moduleState} from './catalog.mjs';\nexport {project,selections,missing} from './catalog.mjs';\nexport function createComposedHost({ports={},grants=[],...options}={}){return composeSelection({...options,worldId:project.worldId,ports,grants,catalog,selections,state:moduleState});}\nexport async function createComposedSession({ports={},grants=[],...options}={}){const session=createProjectSession({...options,ports,grants,catalog,defaultFunctions});try{await session.open(project,{allowOptionalMissing:true,...(moduleState?{state:moduleState}:{})});return session;}catch(error){await session.dispose({force:true});throw error;}}\n`;
   const receipt = cloneData({format: 'smarttwin.composition', version: 1, worldId: resolved.project.worldId, selections: resolved.selections, missing: resolved.missing, functions: resolved.functions.map(entry => ({id: entry.id, version: entry.version, entry: entry.entry, moduleId: entry.moduleId})), manifests: resolved.sources});
   // Never follow a pre-existing file link or overwrite an unrelated file name.
   for (const [filename, contents] of [['catalog.mjs', catalog], ['bootstrap.mjs', bootstrap], ['selection.json', JSON.stringify(receipt, null, 2) + '\n']]) { const relative = `data/build/compositions/${name}/${filename}`; checkedPath(root, relative, {missing:true}); fs.writeFileSync(path.join(output, filename), contents); }
