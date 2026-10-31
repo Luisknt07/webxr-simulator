@@ -909,7 +909,7 @@ body:has(#editor-return:not([hidden])) #vehicle-operation-panels{--vehicle-hud-t
 @media(min-width:1440px) and (min-height:800px){
  #vehicle-operation-panels .vehicle-operator-column{position:fixed;top:var(--vehicle-hud-top);bottom:12px;left:12px;width:clamp(340px,18vw,380px);height:auto!important;max-height:calc(100dvh - var(--vehicle-hud-top) - 12px)!important;display:flex!important;flex-direction:column;justify-content:flex-start;gap:8px;overflow:visible;pointer-events:none}
  #vehicle-operation-panels .vehicle-operator-column .vehicle-guidance-panel,#vehicle-operation-panels .vehicle-operator-column .vehicle-guidance-panel:has(.vehicle-mission-panel[data-expanded="true"]){position:relative!important;inset:auto!important;flex:0 1 auto;width:100%!important;max-height:min(34dvh,300px)!important;min-height:0;overflow:auto!important;padding:7px!important;box-sizing:border-box}
- #vehicle-operation-panels .vehicle-operator-column .vehicle-driving-hud[data-layout="compact"][data-controls][data-viewport="wide"]{position:relative!important;inset:auto!important;transform:none!important;flex:1 1 auto!important;width:100%!important;max-height:none!important;min-height:0;padding:8px;overflow:auto;box-sizing:border-box;font-size:12px}
+ #vehicle-operation-panels .vehicle-operator-column .vehicle-driving-hud[data-layout="compact"][data-controls][data-viewport="wide"]{position:relative!important;inset:auto!important;transform:none!important;flex:0 1 auto!important;width:100%!important;height:auto!important;max-height:100%!important;min-height:0;padding:8px;overflow:auto;box-sizing:border-box;font-size:12px}
  #vehicle-operation-panels .vehicle-driving-hud[data-viewport="wide"] .vehicle-driving-name{font-size:11px!important;line-height:1.4!important}
  #vehicle-operation-panels .vehicle-driving-hud[data-viewport="wide"] .vehicle-driving-summary{font-size:9px!important;gap:4px 8px}
  #vehicle-operation-panels .vehicle-driving-hud[data-viewport="wide"] .vehicle-control-status{font-size:10px}
@@ -985,4 +985,32 @@ body:has(#editor-return:not([hidden])) #vehicle-operation-panels{--vehicle-hud-t
  .vehicle-mission-panel .vehicle-mission-kicker{min-width:0;font-size:8px}
  #vehicle-operation-panels .vehicle-navigation-display{width:calc(50vw - 12px)!important;max-height:calc(100dvh - var(--vehicle-hud-top) - 12px)!important}
  #vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"]{width:calc(100vw - 16px)!important}
+}
+
+/* Touch controls keep a useful hit area. The console still scrolls within its
+   own viewport bounds; expanding or minimizing never stretches an empty HUD. */
+@media(max-width:900px),(pointer:coarse){
+ #vehicle-operation-panels .vehicle-driving-hud[data-controls] .vehicle-control-group button,
+ #vehicle-operation-panels .vehicle-driving-hud[data-controls] .vehicle-control-tab,
+ #vehicle-operation-panels .vehicle-driving-hud[data-controls] .vehicle-hud-actions button,
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-navigation-actions button,
+ #vehicle-operation-panels .vehicle-navigation-display .vehicle-fork-camera-header button,
+ #vehicle-operation-panels .vehicle-mission-expand{min-height:44px!important;touch-action:manipulation}
+ #vehicle-operation-panels .vehicle-driving-hud[data-controls] [data-vehicle-hold]{touch-action:none}
+}
+@media(max-height:560px) and (min-width:721px){
+ #vehicle-operation-panels .vehicle-operator-column .vehicle-guidance-panel:has(.vehicle-mission-panel[data-expanded="false"]){max-height:56px!important}
+}
+@media(max-height:560px) and (min-width:560px){
+ #vehicle-operation-panels .vehicle-driving-hud[data-controls]:not([data-expanded="true"]) .vehicle-next-step{display:none!important}
+ #vehicle-operation-panels .vehicle-operator-column .vehicle-guidance-panel:has(.vehicle-mission-panel[data-expanded="false"]){top:74px!important;left:50%!important;transform:translateX(-50%)!important;width:min(360px,calc(100vw - 160px))!important;max-height:56px!important;padding:1px!important;overflow:hidden!important}
+ #vehicle-operation-panels .vehicle-guidance-panel .vehicle-mission-panel[data-expanded="false"]{display:grid!important;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;gap:1px 6px;padding:2px!important}
+ #vehicle-operation-panels .vehicle-mission-panel[data-expanded="false"] .vehicle-mission-scorebar{display:contents!important}
+ #vehicle-operation-panels .vehicle-mission-panel[data-expanded="false"] .vehicle-mission-kicker,#vehicle-operation-panels .vehicle-mission-panel[data-expanded="false"] .vehicle-mission-score{display:none!important}
+ #vehicle-operation-panels .vehicle-mission-panel[data-expanded="false"] .vehicle-mission-expand{grid-column:2;grid-row:1/span 2;align-self:center;min-height:44px!important}
+ #vehicle-operation-panels .vehicle-mission-panel[data-expanded="false"] .vehicle-mission-title{grid-column:1;grid-row:1;display:block!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0!important;font-size:10px!important;line-height:13px!important}
+ #vehicle-operation-panels .vehicle-mission-panel[data-expanded="false"] .vehicle-mission-stage-label{grid-column:1;grid-row:2;margin:0!important;font-size:9px!important;line-height:12px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
+@media(max-height:560px) and (min-width:560px) and (max-width:720px){
+ #vehicle-operation-panels .vehicle-operator-column .vehicle-driving-hud[data-layout="compact"][data-controls]{max-height:calc(100dvh - 142px)!important}
 }

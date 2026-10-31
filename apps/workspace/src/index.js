@@ -597,7 +597,7 @@ export function init() {
 }
 
 function onKeyDown(event) {
-  if ((context.voicePanelOpen || context.assistantPanelOpen) || context.editor && context.editor.active || context.drivingVehicle) return;
+  if ((context.voicePanelOpen || context.assistantPanelOpen || context.externalDevicePanelOpen) || context.editor && context.editor.active || context.drivingVehicle) return;
   const target = event.target;
   if (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || '')) {
     return;
@@ -656,7 +656,7 @@ function setupDesktopPointer() {
 }
 
 function onDesktopCanvasClick(event) {
-  if ((context.voicePanelOpen || context.assistantPanelOpen)) return;
+  if ((context.voicePanelOpen || context.assistantPanelOpen || context.externalDevicePanelOpen)) return;
   // Selecting the operator zone can mount a truck during mousedown. Keep the
   // cursor that mount just released so this same click cannot hide its HUD.
   // A later canvas press made from inside the cockpit can capture look again.
@@ -665,7 +665,7 @@ function onDesktopCanvasClick(event) {
 }
 
 function onDesktopSelectStart(event) {
-  if ((context.voicePanelOpen || context.assistantPanelOpen)) return;
+  if ((context.voicePanelOpen || context.assistantPanelOpen || context.externalDevicePanelOpen)) return;
   desktopVehicleAtMouseDown = context.drivingVehicle || null;
   if (context.vrMode || (context.editor && context.editor.active) || !desktopControllerData) return;
   if (event.button === 2) {
@@ -924,7 +924,7 @@ function animate(time, frame) {
     if (context.editor && context.editor.conveyorViewer) context.editor.conveyorViewer.tick(delta);
     if (context.frameworkHost) context.frameworkHost.step(delta);
     if(context.editor&&context.editor.projectModules){const modules=context.editor.projectModules;modules.sync({viewer:!context.editor.active}).catch(()=>{});if(modules.graphicsLayer)modules.graphicsLayer.visible=!modules.busy&&!context.editor.loadingProject&&!context.roomTransition;modules.step(delta);}
-    if ((context.voicePanelOpen || context.assistantPanelOpen)) clearKeyboardState();
+    if ((context.voicePanelOpen || context.assistantPanelOpen || context.externalDevicePanelOpen)) clearKeyboardState();
     if (context.editor && context.editor.active && !context.vrMode) {
       context.editor.render(delta);
       return;

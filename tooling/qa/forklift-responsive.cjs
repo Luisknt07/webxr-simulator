@@ -10,6 +10,9 @@ const VIEWPORTS = [[1600,900,false], [1920,1080,false], [2560,1440,false], [897,
 const load = name => fs.readFileSync(path.join(ROOT, 'modules/logistica-industrial/functions/montacargas/runtime', name), 'utf8').replace(/^import .*;\r?\n/gm, '');
 const source = (name, symbol) => load(name).replace('export default class ' + symbol, 'return class ' + symbol);
 const sources = {guide:source('VehicleControlGuide.js','VehicleControlGuide'), driving:source('VehicleDriving.js','VehicleDriving'), mission:source('VehicleMissionPanel.js','VehicleMissionPanel')};
+sources.devices=fs.readFileSync(path.join(ROOT,'packages/input-devices/InputDevicePanel.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export default class InputDevicePanel','return class InputDevicePanel');
+sources.input=fs.readFileSync(path.join(ROOT,'packages/input-devices/GamepadInput.js'),'utf8').replace('export default class GamepadInput','class GamepadInput').replace(/^export /gm,'')+'\nreturn {GamepadInput,GAMEPAD_ACTIONS,STANDARD_BINDINGS};';
+sources.inputCSS=fs.readFileSync(path.join(ROOT,'packages/input-devices/input-device.css'),'utf8');
 const intersection = (a, b) => Math.max(0, Math.min(a.right,b.right)-Math.max(a.x,b.x)) * Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.y,b.y));
 const inRect = (inner, outer) => inner.x >= outer.x-1 && inner.y >= outer.y-1 && inner.right <= outer.right+1 && inner.bottom <= outer.bottom+1;
 const digest = value => createHash('sha256').update(value).digest('hex');
@@ -49,7 +52,11 @@ function createFixture({css, sources}) {
   g.fillStyle='#142a35'; g.fillRect(0,0,1024,576); g.strokeStyle='#6b9399'; g.lineWidth=4; g.strokeRect(100,60,820,450); g.strokeStyle='#65d2d7'; g.beginPath(); g.moveTo(800,450); g.lineTo(800,180); g.lineTo(200,180); g.stroke();
   const camera=navigation.querySelector('.vehicle-fork-camera-viewport canvas'), cg=camera.getContext('2d');
   cg.fillStyle='#607777';cg.fillRect(0,0,1024,576);cg.fillStyle='#c4ac75';cg.fillRect(180,210,680,90);cg.fillRect(180,370,680,55);cg.fillRect(180,300,75,70);cg.fillRect(480,300,75,70);cg.fillRect(785,300,75,70);cg.fillStyle='#c5d1d7';cg.fillRect(290,325,120,240);cg.fillRect(610,325,120,240);
-  window.__responsive={d,panel,navigation};
+  const {GamepadInput,GAMEPAD_ACTIONS,STANDARD_BINDINGS}=new Function(sources.input)(),DevicePanel=new Function('GAMEPAD_ACTIONS','STANDARD_BINDINGS',sources.devices)(GAMEPAD_ACTIONS,STANDARD_BINDINGS);
+  const pad={id:'PlayStation DualSense QA',mapping:'standard',connected:true,axes:[0,0,0,0],buttons:Array.from({length:16},()=>({pressed:false,value:0}))};
+  const input=new GamepadInput({navigator:{getGamepads:()=>[pad]},now:()=>Date.now()});input.poll({active:false,selectedVehicleId:'vehicle'});
+  const devices=new DevicePanel({document,window,input,onOpen:()=>{window.__devicePanelOpen=true;d.resetInput();},onClose:()=>{window.__devicePanelOpen=false;d.resetInput();}});devices.mount(d.hud.querySelector('.vehicle-hud-actions'));
+  window.__responsive={d,panel,navigation,devices,input};
 }
 
 function measure() {
@@ -57,6 +64,7 @@ function measure() {
   const d=__responsive.d, root=document.getElementById('vehicle-operation-panels'), navigation=__responsive.navigation;
   const center={x:innerWidth*.4,y:innerHeight*.4,width:innerWidth*.2,height:innerHeight*.2,right:innerWidth*.6,bottom:innerHeight*.6};
   const visible=node=>!node.hidden && getComputedStyle(node).display!=='none';
+  const contentBottom=Math.max(...[...d.hud.children].map(node=>node.getBoundingClientRect()).filter(box=>box.width>0&&box.height>0).map(box=>box.bottom));
   return {
     viewport:{width:innerWidth,height:innerHeight}, defaultMode:d.hud.dataset.viewport,
     hud:rect(d.hud), mission:rect(__responsive.panel.element), missionExpanded:__responsive.panel.element.dataset.expanded,
@@ -68,6 +76,8 @@ function measure() {
     buttons:d.controlGroups.filter(visible).flatMap(group=>group.controls.filter(visible).map(button=>({action:button.dataset.vehicleAction,rect:rect(button),labelOverflow:button.controlLabel.scrollWidth>button.controlLabel.clientWidth+1}))),
     hudScrolls:d.hud.scrollHeight>d.hud.clientHeight+1,
     hudClientHeight:d.hud.clientHeight,hudScrollHeight:d.hud.scrollHeight,hudScrollPixels:Math.max(0,d.hud.scrollHeight-d.hud.clientHeight),
+    hudBlankPixels:Math.max(0,d.hud.getBoundingClientRect().bottom-contentBottom-parseFloat(getComputedStyle(d.hud).paddingBottom||0)),
+    touchTargets:[...d.hud.querySelectorAll('button'),__responsive.panel.expandButton,...navigation.querySelectorAll('button')].map(node=>({label:node.textContent,hidden:node.hidden,rect:rect(node)})).filter(row=>!row.hidden&&row.rect.width>0&&row.rect.height>0),
     sampleButton:(()=>{const button=d.controlButtons.get('driveForward'),style=getComputedStyle(button),label=getComputedStyle(button.controlLabel),key=getComputedStyle(button.querySelector('.vehicle-control-key'));return {rect:rect(button),rows:style.gridTemplateRows,padding:style.padding,lineHeight:style.lineHeight,labelHeight:rect(button.controlLabel).height,labelLineHeight:label.lineHeight,keyHeight:rect(button.querySelector('.vehicle-control-key')).height,keyLineHeight:key.lineHeight};})(),
     unsupportedVisible:[...d.controlButtons].filter(([,button])=>button.hidden&&getComputedStyle(button).display!=='none').map(([action])=>action),
     center, centerBlocked:!!document.elementFromPoint(innerWidth*.5,innerHeight*.5).closest('#vehicle-operation-panels'),
@@ -88,6 +98,7 @@ function verifyGeometry(result, wide) {
     assert.equal(result.defaultMode,'wide');
     assert.deepEqual(result.visibleGroups,['drive','cargo','view','safety']);
     assert(result.hud.width>=320&&result.hud.width<=400,'The left console must remain a narrow vertical instrument.');
+    assert(result.hudBlankPixels<=12,'A wide console hugs its controls rather than filling unused vertical space.');
     assert.equal(result.missionExpanded,'true','The wide mission starts expanded above the controls.');
     assert(result.missionInstruction.visible&&inRect(result.missionInstruction.rect,result.guidance),'The mission instruction must be readable.');
     assert(Math.abs(result.hud.x-result.guidance.x)<=1&&Math.abs(result.hud.width-result.guidance.width)<=1,'Mission and controls share one aligned left column.');
@@ -105,6 +116,7 @@ function verifyGeometry(result, wide) {
   } else {
     assert.deepEqual(result.visibleGroups,['drive']);
     assert(result.hud.height<=Math.min(300,result.viewport.height*.65));
+    if(result.viewport.width<=900)for(const target of result.touchTargets)assert(target.rect.height>=43.9,'A touch target needs44px: '+target.label);
   }
 }
 
@@ -119,7 +131,7 @@ async function run() {
         for(const [width,height,mobile] of VIEWPORTS) {
           const wide=width>=1440&&height>=800;
           await b.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile});
-          await b.send('Page.navigate',{url:'about:blank'});await b.call(createFixture,{css,sources});
+          await b.send('Page.navigate',{url:'about:blank'});await b.call(createFixture,{css:css+'\n'+sources.inputCSS,sources});
           const result=await b.call(measure); report.currentCase={file,width,height,state:'layout',...result};verifyGeometry(result,wide);
           if(wide&&result.hudScrolls) {
             const reachable=await b.call(()=>{const hud=__responsive.d.hud;hud.scrollTop=hud.scrollHeight;const buttons=[...hud.querySelectorAll('[data-vehicle-action]')].filter(node=>!node.hidden),last=buttons.at(-1),a=last.getBoundingClientRect(),b=hud.getBoundingClientRect();const visible=a.top>=b.top&&a.bottom<=b.bottom+1;hud.scrollTop=0;return visible;});
@@ -149,9 +161,21 @@ async function run() {
             await b.call(()=>{__responsive.navigation.dataset.expanded='false';});
           }
           await b.call(()=>{__responsive.d.controlTabs.get('cargo').click();});assert.equal(await b.evaluate('__responsive.d.controlSection'),'cargo');
-          await b.call(()=>__responsive.d.expandControls.click());assert.equal(await b.evaluate('__responsive.d.hud.dataset.expanded'),'true');
+          const compact=await b.call(measure);if(wide)assert(compact.hudBlankPixels<=12,'Compact controls cannot leave a tall empty console.');
+          await b.call(()=>__responsive.d.minimizeControls.click());const minimized=await b.call(measure);assert.equal(await b.evaluate('__responsive.d.hud.dataset.minimized'),'true');if(wide){assert(minimized.hudBlankPixels<=12);assert(minimized.hud.height<=140,'Minimizing leaves only the console header.');}await b.call(()=>__responsive.d.minimizeControls.click());
+          await b.call(()=>__responsive.d.expandControls.click());assert.equal(await b.evaluate('__responsive.d.hud.dataset.expanded'),'true');if(wide)assert((await b.call(measure)).hudBlankPixels<=12);
           await b.call(()=>__responsive.d.expandControls.click());await b.call(()=>__responsive.d.quickEmergency.click());assert.deepEqual(await b.evaluate('__commands'),['emergency']);
-          report.viewports.push({file,width,height,wide,...result,inspection:{map:inspection.map,plan:inspection.plan,camera:inspection.camera,centerBlocked:inspection.centerBlocked},...(expanded?{expandedInspection:{map:expanded.map,plan:expanded.plan,camera:expanded.camera}}:{})});
+          const settings=await b.call(()=>{
+            const ui=__responsive.devices,rect=node=>{const r=node.getBoundingClientRect();return{x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};ui.open();let leaked=0;const listener=()=>leaked++;document.addEventListener('keydown',listener);ui.axis.dispatchEvent(new KeyboardEvent('keydown',{key:'w',bubbles:true,cancelable:true}));document.removeEventListener('keydown',listener);
+            const panes=[];for(const tab of ['devices','axes','buttons']){ui.setTab(tab);panes.push({tab,panel:rect(ui.panel),bodyHeight:ui.panel.querySelector('.input-device-body').clientHeight,overflow:ui.panel.scrollWidth>ui.panel.clientWidth+1});}
+            ui.setTab('axes');const nodes=ui.focusables();nodes.at(-1).focus();nodes.at(-1).dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));const trapped=document.activeElement===nodes[0];return{leaked,trapped,gate:window.__devicePanelOpen,close:rect(ui.closeButton),panes};
+          });
+          assert.equal(settings.leaked,0);assert(settings.trapped&&settings.gate);assert(settings.close.width>=44&&settings.close.height>=44);
+          for(const pane of settings.panes){assert(inRect(pane.panel,{x:0,y:0,right:width,bottom:height}));assert(pane.bodyHeight>=50);assert.equal(pane.overflow,false);}
+          if([1600,390,844,667].includes(width))await screenshot('-settings');
+          await b.call(()=>{const ui=__responsive.devices;ui.closeButton.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));});assert.equal(await b.evaluate('!!__responsive.devices.opened||!!window.__devicePanelOpen'),false);
+          await b.call(()=>{__responsive.devices.dispose();__responsive.input.dispose();});assert.equal(await b.evaluate('!!document.querySelector(".input-device-overlay")||!!document.querySelector(".input-device-launcher")'),false);
+          report.viewports.push({file,width,height,wide,...result,settings,toggled:{compactHud:compact.hud,compactBlank:compact.hudBlankPixels,minimizedHud:minimized.hud,minimizedBlank:minimized.hudBlankPixels},inspection:{map:inspection.map,plan:inspection.plan,camera:inspection.camera,centerBlocked:inspection.centerBlocked},...(expanded?{expandedInspection:{map:expanded.map,plan:expanded.plan,camera:expanded.camera}}:{})});
         }
       }
     });
