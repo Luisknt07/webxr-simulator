@@ -1,0 +1,1 @@
+{"name":"@smarttwin/input-devices","version":"1.0.0","type":"module","exports":{".":"./GamepadInput.js","./panel":"./InputDevicePanel.js","./style.css":"./input-device.css"},"sideEffects":["./input-device.css"]}
