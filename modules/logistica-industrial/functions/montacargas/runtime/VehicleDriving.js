@@ -108,7 +108,9 @@ export default class VehicleDriving {
       this.yawOffset.copy(vehicleRotation).inverse().multiply(initial);
     } else { camera.position.set(0, 0, 0); camera.quaternion.set(0, 0, 0, 1); }
     this.resetInput(); this.releaseCursor(); this.cab.mount(visual); this.holographicGuide.mount(record); this.frontVisibility.mount(visual); this.buildHUD(); this.buildWorldPanel(record); this.docking.mount(); this.follow(); this.updateHUD();
-    this.notify(this.ctx.vrMode ? 'Cabina RV activa: agarre lateral en volante o palancas; stick izquierdo avanza, gatillo izquierdo frena. Click del stick derecho abre los mandos; B derecho permite bajar detenido.' : 'Cabina: Encender (B) → Marcha (V) → liberar Freno P (P). Sigue la guía resaltada; Tab alterna cursor y mirada.'); return true;
+    // Desktop instructions are already in the compact guide and controls;
+    // a second entry toast would cover those controls on a narrow screen.
+    if(this.ctx.vrMode)this.notify('Cabina RV activa: agarre lateral en volante o palancas; stick izquierdo avanza, gatillo izquierdo frena. Click del stick derecho abre los mandos; B derecho permite bajar detenido.'); return true;
   }
   resetInput(preservePads = false) { if(this.fineControlActive)this.hudUpdated=-Infinity;this.fineControlActive=false;this.keys.forEach(key => this.blockedKeys.add(key)); this.keys.clear(); this.touches.clear(); if (!preservePads) this.padState = new WeakMap(); if (this.cab) this.cab.reset(); const record = this.record(); if (record && this.simulation.vehicleRuntime) this.simulation.vehicleRuntime.setInput(record, ZERO()); }
   releaseCursor() {
@@ -366,9 +368,22 @@ export default class VehicleDriving {
     const header = element('div', 'vehicle-driving-header', hud);
     this.status = element('strong', 'vehicle-driving-name', header);
     const summary = element('div', 'vehicle-driving-summary', header); this.telemetry = element('span', '', summary); this.phase = element('span', 'vehicle-control-status', summary);
+    const panelActions = element('div', 'vehicle-hud-actions', header);
+    this.expandControls = element('button', 'vehicle-hud-expand', panelActions, 'Todos'); this.expandControls.type = 'button'; this.expandControls.setAttribute('aria-label', 'Mostrar todos los controles');
+    this.minimizeControls = element('button', 'vehicle-hud-minimize', panelActions, '−'); this.minimizeControls.type = 'button'; this.minimizeControls.setAttribute('aria-label', 'Minimizar controles');
+    this.quickEmergency = element('button', 'vehicle-hud-emergency', panelActions, '!'); this.quickEmergency.type = 'button'; this.quickEmergency.setAttribute('aria-label', 'Parada de emergencia (Y)'); this.quickEmergency.title = 'Parada de emergencia · Y';
+    this.listen(this.expandControls, 'click', () => this.setControlSection(this.controlSection, !this.controlsExpanded));
+    this.listen(this.minimizeControls, 'click', () => { this.controlsMinimized = !this.controlsMinimized; this.applyControlSections(); this.resetInput(); });
+    this.listen(this.quickEmergency, 'click', () => this.command('emergency'));
     const guide = element('div', 'vehicle-next-step', hud); this.guideTitle = element('span', 'vehicle-next-step-title', guide, 'Siguiente paso');
     this.guideText = element('span', 'vehicle-next-step-text', guide); this.guideText.setAttribute('aria-live', 'polite'); this.guideText.setAttribute('aria-atomic', 'true'); this.guideElement = guide;
     this.actionButtons = new Map(); this.controlButtons = new Map(); this.controlGroups = [];
+    const tabs = element('div', 'vehicle-control-tabs', hud); tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Categoría de controles'); this.controlTabs = new Map();
+    [['drive', 'Conducir'], ['cargo', 'Carga'], ['view', 'Visión'], ['safety', 'Seguridad']].forEach(([name, title], index) => {
+      const tab = element('button', 'vehicle-control-tab', tabs, title); tab.type = 'button'; tab.dataset.controlSection = name; tab.setAttribute('role', 'tab'); tab.setAttribute('aria-label', title); this.controlTabs.set(name, tab);
+      this.listen(tab, 'click', () => this.setControlSection(name, false));
+      this.listen(tab, 'keydown', event => { const keys = ['ArrowRight', 'ArrowLeft', 'Home', 'End']; if (!keys.includes(event.key)) return; event.preventDefault(); if (event.stopPropagation) event.stopPropagation(); const entries = Array.from(this.controlTabs.entries()).filter(([, button]) => !button.hidden), current = entries.findIndex(([key]) => key === name), next = event.key === 'Home' ? 0 : event.key === 'End' ? entries.length - 1 : (current + (event.key === 'ArrowRight' ? 1 : -1) + entries.length) % entries.length; if (entries[next]) {this.setControlSection(entries[next][0], false); if (entries[next][1].focus) entries[next][1].focus();} });
+    });
     const groups = element('div', 'vehicle-control-groups vehicle-driving-actions', hud);
     const group = (parent, title, name) => { const node = element('div', 'vehicle-control-group', parent); node.dataset.group = name; node.controls = []; node.heading = element('h3', 'vehicle-control-group-title', node, title); this.controlGroups.push(node); return node; };
     const drive = group(groups, 'Conducir', 'drive');
@@ -377,12 +392,26 @@ export default class VehicleDriving {
     ['pickup', 'release', 'depositIntent', 'liftUp', 'liftDown', 'tiltBack', 'tiltForward', 'retract', 'extend', 'sideLeft', 'sideRight', 'turretLeft', 'turretRight', 'couple', 'uncouple'].forEach(action => this.controlButton(action, cargo));
     const view = group(groups, 'Visión y ayuda', 'view'); ['forkCamera', 'rearView', 'forkCameraMode', 'forkCameraSide', 'view', 'holographicGuide', 'guidanceNext', 'dockingHelp', 'cursor', 'mode'].forEach(action => this.controlButton(action, view));
     const safety = group(groups, 'Seguridad', 'safety'); ['stop', 'pause', 'powerOff', 'emergency', 'resetEmergency', 'lights', 'horn', 'exit'].forEach(action => this.controlButton(action, safety));
+    this.controlSection = 'drive'; this.controlsExpanded = this.controlsMinimized = false; this.applyControlSections();
     this.hint = element('p', 'vehicle-driving-hint', hud);
     this.viewButton = this.actionButtons.get('view'); this.viewButton.dataset.vehicleView = '';
     this.dockingButton = this.actionButtons.get('dockingHelp'); this.dockingButton.dataset.vehicleDockingHelp = '';
     this.forkCameraButton = this.actionButtons.get('forkCamera'); this.forkCameraButton.dataset.vehicleForkCamera = '';
     ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(type => this.listen(hud, type, event => { if (event.stopPropagation) event.stopPropagation(); }));
     dom.body.appendChild(hud);
+  }
+  setControlSection(section = 'drive', expanded = false) {
+    if (!this.controlTabs || !this.controlTabs.has(section)) return false;
+    this.controlSection = section; this.controlsExpanded = !!expanded; this.controlsMinimized = false; this.resetInput(); this.applyControlSections(); return true;
+  }
+  applyControlSections() {
+    if (!this.hud || !this.controlTabs) return;
+    this.hud.dataset.controls = this.controlSection || 'drive'; this.hud.dataset.expanded = String(!!this.controlsExpanded); this.hud.dataset.minimized = String(!!this.controlsMinimized);
+    const available = this.controlGroups.filter(group => group.controls.some(button => !button.hidden));
+    if (!available.some(group => group.dataset.group === this.controlSection) && available.length) this.controlSection = available[0].dataset.group;
+    this.controlGroups.forEach(group => { const enabled = group.controls.some(button => !button.hidden); group.hidden = !enabled || !this.controlsExpanded && group.dataset.group !== this.controlSection; const tab = this.controlTabs.get(group.dataset.group); if (tab) { tab.hidden = !enabled; tab.setAttribute('aria-selected', String(group.dataset.group === this.controlSection)); tab.tabIndex = group.dataset.group === this.controlSection ? 0 : -1; } });
+    this.expandControls.textContent = this.controlsExpanded ? 'Compactar' : 'Todos'; this.expandControls.setAttribute('aria-expanded', String(!!this.controlsExpanded)); this.expandControls.setAttribute('aria-label', this.controlsExpanded ? 'Volver a controles compactos' : 'Mostrar todos los controles');
+    this.minimizeControls.textContent = this.controlsMinimized ? '+' : '−'; this.minimizeControls.setAttribute('aria-expanded', String(!this.controlsMinimized)); this.minimizeControls.setAttribute('aria-label', this.controlsMinimized ? 'Mostrar controles' : 'Minimizar controles');
   }
   updateHUD() {
     this.holographicGuide.update(); this.frontVisibility.update(); this.docking.update(); this.updateGuide();
@@ -418,7 +447,7 @@ export default class VehicleDriving {
       if (action in active) button.setAttribute('aria-pressed', String(!!active[action]));
     });
     this.cargoGroup.heading.textContent = this.features().hitch && !this.features().forks && !this.features().platform ? 'Remolque' : 'Carga y horquillas';
-    this.controlGroups.forEach(group => { group.hidden = group.controls.every(button => button.hidden); });
+    this.quickEmergency.disabled = this.blocked(); this.quickEmergency.setAttribute('aria-pressed', String(!!v.emergency)); this.applyControlSections();
     if (this.worldPanel) this.paintWorldPanel();
   }
   buildWorldPanel() {

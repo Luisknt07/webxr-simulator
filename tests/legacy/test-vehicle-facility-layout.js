@@ -32,6 +32,19 @@ function boundedInstallation() {
   assert(model.stats.geometryReads <= 600 && model.actors.every(actor => actor.points.length <= 128), 'A highly detailed prefab cannot exceed global mesh or per-actor vertex budgets.');
   assert.equal(model.mission, null); assert(map.paint(canvas(), 480, 320)); map.dispose(); geometry.dispose(); material.dispose();
 }
+function tightProjection(){
+  const root=new THREE.Group(),truck=new THREE.Group(),material=new THREE.MeshBasicMaterial(),floor=new THREE.Mesh(new THREE.BoxBufferGeometry(100,.1,100),material),belt=new THREE.Mesh(new THREE.BoxBufferGeometry(3,1,24),material);
+  root.add(floor,belt,truck);floor.position.y=-.1;truck.position.z=15;const record={id:'truck',object:truck,components:{vehicle:{config:{width:1,length:2}}}},conveyor={id:'belt',object:belt,components:{conveyor:{config:{}}}},simulation={roomId:'long',document:{getRoot:()=>root},records:new Map([['truck',record],['belt',conveyor]]),products:new Map()};
+  const map=new Facility({simulation}),model=map.update(record,{lesson:null,guide:null});
+  assert(model.bounds.maxX-model.bounds.minX<10&&model.bounds.maxZ-model.bounds.minZ<35,'A generic 100m engine backdrop cannot shrink the actual work area.');
+  assert(map.paint(canvas(),1000,480,model));const projection=map.projection;
+  assert.equal(projection.rotation,Math.PI/2,'A long installation can quarter-turn as a metric plan to use a wide navigation container.');
+  const origin=projection.screen([0,0]),x=projection.screen([1,0]),z=projection.screen([0,1]);near([Math.hypot(x[0]-origin[0],x[1]-origin[1])],[Math.hypot(z[0]-origin[0],z[1]-origin[1])],'Equal world distances retain equal scale after fit/rotation');
+  const front=projection.screen([0,model.bounds.minZ]),back=projection.screen([0,model.bounds.maxZ]);assert(Math.abs(back[0]-front[0])>projection.plot.width*.95,'The installation fills almost the full usable plot width.');
+  assert(x[1]<origin[1]&&z[0]>origin[0],'The quarter-turn applies the same orientation to metric coordinates, grid and moving actors.');
+  floor.userData.editorId='custom-authored-floor';const authored=map.update(record,{lesson:null,guide:null,force:true});assert(authored.floors[0].authored&&authored.bounds.maxX-authored.bounds.minX>=100,'An explicitly authored installation floor remains visible in full, even if it has few machines.');
+  map.dispose();floor.geometry.dispose();belt.geometry.dispose();material.dispose();
+}
 async function run() {
   const f = setup(), d = f.document;
   const built = enhance(d, 'hall'), belt = d.addPrefab('hall', 'conveyor', 'pallet-chain'), robot = d.addPrefab('hall', 'robot');
@@ -61,6 +74,7 @@ async function run() {
   assert(model.actors.some(actor => actor.id === belt.userData.editorId && actor.type === 'conveyor'));
   assert(model.actors.some(actor => actor.id === robot.userData.editorId && actor.type === 'robot'));
   assert(model.actors.some(actor => actor.id === built.rack.userData.editorId && actor.type === 'palletQueue'));
+  const rackPlan=model.actors.find(actor=>actor.id===built.rack.userData.editorId).rack;assert(rackPlan&&rackPlan.columns.length,'Rack plan contains real physical storage columns.');assert(rackPlan.aisle&&rackPlan.row,'Real rack aisle and row identifiers appear in the plan.');assert(rackPlan.columns.some(column=>column.occupied>0),'Rack occupancy is derived from the live physical inventory.');assert(rackPlan.columns.every(column=>Object.isFrozen(column)&&Object.isFrozen(column.cells)));
   assert(model.actors.some(actor => actor.id === wall.userData.editorId && actor.type === 'wall'), 'A room rotated in world space preserves wall footprints.');
   const walkway = model.actors.find(actor => actor.type === 'walkway'), expectedWalkway = new THREE.Vector3(-12, .001, 0).applyMatrix4(f.root.matrixWorld);
   assert(walkway && model.actors.some(actor => actor.type === 'bay')); near(center(walkway.points), [expectedWalkway.x, expectedWalkway.z], 'Authored walkways and pallet demarcations use room transforms');
@@ -103,7 +117,7 @@ async function run() {
   assert.deepEqual(await d.serialize(), afterMovement, 'Repeated monitor updates and painting never change the project document.');
   assert.equal(identity(f.runtime), movingCustody, 'The layout does not change custody, parameters, simulation time or training progress.');
   map.dispose(); assert.equal(map.update(record, {lesson}), null); assert.equal(map.model, null); f.runtime.records.delete('foreign-record'); dispose(f);
-  boundedInstallation();
+  boundedInstallation();tightProjection();
   console.log('Vehicle facility layout: transformed real room/rack targets, hidden/foreign exclusion, 2/5 Hz bounded read model, live pallets/truck, validated route stop and canvas rendering passed.');
 }
 module.exports = {run}; if (require.main === module) run().catch(error => { console.error(error); process.exitCode = 1; });

@@ -50,6 +50,9 @@ const driving={ctx:{vrMode:false},id:'forklift',document,seat,holographicGuide:g
  cabPanelLayout:()=>({alignment:[-.8,-.34,1.1],front:{position:[.8,.08,1.1],width:.68,height:.3825},mirror:{position:[.8,.4,1.1],width:.36,height:.2}}),placeCabPanel:(plane,position)=>plane.position.fromArray(position),panelSelectable:()=>true,
  command(action){commands.push(action);if(action==='holographicGuide')guide.setEnabled(!guide.enabled);if(action==='guidanceNext')guide.nextTarget();},resetInput(){resets++;},updateHUD(){hudUpdates++;}};
 const monitor=new Monitor(driving);monitor.mount();
+assert.equal(monitor.element.dataset.expanded,'false','Driving starts with the compact navigation panel.');assert.equal(monitor.expandButton.getAttribute('aria-expanded'),'false');
+const beforeExpand=resets;monitor.expandButton.fire('click');assert.equal(monitor.expanded,true);assert.equal(monitor.element.dataset.expanded,'true');assert.equal(monitor.expandButton.getAttribute('aria-expanded'),'true');assert(resets>beforeExpand,'Changing panel size clears held driving inputs.');
+monitor.navigationKey({key:'Escape',stopPropagation(){}});assert.equal(monitor.expanded,false);assert.equal(monitor.expandButton.getAttribute('aria-expanded'),'false');
 assert.equal(monitor.cameraEnabled,true);assert.equal(monitor.mode,'layout');assert.equal(monitor.plan.hidden,false);assert.equal(monitor.feed.hidden,true);assert.equal(monitor.forkCamera.available,false);assert.equal(monitor.rear.hidden,true);assert.equal(monitor.rear.parentNode,undefined);
 assert.equal(monitor.panels.parentNode,document.body);assert.equal(monitor.guidancePanel.parentNode,monitor.operatorColumn);assert.equal(monitor.guidanceBar.parentNode,monitor.guidancePanel);assert.notEqual(monitor.coach.parentNode,monitor.element);assert.equal(monitor.metrics.hidden,true);assert(monitor.facilityLayout.model,'The far display uses the actual installation model.');
 assert(monitor.canvas.calls.some(call=>call[0]==='fillText'&&call[1].includes('EN VIVO')),'The map is painted while the camera is inactive.');
@@ -75,7 +78,7 @@ const originalOption=monitor.targetSelect.children[1];state.distanceM=2.8;monito
 monitor.planButton.fire('click');assert.equal(monitor.mode,'layout');assert.equal(monitor.forceLayout,true);assert.equal(monitor.plan.hidden,false);assert.equal(monitor.feed.hidden,true);assert.equal(monitor.forkCamera.enabled,true,'Forcing the plan suspends camera rendering without disabling automatic inspection.');assert.equal(monitor.forkCamera.available,false);
 monitor.planButton.fire('click');assert.equal(monitor.mode,'inspection');assert.equal(monitor.feed.hidden,false);
 monitor.cameraButton.fire('click');assert.equal(monitor.cameraEnabled,false);assert.equal(monitor.mode,'layout');assert.equal(monitor.forkCamera.available,false);monitor.cameraButton.fire('click');assert.equal(monitor.mode,'inspection');
-monitor.targetSelect.value='stock-1';monitor.targetSelect.fire('change');assert.equal(state.targetId,'stock-1');assert.equal(resets,1);assert.equal(hudUpdates,1);assert.deepEqual(commands,[]);
+const resetsBeforeTarget=resets;monitor.targetSelect.value='stock-1';monitor.targetSelect.fire('change');assert.equal(state.targetId,'stock-1');assert.equal(resets,resetsBeforeTarget+1);assert.equal(hudUpdates,1);assert.deepEqual(commands,[]);
 monitor.hologramButton.fire('click');assert.equal(guide.enabled,false);assert.deepEqual(commands,['holographicGuide']);
 monitor.page='guide';monitor.select(40,400);assert.equal(guide.enabled,true);monitor.page='guide';monitor.select(250,400);assert.equal(state.targetId,'pallet-1');
 state.ready=true;monitor.update(true);assert.equal(monitor.severity,'near','A guide model must never make unvalidated physical docking green.');
@@ -122,9 +125,9 @@ assert.equal(monitor.cameraButton.disabled,false);assert.equal(monitor.rearButto
 monitor.canvas.ownerDocument={defaultView:{innerWidth:780,innerHeight:390}};
 monitor.canvas.getBoundingClientRect=()=>({width:500,height:154});
 monitor.forceLayout=true;const mapTexture=monitor.texture;monitor.update(true);
-assert.equal(monitor.canvas.height,237);assert.equal(monitor.texture,mapTexture,'A layout resize reuses its canvas texture.');
-driving.ctx.vrMode=true;monitor.update(true);assert.equal(monitor.canvas.height,432,'A headset map always keeps the original 16:9 cab surface.');
-driving.ctx.vrMode=false;monitor.canvas.ownerDocument.defaultView={innerWidth:1440,innerHeight:900};monitor.update(true);assert.equal(monitor.canvas.height,432);
+assert.equal(monitor.canvas.width,500);assert.equal(monitor.canvas.height,154);assert.equal(monitor.canvas.width/monitor.canvas.height,500/154,'The canvas bitmap follows its actual slot rather than distorting the floor plan.');assert.equal(monitor.texture,mapTexture,'A layout resize reuses its canvas texture.');
+driving.ctx.vrMode=true;monitor.update(true);assert.equal(monitor.canvas.width,768);assert.equal(monitor.canvas.height,432,'A headset map always keeps the original 16:9 cab surface.');assert.equal(monitor.setExpanded(true),false,'Desktop enlargement cannot alter the headset cab layout.');
+driving.ctx.vrMode=false;monitor.canvas.ownerDocument.defaultView={innerWidth:1440,innerHeight:900,devicePixelRatio:2};monitor.update(true);assert.equal(monitor.canvas.width,1000);assert.equal(monitor.canvas.height,308,'An expanded/compact map retains slot proportions on high density screens.');
 monitor.forceLayout=false;monitor.update(true);
 blocked=true;monitor.update(true);const count=commands.length;monitor.hologramButton.fire('click');monitor.targetSelect.fire('change');assert.equal(commands.length,count);assert.equal(monitor.targetSelect.disabled,true);assert.equal(monitor.severity,'blocked');
 monitor.unmount();assert.equal(document.body.children.length,0);assert.equal(seat.children.length,0);assert.equal(monitor.targetSelect,null);assert.equal(monitor.forkCamera.options,null);assert.equal(monitor.missionPanel,null);

@@ -15,7 +15,7 @@ const setText = (element, value) => { const text = String(value || ''); if (elem
 export default class VehicleMissionPanel {
   constructor(document, options = {}) {
     this.document = document; this.now = options.now || (() => Date.now());
-    this.feedbackDuration = options.feedbackDuration || 6500; this.mode = options.mode || 'embedded'; this.visible = true;
+    this.feedbackDuration = options.feedbackDuration || 6500; this.mode = options.mode || 'embedded'; this.visible = true; this.expanded = !!options.expanded;
   }
   static viewModel(lesson, tasks = []) {
     if (!lesson) return null;
@@ -52,6 +52,8 @@ export default class VehicleMissionPanel {
     const bar = this.create('div', 'vehicle-mission-scorebar', this.element);
     this.kicker = this.create('span', 'vehicle-mission-kicker', bar);
     this.score = this.create('span', 'vehicle-mission-score', bar); this.score.setAttribute('aria-label', 'Puntuación verificada');
+    this.expandButton = this.create('button', 'vehicle-mission-expand', bar); this.expandButton.type = 'button';
+    this.toggleDetails = () => this.setExpanded(!this.expanded); this.expandButton.addEventListener('click', this.toggleDetails); this.setExpanded(this.expanded);
     this.title = this.create('strong', 'vehicle-mission-title', this.element);
     const progress = this.create('div', 'vehicle-mission-progress-row', this.element);
     this.progressLabel = this.create('span', 'vehicle-mission-progress-label', progress);
@@ -78,6 +80,11 @@ export default class VehicleMissionPanel {
     return this.element;
   }
   setVisible(visible) { this.visible = !!visible; if (this.element) this.element.hidden = !this.visible || !this.model; }
+  setExpanded(expanded) {
+    this.expanded = !!expanded; if (!this.element) return;
+    this.element.dataset.expanded = String(this.expanded);
+    if (this.expandButton) { this.expandButton.textContent = this.expanded ? 'Resumir' : 'Detalles'; this.expandButton.setAttribute('aria-expanded', String(this.expanded)); this.expandButton.setAttribute('aria-label', this.expanded ? 'Resumir misión' : 'Mostrar instrucciones y misiones'); }
+  }
   update(lesson, tasks = []) {
     if (!this.element) return;
     const model = VehicleMissionPanel.viewModel(lesson, tasks); this.model = model; this.element.hidden = !model || !this.visible;
@@ -136,6 +143,7 @@ export default class VehicleMissionPanel {
   }
   clear(element) { while (element.firstChild) element.removeChild(element.firstChild); }
   unmount() {
+    if (this.expandButton && this.toggleDetails) this.expandButton.removeEventListener('click', this.toggleDetails);
     if (this.element) { ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'keydown'].forEach(type => this.element.removeEventListener(type, this.stopEvent)); this.element.remove(); }
     this.element = this.model = null; this.stageSignature = this.taskSignature = this.badgeSignature = this.feedbackId = this.stepKey = null; this.feedbackUntil = 0;
   }

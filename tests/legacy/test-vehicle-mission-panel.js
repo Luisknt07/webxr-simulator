@@ -30,7 +30,8 @@ assert.equal(panel.missionList.children[2].children[1].textContent, 'Bloqueada')
 assert.match(panel.unlockNote.textContent, /depositar.*retirar ambas horquillas/);
 assert.equal(panel.element.getAttribute('aria-live'), undefined, 'The full panel cannot announce every runtime update.');
 assert.equal(panel.announcement.getAttribute('aria-live'), 'polite');
-assert.equal(nodes(panel.element).filter(node => node.tagName === 'button').length, 0, 'Read-only advice and mission lists offer no skip or award controls.');
+assert.deepEqual(nodes(panel.element).filter(node => node.tagName === 'button'), [panel.expandButton], 'The only button changes the presentation; there are no skip or award controls.');
+assert.equal(panel.element.dataset.expanded, 'false'); panel.toggleDetails(); assert.equal(panel.element.dataset.expanded, 'true'); assert.equal(panel.expandButton.getAttribute('aria-expanded'), 'true'); panel.toggleDetails(); assert.equal(panel.element.dataset.expanded, 'false');
 const firstRow = panel.missionList.children[0], firstStage = panel.stageList.children[0], firstAnnouncementWrites = panel.announcement.writes;
 panel.missions.open = true; panel.update({...lesson, waypointIndex: 1, distanceM: 8.53}, tasks);
 assert.equal(panel.missionList.children[0], firstRow); assert.equal(panel.stageList.children[0], firstStage); assert.equal(panel.missions.open, true);
