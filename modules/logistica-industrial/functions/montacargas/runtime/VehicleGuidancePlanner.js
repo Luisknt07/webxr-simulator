@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {dropTargetGeometry} from './VehicleDropPlacement.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 export const GUIDANCE_LIMIT = 8;
@@ -31,7 +32,7 @@ function requestedPlacement(runtime, api, record, target, product) {
     center = position(pallet.object);
   }
   const placement = queue.placement(target.record, product, [], center, false, matrix => api.receivingForks(record, product, matrix));
-  if (!placement || placement.palletIndex !== target.slotIndex || target.locationCode && placement.locationCode !== target.locationCode) return null;
+  if (!placement || placement.palletIndex !== target.slotIndex || stock.rack && target.locationCode && placement.locationCode !== target.locationCode) return null;
   return {kind: 'stock', matrix: placement.matrix, placement, targetId: target.targetId};
 }
 
@@ -39,9 +40,9 @@ function requestedPlacement(runtime, api, record, target, product) {
 // geometry budget. A busy nearby group must not hide a usable distant target.
 // These checks read custody, queue state and dimensions; they do not plan a
 // placement, sweep collision geometry, reserve inventory or authorize transfer.
-function availableFirst(candidates, count, reason) {
+function availableFirst(candidates, count, reason, selectedId = '') {
   candidates.forEach(target => { target.availabilityReason = reason(target); });
-  return candidates.sort((a, b) => Number(!!a.availabilityReason) - Number(!!b.availabilityReason) || priority(a, b)).slice(0, count);
+  return candidates.sort((a, b) => Number(b.id === selectedId) - Number(a.id === selectedId) || Number(!!a.availabilityReason) - Number(!!b.availabilityReason) || priority(a, b)).slice(0, count);
 }
 function pickupAvailabilityReason(api, record, product) {
   const runtime = api.runtime, v = record.components.vehicle;
@@ -77,7 +78,13 @@ function dropAvailabilityReason(runtime, target, entry, metadata, size) {
       const cell = target.cell, accepted = stock.rack.definition.acceptedLoad, pallet = metadata.loadMode === 'pallet' || metadata.productType === 'pallet';
       if (accepted === 'pallet' && !pallet || accepted === 'individual' && pallet) return unavailable;
       if (cell && (Math.abs(size.x) > cell.width + .001 || Math.abs(size.z) > cell.depth + .001 || Math.abs(size.y) > cell.clearHeight + .001 || metadata.mass > cell.capacityKg + .001)) return unavailable;
-    } else if (stock.config.acceptsPallets && metadata.loadMode !== 'pallet') return unavailable;
+    } else if (stock.config.acceptsPallets) {
+      if (metadata.loadMode !== 'pallet') return unavailable;
+      const pallet = Number.isInteger(target.slotIndex) && stock.pallets[target.slotIndex];
+      if (!pallet) return unavailable;
+      const scale = pallet.object.getWorldScale(new THREE.Vector3());
+      if (Math.abs(size.x) > stock.config.width*Math.abs(scale.x)+.02 || Math.abs(size.z) > stock.config.depth*Math.abs(scale.z)+.02) return 'La carga es demasiado grande para la bahía seleccionada.';
+    }
   }
   if (c.processor && runtime.processorRuntime && !runtime.processorRuntime.canReceive(record, entry)) return unavailable;
   if (c.source && (!c.source.enabled || !c.source.running || c.source.paused || c.source.queue.length || !runtime.sourceRuntime.fits(record, entry))) return unavailable;
@@ -102,7 +109,7 @@ function pickupApproach(api, record, target) {
 /** Read-only suggestions. Final readiness always comes from getDockingState;
  * missionDestination/pickupDock are the same planners used by the real truck.
  * No reservations, transfer commands, routes or authored data are changed. */
-export function buildGuidanceTargets(driving, record, limit = GUIDANCE_LIMIT) {
+export function buildGuidanceTargets(driving, record, limit = GUIDANCE_LIMIT, selection = null) {
   const runtime = driving.simulation, api = runtime && runtime.vehicleRuntime, v = record && record.components.vehicle;
   if (!api || !v || !api.rig(record).forks) return [];
   const here = position(record.object), candidates = [], count = Math.max(1, Math.min(GUIDANCE_LIMIT, limit)), mission = guidanceTraining(driving, record);
@@ -128,6 +135,7 @@ export function buildGuidanceTargets(driving, record, limit = GUIDANCE_LIMIT) {
     });
   }
   if (mission && (mission.phase !== 'drop' || !matchesProduct(v.entry.product, mission.productId))) return [];
+  const pinned = selection && selection.product === v.entry.product ? selection : null;
   const metadata = runtime.productMetadata(v.entry.product), size = v.entry.product.bounds.getSize(new THREE.Vector3()).multiply(v.entry.product.scale);
   runtime.records.forEach(target => {
     if (target === record || !guidanceVisible(target.object) || !(target.components.palletQueue || target.components.conveyor || target.components.processor || target.components.source)) return;
@@ -143,22 +151,33 @@ export function buildGuidanceTargets(driving, record, limit = GUIDANCE_LIMIT) {
       });
       return;
     }
+    if (stock && stock.config.acceptsPallets && Array.isArray(stock.pallets)) {
+      stock.pallets.forEach((pallet,index) => {
+        if (mission && Number.isInteger(mission.destinationSlot) && index !== mission.destinationSlot) return;
+        const code = 'BAHÍA-'+String(index+1).padStart(2,'0');
+        candidates.push({id:'drop:'+target.id+':bay:'+index,targetId:target.id,kind:'drop',name:label(target.object.name,target.id)+' · '+code,record:target,
+          slotIndex:index,locationCode:code,occupied:stock.items.some(item => (item.palletIndex || 0) === index),distanceM:position(pallet.object).distanceTo(here),preferred:!!mission || target.id === v.config.outputId});
+      });
+      return;
+    }
     candidates.push({id: 'drop:' + target.id, targetId: target.id, kind: 'drop', name: label(target.object.name, target.id), record: target,
-      slotIndex: mission && Number.isInteger(mission.destinationSlot) ? mission.destinationSlot : undefined, locationCode: mission && mission.locationCode || '',
+      slotIndex: mission && Number.isInteger(mission.destinationSlot) ? mission.destinationSlot : pinned && pinned.targetId === target.id ? pinned.slotIndex : undefined, locationCode: mission && mission.locationCode || pinned && pinned.targetId === target.id && pinned.locationCode || '',
       distanceM: position(target.object).distanceTo(here), preferred: !!mission || !!v.config.outputId && target.id === v.config.outputId});
   });
-  return availableFirst(candidates, count, target => dropAvailabilityReason(runtime, target, v.entry, metadata, size)).map(target => {
+  return availableFirst(candidates, count, target => dropAvailabilityReason(runtime, target, v.entry, metadata, size),pinned && pinned.id || '').map(target => {
     const training = runtime.vehicleTraining;
     const destination = !target.availabilityReason && (mission && training && typeof training.destination === 'function' ? training.destination(record) : requestedPlacement(runtime, api, record, target, v.entry.product));
+    if (destination && destination.placement && target.slotIndex === undefined) {target.slotIndex = destination.placement.palletIndex; target.locationCode = destination.placement.locationCode || target.locationCode;}
     let reason = target.availabilityReason || (destination ? '' : 'El destino está ocupado, deshabilitado o no admite esta carga.');
-    if (!reason && target.slotIndex !== undefined && (!destination.placement || destination.placement.palletIndex !== target.slotIndex || target.locationCode && destination.placement.locationCode !== target.locationCode)) reason = 'Esta ubicación exacta no está disponible para el pallet asignado.';
+    if (!reason && target.slotIndex !== undefined && (!destination.placement || destination.placement.palletIndex !== target.slotIndex || target.record.components.palletQueue.rack && target.locationCode && destination.placement.locationCode !== target.locationCode)) reason = 'Esta ubicación exacta no está disponible para el pallet asignado.';
     const belt = target.record.components.conveyor;
     if (!reason && belt && (belt.packages.length >= belt.config.maxPackages || runtime.packageCount >= 500)) reason = 'La banda de destino no tiene capacidad disponible.';
     const dock = !reason && api.dropDock(record, {targetId: target.targetId}, destination);
     if (!reason && !dock) reason = 'No hay una aproximación de depósito compatible.';
     if (!reason && dock.toolY - v.originWorld.y > v.config.maxLift + v.config.forkBaseHeight + .02) reason = 'La ubicación está por encima de la elevación máxima del equipo.';
+    const geometry = dropTargetGeometry(runtime,target,v.entry.product);
     return Object.assign(target, {allowed: !reason, reason, destination: destination || null, dock: dock || null, candidateCount: candidates.length, selectionLimit: count,
-      matrix: destination && destination.matrix ? destination.matrix.clone() : null, bounds: v.entry.product.bounds.clone(), product: v.entry.product});
+      matrix: destination && destination.matrix ? destination.matrix.clone() : geometry && geometry.matrix || null, bounds: v.entry.product.bounds.clone(), product: v.entry.product});
   });
 }
 

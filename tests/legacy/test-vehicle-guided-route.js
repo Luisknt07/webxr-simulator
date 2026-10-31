@@ -53,11 +53,15 @@ const lesson = {taskId: 'fault-test', title: 'Pallet exacto', phase: 'pickup', p
 fault.runtime.vehicleTraining = {guidance: () => lesson, validatePickup: () => '', validateDrop: () => ''}; fault.v.parkingBrake = true;
 const guide = new Guide(faultDriving); guide.mount();
 assert(guide.getState().routeBlocked); assert(!guide.getState().ready); assert(!guide.arrows.visible); assert.equal(guide.getState().instruction, lesson.status);
+const terminalResources={geometries:new Set(guide.geometries),materials:new Set(guide.materials),labelTexture:guide.labelTexture,allocations:guide.stats.allocations};
+const unchangedTerminalResources=()=>{assert.equal(guide.geometries.size,terminalResources.geometries.size);assert.equal(guide.materials.size,terminalResources.materials.size);assert([...guide.geometries].every(value=>terminalResources.geometries.has(value)));assert([...guide.materials].every(value=>terminalResources.materials.has(value)));assert.equal(guide.labelTexture,terminalResources.labelTexture);assert.equal(guide.stats.allocations,terminalResources.allocations);};
 lesson.phase = 'error'; lesson.routeFault = false; lesson.status = 'La ubicación asignada no existe.'; guide.update(true);
 assert.equal(guide.getState().phase, 'error'); assert.equal(guide.getState().instruction, lesson.status); assert.equal(guide.getTargets().length, 0);
 assert(guide.label.visible && !guide.selected.visible, 'XR errors use the existing information label without a false pallet marker.');
+unchangedTerminalResources();
 lesson.phase = 'complete'; lesson.completed = 1; lesson.taskId = ''; lesson.status = 'Todas las misiones verificadas.'; guide.update(true);
 assert(guide.label.visible && !guide.selected.visible); assert(labelText.includes('1 / 1 misiones verificadas')); assert.deepEqual(fault.ctx.camera.matrixWorld.toArray(), tracked);
-assert(guide.stats.geometries <= 6 && guide.stats.materials <= 11, 'The terminal status reuses the existing spatial canvas and geometry.');
+unchangedTerminalResources();
+assert(guide.stats.geometries <= 6 && guide.stats.materials <= 12, 'The terminal status reuses the canvas and bounded geometry/materials, including the shared unloading marker material.');
 guide.dispose(); fault.runtime.vehicleTraining = null; fault.runtime.stop();
 console.log('Guided warehouse routes: real thin-wall/corner/load clearance, bounded world arrows, read-only planning and exact rack-slot/product readiness passed.');

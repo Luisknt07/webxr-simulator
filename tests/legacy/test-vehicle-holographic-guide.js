@@ -3,9 +3,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const h=require('./test-vehicle-runtime.js'),{THREE,fixture,step}=h;
 const DIR=path.resolve(__dirname,'../../modules/logistica-industrial/functions/montacargas/runtime');
 const read=name=>fs.readFileSync(path.join(DIR,name),'utf8').replace(/^import .*;\r?\n/gm,'');
-const names=['buildGuidanceTargets','guidanceTargetReady','guidanceForkBox','guidanceApproach','guidanceVisible','guidanceTraining','guidanceRoute','GUIDANCE_LIMIT','GUIDANCE_ROUTE_ARROWS'];
-const planner=new Function('THREE',read('VehicleGuidancePlanner.js').replace(/^export /gm,'')+';return {'+names.join(',')+'};')(THREE);
-const Guide=new Function('THREE',...names,read('VehicleHolographicGuide.js').replace('export default class VehicleHolographicGuide','return class VehicleHolographicGuide'))(THREE,...names.map(name=>planner[name]));
+const planner=require('../../modules/logistica-industrial/functions/montacargas/runtime/VehicleGuidancePlanner.js');
+const Guide=require('../../modules/logistica-industrial/functions/montacargas/runtime/VehicleHolographicGuide.js').default;
 function driving(f){return {ctx:f.ctx,simulation:f.runtime,id:f.record.id,record:()=>f.record,blocked:()=>false,document:null};}
 function custody(f,product){return {pose:JSON.stringify(f.v.pose),entry:f.v.entry,parent:product.object.parent,world:product.object.matrixWorld.toArray(),population:f.runtime.products.size,entries:f.runtime.sourceRuntime.entries.size,counts:[f.v.received,f.v.delivered,f.v.receivedUnits,f.v.deliveredUnits],owner:product.vehicleOwnerId,reserved:product.vehicleReservedBy,warning:f.v.warning};}
 
@@ -54,7 +53,7 @@ truck.position.set(0,0,0);stock.position.set(0,0,9);pallet.position.set(0,0,h.ve
 const ctx={scene,editor:{active:false}},runtime=new Runtime(ctx,doc);runtime.vehicleRuntime=new h.VehicleRuntime(runtime);runtime.start('hall');scene.updateMatrixWorld(true);
 const record=runtime.records.get(truck.userData.editorId),v=record.components.vehicle,load=runtime.products.get(pallet),dock=runtime.vehicleRuntime.pickupDock(record,{targetId:pallet.userData.editorId},load);assert(dock);truck.position.copy(dock.position);truck.quaternion.setFromAxisAngle(new THREE.Vector3(0,1,0),dock.yaw);scene.updateMatrixWorld(true);runtime.vehicleRuntime.applyPose(record,Object.assign({},v.pose,{lift:dock.toolY-v.originWorld.y-v.config.forkBaseHeight}),false);assert(runtime.vehicleRuntime.pickup(record),v.warning);
 const drive={ctx,simulation:runtime,id:record.id,record:()=>record,blocked:()=>false,document:null},g=new Guide(drive);g.mount();const targets=g.getTargets();assert(targets.some(target=>target.kind==='drop'&&target.allowed&&target.distanceM>5),'Compatible far receivers must be selectable before alignment.');
-const id='drop:'+stock.userData.editorId;assert(g.setTarget(id));assert(!g.getState().ready,'A distant compatible bay is not ready for release.');
+const id=g.getTargets().find(target=>target.allowed&&target.kind==='drop').id;assert(g.setTarget(id));assert(!g.getState().ready,'A distant compatible bay is not ready for release.');
 // Direction always follows the actual chassis +Z, regardless of where the
 // tracked camera is looking. Positive bearings mean the operator's right.
 const targetCenter=g.currentTarget.bounds.getCenter(new THREE.Vector3()).applyMatrix4(g.currentTarget.matrix),truckCenter=truck.getWorldPosition(new THREE.Vector3()),targetYaw=Math.atan2(targetCenter.x-truckCenter.x,targetCenter.z-truckCenter.z),savedQuaternion=truck.quaternion.clone(),yAxis=new THREE.Vector3(0,1,0),bearingEntry=v.entry;

@@ -31,7 +31,7 @@ async function freePlay(){
   assert(api.pickup(record),JSON.stringify(api.getDockingState(record)));const held=v.entry;
   // Entry changes bypass the 5Hz cache even while the spatial layer is OFF.
   guide.update();assert.equal(guide.getState().phase,'drop');assert.equal(v.entry,held);assert.equal(held.product,product);
-  const target='drop:'+stock.userData.editorId;assert(guide.setTarget(target));model=refresh();
+  const target=guide.getTargets().find(value=>value.kind==='drop'&&value.allowed&&value.id.indexOf('drop:'+stock.userData.editorId+':bay:')===0).id;assert(guide.setTarget(target));model=refresh();
   assert(model.mission&&model.mission.manual&&model.mission.phase==='drop','A carried pallet keeps its selected real receiver in the monitor.');
   assert(model.mission.destination&&model.mission.target);assert.equal(model.mission.verified,false);assert.equal(model.mission.route.length,0);assert.equal(model.mission.plannedRoute.length,0,'Free play must never turn a local bearing into an invented route.');
   assert.match(monitor.summary.textContent,/Llevar a:/);assert.match(monitor.summary.textContent,/sin itinerario validado/);assert.equal(monitor.targetSelect.value,target);

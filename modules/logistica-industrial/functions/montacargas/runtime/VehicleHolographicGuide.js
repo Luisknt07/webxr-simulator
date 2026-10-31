@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {buildGuidanceTargets, guidanceTargetReady, guidanceForkBox, guidanceApproach, guidanceVisible, guidanceTraining, guidanceRoute, GUIDANCE_LIMIT, GUIDANCE_ROUTE_ARROWS} from './VehicleGuidancePlanner.js';
+import {buildDropPlacement,dropTargetGeometry} from './VehicleDropPlacement.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const COLORS = {ready: 0x70e3b1, near: 0xefc563, blocked: 0xf17f87, target: 0x6bdbe8};
@@ -31,8 +32,8 @@ const bearing = (record, matrix, bounds) => {
 export default class VehicleHolographicGuide {
   constructor(driving) {
     this.driving = driving; this.ctx = driving.ctx; this.simulation = driving.simulation; this.enabled = true;
-    this.lastUpdate = -Infinity; this.selectedId = ''; this.state = empty(); this.targets = [];
-    this.stats = {updates: 0, allocations: 0, geometries: 0, materials: 0, targets: 0, visible: false, maxTargets: GUIDANCE_LIMIT};
+    this.lastUpdate = -Infinity; this.selectedId = ''; this.state = empty(); this.targets = []; this.dropPlacement = null; this.dropSelection = null;
+    this.stats = {updates: 0, allocations: 0, geometries: 0, materials: 0, targets: 0, visible: false, dropDrawCalls:0, maxTargets: GUIDANCE_LIMIT};
   }
   mount(record) {
     this.unmount(); record = record || this.driving.record(); if (!record) return;
@@ -70,6 +71,17 @@ export default class VehicleHolographicGuide {
     this.routeBorderMaterial = new THREE.MeshBasicMaterial({color: 0x10252e, transparent: true, opacity: .94, depthTest: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide});
     this.routeBorderMaterial.color.convertSRGBToLinear();
     this.materials.add(this.routeMaterial); this.materials.add(this.routeBorderMaterial);
+    this.dropMaterial = new THREE.MeshBasicMaterial({color:ROUTE_COLORS.drop,transparent:false,depthTest:true,depthWrite:false,toneMapped:false});this.dropMaterial.color.convertSRGBToLinear();this.materials.add(this.dropMaterial);
+    this.dropMarker = helper(new THREE.Group());this.selected.add(this.dropMarker);
+    // Eight corner bars plus three arrow bars share two fixed instanced draws,
+    // rather than introducing twenty-two draw calls into a compact XR scene.
+    this.dropBorder = helper(new THREE.InstancedMesh(box,this.routeBorderMaterial,11));this.dropAccent = helper(new THREE.InstancedMesh(box,this.dropMaterial,11));
+    // Three r112 has no InstancedMesh.dispose(). Register its two buffers on
+    // the owned geometry so the normal geometry disposal releases them too.
+    box.setAttribute('dropBorderInstanceMatrix',this.dropBorder.instanceMatrix);box.setAttribute('dropAccentInstanceMatrix',this.dropAccent.instanceMatrix);
+    [this.dropBorder,this.dropAccent].forEach(mesh=>{mesh.frustumCulled=false;this.dropMarker.add(mesh);});
+    this.dropCorners = [[-1,-1],[1,-1],[1,1],[-1,1]];this.dropArrow = ['stem','left','right'];
+    this.dropTransform = new THREE.Matrix4();this.dropPosition = new THREE.Vector3();this.dropScale = new THREE.Vector3();this.dropRotation = new THREE.Quaternion();this.dropEuler = new THREE.Euler();
     const routeGeometry = colored => {const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(ROUTE_VERTICES * 3), 3)); if (colored) geometry.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(ROUTE_VERTICES * 3), 3)); geometry.setDrawRange(0, 0); this.geometries.add(geometry); return geometry;};
     this.routeBorder = helper(new THREE.Mesh(routeGeometry(false), this.routeBorderMaterial)); this.root.add(this.routeBorder);
     this.arrows = helper(new THREE.Mesh(routeGeometry(true), this.routeMaterial)); this.routeArrows = this.arrows; this.root.add(this.arrows);
@@ -94,20 +106,37 @@ export default class VehicleHolographicGuide {
     }
     this.stats.allocations++; this.stats.geometries = this.geometries.size; this.stats.materials = this.materials.size;
   }
-  setEnabled(value) {this.enabled = !!value; if (!this.enabled && this.root) this.root.visible = false; this.update(true); return this.enabled;}
+  setEnabled(value) {this.enabled = !!value; if (!this.enabled) {if(this.root)this.root.visible = false;this.stats.dropDrawCalls=0;} this.update(true); return this.enabled;}
   setTarget(id) {
+    if (typeof id === 'string' && id && !this.targets.some(target => target.id === id)) {const compatible = this.targets.find(target => target.kind === 'drop' && 'drop:'+target.targetId === id && target.allowed); if (compatible) id = compatible.id;}
     if (typeof id !== 'string' || id && !this.targets.some(target => target.id === id)) return false;
+    if (id !== this.selectedId || !id) this.dropSelection = null;
     this.selectedId = id; this.update(true); return true;
   }
   selectTarget(id) {return this.setTarget(id);}
   nextTarget() {const targets = this.targets.filter(target => target.allowed); if (!targets.length) return false; const index = targets.findIndex(target => target.id === this.selectedId); return this.setTarget(targets[(index + 1) % targets.length].id);}
   getTargets() {return this.state.targets;}
   getState() {return this.state;}
+  getDropPlacement() {
+    const record = this.driving.record && this.driving.record(), product = record && record.components.vehicle.entry && record.components.vehicle.entry.product;
+    if (!this.dropPlacement || !product || !this.currentTarget || this.currentTarget.product !== product) return null;
+    product.object.updateWorldMatrix(true,false);
+    const geometry = dropTargetGeometry(this.simulation,this.currentTarget,product), targetMoved = geometry && (!this.dropPlacement.matrix || typeof this.dropPlacement.matrix.equals !== 'function' || !this.dropPlacement.matrix.equals(geometry.matrix));
+    const moved = !this.dropPlacement.actualMatrix || typeof this.dropPlacement.actualMatrix.equals !== 'function' || !this.dropPlacement.actualMatrix.equals(product.object.matrixWorld), blocked = this.driving.blocked && this.driving.blocked();
+    if (moved || targetMoved || blocked || this.dropPlacement.speedMps !== record.components.vehicle.actualSpeed) {
+      const snapshot = Object.assign({},this.dropSnapshot,{ready:false,reason:'La carga o el vehículo cambió: espera la comprobación física del apoyo.'});
+      this.dropPlacement = buildDropPlacement(this.driving,record,this.currentTarget,snapshot);
+      this.state = Object.freeze(Object.assign({},this.state,{dropPlacement:this.dropPlacement,ready:false,severity:'near'}));
+    }
+    return this.dropPlacement;
+  }
   transition(record) {
     const v = record.components.vehicle, entry = v.entry, api = this.simulation.vehicleRuntime;
     if (this.previousEntry && !entry && this.lastProduct && this.lastProduct.object.parent) {
+      this.dropSelection = this.dropPlacement = this.dropSnapshot = null;
       this.withdraw = {product: this.lastProduct, name: this.lastTargetName || 'Pallet depositado'}; this.depart = null; this.selectedId = '';
     } else if (!this.previousEntry && entry) {
+      this.dropSelection = this.dropPlacement = this.dropSnapshot = null;
       const current = this.currentTarget;
       const source = current && this.simulation.records.get(current.targetId), component = source && source.components;
       const structure = component && (component.conveyor || component.source || component.processor || component.palletQueue || component.vehicle && component.vehicle.config.family === 'cart');
@@ -132,11 +161,11 @@ export default class VehicleHolographicGuide {
   update(force = false, snapshot = null) {
     const record = this.driving.record && this.driving.record(), blocked = this.driving.blocked && this.driving.blocked();
     if (!record || record.id !== this.recordId || blocked || this.ctx.editor && this.ctx.editor.active) {
-      if (this.root) this.root.visible = false; this.stats.visible = false; return this.state;
+      if (this.root) this.root.visible = false; this.stats.visible = false; this.stats.dropDrawCalls=0; return this.state;
     }
     const runtimeAPI = this.simulation && this.simulation.vehicleRuntime;
     if (!runtimeAPI || !['rig','capacity','getDockingState','operational','pickupDock','missionDestination','dropDock'].every(name => typeof runtimeAPI[name] === 'function') || !runtimeAPI.rig(record) || !runtimeAPI.rig(record).forks || record.components.vehicle.config.family === 'cart') {
-      if (this.root) this.root.visible = false; this.stats.visible = false;
+      if (this.root) this.root.visible = false; this.stats.visible = false; this.stats.dropDrawCalls=0;
       this.state = Object.assign(empty(), {phase: 'unavailable', title: 'Guía de horquillas no disponible', instruction: 'Este equipo no dispone de un sistema de horquillas compatible.'}); return this.state;
     }
     // Hologram visibility is independent from the live navigation model used
@@ -154,17 +183,21 @@ export default class VehicleHolographicGuide {
     // or changing fork height. Each 5Hz planning tick reads current geometry,
     // unless its caller explicitly supplies a compatible fresh snapshot.
     if (!snapshot || snapshot.phase !== wantedPhase) snapshot = api.getDockingState(record);
-    this.transition(record); this.targets = buildGuidanceTargets(this.driving, record);
-    const chosen = this.targets.find(target => target.id === this.selectedId) || this.targets.find(target => target.preferred && target.allowed) || this.targets.find(target => target.allowed) || this.targets[0];
-    this.currentTarget = chosen || null; const ready = !!(chosen && guidanceTargetReady(snapshot, chosen) && api.operational(v) && Math.abs(v.actualSpeed) <= .06);
+    this.transition(record); this.targets = buildGuidanceTargets(this.driving, record, GUIDANCE_LIMIT, this.dropSelection);
+    const chosen = this.targets.find(target => target.id === this.selectedId) || this.dropSelection && this.targets.find(target => target.id === this.dropSelection.id) || this.targets.find(target => target.preferred && target.allowed) || this.targets.find(target => target.allowed) || this.targets[0];
+    this.currentTarget = chosen || null;
+    if (v.entry && chosen && chosen.kind === 'drop' && Number.isInteger(chosen.slotIndex)) this.dropSelection = {id:chosen.id,targetId:chosen.targetId,slotIndex:chosen.slotIndex,locationCode:chosen.locationCode,product:v.entry.product};
+    this.dropSnapshot = snapshot; this.dropPlacement = v.entry && chosen ? buildDropPlacement(this.driving,record,chosen,snapshot) : null;
+    const ready = this.dropPlacement ? this.dropPlacement.physicallyReady : !!(chosen && guidanceTargetReady(snapshot, chosen) && api.operational(v) && Math.abs(v.actualSpeed) <= .06);
     const phase = v.entry ? 'drop' : 'pickup', mission = guidanceTraining(this.driving, record);
     const targets = this.targets.map(target => Object.freeze({id: target.id, name: target.name, kind: target.kind, allowed: target.allowed, reason: target.reason, distanceM: target.distanceM}));
     const selection = this.targets[0], candidateCount = selection && selection.candidateCount || 0, selectionLimit = selection && selection.selectionLimit || GUIDANCE_LIMIT;
     let model = Object.assign(empty(), {phase, targets: Object.freeze(targets), candidateCount, selectionLimit, selectionLimited: candidateCount > selectionLimit, targetId: chosen && chosen.id || '', physicalTargetId: chosen && chosen.targetId || '', explicitTarget: !!this.selectedId, targetMatchesSnapshot: ready, targetName: chosen && chosen.name || '', distanceM: chosen ? chosen.distanceM : null,
       title: chosen ? (phase === 'drop' ? 'Descargar en ' : 'Recoger en ') + chosen.name : phase === 'drop' ? 'Sin destino compatible disponible' : 'Esperando un pallet accesible',
       instruction: chosen ? chosen.allowed ? ready ? phase === 'drop' ? 'Apoyo confirmado. Deposita la carga y retira las horquillas lentamente.' : 'Ambas horquillas apoyadas. Confirma la toma; después retira la carga del origen.' : phase === 'drop' ? 'Conduce a baja altura hacia el destino marcado. Alinea y baja hasta confirmar el apoyo.' : 'Aproxímate al frente del pallet marcado. Alinea ambas entradas con la cámara y avanza lentamente.' : chosen.reason : phase === 'drop' ? 'Conserva la carga. Espera un receptor libre compatible; el suelo no se presenta como destino autorizado.' : 'Espera al robot o a que se detenga la banda. Sólo se indican pallets compatibles.',
-      severity: chosen && !chosen.allowed ? 'blocked' : ready ? 'ready' : 'near', ready});
-    if (chosen && chosen.allowed && snapshot && ((phase === 'drop' && snapshot.destination && snapshot.destination.id === chosen.targetId) || phase === 'pickup' && snapshot.targetId === chosen.targetId) && !ready) model.instruction = snapshot.reason || model.instruction;
+      severity: ready ? 'ready' : this.dropPlacement && this.dropPlacement.canAlign ? 'near' : chosen && !chosen.allowed ? 'blocked' : 'near', ready,dropPlacement:this.dropPlacement});
+    if (this.dropPlacement) model.instruction = this.dropPlacement.instruction;
+    if (!this.dropPlacement && chosen && chosen.allowed && snapshot && ((phase === 'drop' && snapshot.destination && snapshot.destination.id === chosen.targetId) || phase === 'pickup' && snapshot.targetId === chosen.targetId) && !ready) model.instruction = snapshot.reason || model.instruction;
     if (this.withdraw) model = Object.assign(model, {phase: 'withdraw', title: 'Pallet depositado: retira las horquillas', instruction: 'Retrocede lentamente hasta sacar ambas horquillas; comprueba el pasillo antes de buscar otra carga.', targetName: this.withdraw.name, distanceM: null, targets: [], ready: false, severity: 'near'});
     else if (this.depart) model = Object.assign(model, {phase: 'withdraw-source', title: 'Pallet sujeto: retira del origen', instruction: 'Retrocede lentamente manteniendo la carga por encima del apoyo. Cuando esté libre, bájala a altura de transporte.', targetName: this.depart.name, distanceM: Math.max(0, Math.min(.85, v.config.forkLength * .8) - point(record.object).sub(this.depart.origin).dot(new THREE.Vector3(-Math.sin(this.depart.yaw),0,-Math.cos(this.depart.yaw)))), ready: false, severity: 'near'});
     const marked = this.withdraw ? {matrix: this.withdraw.product.object.matrixWorld, bounds: this.withdraw.product.bounds} : this.depart || chosen;
@@ -230,6 +263,18 @@ export default class VehicleHolographicGuide {
     c.fillStyle = '#e7f3f3'; c.font = '23px sans-serif'; c.fillText(model.completed + ' / ' + model.total + ' misiones' + (model.scoreMax > 0 ? ' · ' + model.score + '/' + model.scoreMax + ' pt' : ' verificadas'), 18, 85);
     c.font = '18px sans-serif'; c.fillText((model.instruction || '').slice(0, 49), 18, 130); this.labelTexture.needsUpdate = true;
   }
+  paintDropMarker(bounds,model) {
+    if (!this.dropMarker) return;
+    const placement=model.dropPlacement;this.dropMarker.visible=!!(model.phase==='drop'&&placement&&placement.valid&&!this.withdraw&&!this.depart);
+    this.stats.dropDrawCalls=this.dropMarker.visible?2:0;if (!this.dropMarker.visible) return;
+    this.dropMaterial.color.setHex(placement.physicallyReady?COLORS.ready:placement.canAlign||placement.admissible?ROUTE_COLORS.drop:COLORS.blocked).convertSRGBToLinear();
+    const size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3()),arm=Math.max(.12,Math.min(.32,Math.min(size.x,size.z)*.3));
+    let index=0;const place=(mesh,x,y,z,sx,sy,sz,angle)=>{this.dropPosition.set(x,y,z);this.dropScale.set(sx,sy,sz);this.dropEuler.set(0,0,angle||0);this.dropRotation.setFromEuler(this.dropEuler);this.dropTransform.compose(this.dropPosition,this.dropRotation,this.dropScale);mesh.setMatrixAt(index,this.dropTransform);};
+    this.dropCorners.forEach(signs=>{const sx=signs[0],sz=signs[1],x=sx<0?bounds.min.x:bounds.max.x,z=sz<0?bounds.min.z:bounds.max.z;
+      for(const axis of ['x','z']){const px=x+(axis==='x'?-sx*arm/2:0),pz=z+(axis==='z'?-sz*arm/2:0);place(this.dropBorder,px,bounds.min.y+.024,pz,axis==='x'?arm:.075,.018,axis==='z'?arm:.075,0);place(this.dropAccent,px,bounds.min.y+.028,pz,axis==='x'?arm:.038,.024,axis==='z'?arm:.038,0);index++;}});
+    this.dropArrow.forEach(part=>{const x=center.x+(part==='left'?-.064:part==='right' ? .064 : 0),y=bounds.min.y+.65+(part==='stem'?0:-.18),z=bounds.min.z-.18,angle=part==='left' ? .7 : part==='right'?-.7:0,height=part==='stem' ? .32 : .2;place(this.dropBorder,x,y,z,.085,height,.085,angle);place(this.dropAccent,x,y,z+.004,.04,height,.04,angle);index++;});
+    this.dropBorder.instanceMatrix.needsUpdate=this.dropAccent.instanceMatrix.needsUpdate=true;
+  }
   paint(record, target, model) {
     const parent = this.root.parent; parent.updateWorldMatrix(true, false); this.root.matrix.getInverse(parent.matrixWorld); this.root.matrixWorldNeedsUpdate = true;
     this.markers.forEach((marker, index) => {
@@ -244,10 +289,11 @@ export default class VehicleHolographicGuide {
     // Desktop objectives live in their own panel; keep the work area clear.
     // An immersive headset still needs the spatial label because DOM is hidden.
     this.arrows.visible = this.routeBorder.visible = this.stopMarker.visible = false; this.arrows.geometry.setDrawRange(0, 0); this.routeBorder.geometry.setDrawRange(0, 0); this.stats.routeArrows = this.stats.routeSegments = this.stats.routeDrawCalls = 0; if (this.label) this.label.visible = this.selected.visible && !!this.ctx.vrMode;
-    if (!matrix || !bounds) {this.paintStatusLabel(record, model); this.stats.targets = this.targets.length; this.root.updateWorldMatrix(true, true); return;}
+    if (!matrix || !bounds) {if(this.dropMarker)this.dropMarker.visible=false;this.stats.dropDrawCalls=0;this.paintStatusLabel(record, model); this.stats.targets = this.targets.length; this.root.updateWorldMatrix(true, true); return;}
     const center = bounds.getCenter(new THREE.Vector3()), size = bounds.getSize(new THREE.Vector3());
     this.selected.matrixAutoUpdate = false; this.selected.matrix.copy(matrix); this.selected.matrixWorldNeedsUpdate = true;
     this.outline.position.copy(center); this.outline.scale.copy(size).addScalar(.035); this.fill.visible = !this.depart; this.fill.position.set(center.x, bounds.min.y + .018, center.z); this.fill.scale.set(size.x + .05, size.z + .05, 1); this.color(model.severity, model.phase);
+    this.paintDropMarker(bounds,model);
     if (target && target.allowed && target.dock && !this.withdraw && !this.depart) {
       const c = record.components.vehicle.config, rig = this.simulation.vehicleRuntime.rig(record), tool = record.object.worldToLocal(point(rig.forks)), scale = record.object.getWorldScale(new THREE.Vector3()), yaw = target.dock.yaw;
       const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)), lateral = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
@@ -277,9 +323,11 @@ export default class VehicleHolographicGuide {
     this.stats.targets = this.targets.length; this.root.updateWorldMatrix(true, true);
   }
   unmount() {
+    for(const mesh of [this.dropBorder,this.dropAccent])if(mesh&&typeof mesh.dispose==='function')mesh.dispose();
     if (this.root && this.root.parent) this.root.parent.remove(this.root); if (this.geometries) this.geometries.forEach(value => value.dispose()); if (this.materials) this.materials.forEach(value => value.dispose()); if (this.labelTexture) this.labelTexture.dispose();
-    this.root = null; this.label = null; this.labelTexture = null; this.labelText = ''; this.geometries = null; this.materials = null; this.markers = []; this.targets = []; this.state = empty();
+    this.root = null; this.label = null; this.labelTexture = null; this.labelText = ''; this.labelCanvas = this.labelContext = null; this.geometries = null; this.materials = null; this.markers = []; this.targets = []; this.state = empty(); this.dropSelection = this.dropPlacement = this.dropSnapshot = null;
     this.recordId = ''; this.previousEntry = null; this.lastProduct = null; this.currentTarget = null; this.withdraw = null; this.depart = null; this.route = null; this.routeArrows = this.routeBorder = this.stopMarker = null; this.routeMaterial = this.routeBorderMaterial = this.routeColors = null; this.lastUpdate = -Infinity; this.selectedId = ''; this.stats.visible = false; this.stats.targets = this.stats.geometries = this.stats.materials = this.stats.routeArrows = this.stats.routeSegments = this.stats.routeDrawCalls = 0;
+    this.dropMarker = this.dropArrow = this.dropMaterial = this.dropBorder = this.dropAccent = this.dropTransform = this.dropPosition = this.dropScale = this.dropRotation = this.dropEuler = null;this.dropCorners=[];this.stats.dropDrawCalls=0;
     this.feedbackId = null; this.feedbackUntil = 0;
   }
   dispose() {this.unmount();}
