@@ -3,7 +3,7 @@
   "version": 1,
   "application": "public-viewer",
   "revision": "45068bf03122e36ce2b79589fa9b926601df7e76",
-  "bundleSha256": "6f12c14ce822ed8a9baf6582bef2a01252c4ef23acdb1f366c927d4e7aea9bf2",
+  "bundleSha256": "bb14745503a40ae21f4635400a0685e020b2e3913c39977c1e2d51ae5b59b85c",
   "scenes": [
     "vr-robot-dispatch"
   ],
@@ -66,11 +66,11 @@
     },
     {
       "path": "viewer.css",
-      "sha256": "7de791bfa2efd0e5bd7da8783f5d5fec51258ec7b88db04fbca73536d86a5618"
+      "sha256": "4987b43f7412d5209f5adeb2fc42ff3c56e27b1fa433ea2c7916d8853ddee0f0"
     },
     {
       "path": "viewer.js",
-      "sha256": "6f12c14ce822ed8a9baf6582bef2a01252c4ef23acdb1f366c927d4e7aea9bf2"
+      "sha256": "bb14745503a40ae21f4635400a0685e020b2e3913c39977c1e2d51ae5b59b85c"
     }
   ]
 }

@@ -160,6 +160,28 @@ async function run() {
             await screenshot('-inspection-expanded');
             await b.call(()=>{__responsive.navigation.dataset.expanded='false';});
           }
+          // GPU inspection is composited under the DOM, unlike the synthetic
+          // canvas here: an opaque ancestor would darken or conceal its image.
+          const compositing=await b.call(()=>{const n=__responsive.navigation,previous={operation:n.dataset.operation,expanded:n.dataset.expanded};n.dataset.operation='drop';n.dataset.expanded='true';const rows=[];for(let node=n.querySelector('.vehicle-fork-camera-viewport');node&&node!==document.body;node=node.parentElement){const s=getComputedStyle(node);rows.push({className:node.className,background:s.backgroundColor,image:s.backgroundImage});}if(previous.operation===undefined)delete n.dataset.operation;else n.dataset.operation=previous.operation;n.dataset.expanded=previous.expanded;return rows;});
+          for(const surface of compositing){assert(/,\s*0(?:\.0+)?\)$/.test(surface.background),'Expanded GPU camera has an opaque ancestor: '+JSON.stringify(surface));assert.equal(surface.image,'none');}
+          // Public free play mounts the desktop mission once, then hides it.
+          // Its stale expanded attribute must not put objectives over the
+          // portrait unloading toolbar after a viewport change.
+          let portraitDrop;
+          if(width<=720&&height>560) {
+            await b.call(()=>{const r=__responsive,n=r.navigation,g=document.querySelector('.vehicle-guidance-panel');g.dataset.training='';r.panel.element.dataset.expanded='true';r.panel.element.hidden=true;n.dataset.operation='drop';n.querySelector('.vehicle-docking-plan canvas').height=1024;n.querySelector('.vehicle-docking-summary').textContent='Alinea el pallet con la bahía y baja hasta confirmar el apoyo.';n.querySelector('.vehicle-docking-metrics').textContent='Lateral +20.0 cm · Fondo -30.0 cm · Altura +35.0 cm · Giro +11.5° · Apoyo: Sin confirmar';});
+            const dropMeasure=()=>{const n=__responsive.navigation,rect=node=>{const r=node.getBoundingClientRect();return{x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};return{map:rect(n),header:rect(n.querySelector('.vehicle-navigation-header')),guidance:rect(document.querySelector('.vehicle-guidance-panel')),camera:rect(n.querySelector('.vehicle-fork-camera-viewport')),plan:rect(n.querySelector('.vehicle-docking-plan')),buttons:[...n.querySelectorAll('.vehicle-navigation-actions button')].map(button=>{const r=rect(button);return{rect:r,reachable:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===button};}),overflow:document.documentElement.scrollWidth>innerWidth};};
+            const drop=await b.call(dropMeasure);report.currentCase={file,width,height,state:'portrait-drop',...drop};
+            assert.equal(drop.overflow,false);assert(intersection(drop.header,drop.guidance)<=1,'Unloading toolbar must not sit underneath the objectives.');
+            for(const button of drop.buttons){assert(button.rect.height>=43.9);assert(button.reachable,'Every unloading toolbar action remains reachable.');}
+            assert(drop.camera.width>=200,'Portrait unloading needs a useful camera thumbnail.');assert(inRect(drop.camera,drop.map));assert(intersection(drop.camera,drop.plan)<=1);await screenshot('-drop');
+            await b.call(()=>{__responsive.navigation.dataset.expanded='true';});
+            const detail=await b.call(dropMeasure);report.currentCase={file,width,height,state:'portrait-drop-expanded',...detail};
+            assert(detail.camera.width>=300);assert(inRect(detail.camera,detail.map),'Expanded portrait camera must remain visible.');assert(inRect(detail.plan,detail.map),'Expanded portrait metric plan must remain visible.');
+            assert(intersection(detail.header,detail.guidance)<=1);for(const button of detail.buttons)assert(button.reachable);await screenshot('-drop-expanded');
+            portraitDrop={default:drop,expanded:detail};
+            await b.call(()=>{const r=__responsive,n=r.navigation;n.dataset.expanded='false';delete n.dataset.operation;r.panel.element.hidden=false;r.panel.element.dataset.expanded='false';document.querySelector('.vehicle-guidance-panel').dataset.training='active';n.querySelector('.vehicle-docking-plan canvas').height=576;});
+          }
           await b.call(()=>{__responsive.d.controlTabs.get('cargo').click();});assert.equal(await b.evaluate('__responsive.d.controlSection'),'cargo');
           const compact=await b.call(measure);if(wide)assert(compact.hudBlankPixels<=12,'Compact controls cannot leave a tall empty console.');
           await b.call(()=>__responsive.d.minimizeControls.click());const minimized=await b.call(measure);assert.equal(await b.evaluate('__responsive.d.hud.dataset.minimized'),'true');if(wide){assert(minimized.hudBlankPixels<=12);assert(minimized.hud.height<=140,'Minimizing leaves only the console header.');}await b.call(()=>__responsive.d.minimizeControls.click());
@@ -175,7 +197,7 @@ async function run() {
           if([1600,390,844,667].includes(width))await screenshot('-settings');
           await b.call(()=>{const ui=__responsive.devices;ui.closeButton.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));});assert.equal(await b.evaluate('!!__responsive.devices.opened||!!window.__devicePanelOpen'),false);
           await b.call(()=>{__responsive.devices.dispose();__responsive.input.dispose();});assert.equal(await b.evaluate('!!document.querySelector(".input-device-overlay")||!!document.querySelector(".input-device-launcher")'),false);
-          report.viewports.push({file,width,height,wide,...result,settings,toggled:{compactHud:compact.hud,compactBlank:compact.hudBlankPixels,minimizedHud:minimized.hud,minimizedBlank:minimized.hudBlankPixels},inspection:{map:inspection.map,plan:inspection.plan,camera:inspection.camera,centerBlocked:inspection.centerBlocked},...(expanded?{expandedInspection:{map:expanded.map,plan:expanded.plan,camera:expanded.camera}}:{})});
+          report.viewports.push({file,width,height,wide,...result,settings,compositing,toggled:{compactHud:compact.hud,compactBlank:compact.hudBlankPixels,minimizedHud:minimized.hud,minimizedBlank:minimized.hudBlankPixels},inspection:{map:inspection.map,plan:inspection.plan,camera:inspection.camera,centerBlocked:inspection.centerBlocked},...(expanded?{expandedInspection:{map:expanded.map,plan:expanded.plan,camera:expanded.camera}}:{}),...(portraitDrop?{portraitDrop}:{})});
         }
       }
     });

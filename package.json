@@ -60,7 +60,8 @@
     "test:project-content-browser": "node tooling/qa/project-content.cjs",
     "test:forklift-responsive": "node tests/legacy/test-vehicle-responsive-controls.js && node tooling/qa/forklift-responsive.cjs",
     "test:assistant": "node --test tests/framework/assistant-*.test.mjs",
-    "test:input-devices": "node --test tests/framework/input-devices.test.mjs tests/framework/input-device-panel.test.mjs && node tests/legacy/test-vehicle-external-input.js"
+    "test:input-devices": "node --test tests/framework/input-devices.test.mjs tests/framework/input-device-panel.test.mjs && node tests/legacy/test-vehicle-external-input.js",
+    "test:drop-placement": "node tests/legacy/test-vehicle-drop-placement.js && node tests/legacy/test-vehicle-drop-camera.js && node tests/legacy/test-vehicle-drop-monitor.js"
   },
   "repository": {
     "type": "git",

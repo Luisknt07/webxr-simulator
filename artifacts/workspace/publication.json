@@ -3,7 +3,7 @@
   "version": 1,
   "application": "workspace",
   "revision": "45068bf03122e36ce2b79589fa9b926601df7e76",
-  "bundleSha256": "745c724b54828bb4ec3ebba206d8b58240a9be93d273e6a7fe15f4cc4f973642",
+  "bundleSha256": "de311db63f6274633e1e81f563017b6852964dc5efd80fea9b07d342a5255495",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -72,7 +72,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "745c724b54828bb4ec3ebba206d8b58240a9be93d273e6a7fe15f4cc4f973642"
+      "sha256": "de311db63f6274633e1e81f563017b6852964dc5efd80fea9b07d342a5255495"
     },
     {
       "path": "cad-worker.js",
@@ -992,7 +992,7 @@
     },
     {
       "path": "packages/tools/editor/src/editor.css",
-      "sha256": "62b10e31062a19b6cd7cc0753f9ab038ccf1ffddf0ba281de6c0926a4da9faa7"
+      "sha256": "14a882f3ea53f49503d81229c11be1379fae81cba71ed6989da793447be3f4ee"
     },
     {
       "path": "packages/tools/editor/src/floor-plan-editor.css",
@@ -1397,8 +1397,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "1e2bc7e0d287146ca769",
-    "statsSha256": "d60b4a3a26b5481117b4cf429a35a35b2bfcceb73124b4aee0579916e2b82aed",
+    "hash": "d1ebf8cdf607bad47cb7",
+    "statsSha256": "e87dbe55c1f0859f6df6a8a6743a3866a329981bc3cfcf4b56c93990bb084d97",
     "assets": [
       {
         "path": "0.bundle.js",
@@ -1422,7 +1422,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 3670413
+        "size": 3700474
       }
     ]
   }
