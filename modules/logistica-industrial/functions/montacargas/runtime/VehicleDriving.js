@@ -29,6 +29,7 @@ export default class VehicleDriving {
     if (this.window) {
       this.listen(this.window, 'keydown', event => this.key(event, true), true); this.listen(this.window, 'keyup', event => this.key(event, false), true);
       this.listen(this.window, 'blur', () => this.resetInput());
+      this.listen(this.window, 'resize', () => { if (this.hud) { this.applyControlSections(); this.hudUpdated = -Infinity; } });
     }
     if (this.document) {
       this.listen(this.document, 'visibilitychange', () => this.resetInput());
@@ -392,7 +393,7 @@ export default class VehicleDriving {
     ['pickup', 'release', 'depositIntent', 'liftUp', 'liftDown', 'tiltBack', 'tiltForward', 'retract', 'extend', 'sideLeft', 'sideRight', 'turretLeft', 'turretRight', 'couple', 'uncouple'].forEach(action => this.controlButton(action, cargo));
     const view = group(groups, 'Visión y ayuda', 'view'); ['forkCamera', 'rearView', 'forkCameraMode', 'forkCameraSide', 'view', 'holographicGuide', 'guidanceNext', 'dockingHelp', 'cursor', 'mode'].forEach(action => this.controlButton(action, view));
     const safety = group(groups, 'Seguridad', 'safety'); ['stop', 'pause', 'powerOff', 'emergency', 'resetEmergency', 'lights', 'horn', 'exit'].forEach(action => this.controlButton(action, safety));
-    this.controlSection = 'drive'; this.controlsExpanded = this.controlsMinimized = false; this.applyControlSections();
+    this.controlSection = 'drive'; this.controlLayoutPreferences = {}; this.controlsViewport = undefined; this.controlsExpanded = this.controlsMinimized = false; this.applyControlSections();
     this.hint = element('p', 'vehicle-driving-hint', hud);
     this.viewButton = this.actionButtons.get('view'); this.viewButton.dataset.vehicleView = '';
     this.dockingButton = this.actionButtons.get('dockingHelp'); this.dockingButton.dataset.vehicleDockingHelp = '';
@@ -402,10 +403,21 @@ export default class VehicleDriving {
   }
   setControlSection(section = 'drive', expanded = false) {
     if (!this.controlTabs || !this.controlTabs.has(section)) return false;
+    const viewport = this.prefersWideControls() ? 'wide' : 'compact';
+    if (!this.controlLayoutPreferences) this.controlLayoutPreferences = {};
+    this.controlLayoutPreferences[viewport] = !!expanded;
     this.controlSection = section; this.controlsExpanded = !!expanded; this.controlsMinimized = false; this.resetInput(); this.applyControlSections(); return true;
   }
+  prefersWideControls() { return !!(this.window && this.window.innerWidth >= 1440 && this.window.innerHeight >= 800 && !this.ctx.vrMode); }
   applyControlSections() {
     if (!this.hud || !this.controlTabs) return;
+    const viewport = this.prefersWideControls() ? 'wide' : 'compact';
+    if (this.controlsViewport !== viewport) {
+      const preference = this.controlLayoutPreferences && this.controlLayoutPreferences[viewport];
+      this.controlsViewport = viewport; this.controlsExpanded = typeof preference === 'boolean' ? preference : viewport === 'wide';
+      this.controlsMinimized = false; this.resetInput();
+    }
+    this.hud.dataset.viewport = viewport;
     this.hud.dataset.controls = this.controlSection || 'drive'; this.hud.dataset.expanded = String(!!this.controlsExpanded); this.hud.dataset.minimized = String(!!this.controlsMinimized);
     const available = this.controlGroups.filter(group => group.controls.some(button => !button.hidden));
     if (!available.some(group => group.dataset.group === this.controlSection) && available.length) this.controlSection = available[0].dataset.group;
