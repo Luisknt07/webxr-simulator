@@ -35,8 +35,7 @@ function panelShape(panel) {
       control: node.userData.editorDefaultBehaviors, action: node.userData.industrialAction});
     node.children.forEach((child, i) => visit(child, index + '.' + i));
   };
-  // Panel root placement is an equipment anchor; its internal proportions,
-  // colors, labels, nine command IDs and event configurations are immutable.
+  // Complete visual snapshot is useful when only support height changes.
   panel.children.forEach((child, index) => visit(child, String(index)));
   return result;
 }
@@ -58,13 +57,15 @@ function fixture(variant) {
 
 async function run() {
   const original = createIndustrialPrefab('conveyor', 'roller-start'), originalPanel = panelShape(original.children[6]);
+  const commands = rows => rows.map(({index, name, control, action}) => ({index, name, control, action}));
   const metrics = [];
   for (const definition of equipment.listEquipment({readyOnly: true})) {
     const root = createIndustrialPrefab('conveyor', definition.variant);
     const config = root.userData.editorDefaultBehaviors.find(config => config.type === 'conveyor');
     assert.equal(config.equipmentId, definition.id); assert.equal(config.equipmentVersion, definition.version);
     assert.equal(root.children.length, 11, 'Ten legacy slots remain stable; new equipment reserves its lateral sensor actor at slot 10.');
-    assert.deepEqual(panelShape(root.children[6]), originalPanel, definition.variant + ': preserve the actual nine-command panel.');
+    assert.deepEqual(commands(panelShape(root.children[6])), commands(originalPanel), definition.variant + ': preserve nine actual commands and their component paths across selectable visual forms.');
+    assert.equal(root.children[6].userData.industrialPanelDesign, schema.controlPanels.resolve(config, 'conveyor'));
     const measured = budget(root); metrics.push({id: definition.id, family: definition.family, variant: definition.variant, name: definition.name, ...measured});
     assert(measured.meshes < 150 && measured.triangles < 30000, definition.variant + ': bounded WebXR mesh/triangle cost.');
     root.updateMatrixWorld(true); near(new THREE.Box3().setFromObject(root).min.y, -1);
@@ -159,7 +160,9 @@ async function run() {
     const tall = createIndustrialPrefab('conveyor', variant, {supportHeight}); tall.position.y = supportHeight; tall.updateMatrixWorld(true);
     near(new THREE.Box3().setFromObject(tall).min.y, 0);
     near(new THREE.Box3().setFromObject(tall.children[1]).min.y, 0);
-    assert.deepEqual(panelShape(tall.children[6]), originalPanel, 'Tall supports do not alter the existing cabinet or nine control positions.');
+    const normal = createIndustrialPrefab('conveyor', variant);
+    assert.deepEqual(panelShape(tall.children[6]), panelShape(normal.children[6]), 'Tall supports do not alter the selected cabinet design or nine control positions.');
+    dispose(normal);
     const buttons = tall.children[6].children.filter(node => node.userData.editorPrefabKey === 'control');
     buttons.forEach(button => {
       const y = button.getWorldPosition(new THREE.Vector3()).y;
@@ -224,7 +227,7 @@ async function run() {
       maximum: {meshes: Math.max(...metrics.map(value => value.meshes)), triangles: Math.max(...metrics.map(value => value.triangles))}, equipment: metrics};
     fs.writeFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-conveyor-equipment-models.js"), '../docs/conveyor-model-metrics.json')), JSON.stringify(report, null, 2) + '\n');
   }
-  console.log('Equipment models: ' + metrics.length + ' versioned real models; unchanged nine-command panel; bounded meshes/triangles; ramps, return paths, pallet tracks, pivots, guided platforms, per-zone motion and restoration passed.');
+  console.log('Equipment models: ' + metrics.length + ' versioned real models; selectable panels with unchanged nine commands and paths; bounded meshes/triangles; ramps, return paths, pallet tracks, pivots, guided platforms, per-zone motion and restoration passed.');
   console.log('Measured complete-model maximum: ' + Math.max(...metrics.map(value => value.meshes)) + ' meshes; ' + Math.max(...metrics.map(value => value.triangles)) + ' triangles (without a GPU or headset claim).');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });

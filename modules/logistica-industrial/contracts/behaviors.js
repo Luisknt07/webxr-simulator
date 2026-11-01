@@ -5,6 +5,7 @@ const conveyorLayout = require('../functions/bandas/schema/conveyors.js');
 const materialSchema = require('../../../packages/render-three/schema/materials.js');
 const wearSchema = require('../../../packages/render-three/schema/wear.js');
 const machineAudio = require('../functions/presentacion/schema/machineAudio.js');
+const controlPanels = require('../functions/presentacion/schema/control-panels.js');
 const productSources = require('../functions/flujo-materiales/schema/productSources.js');
 const processors = require('../functions/procesamiento/schema/processors.js');
 const palletQueues = require('../functions/almacenamiento/schema/palletQueues.js');
@@ -130,7 +131,7 @@ const definitions = [
     text('routingRules', 'Reglas de clasificación', '[]', conveyorRouting.MAX_RULES_JSON, 'textarea'),
     {key: 'routingDefault', label: 'Salida si ninguna regla coincide', input: 'select', default: 'main', options: [{value: 'main', label: 'Salida recta'}, {value: 'branch', label: 'Ramal lateral'}]},
     number('branchPercentage', 'Porcentaje hacia el ramal lateral', 50, 0, 100, 0.1),
-    checkbox('withSensors', 'Incluir sensores', true), checkbox('withPanel', 'Incluir panel de mando', true), checkbox('withPallet', 'Pallet incorporado antiguo', false),
+    checkbox('withSensors', 'Incluir sensores', true), checkbox('withPanel', 'Incluir panel de mando', true), controlPanels.field(), checkbox('withPallet', 'Pallet incorporado antiguo', false),
     text('outputId', 'Salida recta → módulo', '', 400, 'object'),
     {key: 'outputPort', label: 'Entrada del siguiente módulo', input: 'select', default: 'input', options: [{value: 'input', label: 'Entrada principal'}, {value: 'branch', label: 'Entrada lateral de T (unión)'}]},
     text('branchId', 'Ramal → módulo', '', 400, 'object'),
@@ -423,4 +424,4 @@ function normalizeBehaviors(list) {
 }
 
 const simulationTypes = ['motion', 'conveyor', 'source', 'processor', 'palletQueue', 'robot', 'vehicle', 'sensor', 'product', 'automation', 'analytics', 'control'];
-module.exports = {definitions, definitionFor, defaultBehavior, normalizeBehaviors, assetReference, simulationTypes, conveyorLayout, conveyorEquipment: conveyorLayout.equipment, productSources, processors, palletQueues, warehouseRacks, warehouseRackVisual: require('../functions/almacenamiento/schema/warehouseRackVisual.js'), conveyorRouting, robots, vehicles, productEquipment, vehicleEquipment: require('../functions/montacargas/schema/vehicle-equipment.js'), robotEquipment: require('../functions/robots/schema/robot-equipment.js'), robotKinematics: require('../functions/robots/schema/robot-kinematics.js'), machineAudio, industrialFloor: require('../functions/presentacion/schema/industrialFloor.js'), productionAnalytics: require('../functions/flujo-materiales/schema/productionAnalytics.js'), studio: require('../../../packages/project-model/shared/studio-document.js')};
+module.exports = {controlPanels, definitions, definitionFor, defaultBehavior, normalizeBehaviors, assetReference, simulationTypes, conveyorLayout, conveyorEquipment: conveyorLayout.equipment, productSources, processors, palletQueues, warehouseRacks, warehouseRackVisual: require('../functions/almacenamiento/schema/warehouseRackVisual.js'), conveyorRouting, robots, vehicles, productEquipment, vehicleEquipment: require('../functions/montacargas/schema/vehicle-equipment.js'), robotEquipment: require('../functions/robots/schema/robot-equipment.js'), robotKinematics: require('../functions/robots/schema/robot-kinematics.js'), machineAudio, industrialFloor: require('../functions/presentacion/schema/industrialFloor.js'), productionAnalytics: require('../functions/flujo-materiales/schema/productionAnalytics.js'), studio: require('../../../packages/project-model/shared/studio-document.js')};

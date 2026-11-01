@@ -53,7 +53,9 @@ function inspect(kind, variant) {
     assert(Math.atan2(Math.abs(eye.y - point.y), Math.hypot(point.x - eye.x, point.z - eye.z)) < Math.PI / 6,
       'A standing viewer can see every command within 30 degrees vertically.');
     const capBounds = bounds(cap);
-    assert(capBounds.max.y < screenBounds.min.y - 0.015, 'Controls must not overlap the HMI.');
+    const capLocal = panelBounds(cap, inverse), screenLocal = panelBounds(screen, inverse);
+    assert(capLocal.max.y < screenLocal.min.y - 0.015 || capLocal.max.x < screenLocal.min.x - 0.015 || capLocal.min.x > screenLocal.max.x + 0.015,
+      'Controls must remain below or beside the HMI, with a visible gap.');
     const caption = control.children.find(child => child.name === 'Rótulo del control'), local = panelBounds(caption, inverse);
     assert(local.min.x >= cabinetLocal.min.x + 0.02 - 0.00001 && local.max.x <= cabinetLocal.max.x - 0.02 + 0.00001 &&
       local.min.y >= cabinetLocal.min.y + 0.02 - 0.00001 && local.max.y <= cabinetLocal.max.y - 0.02 + 0.00001,

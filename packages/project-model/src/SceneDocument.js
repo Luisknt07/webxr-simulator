@@ -390,7 +390,7 @@ export default class SceneDocument {
       config.type === 'processor' ? ['mode', 'length', 'width', 'withPanel'] :
       config.type === 'source' ? ['generationMode', 'productType', 'width', 'height', 'depth', 'color', 'catalog', 'loadMode', 'palletColumns', 'palletRows', 'palletLayers', 'palletType', 'palletMaterial', 'palletPacking', 'palletWidth', 'palletDepth', 'withPanel'] :
       ['layout', 'surface', 'length', 'width', 'radius', 'curveAngle', 'axis', 'junctionMode', 'branchSide', 'role', 'withSensors', 'withPanel', 'withPallet', 'outputId', 'branchId', 'equipmentId', 'equipmentVersion', 'drive', 'mechanism', 'rise', 'rollerPitch', 'zoneLength', 'cleats', 'mergeAngle'];
-    if (config.type === 'conveyor') keys.push('supportHeight');
+    if (config.type === 'conveyor') keys.push('supportHeight', 'panelDesign');
     if (config.type === 'palletQueue') keys.push(...behaviorSchema.warehouseRacks.FIELDS.map(field => field.key));
     const signature = JSON.stringify(keys.map(key => config[key]));
     if (this.conveyorSignatures.get(content) === signature) { if (entry) {this._syncConveyorActors(entry, config); this._syncStorageActors(entry,config);} return; }

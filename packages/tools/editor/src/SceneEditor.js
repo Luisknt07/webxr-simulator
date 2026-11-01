@@ -2095,7 +2095,7 @@ export default class SceneEditor {
         if(next.type==='palletQueue'&&behaviorSchema.warehouseRacks.isRack(component)&&key==='rackBays'&&component.rackBayWidths&&Number.isInteger(value)&&value>=1&&value<=8){const widths=component.rackBayWidths.split(',').map(Number);next.rackBayWidths=Array.from({length:value},(_,index)=>widths[index]||component.rackBayWidth).join(', ');}
         if (next.type === 'palletQueue' && key === 'rackSystem') {
           if(behaviorSchema.warehouseRacks.isRack(component)&&JSON.parse(component.rackAssignments||'[]').length)throw Error('Libera las reservas de esta fila antes de cambiar su sistema de almacenamiento.');
-          const common = {}; ['enabled', 'running', 'paused', 'withPanel', 'outputId', 'outputPort', 'outputInterval', 'delivery','rackAisleCode','rackRowCode'].forEach(name => {if(component[name]!==undefined)common[name] = component[name];});
+          const common = {}; ['enabled', 'running', 'paused', 'withPanel', 'panelDesign', 'outputId', 'outputPort', 'outputInterval', 'delivery','rackAisleCode','rackRowCode'].forEach(name => {if(component[name]!==undefined)common[name] = component[name];});
           return Object.assign({}, behaviorSchema.defaultBehavior('palletQueue'), value === 'floor' ? {} : behaviorSchema.warehouseRacks.defaults(value), common);
         }
         if (next.type === 'vehicle' && ['family', 'variant'].includes(key)) return Object.assign({}, behaviorSchema.vehicles.defaults(value), {enabled: next.enabled, sourceId: next.sourceId, outputId: next.outputId});
@@ -2112,7 +2112,7 @@ export default class SceneEditor {
         if (next.type === 'source' && key === 'productType' && next.productVariant && behaviorSchema.productEquipment.defaults(next.productVariant).productType !== value) next.productVariant = '';
         if (next.type === 'robot' && (key === 'family' || key === 'variant')) {
           const definition = behaviorSchema.robots.getDefinition(value);
-          return Object.assign({}, definition.preset, {type: 'robot', enabled: next.enabled, sourceId: next.sourceId, outputId: next.outputId, targetId: next.targetId, withPanel: next.withPanel});
+          return Object.assign({}, definition.preset, {type: 'robot', enabled: next.enabled, sourceId: next.sourceId, outputId: next.outputId, targetId: next.targetId, withPanel: next.withPanel, panelDesign: next.panelDesign});
         }
         if (next.type === 'robot' && key === 'tool') next.operation = value === 'process' ? 'process' : next.operation === 'process' ? 'pick-place' : next.operation;
         if (next.type === 'robot' && key === 'operation') next.tool = value === 'process' ? 'process' : next.tool === 'process' ? 'gripper' : next.tool;
@@ -2326,7 +2326,8 @@ export default class SceneEditor {
       ['Mecanismo y acceso', ['rackSlope', 'rackMechanismSpeed', 'rackBanks', 'rackAisleWidth', 'rackOpenAisle', 'rackTransferHeight', 'rackSelectedSlot']],
       ['Operación y conexiones', ['enabled', 'running', 'paused', 'delivery', 'outputId', 'outputPort', 'outputInterval']]
     ] : config.type === 'robot' ? [
-      ['Arquitectura y herramienta', ['family', 'variant', 'operation', 'tool', 'withPanel']],
+      ['Arquitectura y herramienta', ['family', 'variant', 'operation', 'tool']],
+      ['Panel de control', ['withPanel', 'panelDesign']],
       ['Dimensiones y volumen de trabajo', ['reach', 'length', 'width', 'height', 'baseHeight', 'approachHeight', 'positionTolerance']],
       ['Operación y tiempos', ['mode', 'enabled', 'powered', 'running', 'paused', 'emergency', 'speed', 'cycleTime', 'processTime', 'setupTime']],
       ['Recogida y entrega', ['sourceId', 'targetId', 'outputId']],
@@ -2349,7 +2350,8 @@ export default class SceneEditor {
       ['Alimentación', ['sourceId', 'initialVelocity']]
     ] : [
       [config.type === 'source' ? 'Dimensiones del producto' : 'Dimensiones y recorrido', dimensions],
-      ['Operación', ['mode', 'enabled', 'withPanel', 'withSensors', 'speed', 'powered', 'running', 'paused', 'processTime', 'setupTime', 'parallelism', 'combineCount', 'splitCount', 'requiresOperator', 'operatorAvailable', 'operationTime', 'actuatorTime', 'turnTime', 'verticalSpeed', 'maxLoad', 'clearance', 'loadingMode', 'drive', 'surface', 'mechanism', 'rollingResistance', 'cleats', 'zoneLength']],
+      ['Panel de control', ['withPanel', 'panelDesign']],
+      ['Operación', ['mode', 'enabled', 'withSensors', 'speed', 'powered', 'running', 'paused', 'processTime', 'setupTime', 'parallelism', 'combineCount', 'splitCount', 'requiresOperator', 'operatorAvailable', 'operationTime', 'actuatorTime', 'turnTime', 'verticalSpeed', 'maxLoad', 'clearance', 'loadingMode', 'drive', 'surface', 'mechanism', 'rollingResistance', 'cleats', 'zoneLength']],
       ['Alimentación y capacidad', ['generationMode', 'productType', 'loadMode', 'capacity', 'outputCapacity', 'palletCapacity', 'delivery', 'interval', 'outputInterval', 'initialCount', 'totalLimit', 'autoGenerate', 'autoSpawn', 'spawnInterval', 'maxPackages', 'role', 'routing']],
       ['Estiba y apilado', ['acceptsPallets', 'palletType', 'palletMaterial', 'palletPacking', 'layoutMode', 'palletWidth', 'palletDepth', 'palletColumns', 'palletRows', 'palletLayers', 'columns', 'rows', 'layers', 'maxStackHeight']],
       ['Despacho de estibas', ['autoRelease', 'releasePolicy', 'releaseInterval', 'autoReleasePressure']],

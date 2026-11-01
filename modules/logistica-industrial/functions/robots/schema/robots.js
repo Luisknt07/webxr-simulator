@@ -2,6 +2,7 @@
  * never a manufacturer's load chart, safety rating or controller program. */
 'use strict';
 const automation = require('../../flujo-materiales/schema/automation.js');
+const controlPanels = require('../../presentacion/schema/control-panels.js');
 
 const VERSION = 1;
 const MAX_WAYPOINTS = 48, MAX_WAYPOINT_JSON = 10000, MAX_JOINT_JSON = 3000;
@@ -32,7 +33,7 @@ const OPERATIONS = [
 ];
 const DEFAULTS = {
   family: 'articulated', variant: 'articulated-general', enabled: true,
-  powered: true, running: false, paused: false, emergency: false, mode: 'automatic', withPanel: true,
+  powered: true, running: false, paused: false, emergency: false, mode: 'automatic', withPanel: true, panelDesign: 'auto',
   operation: 'pick-place', speed: 0.65, payloadKg: 12, reach: 1.4,
   length: .8, width: .8, height: 1.6, baseHeight: .45,
   tool: 'gripper', cycleTime: 4, processTime: 2, setupTime: 0, approachHeight: 0.18,
@@ -76,7 +77,7 @@ function fields() {
   return [choice('family', 'Arquitectura del robot', FAMILIES), choice('variant', 'Modelo / configuración inicial', VARIANTS),
     choice('mode', 'Modo', [{id: 'automatic', name: 'Automático'}, {id: 'manual', name: 'Manual · iniciar desde el panel'}]),
     choice('operation', 'Operación', OPERATIONS), choice('tool', 'Herramienta', TOOLS),
-    check('powered', 'Alimentado'), check('running', 'En marcha al iniciar'), check('paused', 'Pausado'), check('emergency', 'Emergencia enclavada'), check('withPanel', 'Panel de control propio'),
+    check('powered', 'Alimentado'), check('running', 'En marcha al iniciar'), check('paused', 'Pausado'), check('emergency', 'Emergencia enclavada'), check('withPanel', 'Panel de control propio'), controlPanels.field(),
     number('speed', 'Velocidad TCP / desplazamiento · m/s', 0.05, 3, 0.05), number('payloadKg', 'Carga máxima simulada · kg', 0.1, 3000, 0.5), number('reach', 'Alcance nominal del brazo sin herramienta · m', 0.3, 10, 0.05),
     number('length', 'Largo / carrera X · m', 0.5, 30, 0.05), number('width', 'Ancho / carrera Z · m', 0.3, 15, 0.05), number('height', 'Altura / carrera vertical · m', 0.15, 8, 0.05), number('baseHeight', 'Altura de base sobre el piso · m', 0, 5, 0.05),
     number('cycleTime', 'Tiempo mínimo de ciclo · s', 0.2, 3600, 0.1), number('processTime', 'Tiempo de proceso · s', 0, 3600, 0.1), number('setupTime', 'Preparación inicial · s', 0, 3600, 0.1),

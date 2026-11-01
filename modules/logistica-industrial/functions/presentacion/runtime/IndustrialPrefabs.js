@@ -52,6 +52,7 @@ const COSMETIC_HARDWARE = /^(?:Tornillo|Tuerca|Arandela|Perno|Pasador|Fijación 
 
 function material(color, extra = {}) {
   const surface = new THREE.MeshStandardMaterial(Object.assign({color, roughness: 0.46, metalness: 0.65}, extra));
+  surface.userData.industrialManufacturedFinish = true;
   if (extra.name) surface.userData.industrialSurfaceName = extra.name;
   return surface;
 }
@@ -337,7 +338,93 @@ function plc() {
     const lamp = new THREE.Mesh(new THREE.CylinderBufferGeometry(0.045, 0.045, 0.065, 20), material(color, {metalness: 0.1, roughness: 0.25, emissive: color, emissiveIntensity: 0.08}));
     lamp.name = 'Baliza ' + state; lamp.position.y = 0.20 + index * 0.074; lamp.userData.industrialTower = state; tower.add(lamp);
   });
-  group.add(tower); return group;
+  group.add(tower); group.userData.industrialPanelDesign = 'cabinet'; return group;
+}
+
+const PANEL_DESIGN_REST = new WeakMap();
+function applyPanelDesign(panel, config, kind) {
+  if (!panel || !behaviorSchema.controlPanels) return false;
+  const design = behaviorSchema.controlPanels.spec(config || {}, kind), key = design.id;
+  if (panel.userData.industrialPanelApplied === key) return false;
+  let rest = PANEL_DESIGN_REST.get(panel);
+  if (!rest) {
+    rest = {nodes: new Map(), details: new Map()};
+    panel.children.forEach(node => rest.nodes.set(node, {position: node.position.clone(), rotation: node.rotation.clone(), scale: node.scale.clone()}));
+    const details = panel.children.find(node => node.name === 'Armario y pedestal');
+    if (details) details.traverse(mesh => {
+      if (!mesh.geometry || !mesh.geometry.attributes.position) return;
+      rest.details.set(mesh, {positions: mesh.geometry.attributes.position.array.slice(), normals: mesh.geometry.attributes.normal.array.slice()});
+    });
+    PANEL_DESIGN_REST.set(panel, rest);
+  }
+  const cosine = Math.cos(design.tilt), sine = Math.sin(design.tilt), xScale = design.width / 1.02, zScale = design.depth / .28, centerZ = .14 - design.depth / 2;
+  const point = (x, y, z, body = true) => {
+    if (!body || !design.tilt) return new THREE.Vector3(x, y, z);
+    return new THREE.Vector3(x, design.centerY + (y - design.centerY) * cosine - (z - centerZ) * sine, centerZ + (y - design.centerY) * sine + (z - centerZ) * cosine);
+  };
+  const auto = (node, position, scale, tilt = 0) => {
+    const old = rest.nodes.get(node);
+    if (!old) return;
+    // A component moved by its author retains its transform. Appearance
+    // choices only follow values that still match the previous auto layout.
+    if (!old.lastPosition || node.position.distanceTo(old.lastPosition) < 1e-5) node.position.copy(position);
+    if (!old.lastScale || node.scale.distanceTo(old.lastScale) < 1e-5) node.scale.copy(scale);
+    old.lastPosition = position.clone(); old.lastScale = scale.clone();
+    const rotation = new THREE.Euler(tilt, old.rotation.y, old.rotation.z);
+    if (!old.lastRotation || Math.max(Math.abs(node.rotation.x - old.lastRotation.x), Math.abs(node.rotation.y - old.lastRotation.y), Math.abs(node.rotation.z - old.lastRotation.z)) < 1e-5) node.rotation.copy(rotation);
+    old.lastRotation = rotation.clone();
+  };
+  const paint = (material, color) => {
+    if (!material || material.userData.surfaceMaterialBinding) return;
+    material.color.set(color); if (material.userData.studioColorSpace === 'linear') material.color.convertSRGBToLinear();
+  };
+  const cabinet = panel.children[0], screen = panel.children[1];
+  if (cabinet) { auto(cabinet, new THREE.Vector3(0, design.centerY, centerZ), new THREE.Vector3(xScale, design.height, zScale), design.tilt); paint(cabinet.material, design.body); }
+  if (screen) {
+    auto(screen, point(design.screen[2], design.screen[3], .172), new THREE.Vector3(design.screen[0] / .74, design.screen[1] / .28, 1), design.tilt);
+    screen.userData.industrialPanelDesign = key;
+    screen.userData.industrialDisplayAspect = design.screen[0] / design.screen[1];
+  }
+  const controls = panel.children.filter(node => node.userData.editorPrefabKey === 'control');
+  controls.forEach((node, index) => {
+    const original = rest.nodes.get(node), column = Math.sign(original.position.x), row = Math.floor(index / 3);
+    const position = design.controls && design.controls[node.userData.industrialAction] || [column * design.columns, design.rows[row]];
+    auto(node, point(position[0], position[1], .17), new THREE.Vector3(1, 1, 1), design.tilt);
+    const caption = node.children.find(child => child.name === 'Rótulo del control');
+    if (caption) {
+      const emergency = node.userData.industrialAction === 'emergency';
+      caption.scale.set(design.captionWidth / .22, (emergency ? .027 : design.captionHeight || .037) / .037, 1);
+      caption.position.y = -(emergency ? .10 : design.captionDrop || .09);
+    }
+  });
+  const title = panel.children.find(node => node.name === 'Identificación del tablero');
+  if (title) auto(title, point(0, design.titleY, .166), new THREE.Vector3(Math.min(.92, design.width * .74) / .69, 1, 1), design.tilt);
+  const tower = panel.children.find(node => node.name === 'Torre luminosa');
+  if (tower) { tower.visible = design.tower; auto(tower, new THREE.Vector3(design.width * .36, design.centerY + design.height / 2 - .02, -.01), new THREE.Vector3(1, 1, 1)); }
+  const bodyBottom = design.centerY - design.height / 2, lowerScale = (bodyBottom + 1.28) / .99;
+  rest.details.forEach((source, mesh) => {
+    if (mesh.userData.editorGeometryReplaced) return;
+    const positions = mesh.geometry.attributes.position, normals = mesh.geometry.attributes.normal, frame = /Marco de pantalla/.test(mesh.material.name || '');
+    for (let i = 0; i < positions.count; i++) {
+      const originalY = source.positions[i * 3 + 1], body = originalY >= -.29 - 1e-5;
+      const yScale = frame ? (design.screen[1] + .02) / .30 : body ? design.height : lowerScale, localXScale = frame ? (design.screen[0] + .07) / .81 : xScale, localZScale = frame ? 1 : zScale;
+      const y = frame ? design.screen[3] + (originalY - .47) * yScale : body ? design.centerY + (originalY - .21) * design.height : -1.28 + (originalY + 1.28) * lowerScale;
+      const x = source.positions[i * 3] * localXScale + (frame ? design.screen[2] : 0), z = frame ? source.positions[i * 3 + 2] : source.positions[i * 3 + 2] * zScale + centerZ;
+      const p = point(x, y, z, body);
+      positions.setXYZ(i, p.x, p.y, p.z);
+      const n = new THREE.Vector3(source.normals[i * 3] / localXScale, source.normals[i * 3 + 1] / yScale, source.normals[i * 3 + 2] / localZScale);
+      if (body && design.tilt) { const y = n.y; n.y = y * cosine - n.z * sine; n.z = y * sine + n.z * cosine; }
+      n.normalize(); normals.setXYZ(i, n.x, n.y, n.z);
+    }
+    positions.needsUpdate = normals.needsUpdate = true; mesh.geometry.computeBoundingBox(); mesh.geometry.computeBoundingSphere();
+    const name = mesh.material.name || '';
+    if (/Frente de puerta/.test(name)) paint(mesh.material, design.door);
+    if (/Marco de pantalla|Junta de puerta|Bisagra/.test(name)) paint(mesh.material, design.trim);
+  });
+  panel.userData.industrialStickerAnchors = [];
+  panel.userData.industrialPanelDesign = key; panel.userData.industrialPanelApplied = key;
+  panel.userData.industrialPanelKind = kind;
+  return true;
 }
 
 function cardboardTexture() {
@@ -1003,10 +1090,10 @@ function createBaseIndustrialPrefab(kind, variant) {
 }
 
 const CONVEYOR_GEOMETRY_FIELDS = ['layout', 'surface', 'length', 'width', 'radius', 'curveAngle', 'axis', 'junctionMode', 'branchSide', 'equipmentId', 'drive', 'mechanism', 'rise', 'gradeProfile', 'rollerPitch', 'zoneLength', 'cleats', 'mergeAngle', 'supportHeight'];
-const CONVEYOR_STATE_FIELDS = CONVEYOR_GEOMETRY_FIELDS.concat(['role', 'withSensors', 'withPanel', 'withPallet', 'outputId', 'branchId']);
+const CONVEYOR_STATE_FIELDS = CONVEYOR_GEOMETRY_FIELDS.concat(['role', 'withSensors', 'withPanel', 'panelDesign', 'withPallet', 'outputId', 'branchId']);
 
 function conveyorConfig(value = {}) {
-  const result = Object.assign({layout: 'straight', surface: 'rollers', length: 4, width: 1, radius: 1.5, curveAngle: 90, axis: 'x', role: 'standalone', junctionMode: 'split', branchSide: 'left', withSensors: true, withPanel: true, withPallet: false,
+  const result = Object.assign({layout: 'straight', surface: 'rollers', length: 4, width: 1, radius: 1.5, curveAngle: 90, axis: 'x', role: 'standalone', junctionMode: 'split', branchSide: 'left', withSensors: true, withPanel: true, panelDesign: 'auto', withPallet: false,
     equipmentId: '', drive: 'motor', mechanism: 'transport', rise: 0, rollerPitch: 0.15, zoneLength: 0.6, cleats: false, mergeAngle: 45, supportHeight: 1}, value, {withPallet: false});
   return Object.assign(result, conveyorLayout.settings(result));
 }
@@ -1794,6 +1881,7 @@ export function refreshConveyorGeometry(root, value) {
     setAutoVisible(branchSensor, !!config.equipmentId && config.layout === 'tee' && config.withSensors, !!previous.equipmentId && previous.layout === 'tee' && previous.withSensors);
   }
   setAutoVisible(panel, config.withPanel, previous.withPanel);
+  applyPanelDesign(panel, config, 'conveyor');
   root.userData.industrialConveyorConfig = Object.assign({}, config);
   const point = conveyorLayout.pathPoint(config, conveyorLayout.pathLength(config, 'main') * .30, 'main'), normal = [-point.tz, 0, point.tx];
   root.children[0].userData.industrialStickerAnchors = [
@@ -1831,12 +1919,15 @@ function robotEquipment(variant = 'articulated-general', value) {
   const old = panel.children.find(node => node.userData.industrialAction === 'insertBox');
   if (old) {
     const replacement = control('dispatch'); replacement.position.copy(old.position);
+    const oldCaption = old.children.find(child => child.name === 'Rótulo del control'), caption = replacement.children.find(child => child.name === 'Rótulo del control');
+    if (oldCaption && caption) { caption.position.copy(oldCaption.position); caption.scale.copy(oldCaption.scale); }
     const index = panel.children.indexOf(old); panel.remove(old); panel.add(replacement);
     panel.children.splice(panel.children.indexOf(replacement), 1); panel.children.splice(index, 0, replacement);
     disposeDetached([old], root);
   }
   const identification = panel.children.find(node => node.name === 'Identificación del tablero');
   if (identification) { const previous = identification.material.map; identification.material.map = labelTexture('CONTROL / ROBOT'); if (previous) previous.dispose(); }
+  applyPanelDesign(panel, config, 'robot');
   root.add(panel); root.updateMatrixWorld(true); return root;
 }
 
@@ -1900,6 +1991,7 @@ createIndustrialPrefab.refresh = (object, config) => {
         object.userData.industrialRobotPanelPosition = panel.position.toArray();
       }
       panel.visible = config.withPanel !== false;
+      applyPanelDesign(panel, config, 'robot');
     }
     return changed;
   }
