@@ -113,6 +113,18 @@ function partDescription(name) {
 }
 
 function equipmentParts(selected) {
+  if(selected.config.type==='palletQueue'){
+    let structural=false;selected.object.traverse(node=>{if(node.userData.warehouseRackStructure)structural=true;});
+    if(structural)return[
+      {id:'rack-frame',name:'Bastidores y anclajes',roles:['frame'],match:['bastidores de estantería'],function:'Montantes, arriostramientos y apoyos estructurales.'},
+      {id:'rack-beams',name:'Largueros y brazos',roles:['beam'],match:['largueros y brazos'],function:'Vigas que soportan cada posición de carga.'},
+      {id:'rack-guides',name:'Guías y rodillos',roles:['steel'],match:['acero de guías'],function:'Guiado y apoyo de las cargas en el sistema.'},
+      {id:'rack-decks',name:'Entrepaños y bandejas',roles:['deck'],match:['entrepaños y bandejas'],function:'Superficies y bandejas de almacenamiento.'},
+      {id:'rack-guards',name:'Protecciones',roles:['guard'],match:['protecciones de seguridad'],function:'Protección de los apoyos de la estructura.'},
+      {id:'rack-rails',name:'Carriles y mecanismos',roles:['dark'],match:['carriles y mecanismos'],function:'Elementos móviles y guías del sistema configurado.'},
+      {id:'rack-addresses',name:'Ubicaciones y códigos',roles:['label','ink'],match:['placas de ubicación','códigos de ubicación'],function:'Identificadores de pasillo, módulo, nivel y posición.'}
+    ].filter(part=>{let found=false;selected.object.traverse(node=>{if((part.roles||[]).includes(node.userData.industrialMaterialPart))found=true;});return found;});
+  }
   if (selected.config.type === 'vehicle' && behaviorSchema.vehicleEquipment) {
     const definition = behaviorSchema.vehicleEquipment.getDefinition(selected.config.variant);
     if (definition) return definition.components.map((name, index) => ({id: 'vehicle-part-' + index, name, match: [name], function: partDescription(name)}));

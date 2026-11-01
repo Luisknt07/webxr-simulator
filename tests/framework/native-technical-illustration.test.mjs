@@ -66,3 +66,15 @@ test('real machine framing excludes its attached HMI while a standalone PLC rema
  }
  const panel=document.addPrefab('hall','plc');panel.updateWorldMatrix(true,true);const before=snapshot(panel),captured=illustration.capture(panel),model=illustration.build(captured);assert(captured.length>8);assert(model.triangleCount>100);assert(captured.some(entry=>entry.names.includes('armario')));assert.equal(snapshot(panel),before);
 });
+
+test('exploded views separate real robot, conveyor, vehicle and merged rack banks instead of translating the whole model',()=>{
+ const behaviors=require('../../modules/logistica-industrial/contracts/behaviors.js'),prefabs=require('../support/load-robot-prefabs')(THREE),source=file=>fs.readFileSync(path.resolve(file),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
+ const factory=new Function('THREE','behaviorSchema','require',source('modules/logistica-industrial/functions/presentacion/runtime/IndustrialPrefabs.js')+'\nreturn createIndustrialPrefab;')(THREE,behaviors,prefabs.resolve),SceneDocument=new Function('THREE','behaviorSchema','createIndustrialPrefab',source('packages/project-model/src/SceneDocument.js').replace('default class SceneDocument','return class SceneDocument'))(THREE,behaviors,factory);
+ const monitor=source('modules/logistica-industrial/functions/almacenamiento/runtime/LineMonitorSystem.js').split('/** World-space, ray-operated HMI.')[0],partsFor=new Function('THREE','behaviorSchema','nativeIllustration',monitor+'\nreturn equipmentParts;')(THREE,behaviors,illustration),document=new SceneDocument({});document.registerRoom('hall',new THREE.Group());
+ const spread=model=>{const points=model.faces.flatMap(face=>face.points),mean=points.reduce((sum,p)=>({x:sum.x+p.x/points.length,y:sum.y+p.y/points.length}),{x:0,y:0});return points.reduce((sum,p)=>sum+((p.x-mean.x)**2+(p.y-mean.y)**2)/points.length,0);};
+ for(const[type,variant]of [['robot','articulated-general'],['conveyor','roller-start'],['vehicle','forklift-electric-4w'],['palletQueue','selective']]){
+  const object=document.addPrefab('hall',type,variant);object.updateWorldMatrix(true,true);const before=snapshot(object),config=document.getBehaviors(object).find(row=>row.type===type),parts=partsFor({object,config}),meshes=illustration.capture(object),iso=illustration.build(meshes,parts,0,'isometric'),exploded=illustration.build(meshes,parts,0,'exploded');
+  assert.equal(exploded.triangleCount,iso.triangleCount,type+': source surfaces must remain unchanged');assert(Math.abs(spread(exploded)-spread(iso))/Math.max(1e-6,spread(iso))>1e-5,type+': explosion must change relative component positions, not just translate the entire model');assert.equal(snapshot(object),before,type+': preview must not transform native mechanical parts');
+  if(type==='palletQueue'){assert(parts.some(part=>part.roles.includes('frame')));assert(parts.some(part=>part.roles.includes('beam')));assert(new Set(exploded.faces.map(face=>face.part)).size>2,'Merged structural, beam and address banks remain independently identifiable.');}
+ }
+});

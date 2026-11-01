@@ -48,7 +48,7 @@ function capture(object,options={}) {
     for(let instance=0;instance<instances&&meshes.length<meshLimit;instance++){
       const world=new THREE.Matrix4().copy(mesh.matrixWorld);if(mesh.isInstancedMesh){const local=new THREE.Matrix4();mesh.getMatrixAt(instance,local);world.multiply(local);}
       const matrix=new THREE.Matrix4().multiplyMatrices(scale,inverse).multiply(world);if(!matrix.elements.every(finite))continue;
-      meshes.push({mesh,geometry,position,materials,names:names.join(' / '),matrix,count,start,instance});
+      meshes.push({mesh,geometry,position,materials,names:names.join(' / '),role:mesh.userData.industrialMaterialPart||mesh.userData.materialPart||'',matrix,count,start,instance});
     }
   });Object.defineProperties(meshes,{truncatedMeshes:{value:truncatedMeshes},omittedInstances:{value:omittedInstances},sourceTriangles:{value:sourceTriangles}});return meshes;
 }
@@ -116,15 +116,24 @@ function build(meshes,parts=[],turn=0,requestedMode='isometric',options={}) {
     const matrix=rotation.clone().multiply(entry.matrix),box=new THREE.Box3();
     if(entry.geometry.boundingBox)box.copy(entry.geometry.boundingBox);else{const p=entry.position,cached=BOUNDS.get(entry.geometry);if(cached&&cached.attribute===p&&cached.version===p.version)box.copy(cached.box);else{for(let i=0;i<p.count;i++)box.expandByPoint(new THREE.Vector3().fromBufferAttribute(p,i));BOUNDS.set(entry.geometry,{attribute:p,version:p.version,box:box.clone()});}}
     const worldBox=box.clone().applyMatrix4(matrix);bounds.union(worldBox);sourceTriangles+=entry.count;
-    const matches=parts.map(part=>(part.match||[]).some(match=>entry.names.includes(String(match).toLowerCase())));return{entry,matrix,box,worldBox,matches,part:matches.findIndex(Boolean)};
+    const matches=parts.map(part=>(part.roles||[]).includes(entry.role)||(part.match||[]).some(match=>entry.names.includes(String(match).toLowerCase())));return{entry,matrix,box,worldBox,matches,part:matches.findIndex(Boolean)};
   });
   if(bounds.isEmpty())bounds.set(new THREE.Vector3(-1,0,-1),new THREE.Vector3(1,1,1));
   const center=bounds.getCenter(new THREE.Vector3()),size=bounds.getSize(new THREE.Vector3()),groups=new Map();
-  if(mode==='exploded')records.forEach(record=>{const group=record.part<0?'mesh': 'part:'+record.part;if(!groups.has(group))groups.set(group,new THREE.Box3());groups.get(group).union(record.worldBox);record.group=group;});
+  if(mode==='exploded'){
+    const semanticGroups=new Set(records.map(record=>record.part)),singleGroup=semanticGroups.size<=1;
+    records.forEach(record=>{const group=record.part<0||singleGroup?'mesh:'+record.entry.mesh.uuid+':'+record.entry.instance:'part:'+record.part;if(!groups.has(group))groups.set(group,new THREE.Box3());groups.get(group).union(record.worldBox);record.group=group;});
+  }
+  const offsets=new Map();let groupIndex=0;
+  groups.forEach((box,key)=>{
+    const direction=box.getCenter(new THREE.Vector3()).sub(center),angle=groupIndex*Math.PI*(3-Math.sqrt(5)),fan=new THREE.Vector3(Math.cos(angle),((groupIndex%3)-1)*.7,Math.sin(angle));
+    if(direction.lengthSq()<1e-8)direction.copy(fan);else direction.normalize().addScaledVector(fan,.55);
+    const span=size.clone().max(new THREE.Vector3(.15,.15,.15));direction.normalize().multiply(span).multiplyScalar(.18);offsets.set(key,direction);groupIndex++;
+  });
   records.forEach((record,recordIndex)=>{
     const {entry,matches,part}=record;let matrix=record.matrix;
     if(mode==='exploded'){
-      const direction=groups.get(record.group).getCenter(new THREE.Vector3()).sub(center);if(direction.lengthSq()<1e-8)direction.set(0,1,0);direction.normalize().multiply(size).multiplyScalar(.18);
+      const direction=offsets.get(record.group);
       matrix=new THREE.Matrix4().makeTranslation(direction.x,direction.y,direction.z).multiply(matrix);
     }
     const box=record.box.clone().applyMatrix4(matrix);matches.forEach((matched,index)=>{if(matched)partBounds[index].union(box);});
