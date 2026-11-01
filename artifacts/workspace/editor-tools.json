@@ -1,1 +1,1 @@
-{"format":"smarttwin.editor-tools","version":1,"tools":[{"id":"anatomy","name":"Diseño y despiece 2D/3D","entry":"packages/tools/anatomy/app/index.html","adapter":"packages/tools/anatomy/adapter.mjs","folder":"packages/tools/anatomy"}]}
+{"format":"smarttwin.editor-tools","version":1,"tools":[]}

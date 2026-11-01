@@ -284,6 +284,30 @@ function group(parent, name, position) {
 function joint(parent, id, position, rig) {
   const object = group(parent, id + ' · articulación', position); object.userData.robotJoint = id; rig.joints.push(object); return object;
 }
+
+function componentIdentity(rig) {
+  const names = {'robot.base': 'Base y alimentación', 'robot.shoulder': 'Giro y apoyo del hombro', 'robot.upper-arm': 'Brazo superior', 'robot.elbow': 'Codo', 'robot.forearm': 'Antebrazo', 'robot.wrist': 'Muñeca orientable', 'robot.tool': 'Herramienta y TCP', 'robot.carriage': 'Guías y accionamiento lineal'};
+  const groups = new Map();
+  rig.visual.traverse(object => {
+    if (!object.isMesh) return;
+    let node = object, jointId = '', inTool = false, inBase = false;
+    for (; node && node !== rig.visual; node = node.parent) {
+      if (node === rig.toolAssembly) inTool = true;
+      if (node.name === 'Base anclada al piso') inBase = true;
+      if (!jointId && node.userData.robotJoint) jointId = node.userData.robotJoint;
+    }
+    let id = inTool ? 'robot.tool' : inBase ? 'robot.base' : jointId === 'J1' ? 'robot.shoulder' : jointId === 'J2' ? 'robot.upper-arm' : jointId === 'J3' ? 'robot.forearm' : /^J[456]$/.test(jointId) ? 'robot.wrist' : 'robot.carriage';
+    if (/Eje pasante|Oreja de apoyo/.test(object.name)) id = 'robot.shoulder';
+    if (/Reductor|Tapa mecanizada|Servomotor/.test(object.name) && jointId === 'J3') id = 'robot.elbow';
+    object.userData.equipmentComponentId = id;
+    object.userData.robotJointId = jointId;
+    object.userData.equipmentSubsystem = /encoder|Conector|conexiones|prensaestopas|Indicador/i.test(object.name) ? 'electronics' : /Manguera|racor/.test(object.name) ? 'services' : 'mechanical';
+    if (!groups.has(id)) groups.set(id, {id, name: names[id], jointIds: [], objects: []});
+    const entry = groups.get(id); entry.objects.push(object);
+    if (jointId && !entry.jointIds.includes(jointId)) entry.jointIds.push(jointId);
+  });
+  rig.components = Array.from(groups.values());
+}
 function hinge(b, parent, radius, length, axis = 'z', painted = false) {
   const rotation = axis === 'z' ? [Math.PI / 2, 0, 0] : axis === 'x' ? [0, 0, Math.PI / 2] : [0, 0, 0];
   const edge = Math.min(.012, length * .12), profile = [[0, -length / 2], [radius * .83, -length / 2], [radius, -length / 2 + edge], [radius, length / 2 - edge], [radius * .83, length / 2], [0, length / 2]];
@@ -411,29 +435,36 @@ function tool(b, parent, rig) {
 }
 
 function articulated(b, rig, d) {
-  const radius = pedestal(b, rig, d), collaborative = b.config.variant === 'collaborative';
+  const collaborative = b.config.variant === 'collaborative';
   const payload = Math.max(.86, Math.min(1.18, Math.pow(b.config.payloadKg / 16, .09)));
-  const t = Math.max(.085, Math.min(.30, d.reach * (collaborative ? .074 : b.config.family === 'palletizer' ? .112 : .112) * payload));
+  const t = Math.max(.085, Math.min(.30, d.reach * (collaborative ? .074 : .112) * payload));
+  // J2 is the bearing centre, not the upper surface of a solid pedestal.
+  // Separate its fixed yoke from the moving arm instead of occupying the
+  // same space with a pedestal, saddle, crown and swinging casting.
+  const clearance = t * 1.40, pedestalTop = Math.max(b.config.family === 'mobileManipulator' ? b.config.height + .11 : .11, d.baseHeight - clearance);
+  const radius = pedestal(b, rig, Object.assign({}, d, {baseHeight: pedestalTop}));
   rig.castingShells = [];
-  const yaw = joint(rig.visual, 'J1', [0, d.baseHeight, 0], rig); hinge(b, yaw, radius * .8, .10, 'y', true);
-  // Both cast cheeks overlap the J1 bearing crown and support the full J2
-  // axle. They remain on the yaw body while the upper arm swings between them.
-  const saddle = b.housing('Cuerpo giratorio del hombro', [t * .46, t * .93, t * .74, t * 1.66], 'frame', yaw, [-t * .27, -t * .41, 0]);
-  rig.castingShells.push(saddle);
-  const waist = [[0, -t * .78], [radius * .68, -t * .78], [radius * .88, -t * .56], [radius * .96, -t * .21], [radius * .90, t * .06], [radius * .71, t * .26], [0, t * .26]];
-  b.mesh('Cintura anular del hombro', b.geometry('lathe', [waist]), 'frame', yaw);
+  const yaw = joint(rig.visual, 'J1', [0, d.baseHeight, 0], rig);
+  const bearingOffset = pedestalTop - d.baseHeight;
+  const turntable = group(yaw, 'J1 · rodamiento de giro y sellado', [0, bearingOffset, 0]);
+  hinge(b, turntable, radius * .79, .06, 'y', true);
+  const waist = [[0, bearingOffset + .025], [radius * .76, bearingOffset + .025],
+    [radius * .88, bearingOffset + .05], [radius * .80, -t * 1.06], [radius * .62, -t * .99], [0, -t * .99]];
+  const waistMesh = b.mesh('Cintura anular del hombro', b.geometry('lathe', [waist]), 'frame', yaw);
+  waistMesh.userData.robotContouredHousing = true; rig.castingShells.push(waistMesh);
+  rig.shoulderCheeks = [];
   for (const side of [-1, 1]) {
-    const cheek = b.casting('Oreja de apoyo del eje del hombro', [t * .30, t * .74, t * .62, t * .24], 'frame', yaw, [-t * .16, -t * .13, side * t * .84]);
-    rig.castingShells.push(cheek);
+    const cheek = b.casting('Oreja de apoyo del eje del hombro', [t * .65, t * .52, t * .80, t * .24], 'frame', yaw, [0, -t * .65, side * t * 1.135]);
+    cheek.rotation.z = Math.PI / 2;
+    cheek.userData.robotBearingSupport = true; rig.shoulderCheeks.push(cheek); rig.castingShells.push(cheek);
   }
-  b.cylinder('Eje pasante de apoyo J2', t * .33, t * 1.96, 'metal', yaw, [0, 0, 0], [Math.PI / 2, 0, 0]);
-  const shoulder = joint(yaw, 'J2', [0, 0, 0], rig); hinge(b, shoulder, t * .91, t * 1.70, 'z', true);
+  b.cylinder('Eje pasante de apoyo J2', t * .29, t * 2.56, 'metal', yaw, [0, 0, 0], [Math.PI / 2, 0, 0]);
+  const shoulder = joint(yaw, 'J2', [0, 0, 0], rig);
+  // Its service cap is outboard of the fixed cheeks, not coplanar with them.
+  hinge(b, shoulder, t * .97, t * 2.56, 'z', true);
   rig.castingShells.push(link(b, shoulder, d.upperArm, t, 'Brazo superior'));
-  const counter = b.housing('Contrapeso perfilado del brazo', [t * .33, t * .75, t * .59, t * 1.49], 'frame', shoulder, [-t * .57, -t * .13, -t * .12]);
-  rig.castingShells.push(counter);
-  b.cylinder('Registro circular del contrapeso', t * .38, .015, 'accent', shoulder, [-t * .60, -t * .13, t * .63], [Math.PI / 2, 0, 0]);
   const elbow = joint(shoulder, 'J3', [d.upperArm, 0, 0], rig); hinge(b, elbow, t * .72, t * 1.42, 'z', true);
-  rig.castingShells.push(link(b, elbow, d.forearm, t * .78, 'Antebrazo', true));
+  rig.castingShells.push(link(b, elbow, d.forearm - t * .48, t * .78, 'Antebrazo', true));
   if (b.config.family === 'palletizer') {
     // The working wrist is levelled independently; the pair of connecting rods
     // is recomputed from the same joint positions, preserving a parallelogram.
@@ -445,7 +476,7 @@ function articulated(b, rig, d) {
       bridge: b.cylinder('Puente de apoyo del paralelogramo', t * .11, 1, 'frame', rig.visual),
       pin: b.cylinder('Pasador de biela del paralelogramo', t * .13, t * .33, 'metal', rig.visual)
     }));
-    b.casting('Cabezal perfilado de paletizado', [t * .36, t * .45, t * .32, t * .83], 'frame', rig.palletWrist, [-t * .24, 0, 0]);
+    rig.castingShells.push(b.casting('Cabezal perfilado de paletizado', [t * .36, t * .45, t * .32, t * .83], 'frame', rig.palletWrist, [-t * .24, 0, 0]));
     tool(b, rig.palletWrist, rig);
   } else {
     const roll = joint(elbow, 'J4', [d.forearm, 0, 0], rig);
@@ -459,7 +490,17 @@ function articulated(b, rig, d) {
   }
   // Manufacturer-independent identity for material/geometry audits. These
   // shapes are authored castings, not a claim of production CAD dimensions.
-  rig.design = {style: collaborative ? 'compact-collaborative' : b.config.family === 'palletizer' ? 'reinforced-palletizer' : 'compact-industrial', section: t};
+  rig.design = {style: collaborative ? 'compact-collaborative' : b.config.family === 'palletizer' ? 'reinforced-palletizer' : 'compact-industrial', section: t,
+    shoulderBearingHeight: d.baseHeight, pedestalTop, fixedCheekInnerZ: t * 1.015, coverOuterZ: t * 1.28,
+    manufacturerReplica: false};
+  // Inscribed central bodies distinguish a folded arm conflict from intended
+  // contact inside its coaxial bearings. They are teaching motion guards, not
+  // a manufacturer's complete self-collision model or certified safety data.
+  rig.selfCollisionCores = {
+    upper: {object: shoulder, start: [t * .6, 0, 0], end: [Math.max(t * .61, d.upperArm - t * 1.55), 0, 0], radius: t * .4},
+    forearm: {object: elbow, start: [t * 1.55, 0, 0], end: [Math.max(t * 1.56, d.forearm - t * .8), 0, 0], radius: t * .3},
+    pedestal: {object: rig.visual, start: [0, b.config.family === 'mobileManipulator' ? b.config.height + .06 : .06, 0], end: [0, Math.max(.07, pedestalTop - .035), 0], radius: radius * .65}
+  };
 }
 
 function radialRobot(b, rig, d) {
@@ -649,7 +690,7 @@ export function createRobot(value = {}, options = {}) {
   const config = robotSchema.normalize(value), root = new THREE.Group();
   root.name = (robotSchema.getDefinition(config.variant) || {}).name || 'Robot';
   root.userData.editorPrefabKey = 'robot'; root.userData.editorPrefabVariant = config.variant;
-  root.userData.robotGeometryVersion = 2; root.userData.robotFamily = config.family;
+  root.userData.robotGeometryVersion = 3; root.userData.robotFamily = config.family;
   refreshRobotGeometry(root, config, options); return root;
 }
 
@@ -684,7 +725,8 @@ export function refreshRobotGeometry(root, value = {}, options = {}) {
     }
   }
   visual.userData.robotParametricDesign = {filletRadius: config.filletRadius, chamferSize: config.chamferSize, mountingHoles: config.mountingHoles, detail: config.detail};
-  root.userData.robotGeometryVersion = 2; root.userData.robotFamily = config.family; root.userData.editorPrefabVariant = config.variant;
+  root.userData.robotGeometryVersion = 3; root.userData.robotFamily = config.family; root.userData.editorPrefabVariant = config.variant;
+  componentIdentity(rig);
   expose(root, rig); updateRobotPose(root, kinematics.homePose(config)); collisionBodies(rig);
   return root;
 }

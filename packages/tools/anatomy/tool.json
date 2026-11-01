@@ -2,6 +2,7 @@
   "format": "smarttwin.editor-tool",
   "version": 1,
   "id": "anatomy",
+  "retired": true,
   "name": "Diseño y despiece 2D/3D",
   "entry": "app/index.html",
   "adapter": "adapter.mjs",

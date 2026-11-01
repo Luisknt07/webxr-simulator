@@ -26,7 +26,7 @@ function document(){const d=new SceneDocument({});d.registerRoom('hall',new THRE
 function config(d,object){return d.getBehaviors(object).find(row=>row.type===object.userData.editorPrefabKey);}
 function panel(d,object){return object.children[0].children[object.userData.editorPrefabKey==='robot'?1:6];}
 async function run(){
- assert.equal(panels.resolve({},'robot'),'pendant');assert.equal(panels.resolve({surface:'rollers'},'conveyor'),'compact');assert.equal(panels.resolve({surface:'belt'},'conveyor'),'console');assert.equal(panels.resolve({mechanism:'elevator'},'conveyor'),'cabinet');
+ assert.equal(panels.resolve({},'robot'),'console');assert.equal(panels.resolve({surface:'rollers'},'conveyor'),'compact');assert.equal(panels.resolve({surface:'belt'},'conveyor'),'console');assert.equal(panels.resolve({mechanism:'elevator'},'conveyor'),'cabinet');
  assert.equal(behaviors.normalizeBehaviors([{type:'robot'}])[0].panelDesign,'auto');assert.equal(behaviors.normalizeBehaviors([{type:'conveyor'}])[0].panelDesign,'auto');
  for(const type of ['robot','conveyor'])assert.throws(()=>behaviors.normalizeBehaviors([{type,panelDesign:'https://example.invalid'}]));
  const baseline=measure(factory('plc')),signatures=new Set();

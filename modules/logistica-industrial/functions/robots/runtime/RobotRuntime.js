@@ -29,6 +29,35 @@ function overlapsOriented(a, b) {
   return axes.every(axis => axis.lengthSq() < 1e-18 || Math.abs(difference.dot(axis)) < a.edges.concat(b.edges).reduce((sum, edge) => sum + Math.abs(edge.dot(axis)), 0) - 1e-10);
 }
 
+function segmentDistanceSquared(p1, q1, p2, q2) {
+  const d1 = q1.clone().sub(p1), d2 = q2.clone().sub(p2), r = p1.clone().sub(p2), a = d1.dot(d1), e = d2.dot(d2), f = d2.dot(r);
+  let s = 0, t = 0;
+  if (a <= 1e-18 && e <= 1e-18) return r.lengthSq();
+  if (a <= 1e-18) t = THREE.Math.clamp(f / e, 0, 1);
+  else {
+    const c = d1.dot(r);
+    if (e <= 1e-18) s = THREE.Math.clamp(-c / a, 0, 1);
+    else {
+      const b = d1.dot(d2), denominator = a * e - b * b;
+      if (denominator > 1e-18) s = THREE.Math.clamp((b * f - c * e) / denominator, 0, 1);
+      t = (b * s + f) / e;
+      if (t < 0) {t = 0; s = THREE.Math.clamp(-c / a, 0, 1);}
+      else if (t > 1) {t = 1; s = THREE.Math.clamp((b - c) / a, 0, 1);}
+    }
+  }
+  return p1.clone().addScaledVector(d1, s).distanceToSquared(p2.clone().addScaledVector(d2, t));
+}
+
+function segmentTriangleDistanceSquared(a, b, triangle) {
+  const direction = b.clone().sub(a), lengthSquared = direction.lengthSq(), point = new THREE.Vector3();
+  if (lengthSquared > 1e-18) {
+    const ray = new THREE.Ray(a, direction.normalize());
+    if (ray.intersectTriangle(triangle.a, triangle.b, triangle.c, false, point) && a.distanceToSquared(point) <= lengthSquared + 1e-12) return 0;
+  }
+  return Math.min(a.distanceToSquared(triangle.closestPointToPoint(a, point)), b.distanceToSquared(triangle.closestPointToPoint(b, point)),
+    segmentDistanceSquared(a, b, triangle.a, triangle.b), segmentDistanceSquared(a, b, triangle.b, triangle.c), segmentDistanceSquared(a, b, triangle.c, triangle.a));
+}
+
 /** Bounded kinematic teaching cell. This is not a safety PLC, SLAM or dynamics solver. */
 export default class RobotRuntime {
   constructor(runtime) { this.runtime = runtime; this.processGates = new Map(); this.loadGeometry = new WeakMap(); }
@@ -138,7 +167,9 @@ export default class RobotRuntime {
       blockedSeconds: r.blockedSeconds, downSeconds: r.downSeconds, distance: r.distance,
       utilization: r.elapsed ? r.busySeconds / r.elapsed * 100 : 0,
       activeOutputId: this.outputId(r), sorterMode: this.sorter(r) ? r.config.sorterMode : '',
-      clearanceObstacle: r.clearanceObstacle || '', joints: JSON.stringify(r.pose.joints || []), tcpX: r.pose.tcp.x, tcpY: r.pose.tcp.y, tcpZ: r.pose.tcp.z};
+      clearanceObstacle: r.clearanceObstacle || '', clearanceBody: r.clearanceBody || '',
+      clearanceWarning: r.blocked && r.clearanceObstacle ? 'Interferencia de ' + (r.clearanceBody || 'un componente') + ' con ' + r.clearanceObstacle + '. Pausa y reubica el obstáculo o ajusta el recorrido antes de reanudar.' : '',
+      joints: JSON.stringify(r.pose.joints || []), tcpX: r.pose.tcp.x, tcpY: r.pose.tcp.y, tcpZ: r.pose.tcp.z};
   }
 
   command(record, action, value) {
@@ -461,10 +492,60 @@ export default class RobotRuntime {
     return hits.size % 2 === 1;
   }
 
+  selfClear(record) {
+    const r = record.components.robot, rig = r.visualRoot.userData.robotRig, cores = rig && rig.selfCollisionCores;
+    if (!cores) return true;
+    record.object.updateWorldMatrix(true, true);
+    const shape = core => {
+      const scale = new THREE.Vector3().setFromMatrixScale(core.object.matrixWorld);
+      return {a: core.object.localToWorld(vector(core.start)), b: core.object.localToWorld(vector(core.end)), radius: core.radius * Math.min(Math.abs(scale.x), Math.abs(scale.y), Math.abs(scale.z))};
+    };
+    const upper = shape(cores.upper), forearm = shape(cores.forearm), pedestal = shape(cores.pedestal);
+    for (const [a, b, label] of [[upper, forearm, 'brazo superior / antebrazo'], [upper, pedestal, 'brazo superior / base'], [forearm, pedestal, 'antebrazo / base']]) {
+      const radius = Math.max(0, a.radius + b.radius - .003);
+      if (segmentDistanceSquared(a.a, a.b, b.a, b.b) < radius * radius) {
+        r.blocked = true; r.clearanceObstacle = 'estructura propia'; r.clearanceBody = label; return false;
+      }
+    }
+    return true;
+  }
+
+  structureClear(record) {
+    const world = this.runtime.ctx.collisionWorld, r = record.components.robot, rig = r.visualRoot.userData.robotRig, cores = rig && rig.selfCollisionCores;
+    if (!cores || !world || typeof world.triangles !== 'function') return true;
+    const shapes = ['upper', 'forearm'].map(id => {
+      const core = cores[id], scale = new THREE.Vector3().setFromMatrixScale(core.object.matrixWorld);
+      return {id, a: core.object.localToWorld(vector(core.start)), b: core.object.localToWorld(vector(core.end)), radius: Math.max(0, core.radius * Math.min(Math.abs(scale.x), Math.abs(scale.y), Math.abs(scale.z)) - .003)};
+    });
+    const bounds = new THREE.Box3();
+    shapes.forEach(shape => bounds.union(new THREE.Box3().setFromPoints([shape.a, shape.b]).expandByScalar(shape.radius)));
+    if (typeof world._ensureFresh === 'function') world._ensureFresh();
+    const options = {ignore: [record.object]}, blocked = world.triangles(bounds, options, (triangle, obstacle) => {
+      for (const shape of shapes) if (segmentTriangleDistanceSquared(shape.a, shape.b, triangle) < shape.radius * shape.radius) {
+        r.blocked = true; r.clearanceBody = shape.id === 'upper' ? 'brazo superior' : 'antebrazo';
+        r.clearanceObstacle = obstacle && obstacle.name || 'estructura del entorno'; return true;
+      }
+      return false;
+    });
+    if (blocked) return false;
+    // A large closed obstacle can contain the whole capsule without a nearby
+    // surface triangle crossing it. Retain that containment case as well.
+    if (typeof world.insideEntry === 'function') for (const shape of shapes) for (const point of [shape.a, shape.a.clone().lerp(shape.b, .5), shape.b]) {
+      const entry = world.insideEntry(point, options);
+      if (entry) {
+        r.blocked = true; r.clearanceBody = shape.id === 'upper' ? 'brazo superior' : 'antebrazo';
+        r.clearanceObstacle = entry.object && entry.object.name || 'estructura del entorno'; return false;
+      }
+    }
+    return true;
+  }
+
   armClear(record, heldMatrix) {
     // The arm's own rigid bodies supplement the existing payload/environment
     // sweep. Product mesh bounds are cached once; no per-frame vertex scan.
+    if (!this.selfClear(record)) return false;
     if (!this.runtime.ctx.collisionWorld) return true;
+    if (!this.structureClear(record)) return false;
     const r = record.components.robot, rig = r.visualRoot.userData.robotRig;
     if (!rig || !rig.collisionBodies || !['articulated', 'palletizer', 'mobileManipulator', 'scara', 'delta', 'cartesian', 'cylindrical', 'polar'].includes(r.config.family)) return true;
     record.object.updateWorldMatrix(true, true);
@@ -570,7 +651,7 @@ export default class RobotRuntime {
 
   begin(record) {
     const r = record.components.robot, c = this.candidate(record); if (!c) return;
-    if (!this.armClear(record)) return this.fault(record, 'La postura actual del brazo invade una carga; libera el espacio o corrige el origen antes de iniciar.');
+    if (!this.armClear(record)) return this.fault(record, 'La postura actual del brazo presenta una interferencia con ' + (r.clearanceObstacle || 'el entorno') + '; libera el espacio o corrige el origen antes de iniciar.');
     if (this.mobile(r) && r.batteryPercent <= 0) return this.fault(record, 'Batería agotada · recarga o reinicia la práctica.');
     const metadata = this.runtime.productMetadata(c.product);
     // An in-situ nozzle carries its tool, not the mass of the stationary part.

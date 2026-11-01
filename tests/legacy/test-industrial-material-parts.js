@@ -44,7 +44,7 @@ async function run() {
   const budgets = {
     conveyor: [123, 15120], source: [31, 1922], processor: [65, 4640],
     palletQueue: [20, 1582], product: [5, 102], sensor: [8, 288], plc: [44, 2492],
-    'belt-start': [96, 8052], 'roller-curve-left': [94, 9312], 'belt-tee-split': [98, 10240]
+    'belt-start': [96, 8052], 'roller-curve-left': [94, 9312], 'belt-tee-split': [98, 9592]
   };
   Object.entries(budgets).forEach(([kind, [meshes, triangles]]) => {
     const conveyorVariant = kind.includes('-');

@@ -13,8 +13,11 @@ function fixtureCell(family = 'articulated', count = 3) {
     f.document.setBehaviors(object, f.document.getBehaviors(object).map(config => config.type === type ? {...config, withPanel: false, ...values} : config));
     f.document.setTransform(object, {position, rotation: [0, yaw, 0]}); return object;
   };
-  f.source = add('source', {initialCount: count, autoGenerate: false, delivery: 'manual', width: .28, depth: .30, height: .25, mass: 2, capacity: 4, catalog: '[]'}, [.85, 1, .5]);
-  f.stock = add('palletQueue', {running: true, palletCapacity: 1, capacity: 4, columns: 2, rows: 2, layers: 1, width: 1.2, depth: .8, autoRelease: false, delivery: 'manual'}, [.85, family === 'scara' ? 1.75 : 1, -.65], Math.PI / 2);
+  // The articulated mechanism needs clearance from the source frame and the
+  // receiver while rotating a load; the earlier adjacent fixtures intersected
+  // its structural arm and only passed without an environment-arm guard.
+  f.source = add('source', {initialCount: count, autoGenerate: false, delivery: 'manual', width: .28, depth: .30, height: .25, mass: 2, capacity: 4, catalog: '[]'}, [.85, 1, family === 'scara' ? .5 : 1.3]);
+  f.stock = add('palletQueue', {running: true, palletCapacity: 1, capacity: 4, columns: 2, rows: 2, layers: 1, width: 1.2, depth: .8, autoRelease: false, delivery: 'manual'}, [.85, family === 'scara' ? 1.75 : 1, family === 'scara' ? -.65 : -1.3], Math.PI / 2);
   if (family === 'scara') {
     const table = f.document.addPrimitive('hall', 'box', '#637079'); f.document.setTransform(table, {position: [.85, .375, -.65], scale: [1.4, .75, 1.1]}); f.document.setBehaviors(table, [schema.defaultBehavior('collision')]);
   }

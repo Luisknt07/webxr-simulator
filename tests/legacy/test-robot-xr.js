@@ -35,7 +35,9 @@ async function run() {
   const source = f.document.addPrefab('hall', 'source'), sink = f.document.addPrefab('hall', 'palletQueue');
   const configure = (object, type, values) => f.document.setBehaviors(object, f.document.getBehaviors(object).map(config => config.type === type ? Object.assign({}, config, values) : config));
   configure(source, 'source', {autoGenerate: false, initialCount: 3, running: true, delivery: 'manual'});
-  configure(sink, 'palletQueue', {running: true, delivery: 'manual', palletCount: 1, columns: 2, rows: 2, layers: 2, capacity: 8, width: 1.2, depth: .8});
+  // This floor receiver needs no operator cabinet. The legacy enabled cabinet
+  // sat directly inside the robot sweep and obscured the robot's actual HMI.
+  configure(sink, 'palletQueue', {running: true, withPanel: false, delivery: 'manual', palletCount: 1, columns: 2, rows: 2, layers: 2, capacity: 8, width: 1.2, depth: .8});
   configure(f.head, 'robot', {reach: 2.5, baseHeight: .75, powered: false, running: false, speed: 2, cycleTime: 1,
     sourceId: source.userData.editorId, outputId: sink.userData.editorId});
   f.document.setTransform(source, {position: [1.1, 1, 1.2]}); f.document.setTransform(sink, {position: [1.1, 1, -1.2]});

@@ -202,8 +202,40 @@ function validateState(value, partial) {
   return result;
 }
 
+function migratePanelDesign(record) {
+  const kind = record.descriptor.prefab, nodes = record.nodes;
+  if (!nodes || !['robot', 'conveyor'].includes(kind)) return;
+  const panels = behaviorSchema.controlPanels;
+  const config = (record.behaviors || []).find(row => row.type === kind) || {};
+  const requested = config.panelDesign || 'auto';
+  const previousId = requested === 'auto' && kind === 'robot' ?
+    (['amr', 'agv', 'mobileSorter', 'shuttle'].includes(config.family) ? 'compact' : 'pendant') : panels.resolve(config, kind);
+  const previous = panels.spec({panelDesign: previousId}, kind);
+  if (previousId === 'console') Object.assign(previous, {
+    width: 1.44, height: .88, depth: .32, centerY: .12, tilt: -.30,
+    controls: {start:[.28,.14],stop:[.28,-.03],emergency:[.55,.14],pause:[.55,-.03],powerOff:[.28,-.20],powerOn:[.55,-.20],speedDown:[-.52,-.16],speedUp:[.02,-.16],insertBox:[-.25,-.16],dispatch:[-.25,-.16]}
+  });
+  const actions = ['start', 'stop', 'emergency', 'pause', 'powerOff', 'powerOn', 'speedUp', 'speedDown', kind === 'robot' ? 'dispatch' : 'insertBox'];
+  const original = [[-.29,.21],[0,.21],[.29,.21],[-.29,.04],[0,.04],[.29,.04],[.29,-.13],[-.29,-.13],[0,-.13]];
+  previous.controls = Object.assign({}, actions.reduce((map, action, index) => { map[action] = original[index]; return map; }, {}), previous.controls);
+  const current = panels.spec(config, kind), prefix = kind === 'robot' ? '1.' : '6.';
+  const close = (actual, expected) => actual && expected.every((n, i) => Math.abs(actual[i] - n) < 1e-6);
+  const changes = [];
+  actions.forEach((action, index) => {
+    const state = nodes[prefix + (index + 2)], before = panels.controlPose(previous, action, index, true);
+    if (!state || !close(state.position, before.position) || !close(state.scale, [1,1,1]) ||
+        !(close(state.quaternion, before.quaternion) || close(state.quaternion, before.quaternion.map(n => -n)))) return;
+    changes.push({state, pose: panels.controlPose(current, action, index)});
+  });
+  // Recognize an automatic layout as a group; a single manually moved actor
+  // must never be mistaken for an old factory layout. Custom TRS stays intact.
+  if (changes.length < 2) return;
+  changes.forEach(({state, pose}) => { state.position = pose.position; state.quaternion = pose.quaternion; });
+}
+
 function migratePanelControls(record) {
   const prefab = record.descriptor.prefab, nodes = record.nodes;
+  migratePanelDesign(record);
   if (!nodes || !['conveyor', 'plc', 'source', 'processor', 'palletQueue'].includes(prefab)) return;
   // Old projects save complete local poses for every control actor. Rebuilding
   // the cabinet alone cannot raise those buttons: their saved poses win over
@@ -229,12 +261,17 @@ function migratePanelControls(record) {
     const state = nodes[prefix + index++];
     if (!state || !close(state.position, [x, oldY, z]) || !close(state.scale, [scale, scale, scale]) ||
         !(close(state.quaternion, [0, 0, 0, 1]) || close(state.quaternion, [0, 0, 0, -1]))) return;
-    changes.push({state, position: [prefab === 'conveyor' || prefab === 'plc' ? Math.sign(x) * 0.29 : x, newY, z]});
+    const controlIndex = index - 3;
+    const config = (record.behaviors || []).find(row => row.type === 'conveyor') || {};
+    const action = ['start','stop','emergency','pause','powerOff','powerOn','speedUp','speedDown','insertBox'][controlIndex];
+    const pose = prefab === 'conveyor' ? behaviorSchema.controlPanels.controlPose(behaviorSchema.controlPanels.spec(config, 'conveyor'), action, controlIndex) :
+      {position: [prefab === 'plc' ? Math.sign(x) * 0.29 : x, newY, z], quaternion: state.quaternion};
+    changes.push({state, position: pose.position, quaternion: pose.quaternion});
   }));
   // A single intentionally moved button in a current project is insufficient
   // evidence for migration. Normal saved panels contain all their controls.
   if (changes.length < 2) return;
-  changes.forEach(({state, position}) => { state.position = position; });
+  changes.forEach(({state, position, quaternion}) => { state.position = position; state.quaternion = quaternion; });
 }
 
 /** A reversible overlay over native objects. Native graph identities and names stay intact. */

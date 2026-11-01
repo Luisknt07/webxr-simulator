@@ -39,8 +39,12 @@ function poses(prefab) {
   ];
   const z = prefab === 'source' || prefab === 'palletQueue' ? 0.08 : prefab === 'processor' ? 0.15 : 0.17;
   let index = 2;
-  return rows.reduce((list, [xs, oldY, newY]) => list.concat(xs.map(x => ({path: prefix + index++,
-    before: [x, oldY, z], after: [prefab === 'conveyor' || prefab === 'plc' ? Math.sign(x) * 0.29 : x, newY, z]}))), []);
+  return rows.reduce((list, [xs, oldY, newY]) => list.concat(xs.map(x => {
+    const controlIndex = index - 2, action = ['start','stop','emergency','pause','powerOff','powerOn','speedUp','speedDown','insertBox'][controlIndex];
+    return {path: prefix + index++, before: [x, oldY, z], after: prefab === 'conveyor' ?
+      behaviorSchema.controlPanels.controlPose(behaviorSchema.controlPanels.spec({}, 'conveyor'), action, controlIndex).position :
+      [prefab === 'plc' ? Math.sign(x) * 0.29 : x, newY, z]};
+  })), []);
 }
 function additions(data) { return Object.values(data.rooms).flatMap(room => room.additions); }
 function record(data, id) { return additions(data).find(row => row.id === id); }

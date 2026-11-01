@@ -264,6 +264,7 @@ function control(variant = 'start') {
   const bezel = make.cylinder('Aro cromado', 0.067, 0.025, '#b9c2c9', [0, 0, 0], 24, {metalness: 0.95, roughness: 0.23});
   const button = make.cylinder('Pulsador ' + name, variant === 'emergency' ? 0.061 : 0.049, variant === 'emergency' ? 0.065 : 0.035, color, [0, 0, 0.025], 24, {metalness: 0.12, roughness: 0.32, emissive: color, emissiveIntensity: 0.12});
   bezel.rotation.x = Math.PI / 2; button.rotation.x = Math.PI / 2;
+  if (variant !== 'emergency') { bezel.scale.set(.82, 1, .82); button.scale.set(.82, 1, .82); }
   button.userData.industrialButton = true;
   // Keep the old bezel/button indices when restoring saved controls.
   group.add(bezel, button);
@@ -387,14 +388,14 @@ function applyPanelDesign(panel, config, kind) {
   }
   const controls = panel.children.filter(node => node.userData.editorPrefabKey === 'control');
   controls.forEach((node, index) => {
-    const original = rest.nodes.get(node), column = Math.sign(original.position.x), row = Math.floor(index / 3);
-    const position = design.controls && design.controls[node.userData.industrialAction] || [column * design.columns, design.rows[row]];
-    auto(node, point(position[0], position[1], .17), new THREE.Vector3(1, 1, 1), design.tilt);
+    const pose = behaviorSchema.controlPanels.controlPose(design, node.userData.industrialAction, index);
+    auto(node, new THREE.Vector3().fromArray(pose.position), new THREE.Vector3(1, 1, 1), design.tilt);
     const caption = node.children.find(child => child.name === 'Rótulo del control');
     if (caption) {
       const emergency = node.userData.industrialAction === 'emergency';
       caption.scale.set(design.captionWidth / .22, (emergency ? .027 : design.captionHeight || .037) / .037, 1);
       caption.position.y = -(emergency ? .10 : design.captionDrop || .09);
+      caption.position.z = -.010; // label lies 1.5 mm above its actual door, outside the metal surface.
     }
   });
   const title = panel.children.find(node => node.name === 'Identificación del tablero');
@@ -1279,17 +1280,39 @@ function createPathMechanics(config) {
   const railKeys = new Set(), supportPoints = [], rollerKeys = new Set();
   const onOtherDeck = (point, route, margin = 0) => paths.some(path => path.route !== route && planarDistanceSq(point, path.points) < Math.pow(config.width / 2 - margin, 2));
   const addTube = (name, from, to, y, depth, height, color) => {
-    const dx = to.x - from.x, dz = to.z - from.z;
-    const mesh = make.box(name, Math.sqrt(dx * dx + dz * dz) + 0.006, height, depth, color, [(from.x + to.x) / 2, y, (from.z + to.z) / 2]);
-    mesh.rotation.y = -Math.atan2(dz, dx); frame.add(mesh);
+    const dx=to.x-from.x,dz=to.z-from.z,length=Math.hypot(dx,dz);if(length<1e-8)return;
+    // T branches can share a straight approach with the main route but use a
+    // different sampling pitch. Midpoint hashes miss that duplicate surface;
+    // coverage by the same collinear profile remains authoritative instead.
+    const registry=addTube.sections||(addTube.sections=new Map()),key=[name,y,depth,height,color].join(':'),sections=registry.get(key)||[],ux=dx/length,uz=dz/length,coverage=[];
+    sections.forEach(line=>{if(Math.abs((line.a.x-from.x)*uz-(line.a.z-from.z)*ux)>1e-7||Math.abs((line.b.x-from.x)*uz-(line.b.z-from.z)*ux)>1e-7)return;const p=(line.a.x-from.x)*ux+(line.a.z-from.z)*uz,q=(line.b.x-from.x)*ux+(line.b.z-from.z)*uz,lo=Math.max(0,Math.min(p,q)),hi=Math.min(length,Math.max(p,q));if(hi>lo+1e-8)coverage.push([lo,hi]);});
+    coverage.sort((p,q)=>p[0]-q[0]);let covered=0;for(const span of coverage){if(span[0]>covered+1e-7)break;covered=Math.max(covered,span[1]);}if(covered>=length-1e-7)return;
+    if(coverage.length){const gaps=[];let cursor=0;coverage.forEach(span=>{if(span[0]>cursor+1e-7)gaps.push([cursor,span[0]]);cursor=Math.max(cursor,span[1]);});if(cursor<length-1e-7)gaps.push([cursor,length]);if(gaps.reduce((sum,span)=>sum+span[1]-span[0],0)<length-1e-7){const at=distance=>{const f=distance/length,p={x:from.x+dx*f,z:from.z+dz*f,tx:from.tx,tz:from.tz};if(Number.isFinite(from.distance)&&Number.isFinite(to.distance))p.distance=from.distance+(to.distance-from.distance)*f;return p;};gaps.forEach(span=>addTube(name,at(span[0]),at(span[1]),y,depth,height,color));return;}}
+    sections.push({a:{x:from.x,z:from.z},b:{x:to.x,z:to.z}});registry.set(key,sections);
+    const tangent=p=>{const tx=Number.isFinite(p.tx)?p.tx:dx/length,tz=Number.isFinite(p.tz)?p.tz:dz/length,s=Math.hypot(tx,tz)||1;return {x:tx/s,z:tz/s};},a=tangent(from),b=tangent(to);
+    // Shared normal sections form real mitred joints. Extending every box by
+    // 6 mm put two differently-mapped top faces over one another at every
+    // curve segment; no polygon offset can repair that geometric overlap.
+    const corner=(p,t,side,top)=>[p.x-t.z*side*depth/2,y+top*height/2,p.z+t.x*side*depth/2];
+    const al=corner(from,a,-1,-1),ar=corner(from,a,1,-1),au=corner(from,a,-1,1),av=corner(from,a,1,1),bl=corner(to,b,-1,-1),br=corner(to,b,1,-1),bu=corner(to,b,-1,1),bv=corner(to,b,1,1),positions=[],normals=[],uvs=[],indices=[];
+    const start=Number.isFinite(from.distance)?from.distance:0,end=Number.isFinite(to.distance)?to.distance:start+length;
+    const quad=(points,ns,uv)=>{const offset=positions.length/3;points.forEach((p,i)=>{positions.push(...p);normals.push(...ns[i]);uvs.push(...uv[i]);});indices.push(offset,offset+1,offset+2,offset,offset+2,offset+3);};
+    quad([au,av,bv,bu],[[0,1,0],[0,1,0],[0,1,0],[0,1,0]],[[start,0],[start,1],[end,1],[end,0]]);
+    quad([al,bl,br,ar],[[0,-1,0],[0,-1,0],[0,-1,0],[0,-1,0]],[[start,0],[end,0],[end,1],[start,1]]);
+    quad([ar,br,bv,av],[[-a.z,0,a.x],[-b.z,0,b.x],[-b.z,0,b.x],[-a.z,0,a.x]],[[start,0],[end,0],[end,1],[start,1]]);
+    quad([al,au,bu,bl],[[a.z,0,-a.x],[a.z,0,-a.x],[b.z,0,-b.x],[b.z,0,-b.x]],[[start,0],[start,1],[end,1],[end,0]]);
+    quad([al,ar,av,au],[[-a.x,0,-a.z],[-a.x,0,-a.z],[-a.x,0,-a.z],[-a.x,0,-a.z]],[[0,0],[1,0],[1,1],[0,1]]);
+    quad([bl,bu,bv,br],[[b.x,0,b.z],[b.x,0,b.z],[b.x,0,b.z],[b.x,0,b.z]],[[0,0],[0,1],[1,1],[1,0]]);
+    const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));geometry.setIndex(indices);geometry.userData.manufacturedProfile='mitred-rail';
+    const mesh=make.box(name,1,height,depth,color);mesh.geometry=geometry;frame.add(mesh);
   };
   paths.forEach(path => {
     for (let index = 1; index < path.points.length; index++) {
       const from = path.points[index - 1], to = path.points[index];
       [-1, 1].forEach(side => {
         const offset = side * (config.width / 2 + 0.1);
-        const a = {x: from.x - from.tz * offset, z: from.z + from.tx * offset};
-        const b = {x: to.x - to.tz * offset, z: to.z + to.tx * offset};
+        const a = {x: from.x - from.tz * offset, z: from.z + from.tx * offset,tx:from.tx,tz:from.tz,distance:from.distance};
+        const b = {x: to.x - to.tz * offset, z: to.z + to.tx * offset,tx:to.tx,tz:to.tz,distance:to.distance};
         const mid = {x: (a.x + b.x) / 2, z: (a.z + b.z) / 2};
         const key = [mid.x.toFixed(3), mid.z.toFixed(3), yaw(from).toFixed(2)].join(':');
         // Open the side wall wherever the other T branch joins the deck.
@@ -1912,7 +1935,7 @@ function robotEquipment(variant = 'articulated-general', value) {
   component(root, 'robot', [config, defaultBehavior('analytics')]);
   root.userData.editorPrefabVariant = variant;
   const panel = plc(); panel.name = 'HMI / Control del robot';
-  panel.position.set(-config.length / 2 - .38, 1.28, config.width / 2 + .30);
+  panel.position.set(-Math.max(config.length / 2 + .45, .85), 1.28, -Math.max(config.width / 2 + .65, 1.15));
   root.userData.industrialRobotPanelPosition = panel.position.toArray();
   panel.visible = config.withPanel !== false;
   panel.children[1].userData.industrialRobotDisplay = true;
@@ -1987,7 +2010,7 @@ createIndustrialPrefab.refresh = (object, config) => {
     if (panel) {
       const previous = object.userData.industrialRobotPanelPosition;
       if (!previous || panel.position.distanceTo(new THREE.Vector3().fromArray(previous)) < .00001) {
-        panel.position.set(-config.length / 2 - .38, 1.28, config.width / 2 + .30);
+        panel.position.set(-Math.max(config.length / 2 + .45, .85), 1.28, -Math.max(config.width / 2 + .65, 1.15));
         object.userData.industrialRobotPanelPosition = panel.position.toArray();
       }
       panel.visible = config.withPanel !== false;

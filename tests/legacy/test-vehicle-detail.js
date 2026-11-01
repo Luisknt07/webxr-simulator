@@ -13,13 +13,13 @@ for(const detail of Object.keys(budget))for(const definition of vehicles.VARIANT
     (Array.isArray(node.material)?node.material:[node.material]).filter(Boolean).forEach(material=>Object.values(material).forEach(value=>{if(value&&value.isTexture)textures.add(value);}));
     if(node.userData.vehicleDecal){decals++;assert(node.material.polygonOffset&&node.material.depthWrite===false);if(atlas)assert.equal(node.material.map,atlas);atlas=node.material.map;const uv=node.geometry.attributes.uv;for(let i=0;i<uv.count;i++)assert(uv.getX(i)>=0&&uv.getX(i)<=1&&uv.getY(i)>=0&&uv.getY(i)<=1);}
   });
-  assert(triangles<budget[detail],definition.id+' '+detail+' physical presentation budget');assert(bytes<residentBudget[detail]);assert(textures.size<=2,'One shared wear map and one small decal atlas per vehicle.');assert(decals>0&&atlas.image.width===512&&atlas.image.height===256);assert(batches>0);
+  assert(triangles<budget[detail],definition.id+' '+detail+' physical presentation budget');assert(bytes<residentBudget[detail]);assert(textures.size<=3,'One shared wear map, one packed height/roughness map and one small decal atlas per vehicle.');assert(decals>0&&atlas.image.width===512&&atlas.image.height===256);assert(batches>0);
   maxima[detail]=Math.max(maxima[detail]||0,triangles);
   if(config.family==='counterbalance'){
     assert(rig.seatCushion&&rig.counterweight);const seat=bounds(rig.seatCushion),hood=bounds(rig.counterweight);
     assert(!seat.intersectsBox(hood),'Sculpted rear housing must not invade the operator seat.');
     const eye=rig.driverSeat.getWorldPosition(new THREE.Vector3());assert(eye.y>seat.max.y+.5);assert(hood.max.z<seat.min.z-.005);
-    const shape=rig.counterweight.geometry;assert(shape.parameters.options.bevelEnabled);assert(shape.attributes.position.count>48);
+    const shape=rig.counterweight.geometry;assert.equal(shape.userData.manufacturedProfile,'section-loft');assert(shape.attributes.position.count>48);
   }
   if(rig.cabin){
     const wheel=rig.controls.wheel;assert(wheel&&wheel.grip.parent===wheel.object);let ring;

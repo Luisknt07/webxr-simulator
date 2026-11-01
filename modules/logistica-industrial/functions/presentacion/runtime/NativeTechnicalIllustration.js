@@ -8,6 +8,7 @@ const TOPOLOGY = new Map();let cachedTriangles=0;
 const KEY_LIGHT = new THREE.Vector3(-.45,.85,.65).normalize(), FILL_LIGHT = new THREE.Vector3(.7,.45,-.6).normalize();
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+function jointOf(object){for(let node=object;node;node=node.parent){const data=node.userData||{},id=data.robotJointId||data.robotJoint;if(typeof id==='string'&&id)return id;}return '';}
 function machineOwner(object) {
   const data=object.userData||{},key=data.editorPrefabKey||data.editorDescriptor&&data.editorDescriptor.prefab;
   return ['robot','conveyor','vehicle','source','processor','palletQueue'].includes(key)||data.robotRig||data.vehicleRig||data.warehouseRackRig;
@@ -48,7 +49,7 @@ function capture(object,options={}) {
     for(let instance=0;instance<instances&&meshes.length<meshLimit;instance++){
       const world=new THREE.Matrix4().copy(mesh.matrixWorld);if(mesh.isInstancedMesh){const local=new THREE.Matrix4();mesh.getMatrixAt(instance,local);world.multiply(local);}
       const matrix=new THREE.Matrix4().multiplyMatrices(scale,inverse).multiply(world);if(!matrix.elements.every(finite))continue;
-      meshes.push({mesh,geometry,position,materials,names:names.join(' / '),role:mesh.userData.industrialMaterialPart||mesh.userData.materialPart||'',matrix,count,start,instance});
+      meshes.push({mesh,geometry,position,materials,names:names.join(' / '),jointId:jointOf(mesh),role:mesh.userData.industrialMaterialPart||mesh.userData.materialPart||'',matrix,count,start,instance});
     }
   });Object.defineProperties(meshes,{truncatedMeshes:{value:truncatedMeshes},omittedInstances:{value:omittedInstances},sourceTriangles:{value:sourceTriangles}});return meshes;
 }
@@ -116,7 +117,7 @@ function build(meshes,parts=[],turn=0,requestedMode='isometric',options={}) {
     const matrix=rotation.clone().multiply(entry.matrix),box=new THREE.Box3();
     if(entry.geometry.boundingBox)box.copy(entry.geometry.boundingBox);else{const p=entry.position,cached=BOUNDS.get(entry.geometry);if(cached&&cached.attribute===p&&cached.version===p.version)box.copy(cached.box);else{for(let i=0;i<p.count;i++)box.expandByPoint(new THREE.Vector3().fromBufferAttribute(p,i));BOUNDS.set(entry.geometry,{attribute:p,version:p.version,box:box.clone()});}}
     const worldBox=box.clone().applyMatrix4(matrix);bounds.union(worldBox);sourceTriangles+=entry.count;
-    const matches=parts.map(part=>(part.roles||[]).includes(entry.role)||(part.match||[]).some(match=>entry.names.includes(String(match).toLowerCase())));return{entry,matrix,box,worldBox,matches,part:matches.findIndex(Boolean)};
+    const matches=parts.map(part=>part.jointId?(entry.jointId?entry.jointId===part.jointId:!!part.jointNodeName&&entry.names.includes(part.jointNodeName.toLowerCase())):(part.roles||[]).includes(entry.role)||(part.match||[]).some(match=>entry.names.includes(String(match).toLowerCase())));return{entry,matrix,box,worldBox,matches,part:matches.findIndex(Boolean)};
   });
   if(bounds.isEmpty())bounds.set(new THREE.Vector3(-1,0,-1),new THREE.Vector3(1,1,1));
   const center=bounds.getCenter(new THREE.Vector3()),size=bounds.getSize(new THREE.Vector3()),groups=new Map();
@@ -128,10 +129,10 @@ function build(meshes,parts=[],turn=0,requestedMode='isometric',options={}) {
   groups.forEach((box,key)=>{
     const direction=box.getCenter(new THREE.Vector3()).sub(center),angle=groupIndex*Math.PI*(3-Math.sqrt(5)),fan=new THREE.Vector3(Math.cos(angle),((groupIndex%3)-1)*.7,Math.sin(angle));
     if(direction.lengthSq()<1e-8)direction.copy(fan);else direction.normalize().addScaledVector(fan,.55);
-    const span=size.clone().max(new THREE.Vector3(.15,.15,.15));direction.normalize().multiply(span).multiplyScalar(.18);offsets.set(key,direction);groupIndex++;
+    const span=size.clone().max(new THREE.Vector3(.15,.15,.15));direction.normalize().multiply(span).multiplyScalar(.18*(finite(options.explodeAmount)?clamp(options.explodeAmount,0,1):1));offsets.set(key,direction);groupIndex++;
   });
   records.forEach((record,recordIndex)=>{
-    const {entry,matches,part}=record;let matrix=record.matrix;
+    const {entry,matches,part}=record,memberships=matches.map((matched,index)=>matched?index:-1).filter(index=>index>=0);let matrix=record.matrix;
     if(mode==='exploded'){
       const direction=offsets.get(record.group);
       matrix=new THREE.Matrix4().makeTranslation(direction.x,direction.y,direction.z).multiply(matrix);
@@ -142,7 +143,7 @@ function build(meshes,parts=[],turn=0,requestedMode='isometric',options={}) {
     const append=(vertices,material,normal,geometric)=>{
       if(vertices.some(point=>!finite(point.x)||!finite(point.y)||!finite(point.z))||geometric.lengthSq()<1e-16){local.push(null);return;}geometric.normalize();
       const facing=material&&material.side===THREE.DoubleSide||(material&&material.side===THREE.BackSide?geometric.dot(camera)<-1e-7:geometric.dot(camera)>1e-7);
-      local.push({points:vertices.map(project),normal:geometric,facing,material,part,color:surfaceColor(material,normal,camera),opacity:material&&finite(material.opacity)?material.opacity:1});
+      local.push({points:vertices.map(project),normal:geometric,facing,material,part,parts:memberships,color:surfaceColor(material,normal,camera),opacity:material&&finite(material.opacity)?material.opacity:1});
     };
     if(!proxy){const data=topology(entry);edges=data.edges;data.triangles.forEach(tri=>{
       const material=entry.materials[tri.materialIndex]||entry.materials[0];if(!material||material.visible===false||material.opacity<.2){local.push(null);return;}
@@ -159,7 +160,7 @@ function build(meshes,parts=[],turn=0,requestedMode='isometric',options={}) {
 
 function paint(context,model,offset={x:0,y:0},highlight) {
   model.faces.forEach(face=>{
-    if(highlight!==undefined&&(!model.parts[face.part]||model.parts[face.part].name!==highlight))return;
+    if(highlight!==undefined&&![face.part,...(face.parts||[])].some(index=>model.parts[index]&&model.parts[index].name===highlight))return;
     const points=face.points.map(point=>{const p=model.project(point);return{x:p.x+offset.x,y:p.y+offset.y};});context.beginPath();points.forEach((point,i)=>context[i?'lineTo':'moveTo'](point.x,point.y));context.closePath();
     context.globalAlpha=highlight!==undefined?1:face.opacity;context.fillStyle=highlight!==undefined?'rgba(85,215,242,.48)':face.color;context.fill();
     if(highlight===undefined){

@@ -226,7 +226,7 @@ function support(b, parent, cell, closed, mode, config) {
   const p = position(cell, closed), w = cell.width, d = cell.depth, top = p[1];
   if (mode === 'shelf') {
     b.box(parent, 'deck', [p[0], top - .018, p[2]], [w + .025, .036, d + .025]);
-    for (const z of [-1, 1]) b.box(parent, 'beam', [p[0], top - .065, p[2] + z * d * .44], [w + .04, .09, .045]);
+    for (const z of [-1, 1]) b.box(parent, 'beam', [p[0], top - .036 - .045, p[2] + z * d * .44], [w + .04, .09, .045]);
   } else if (mode === 'rail') {
     for (const x of [-1, 1]) {
       b.box(parent, 'steel', [p[0] + x * w * .41, top - .04, p[2]], [.1, .08, d + .06]);
@@ -300,7 +300,10 @@ function frame(THREE, b, parent, cells, config, options = {}) {
         for(const sign of [-1,1]){
           const z=p[2]+sign*d*fraction;
           // Continuous bay beams replace the former disconnected per-cell bars.
-          b.profile(parent,'beam',[centerX,p[1]-h/2-(mode==='roller'?.07:0),z],[span+thickness,h,.11]);
+          // Shelf steel sits below its 36 mm deck. Giving both exposed top
+          // faces the load's support Y made grey decking fight the painted
+          // beam surface; the pallet support plane itself remains unchanged.
+          b.profile(parent,'beam',[centerX,p[1]-h/2-(mode==='shelf'?.036:mode==='roller'?.07:0),z],[span+thickness,h,.11]);
           for(const x of [bay.left,bay.right])b.plate(parent,[x,p[1]-.095,z+.058],[.095,.18,.012]);
         }
         if(mode==='shelf')rows.forEach(cell=>{const c=position(cell,closed);b.box(parent,'deck',[c[0],c[1]-.018,c[2]],[cell.width+.025,.036,cell.depth+.025]);});

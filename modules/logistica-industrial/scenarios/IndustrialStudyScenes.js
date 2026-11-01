@@ -44,7 +44,7 @@ function robotNetwork(document, roomId, definition, scene, options = {}) {
     const conveyor = add('conveyor', sorting ? 'Clasificador · defecto a ramal' : 'Banda · expedición de producto', sorting ? 'distributor' : 'belt', {
       powered: true, running: true, autoSpawn: false, withPanel: false, withSensors: sorting, length: 2.4, speed: .55,
       routing: sorting ? 'rules' : 'primary', routingDefault: 'main', branchSide: 'left',
-      routingRules: sorting ? JSON.stringify([{field: 'quality', operator: 'eq', value: 'defective', route: 'branch'}]) : '[]'}, [1.65, 1, -.8]);
+      routingRules: sorting ? JSON.stringify([{field: 'quality', operator: 'eq', value: 'defective', route: 'branch'}]) : '[]'}, [1.65, 1, sorting ? -.8 : -1.2]);
     patch(document, robot, {outputId: conveyor.userData.editorId});
     links.push({source: source.userData.editorId, sourcePort: 'output', target: robot.userData.editorId, targetPort: 'input'}, {source: robot.userData.editorId, sourcePort: 'output', target: conveyor.userData.editorId, targetPort: 'input'});
     const stockValues = {running: true, delivery: 'manual', layoutMode: 'fit', palletType: 'euro-1200x800', palletCapacity: 2, capacity: 64, layers: 5, maxStackHeight: 1.8,
@@ -145,9 +145,12 @@ function compactVrStudy(document, roomId, definition, scene, options) {
     const source = add('source', 'RV · dos pallets / cuatro cajas cada uno', undefined, {
       running: true, autoGenerate: true, initialCount: 1, totalLimit: 2, capacity: 2, interval: 18, delivery: 'manual', withPanel: false,
       loadMode: 'pallet', palletType: 'euro-1200x800', palletColumns: 2, palletRows: 2, palletLayers: 1,
-      generationMode: 'sequence', catalog: JSON.stringify([{id: 'vr-four-boxes', name: 'Caja de práctica RV', type: 'box', variant: 'box-small', width: .3, depth: .3, height: .22, mass: 2, base: 'flat', color: '#b98d53', quality: 'good', defect: 'none'}])}, [-1.3, 1, .8]);
+      // The 80kg teaching arm needs real elbow/shoulder clearance beside the
+      // table edge. Its former z=.8 put that edge inside the upper-arm body
+      // even in the authored waiting pose. This edits new examples only.
+      generationMode: 'sequence', catalog: JSON.stringify([{id: 'vr-four-boxes', name: 'Caja de práctica RV', type: 'box', variant: 'box-small', width: .3, depth: .3, height: .22, mass: 2, base: 'flat', color: '#b98d53', quality: 'good', defect: 'none'}])}, [-1.3, 1, 1.3]);
     const robot = add('robot', 'RV · robot de expedición', 'articulated-general', {
-      running: true, mode: 'automatic', withPanel: false, sourceId: source.userData.editorId, reach: 3.2, payloadKg: 80,
+      running: true, mode: 'automatic', withPanel: true, sourceId: source.userData.editorId, reach: 3.2, payloadKg: 80,
       tool: 'vacuum', acceptedTypes: 'pallets', requireKnownMass: true, maxProductWidth: 1.3, maxProductDepth: 1.1, maxProductHeight: 1,
       baseHeight: .45, speed: .8, cycleTime: 4, processTime: 0, setupTime: .4, approachHeight: .18}, [0, 0, 0]);
     // The catalogue home scales its horizontal offset with arm reach. At 3.2m
@@ -161,7 +164,7 @@ function compactVrStudy(document, roomId, definition, scene, options) {
     const turn = definition.compactVR === 'turn', one = definition.compactVR === 'dispatch';
     const entry = add('conveyor', turn ? 'RV · mesa de giro a 90°' : 'RV · banda de recepción', turn ? 'pallet-turntable' : 'pallet-chain', {
       length: turn ? 2.8 : 2.4, width: 1.4, supportHeight: .65, powered: true, running: true, autoSpawn: false,
-      withSensors: false, withPanel: one, speed: .25, maxPackages: 1, maxLoad: 150, clearance: 1.5}, [2.4, .65, 0]);
+      withSensors: false, withPanel: one, speed: .25, maxPackages: 1, maxLoad: 150, clearance: 1.5}, [turn ? 2.9 : 2.4, .65, 0]);
     conveyors.push(entry); patch(document, robot, {outputId: entry.userData.editorId});
     links.push({source: source.userData.editorId, sourcePort: 'output', target: robot.userData.editorId, targetPort: 'input'}, {source: robot.userData.editorId, sourcePort: 'output', target: entry.userData.editorId, targetPort: 'input'});
     let pickup = entry;

@@ -31,7 +31,7 @@ for (const detail of ['low', 'balanced', 'high']) {
   for (const variant of ['articulated-general', 'articulated-process', 'collaborative', 'palletizer', 'mobile-manipulator']) {
     const config = robots.normalize(Object.assign({}, robots.defaults(variant), {detail}));
     const robot = createRobot(config), rig = robot.userData.robotRig, d = kinematics.getDimensions(config);
-    assert.equal(robot.userData.robotGeometryVersion, 2);
+    assert.equal(robot.userData.robotGeometryVersion, 3);
     assert.ok(rig.castingShells.length >= 6, `${variant}: the silhouette requires actual contoured housings`);
     const links = rig.castingShells.filter(mesh => /Brazo superior|Antebrazo/.test(mesh.name));
     assert.equal(links.length, 2);

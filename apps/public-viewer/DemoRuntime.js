@@ -3,6 +3,7 @@ import SimulationRuntime from '../../modules/logistica-industrial/functions/fluj
 import VehicleDriving from '../../modules/logistica-industrial/functions/montacargas/runtime/VehicleDriving.js';
 import IndustrialVisuals from '../../modules/logistica-industrial/functions/presentacion/runtime/IndustrialVisuals.js';
 import CollisionWorld from '../../packages/render-three/src/CollisionWorld.js';
+import EquipmentStudyViewer from '../../modules/logistica-industrial/functions/presentacion/runtime/EquipmentStudyViewer.js';
 
 export const DEMO_FUNCTION_ID = 'smarttwin/public-demo/logistics';
 export const DEMO_MODULE_ID = 'smarttwin/public-demo';
@@ -18,13 +19,15 @@ export const demoFunction = defineFunction({
     const simulation = new SimulationRuntime(ctx, document, ctx.notify);
     const driving = new VehicleDriving(ctx, simulation, {notify: ctx.notify});
     const visuals = new IndustrialVisuals(ctx, document, simulation);
+    const equipmentStudy = new EquipmentStudyViewer(ctx, document, simulation, {notify:ctx.notify});
     const session = {
-      simulation, driving, visuals, paused: false,
+      simulation, driving, visuals, equipmentStudy, paused: false,
       step(delta) {
+        equipmentStudy.update(delta);
         if (session.paused) return;
         driving.beforeStep(); simulation.execute(delta); driving.follow(); visuals.sync(document.roomId, delta, false);
       },
-      restart() {driving.unmount(true); simulation.start(document.roomId); session.paused = false; visuals.dirty = true;},
+      restart() {equipmentStudy.close(); driving.unmount(true); simulation.start(document.roomId); session.paused = false; visuals.dirty = true;},
       setPaused(value) {session.paused = !!value; driving.resetInput(); if (session.paused) simulation.releaseHeldProducts();},
       stats() {
         const robot = Array.from(simulation.records.values()).find(record => record.components.robot);
@@ -37,7 +40,7 @@ export const demoFunction = defineFunction({
       }
     };
     // Register cleanup before any attach/start operation can throw.
-    scope.onDispose(() => {driving.dispose(); visuals.dispose(); simulation.stop(); if (ctx.collisionWorld === collision) delete ctx.collisionWorld; if (ctx.demo === session) delete ctx.demo;});
+    scope.onDispose(() => {equipmentStudy.dispose();driving.dispose(); visuals.dispose(); simulation.stop(); if (ctx.collisionWorld === collision) delete ctx.collisionWorld; if (ctx.demo === session) delete ctx.demo;});
     scope.register('systems', 'logistics', session);
     ctx.demo = session; simulation.start(document.roomId); visuals.sync(document.roomId, 0, false);
   }

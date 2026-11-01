@@ -1,0 +1,699 @@
+{
+  "description": "Immutable historical native panel local TRS captured from the real pre-redesign factory. Do not derive these poses from current controlPose.",
+  "baseline": "f737ea7",
+  "factorySha256": "a3b312d7c1d60b4bae93e3d108d200b437c8fdb9d13a9f7e0b5b383e3cb05b50",
+  "controls": {
+    "compact": [
+      {
+        "action": "start",
+        "position": [
+          -0.29,
+          0.21,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "stop",
+        "position": [
+          0,
+          0.21,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "emergency",
+        "position": [
+          0.29,
+          0.21,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "pause",
+        "position": [
+          -0.29,
+          0.04,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "powerOff",
+        "position": [
+          0,
+          0.04,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "powerOn",
+        "position": [
+          0.29,
+          0.04,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "speedUp",
+        "position": [
+          0.29,
+          -0.13,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "speedDown",
+        "position": [
+          -0.29,
+          -0.13,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "insertBox",
+        "position": [
+          0,
+          -0.13,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    ],
+    "pendant": [
+      {
+        "action": "start",
+        "position": [
+          -0.51,
+          0.22,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "stop",
+        "position": [
+          -0.51,
+          0.05,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "emergency",
+        "position": [
+          0.51,
+          0.22,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "pause",
+        "position": [
+          -0.51,
+          -0.12,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "powerOff",
+        "position": [
+          0.51,
+          -0.12,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "powerOn",
+        "position": [
+          0.51,
+          0.05,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "speedUp",
+        "position": [
+          0.25,
+          -0.1,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "speedDown",
+        "position": [
+          -0.25,
+          -0.1,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "insertBox",
+        "position": [
+          0,
+          -0.1,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    ],
+    "console": [
+      {
+        "action": "start",
+        "position": [
+          0.28,
+          0.19525556904816663,
+          0.15560352880063835
+        ],
+        "quaternion": [
+          -0.14943813247359922,
+          0,
+          0,
+          0.9887710779360422
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "stop",
+        "position": [
+          0.28,
+          0.03284836589681362,
+          0.20584196393306609
+        ],
+        "quaternion": [
+          -0.14943813247359922,
+          0,
+          0,
+          0.9887710779360422
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "emergency",
+        "position": [
+          0.55,
+          0.19525556904816663,
+          0.15560352880063835
+        ],
+        "quaternion": [
+          -0.14943813247359922,
+          0,
+          0,
+          0.9887710779360422
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "pause",
+        "position": [
+          0.55,
+          0.03284836589681362,
+          0.20584196393306609
+        ],
+        "quaternion": [
+          -0.14943813247359922,
+          0,
+          0,
+          0.9887710779360422
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "powerOff",
+        "position": [
+          0.28,
+          -0.12955883725453943,
+          0.2560803990654938
+        ],
+        "quaternion": [
+          -0.14943813247359922,
+          0,
+          0,
+          0.9887710779360422
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "powerOn",
+        "position": [
+          0.55,
+          -0.12955883725453943,
+          0.2560803990654938
+        ],
+        "quaternion": [
+          -0.14943813247359922,
+          0,
+          0,
+          0.9887710779360422
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "speedUp",
+        "position": [
+          0.02,
+          -0.09134537768951517,
+          0.24425959079904025
+        ],
+        "quaternion": [
+          -0.14943813247359922,
+          0,
+          0,
+          0.9887710779360422
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "speedDown",
+        "position": [
+          -0.52,
+          -0.09134537768951517,
+          0.24425959079904025
+        ],
+        "quaternion": [
+          -0.14943813247359922,
+          0,
+          0,
+          0.9887710779360422
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "insertBox",
+        "position": [
+          -0.25,
+          -0.09134537768951517,
+          0.24425959079904025
+        ],
+        "quaternion": [
+          -0.14943813247359922,
+          0,
+          0,
+          0.9887710779360422
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    ],
+    "cabinet": [
+      {
+        "action": "start",
+        "position": [
+          -0.29,
+          0.21,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "stop",
+        "position": [
+          0,
+          0.21,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "emergency",
+        "position": [
+          0.29,
+          0.21,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "pause",
+        "position": [
+          -0.29,
+          0.04,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "powerOff",
+        "position": [
+          0,
+          0.04,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "powerOn",
+        "position": [
+          0.29,
+          0.04,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "speedUp",
+        "position": [
+          0.29,
+          -0.13,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "speedDown",
+        "position": [
+          -0.29,
+          -0.13,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "action": "insertBox",
+        "position": [
+          0,
+          -0.13,
+          0.17
+        ],
+        "quaternion": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    ]
+  }
+}

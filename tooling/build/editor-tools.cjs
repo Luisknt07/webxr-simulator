@@ -16,8 +16,13 @@ function discoverEditorTools(root){
   const manifest=path.join(directory,'tool.json');if(!fs.existsSync(manifest))continue;
   if(fs.lstatSync(directory).isSymbolicLink()||fs.lstatSync(manifest).isSymbolicLink())throw Error('Linked editor package.');
   const bytes=fs.readFileSync(manifest);if(bytes.length>16384)throw Error('Editor tool manifest too large.');const value=JSON.parse(bytes);
-  if(!value||value.format!==ENTRY||value.version!==1||value.id!==name||typeof value.name!=='string'||!value.name.trim()||value.name.length>120||Object.keys(value).some(k=>!['format','version','id','name','entry','adapter','resources','files'].includes(k)))throw Error('Invalid editor tool manifest.');
+  if(!value||value.format!==ENTRY||value.version!==1||value.id!==name||typeof value.name!=='string'||!value.name.trim()||value.name.length>120||value.retired!==undefined&&typeof value.retired!=='boolean'||Object.keys(value).some(k=>!['format','version','id','name','entry','adapter','resources','files','retired'].includes(k)))throw Error('Invalid editor tool manifest.');
   if(!safe(value.entry)||!value.entry.endsWith('.html')||!safe(value.adapter)||!value.adapter.endsWith('.mjs')||!Array.isArray(value.resources)||value.resources.length>12||!Array.isArray(value.files)||value.files.length>24)throw Error('Invalid editor tool entries.');
+  if(!value.resources.every(safe)||!value.files.every(allowed))throw Error('Invalid editor tool resource path.');
+  // Retirement is declarative and name-independent. Validate the entire data
+  // boundary first, then omit its catalog entry and all deployable resources.
+  // Source/reader compatibility may remain on disk without serving a workshop.
+  if(value.retired===true)continue;
   const prefix='packages/tools/'+name+'/',selected=new Set(['tool.json']);
   const walk=relative=>{if(!safe(relative))throw Error('Invalid editor tool resource path.');if(relative.split('/').some(part=>privateSegments.has(part.toLowerCase())))return;const filename=fileAt(directory,relative),stat=fs.statSync(filename);if(stat.isDirectory()){for(const child of fs.readdirSync(filename).sort())if(!child.startsWith('.'))walk(relative+'/'+child);return;}if(!stat.isFile()||stat.size>32*1024*1024)throw Error('Unbounded editor tool resource.');if(allowed(relative))selected.add(relative);};
   value.resources.forEach(walk);value.files.forEach(relative=>{const filename=fileAt(directory,relative),stat=fs.statSync(filename);if(!allowed(relative)||!stat.isFile()||stat.size>32*1024*1024)throw Error('Invalid explicit editor tool resource.');selected.add(relative);});

@@ -3,24 +3,47 @@ import vehicles from '../schema/vehicles.js';
 import {createVehicleDetailBuilder} from './VehicleDetailGeometry.js';
 
 const RIGS=new WeakMap(), UP=new THREE.Vector3(0,1,0);
-function aging(amount,seed) { const data=new Uint8Array(64*64*4);let random=seed;for(let i=0;i<data.length;i+=4){random=(Math.imul(random,1664525)+1013904223)>>>0;const n=random/4294967296,p=i/4,x=p%64,y=Math.floor(p/64);let value=.97+n*.03;value-=amount*.16*Math.max(0,Math.sin(x*.11+Math.cos(y*.14))-.2);value-=amount*.12*Math.max(0,Math.sin(y*.065+x*.018));if(n>1-amount*.008)value*=.76;data[i]=data[i+1]=data[i+2]=Math.floor(value*255);data[i+3]=255;}const map=new THREE.DataTexture(data,64,64,THREE.RGBAFormat);map.wrapS=map.wrapT=THREE.RepeatWrapping;map.generateMipmaps=true;map.minFilter=THREE.LinearMipmapLinearFilter;map.needsUpdate=true;return map; }
+function componentId(name) {
+  if(/horquilla|uña|punta biselada|desplazador|cabezal trilateral/i.test(name))return 'vehicle.forks';
+  if(/cadena|polea|cilindro|vástago|racor|hidráulic|pistón/i.test(name))return 'vehicle.hydraulics';
+  if(/mástil|telescóp|perfil exterior|perfil C|etapa|carro y mástil|rodillo guía/i.test(name))return 'vehicle.mast';
+  if(/neumát|llanta|rodadura|tracción|flanco|cubo de eje|rueda|guardabarros/i.test(name))return 'vehicle.wheels';
+  if(/volante|dirección|columna/i.test(name))return 'vehicle.steering';
+  if(/palanca|pedal|mando|instrument|salpicadero|consola|indicador|display/i.test(name))return 'vehicle.controls';
+  if(/contrapeso|servicio posterior|refrigeración|ventilación/i.test(name))return 'vehicle.counterweight';
+  if(/asiento|respaldo|lumbar|suspensión|apoyabrazos|corredera/i.test(name))return 'vehicle.seat';
+  if(/guardatecho|protección|baliza|faro|lente|piloto|cinturón|hebilla|cristal/i.test(name))return 'vehicle.safety';
+  if(/combustible|escape|batería|transmisión|bomba/i.test(name))return 'vehicle.power';
+  return 'vehicle.chassis';
+}
+function aging(amount,seed) { const data=new Uint8Array(64*64*4);let random=seed;for(let i=0;i<data.length;i+=4){random=(Math.imul(random,1664525)+1013904223)>>>0;const n=random/4294967296,p=i/4,x=p%64,y=Math.floor(p/64),edge=Math.exp(-Math.min(x,y,63-x,63-y)*.7),sweep=Math.max(0,Math.sin(x*.29+Math.sin(y*.16))-.72);let value=1-amount*(.028*n+.065*edge+.055*sweep);if(n>1-amount*.004)value-=amount*.06;data[i]=data[i+1]=data[i+2]=Math.floor(value*255);data[i+3]=255;}const map=new THREE.DataTexture(data,64,64,THREE.RGBAFormat);map.name='Desgaste localizado de acabado · color lineal';map.wrapS=map.wrapT=THREE.RepeatWrapping;map.generateMipmaps=true;map.minFilter=THREE.LinearMipmapLinearFilter;map.magFilter=THREE.LinearFilter;map.needsUpdate=true;return map; }
+function manufacturedSurface(amount) {
+  // One packed linear image supplies micro-height in R and roughness in G.
+  // No normal/decal meshes are stacked over the machine to imitate damage.
+  const size=128,data=new Uint8Array(size*size*4);let random=8419;
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){random=(Math.imul(random,1664525)+1013904223)>>>0;const n=random/4294967296,edge=Math.exp(-Math.min(x,y,size-1-x,size-1-y)*.35),scratch=Math.max(0,Math.sin(x*.61+y*.014)-.96)*Math.max(0,Math.sin(y*.12)-.15),i=(y*size+x)*4;
+    data[i]=Math.round(128+(n-.5)*20-amount*scratch*46);data[i+1]=Math.round(255-Math.min(.12,amount*.055*edge+(1-n)*.018)*255);data[i+2]=255;data[i+3]=255;
+  }
+  const map=new THREE.DataTexture(data,size,size,THREE.RGBAFormat);map.name='Superficie fabricada · altura R / rugosidad G';map.wrapS=map.wrapT=THREE.RepeatWrapping;map.generateMipmaps=true;map.minFilter=THREE.LinearMipmapLinearFilter;map.magFilter=THREE.LinearFilter;map.needsUpdate=true;return map;
+}
 function builder(c) {
-  const cache=new Map(), maps=[],wearMap=aging(c.wear,1327); maps.push(wearMap); const mat=(name,color,metalness,roughness)=>{const material=new THREE.MeshStandardMaterial({color,metalness,roughness,map:wearMap});material.name=name;return material;};
+  const cache=new Map(), maps=[],wearMap=aging(c.wear,1327),surfaceMap=manufacturedSurface(c.wear); maps.push(wearMap,surfaceMap); const mat=(name,color,metalness,roughness)=>{const material=new THREE.MeshStandardMaterial({color,metalness,roughness,map:wearMap,roughnessMap:surfaceMap,bumpMap:surfaceMap,bumpScale:metalness>.5?.00004:.00012});material.name=name;return material;};
   const standardFork=['#677682','#9eacb5'].includes(c.forkColor.toLowerCase()),forkColor=standardFork?'#c2cfd8':c.forkColor;
-  const materials={frame:mat('Carrocería',c.frameColor,c.finish==='polymer'?.04:c.finish==='steel'?.72:.16,c.finish==='steel'?.31:.33+c.wear*.10),accent:mat('Protecciones',c.accentColor,.10,.43+c.wear*.1),steel:mat('Mecanizado','#a8b4bb',.82,.30),forkSteel:mat('Horquillas · acero satinado',forkColor,.45,.36),rubber:mat('Neumáticos','#252b2b',.02,.9),seat:mat('Asiento','#303639',0,.85),glass:new THREE.MeshStandardMaterial({color:'#a9c8d3',metalness:.05,roughness:.16,transparent:true,opacity:.23}),light:new THREE.MeshStandardMaterial({color:'#e8ead3',emissive:'#e8ead3',emissiveIntensity:.1}),red:new THREE.MeshStandardMaterial({color:'#9a3335',emissive:'#c43428',emissiveIntensity:.05})};
+  const materials={frame:mat('Carrocería',c.frameColor,c.finish==='polymer'?.04:c.finish==='steel'?.72:.02,c.finish==='steel'?.31:.33+c.wear*.10),accent:mat('Protecciones',c.accentColor,.03,.43+c.wear*.1),steel:mat('Mecanizado','#a8b4bb',.82,.30),forkSteel:mat('Horquillas · acero satinado',forkColor,.45,.36),rubber:mat('Neumáticos','#252b2b',.02,.9),seat:mat('Asiento','#303639',0,.85),glass:new THREE.MeshStandardMaterial({color:'#a9c8d3',metalness:.05,roughness:.16,transparent:true,opacity:.23}),light:new THREE.MeshStandardMaterial({color:'#e8ead3',emissive:'#e8ead3',emissiveIntensity:.1}),red:new THREE.MeshStandardMaterial({color:'#9a3335',emissive:'#c43428',emissiveIntensity:.05})};
+  materials.rubber.map=null;materials.rubber.bumpScale=.00009;materials.seat.map=null;materials.seat.bumpScale=.00024;materials.forkSteel.bumpScale=.00003;
   // A small material fill keeps the working steel readable in shadow without
   // adding a light, replacing room illumination or changing an authored color.
   if(standardFork){materials.forkSteel.emissive.set('#627581');materials.forkSteel.emissiveIntensity=.08;}
   Object.entries(materials).forEach(([role,material])=>{material.color.convertSRGBToLinear();if(material.emissive)material.emissive.convertSRGBToLinear();material.userData.studioColorSpace='linear';material.userData.industrialMaterialRole=role;material.userData.industrialManufacturedFinish=true;material.userData.industrialPaintWear=c.wear;});
   const geometry=(key,create)=>{if(!cache.has(key))cache.set(key,create());return cache.get(key);};
-  const mesh=(name,geo,role,parent,position)=>{const object=new THREE.Mesh(geo,materials[role]);object.name=name;object.castShadow=role!=='glass';object.receiveShadow=true;Object.assign(object.userData,{materialPart:role,materialPartLabel:{frame:'Carrocería',accent:'Protecciones',steel:'Mástil y mecanismos',forkSteel:'Horquillas de acero satinado',rubber:'Rodadura',seat:'Puesto de operador',glass:'Cristales',light:'Luces',red:'Pilotos'}[role],industrialMaterialPart:role,industrialMaterialRole:role,industrialPart:name});if(role==='forkSteel')object.userData.vehicleForkTine=true;if(position)object.position.fromArray(position);parent.add(object);return object;};
+  const mesh=(name,geo,role,parent,position)=>{const object=new THREE.Mesh(geo,materials[role]);object.name=name;object.castShadow=role!=='glass';object.receiveShadow=true;Object.assign(object.userData,{materialPart:role,materialPartLabel:{frame:'Carrocería',accent:'Protecciones',steel:'Mástil y mecanismos',forkSteel:'Horquillas de acero satinado',rubber:'Rodadura',seat:'Puesto de operador',glass:'Cristales',light:'Luces',red:'Pilotos'}[role],industrialMaterialPart:role,industrialMaterialRole:role,industrialPart:name,equipmentComponentId:componentId(name)});if(role==='forkSteel')object.userData.vehicleForkTine=true;if(position)object.position.fromArray(position);parent.add(object);return object;};
   const box=(name,size,role,parent,position)=>mesh(name,geometry('b'+size.join(','),()=>new THREE.BoxBufferGeometry(...size)),role,parent,position);
   const cylinder=(name,radius,length,role,parent,position,segments=12)=>mesh(name,geometry('c'+[radius,length,segments],()=>new THREE.CylinderBufferGeometry(radius,radius,length,segments)),role,parent,position);
   const rod=(name,a,z,radius,role,parent)=>{const start=new THREE.Vector3().fromArray(a),end=new THREE.Vector3().fromArray(z),object=cylinder(name,radius,start.distanceTo(end),role,parent,start.clone().add(end).multiplyScalar(.5).toArray(),8);object.quaternion.setFromUnitVectors(UP,end.sub(start).normalize());return object;};
   const rounded=(name,size,role,parent,position)=>{const [w,h,d]=size,r=Math.min(.07,w*.12,h*.16),shape=new THREE.Shape();shape.moveTo(-w/2+r,-h/2);shape.lineTo(w/2-r,-h/2);shape.quadraticCurveTo(w/2,-h/2,w/2,-h/2+r);shape.lineTo(w/2,h/2-r);shape.quadraticCurveTo(w/2,h/2,w/2-r,h/2);shape.lineTo(-w/2+r,h/2);shape.quadraticCurveTo(-w/2,h/2,-w/2,h/2-r);shape.lineTo(-w/2,-h/2+r);shape.quadraticCurveTo(-w/2,-h/2,-w/2+r,-h/2);const geo=geometry('r'+size.join(','),()=>{const g=new THREE.ExtrudeBufferGeometry(shape,{depth:d,bevelEnabled:false,curveSegments:c.detail==='low'?2:4,steps:1});g.translate(0,0,-d/2);return g;});return mesh(name,geo,role,parent,position);};
   return {materials,cache,maps,box,cylinder,rod,rounded,mesh,geometry};
 }
-function group(parent,name,position=[0,0,0]) {const object=new THREE.Group();object.name=name;object.position.fromArray(position);parent.add(object);return object;}
+function group(parent,name,position=[0,0,0]) {const object=new THREE.Group();object.name=name;object.userData.equipmentComponentId=componentId(name);object.position.fromArray(position);parent.add(object);return object;}
 function cab(b,rig,c,parent,standing=false) {
   const d=rig.detail,cabin=group(parent,'Puesto de conducción',[0,0,-c.length*.08]);rig.cabin=cabin;rig.cabinBase=0;
   const x=c.width*.38,z=Math.min(.67,c.length*.28),top=Math.max(1.72,c.height),floor=.42;
@@ -81,8 +104,8 @@ function cab(b,rig,c,parent,standing=false) {
     const boot=d.torus('Fuelle de mando',.026,.008,'rubber',pivot,[0,.012,0]);boot.rotation.x=Math.PI/2;
     const grip=group(pivot,'Agarre '+id,[0,.215,0]);rig.controls.levers.push({id,object:pivot,pivot,grip,axis:[0,0,1],rotationAxis:[1,0,0],pivotLocal:[0,0,0],travel:Math.sin(.35)*.215,maxAngle:.35,restQuaternion:pivot.quaternion.clone()});
   });
-  d.decal(cabin,1,[.15,.075],[x*.82-.095,.88,-.02],[0,-Math.PI/2,0],leverConsole);
-  if(rig.seatBack)d.decal(rig.seatBack,3,[.16,.08],[0,.055,-.0705],[0,Math.PI,0],rig.seatBack);
+  d.decal(cabin,1,[.15,.075],[x*.82-.082,.88,-.02],[0,-Math.PI/2,0],leverConsole);
+  if(rig.seatBack)d.decal(rig.seatBack,3,[.16,.08],[0,.055,-.0595],[0,Math.PI,0],rig.seatBack);
   d.bolts(cabin,[-1,1].flatMap(side=>[-1,1].map(end=>[side*(x+.035),floor+.10,end*z])),.014);
 }
 function wheels(b,rig,c,parent) {
@@ -103,8 +126,8 @@ function wheels(b,rig,c,parent) {
       if(d.level>0)for(let ring=0;ring<2;ring++){const sidewall=d.torus('Nervio de flanco',radius*(.72+ring*.13),.004,'rubber',roll,[face*(treadWidth*.48),0,0]);sidewall.rotation.y=Math.PI/2;}
     }
     rig.wheels.push({pivot,roll,steering:end<0||c.family==='cart'&&end>0});
-    const rugged=c.family==='rough-terrain'||c.family==='telehandler',count=d.level===0?12:d.level===1?20:28;
-    for(let i=0;i<count;i++){const a=i*Math.PI*2/count;const tread=b.box(rugged?'Taco de tracción':'Banda de rodadura',[treadWidth*(rugged?1.05:.82),rugged?.038:.009,radius*(rugged?.28:.06)],'rubber',roll,[0,Math.cos(a)*(radius+.001),Math.sin(a)*(radius+.001)]);tread.rotation.x=-a;tread.rotation.y=rugged?(i%2?.18:-.18):0;}
+    const rugged=c.family==='rough-terrain'||c.family==='telehandler',pneumatic=rugged||c.variant==='forklift-ic',count=d.level===0?12:d.level===1?20:28;
+    for(let i=0;i<count;i++)for(const bank of pneumatic?[-1,1]:[0]){const a=(i+(bank>0?.22:0))*Math.PI*2/count,depth=pneumatic?.018:.008;const tread=b.box(pneumatic?'Taco de tracción':'Banda de rodadura',[treadWidth*(pneumatic?.49:.83),depth,radius*(pneumatic?.16:.07)],'rubber',roll,[bank*treadWidth*.22,Math.cos(a)*(radius+depth*.15),Math.sin(a)*(radius+depth*.15)]);tread.rotation.x=a;tread.rotation.y=bank*.25;}
     if(!warehouse){
       const count=8+d.level*4,outer=radius+.085,inner=radius+.045,profile=[];
       for(let index=0;index<=count;index++){const angle=index*Math.PI/count;profile.push([Math.cos(angle)*outer,Math.sin(angle)*outer]);}
@@ -189,7 +212,7 @@ function mast(b,rig,c,parent) {
   for(const y of [height*.08,height*.54]){const collar=b.cylinder('Collar del cilindro',.057,.032,'steel',pivot,[0,y,.02],d.segments);}
   d.bolts(pivot,[-1,1].flatMap(side=>[.15,height-.12].map(y=>[side*(railWidth/2+.047),y,.01])),.014);
   const carriage=group(pivot,'Portahorquillas elevable',[0,c.forkBaseHeight-.15,.10]);rig.carriage=carriage;
-  const carriagePlate=d.solid('Placa de unión de carro y mástil',[railWidth*.95,.33,.065],'steel',carriage,[0,.30,-.075],.007);carriagePlate.userData.vehiclePreserve=true;rig.carriagePlate=carriagePlate;
+  const carriagePlate=d.contactPlate('Placa de unión de carro y mástil',[railWidth*.95,.33,.065],'steel',carriage,[0,.30,-.075],.007);carriagePlate.userData.vehiclePreserve=true;rig.carriagePlate=carriagePlate;
   for(const side of [-1,1])for(const y of [.20,.43]){const roller=b.cylinder('Rodillo guía de carro',.045,.035,'accent',carriage,[side*railWidth*.40,y,-.11],12);roller.rotation.z=Math.PI/2;}
   const shift=group(carriage,'Desplazador lateral');rig.sideShift=shift;
   const turret=group(shift,'Cabezal trilateral');rig.turret=turret;
@@ -247,7 +270,7 @@ function build(root,c) {
   const rig={config:c,visual,wheels:[],lights:[],forks:null,driverSeat:null,pose:null,resources:b};
   rig.detail=createVehicleDetailBuilder(b,c);const d=rig.detail;
   const f=vehicles.supports(c),bodyTop=vehicles.getDimensions(c).bodyTop;
-  d.solid('Bastidor inferior biselado',[c.width,.20,c.length],'accent',visual,[0,Math.max(.18,c.wheelRadius-.04),0]);
+  d.contactPlate('Bastidor inferior biselado',[c.width,.20,c.length],'accent',visual,[0,Math.max(.18,c.wheelRadius-.04),0],d.bevel);
   if(c.family==='cart') {
     b.box('Plataforma de carga',[c.width,.09,c.length],'frame',visual,[0,c.height,0]);
     for(const end of [-1,1]){const skirt=d.solid('Faldón plegado de plataforma',[c.width*.96,.16,.024],'accent',visual,[0,c.height-.06,end*c.length*.49],.006);if(end<0)d.decal(visual,3,[.18,.075],[0,c.height-.06,-c.length*.49-.016],[0,Math.PI,0],skirt);}
@@ -286,18 +309,27 @@ function build(root,c) {
     // Rear counterweight terminates behind the seat. The central volume is a
     // low power/battery deck, leaving real legroom and a clear seat silhouette.
     const hoodRear=-c.length*.495,hoodFront=Math.min(-c.length*.27,-c.length*.08-.54),hoodDepth=hoodFront-hoodRear,hoodHeight=Math.min(.70,c.height*.30),hoodZ=(hoodRear+hoodFront)/2;
-    const hoodBevel=Math.min(.04,c.filletRadius||.025),hood=d.shapeExtrusion('Contrapeso de perfil esculpido',[[-c.width*.44,-hoodHeight*.5],[c.width*.44,-hoodHeight*.5],[c.width*.47,-hoodHeight*.17],[c.width*.47,hoodHeight*.25],[c.width*.32,hoodHeight*.5],[-c.width*.32,hoodHeight*.5],[-c.width*.47,hoodHeight*.25],[-c.width*.47,-hoodHeight*.17]],hoodDepth,'frame',visual,[0,.61,hoodZ],hoodBevel);hood.userData.vehiclePreserve=true;rig.counterweight=hood;
-    d.solid('Cubierta baja de batería y transmisión',[c.width*.80,.18,c.length*.47],'frame',visual,[0,.32,-c.length*.03]);
-    const access=d.solid('Tapa de servicio posterior',[c.width*.61,.035,hoodDepth*.63],'accent',visual,[0,.61+hoodHeight*.52,hoodZ],.012);access.rotation.x=.03;
+    const hoodBevel=Math.min(.04,c.filletRadius||.025),hood=d.casting('Contrapeso de perfil esculpido',[
+      [-hoodHeight*.5,c.width*.88,hoodDepth*.91,0],[-hoodHeight*.31,c.width*.96,hoodDepth,0],
+      [hoodHeight*.20,c.width*.96,hoodDepth*.99,-hoodDepth*.005],[hoodHeight*.5,c.width*.75,hoodDepth*.82,-hoodDepth*.025]
+    ],'frame',visual,[0,.61,hoodZ]);hood.userData.vehiclePreserve=true;hood.userData.equipmentComponentId='vehicle.counterweight';rig.counterweight=hood;
+    const powerDeck=d.solid('Cubierta baja de batería y transmisión',[c.width*.80,.18,c.length*.47],'frame',visual,[0,.32,-c.length*.03]);powerDeck.userData.equipmentComponentId='vehicle.power';
+    // Service doors are shallow, spaced sheet panels on the low power module.
+    // Their seams stay below the floor and away from the operator's footwell.
+    for(const side of [-1,1]){
+      const door=d.solid('Registro lateral de batería y transmisión',[.010,.125,Math.min(.66,c.length*.32)],'accent',visual,[side*(c.width*.40+.006),.32,-c.length*.03],.003);door.userData.equipmentComponentId='vehicle.power';
+      for(const offset of [-1,1]){const lock=b.cylinder('Cierre cautivo de registro',.014,.010,'steel',visual,[side*(c.width*.40+.014),.32,-c.length*.03+offset*Math.min(.26,c.length*.12)],8);lock.rotation.z=Math.PI/2;lock.userData.equipmentComponentId='vehicle.power';}
+    }
+    const access=d.solid('Tapa de servicio posterior',[c.width*.61,.022,hoodDepth*.63],'accent',visual,[0,.61+hoodHeight*.5+.012,hoodZ-hoodDepth*.025],.009);access.rotation.x=0;
     d.hose('Asa de capó',[[-.12,.64+hoodHeight*.53,hoodZ],[0,.69+hoodHeight*.53,hoodZ],[.12,.64+hoodHeight*.53,hoodZ]],.012,visual,'steel');
     for(const side of [-1,1]){
-      const labelHost=d.solid('Portaetiquetas de acceso lateral',[.016,.24,hoodDepth*.76],'frame',visual,[side*(c.width*.47+hoodBevel+.005),.63,hoodZ],.002);
-      const labelWidth=Math.min(.29,hoodDepth*.68);d.decal(visual,0,[labelWidth,.105],[side*(c.width*.47+hoodBevel+.015),.68,hoodZ],[0,side*Math.PI/2,0],labelHost);d.decal(visual,5,[Math.min(.17,labelWidth),.065],[side*(c.width*.47+hoodBevel+.015),.565,hoodZ],[0,side*Math.PI/2,0],labelHost);
+      const labelHost=d.solid('Portaetiquetas de acceso lateral',[.010,.20,hoodDepth*.58],'frame',visual,[side*(c.width*.48+.004),.605,hoodZ],.002);
+      const labelWidth=Math.min(.27,hoodDepth*.54);d.decal(visual,0,[labelWidth,.085],[side*(c.width*.48+.010),.66,hoodZ],[0,side*Math.PI/2,0],labelHost);d.decal(visual,5,[Math.min(.17,labelWidth),.055],[side*(c.width*.48+.010),.555,hoodZ],[0,side*Math.PI/2,0],labelHost);
     }
-    const rearZ=hoodRear-hoodBevel;rig.rearBodyZ=rearZ;
-    const rearPanel=d.solid('Panel posterior de servicio',[c.width*.52,.46,.018],'accent',visual,[0,.64,rearZ-.004],.003);
-    for(let i=0;i<6+d.level*2;i++)b.box('Rejilla de ventilación posterior',[c.width*.43,.011,.012],'steel',visual,[0,.50+i*.018,rearZ-.019]);
-    d.decal(visual,2,[.21,.085],[0,.75,rearZ-.015],[0,Math.PI,0],rearPanel);d.decal(visual,0,[.23,.055],[0,.84,rearZ-.015],[0,Math.PI,0],rearPanel);d.decal(visual,5,[.19,.055],[0,.455,rearZ-.015],[0,Math.PI,0],rearPanel);
+    const rearZ=hoodRear;rig.rearBodyZ=rearZ;
+    const rearPanel=d.solid('Panel posterior de servicio',[c.width*.50,.30,.016],'accent',visual,[0,.60,rearZ-.004],.003);rearPanel.userData.equipmentComponentId='vehicle.cooling';
+    for(let i=0;i<5+d.level;i++){const slat=b.box('Lama inclinada de refrigeración',[c.width*.43,.014,.017],'accent',visual,[0,.50+i*.030,rearZ-.017]);slat.rotation.x=.28;}
+    d.decal(visual,2,[.18,.055],[0,.61+hoodHeight*.5+.025,hoodZ-hoodDepth*.025],[-Math.PI/2,0,0],access);d.decal(visual,0,[.20,.040],[0,.72,rearZ-.013],[0,Math.PI,0],rearPanel);d.decal(visual,5,[.17,.025],[0,.47,rearZ-.013],[0,Math.PI,0],rearPanel);
     if(c.family==='telehandler') {cab(b,rig,Object.assign({},c,{width:c.width*.62,height:c.height}),visual);rig.cabin.position.x=-c.width*.25;telehandler(b,rig,c,visual);}
     else {cab(b,rig,c,visual,['reach','order-picker','turret','stacker'].includes(c.family));if(f.forks)mast(b,rig,c,visual);}
     if(c.family==='reach'||c.family==='stacker')for(const side of [-1,1])b.box('Brazo de apoyo inferior',[.13,.13,c.length*.8],'accent',visual,[side*(c.width/2-.08),.13,c.length*.6]);

@@ -1,0 +1,4 @@
+{
+  "quest": {"maxTriangles": 35000, "maxDraws": 200, "textureEdge": 512, "maxBytes": 16777216},
+  "desktop": {"maxTriangles": 70000, "maxDraws": 240, "textureEdge": 1024, "maxBytes": 33554432}
+}

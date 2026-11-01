@@ -25,6 +25,7 @@ import SimulationRuntime from '../../../../modules/logistica-industrial/function
 import VehicleDriving from '../../../../modules/logistica-industrial/functions/montacargas/runtime/VehicleDriving.js';
 import CADWorkbench from '../../cad/src/CADWorkbench.js';
 import DesignToolHost from './DesignToolHost.js';
+import EquipmentStudyViewer from '../../../../modules/logistica-industrial/functions/presentacion/runtime/EquipmentStudyViewer.js';
 import VehicleRouteEditor from '../../../../modules/logistica-industrial/functions/montacargas/runtime/VehicleRouteEditor.js';
 import SimulationPanel from './SimulationPanel.js';
 import RackLocationPanel from '../../../../modules/logistica-industrial/functions/almacenamiento/ui/RackLocationPanel.cjs';
@@ -194,6 +195,7 @@ export default class SceneEditor {
     this.vehicleDriving = typeof VehicleDriving === 'function' ? new VehicleDriving(ctx, this.simulation, {notify: text => this.toast(text)}) : null;
     this.cadWorkbench = typeof CADWorkbench === 'function' ? new CADWorkbench(this) : null;
     this.designTools = typeof DesignToolHost === 'function' ? new DesignToolHost(this) : null;
+    this.equipmentStudy = typeof EquipmentStudyViewer === 'function' ? new EquipmentStudyViewer(ctx, this.document, this.simulation, {editor:this, notify:text=>this.toast(text)}) : null;
     this.vehicleRoutes = typeof VehicleRouteEditor === 'function' ? new VehicleRouteEditor(this) : null;
     this.industrialVisuals = new IndustrialVisuals(ctx, this.document, this.simulation);
     this.finishes = typeof IndustrialFinishSystem === 'function' ? new IndustrialFinishSystem(ctx, this.document) : null;
@@ -768,6 +770,7 @@ export default class SceneEditor {
 
   leave() {
     if (!this.active) return;
+    if (this.equipmentStudy) this.equipmentStudy.close();
     if (this.loadingProject) return this.toast('Espera a que termine de cargar el proyecto.');
     if (this.designTools) this.designTools.close();
     if (this.transform.dragging) this.transform.dragging = false;
@@ -801,6 +804,7 @@ export default class SceneEditor {
   }
 
   onVRChange(inVR) {
+    if (this.equipmentStudy) this.equipmentStudy.close();
     if (this.designTools) this.designTools.close();
     if (this.cadWorkbench) this.cadWorkbench.close();
     if (this.vehicleRoutes) this.vehicleRoutes.close();
@@ -818,7 +822,7 @@ export default class SceneEditor {
     if (this.shell) this.shell.modeChanged();
   }
 
-  beforeRoomChange() { if (this.designTools) this.designTools.close(); this.cancelTransformDrag(); this.clearAssembly(true); this.clearNavigation(); this.cancelDecalPlacement(); this.decals.dispose(); this.infoPreview.dispose(); this.stopRuntime(); this.select(null); }
+  beforeRoomChange() { if (this.equipmentStudy) this.equipmentStudy.close(); if (this.designTools) this.designTools.close(); this.cancelTransformDrag(); this.clearAssembly(true); this.clearNavigation(); this.cancelDecalPlacement(); this.decals.dispose(); this.infoPreview.dispose(); this.stopRuntime(); this.select(null); }
   afterRoomChange() {
     this.resetPerformancePanel();
     this.collisionWorld.setRoom(this.roomId);
@@ -840,6 +844,7 @@ export default class SceneEditor {
   }
 
   render(delta = 0) {
+    if (this.equipmentStudy) this.equipmentStudy.update(delta);
     if (this.designTools) this.designTools.update();
     if (this.document.syncCADAttachments) this.document.syncCADAttachments();
     this.collisionWorld.refresh();
@@ -866,6 +871,7 @@ export default class SceneEditor {
   }
 
   stopRuntime() {
+    if (this.equipmentStudy) this.equipmentStudy.close();
     if (this.performance && this.performance.clearPresentation) this.performance.clearPresentation();
     if (this.simulationPanel) this.simulationPanel.endSession();
     if (this.finishes) this.finishes.dispose();
@@ -910,6 +916,7 @@ export default class SceneEditor {
     if (this.simulationPanel) this.simulationPanel.modeChanged();
   }
   execute(delta, time) {
+    if (this.equipmentStudy) this.equipmentStudy.update(delta);
     if (this.designTools) this.designTools.update();
     if (this.document.syncCADAttachments) this.document.syncCADAttachments();
     this.root.updateMatrixWorld(true);
@@ -1008,7 +1015,7 @@ export default class SceneEditor {
   }
 
   keyboardOverlayOpen() {
-    return Boolean(this.designTools && this.designTools.opened || this.projectLibrary.opened || this.projectLibrary.overlay && !this.projectLibrary.overlay.hidden ||
+    return Boolean(this.equipmentStudy && this.equipmentStudy.opened || this.designTools && this.designTools.opened || this.projectLibrary.opened || this.projectLibrary.overlay && !this.projectLibrary.overlay.hidden ||
       this.simulationPanel && this.simulationPanel.opened || this.sharePanel && !this.sharePanel.hidden || this.shell && (this.shell.menuIndex >= 0 || this.shell.workspace));
   }
 
@@ -1346,7 +1353,7 @@ export default class SceneEditor {
     name.addEventListener('change', () => this.perform(() => this.document.setProperty(object, 'name', name.value)));
     header.appendChild(name);
     header.appendChild(el('span', 'ed-tag', native ? 'ORIGINAL · nombre protegido' : 'PERSONALIZADO'));
-    if (this.designTools) header.appendChild(button('Diseño y despiece 2D/3D…', 'Editar un diseño propio o crear una variante visual independiente del objeto seleccionado', () => this.designTools.open()));
+    if (this.equipmentStudy && this.equipmentStudy.canStudy(object)) header.appendChild(button('Estudiar equipo · 2D / 3D', 'Ficha técnica, piezas reales, mecanismos, configuración y programación del equipo seleccionado', () => this.equipmentStudy.open(object)));
     const visible = el('input'); visible.type = 'checkbox'; visible.checked = object.visible;
     this.field(header, 'Visible', visible).addEventListener('change', () => this.perform(() => this.document.setProperty(object, 'visible', visible.checked)));
     if (native) header.appendChild(el('p', 'ed-native-info', describeNative(object) || 'Objeto original. Su nombre y sus conexiones nativas se mantienen. Quitar lo oculta sin romper referencias.'));

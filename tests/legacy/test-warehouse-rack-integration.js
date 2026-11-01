@@ -53,9 +53,11 @@ async function flow(system){
 }
 
 async function robots(){
- const f=setup(),src=add(f,'source',{initialCount:1,capacity:1,totalLimit:1,autoGenerate:false,delivery:'manual',withPanel:false,width:.3,height:.22,depth:.3,mass:2},[-1.3,1,1.8]);
+ // Keep the real source table outside the upper-arm sweep. Its former z=1.8
+ // crossed the arm plane at z=2.2 and relied on missing structure collision.
+ const f=setup(),src=add(f,'source',{initialCount:1,capacity:1,totalLimit:1,autoGenerate:false,delivery:'manual',withPanel:false,width:.3,height:.22,depth:.3,mass:2},[-1.3,1,.6]);
  const rack=add(f,'palletQueue',{withPanel:false,delivery:'manual',rackBays:1,rackColumns:1,rackLevels:1,rackBaseHeight:1},[1.5,1,0],'light-duty');
- const dst=add(f,'source',{initialCount:0,capacity:2,autoGenerate:false,delivery:'manual',withPanel:false,width:.3,height:.22,depth:.3},[4.5,1,1.8]);
+ const dst=add(f,'source',{initialCount:0,capacity:2,autoGenerate:false,delivery:'manual',withPanel:false,width:.3,height:.22,depth:.3},[4.5,1,.6]);
  const common={withPanel:false,reach:3.6,payloadKg:30,tool:'vacuum',acceptedTypes:'all',requireKnownMass:true,maxProductWidth:1,maxProductDepth:1,maxProductHeight:1,mode:'automatic',cycleTime:3,speed:1.2,setupTime:.2,approachHeight:.35};
  const first=add(f,'robot',Object.assign({},common,{running:true,sourceId:id(src),outputId:id(rack)}),[0,0,2.2],'articulated-general');
  const second=add(f,'robot',Object.assign({},common,{running:false,sourceId:id(rack),outputId:id(dst)}),[3.3,0,2.2],'articulated-general');patch(f,src,{outputId:id(first)});
