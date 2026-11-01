@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),cad=require('../../packages/tools/cad
 const step=(id,op,params={},inputs=[])=>({id,op,params,inputs});
 const compile=steps=>engine.compile({version:1,steps,output:steps.at(-1).id});
 const close=(a,b,tolerance=1e-8)=>assert(Math.abs(a-b)<tolerance,`${a} != ${b}`);
-assert.equal(cad.tools.length,131);assert.equal(new Set(cad.tools.map(tool=>tool.id)).size,131);
+assert.equal(cad.tools.length,132);assert.equal(new Set(cad.tools.map(tool=>tool.id)).size,132);
 let maxTriangles=0;
 for(const tool of cad.tools){
   const inputs=tool.input==='none'?[]:[step('s1',tool.input==='2d'?'profile.rectangle':'solid.box')];
@@ -51,4 +51,4 @@ for(const positions of [[0,0,0],Array(9),Array(9).fill(Infinity),Array(9).fill(1
 assert.throws(()=>cad.normalizeDescriptor(Object.assign({},descriptor,{mesh:{positions:Array(9).fill(0)}})),/superficies/);
 assert.throws(()=>cad.normalizeDescriptor(Object.assign({},descriptor,{attachment:{targetId:'vehicle',part:'forks',position:Array(3)}})),/Anclaje/);
 assert.throws(()=>cad.normalizeDescriptor(Object.assign({},descriptor,{attachment:{targetId:'bad id',part:'forks',position:[0,0,0]}})),/Anclaje/);
-console.log('CAD modeling: all131 declarative operations, solid volumes/through-hole/booleans, two-profile loft, oriented sweep, finite bounded meshes and malformed recipe rejection passed; largest default '+maxTriangles+' triangles.');
+console.log('CAD modeling: all132 declarative operations, solid volumes/through-hole/booleans, two-profile loft, oriented sweep, finite bounded meshes and malformed recipe rejection passed; largest default '+maxTriangles+' triangles.');

@@ -101,6 +101,13 @@ function part(id,a){const r=a.radius,h=a.height,th=a.thickness,n=a.segments;
  case'ribbedPanel':return b.union(box(Object.assign({},a,{height:th})),...Array.from({length:8},(_,i)=>move((i/7-.5)*a.width*.85,0,th,p.cuboid({size:[th,a.depth*.9,th*2]}))));
  default:throw Error('Pieza no implementada.');}}
 function operate(tool,a,inputs){const [category,id]=tool.id.split('.'),input=inputs[0];
+ if(category==='primitive'&&id==='mesh'){
+  const positions=cad.normalizePositions(a.positions),polygons=[];
+  // The public recipe boundary uses the renderer's Y-up metres. JSCAD uses
+  // Z-up internally; triangulate performs the inverse conversion exactly once.
+  for(let i=0;i<positions.length;i+=9){const points=[];for(let j=0;j<9;j+=3)points.push([positions[i+j],-positions[i+j+2],positions[i+j+1]]);if(Math.hypot(...cross(sub(points[1],points[0]),sub(points[2],points[0])))>1e-12)polygons.push(m.geometries.poly3.create(points));}
+  return g3.create(polygons);
+ }
  if(category==='solid')return solid(id,a);if(category==='profile')return profile(id,a);if(category==='part')return part(id,a);
  if(!input)throw Error('Selecciona primero un cuerpo o perfil del historial.');
  if(tool.input==='3d'&&!g3.isA(input)||tool.input==='2d'&&!g2.isA(input))throw Error(tool.input==='2d'?'Esta operación necesita un perfil 2D.':'Esta operación necesita un sólido 3D.');

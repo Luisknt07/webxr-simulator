@@ -1,0 +1,37 @@
+{
+  "format": "smarttwin.editor-tool",
+  "version": 1,
+  "id": "anatomy",
+  "name": "Diseño y despiece 2D/3D",
+  "entry": "app/index.html",
+  "adapter": "adapter.mjs",
+  "resources": [
+    "app",
+    "shared",
+    "vendor/anatomy/kit",
+    "vendor/anatomy/references"
+  ],
+  "files": [
+    "adapter.mjs",
+    "README.md",
+    "vendor/anatomy/LICENSE",
+    "vendor/anatomy/README.md",
+    "vendor/anatomy/VENDOR.json",
+    "vendor/anatomy/examples/dial-indicator/dial-indicator-light.html",
+    "vendor/anatomy/examples/desk-computer/desk-computer-light.html",
+    "vendor/anatomy/examples/arcade-cabinet/arcade-cabinet-light.html",
+    "vendor/anatomy/examples/push-button/push-button-light.html",
+    "vendor/anatomy/examples/raptor-engine/raptor-engine-light.html",
+    "vendor/anatomy/examples/ripple-tank/ripple-tank-light.html",
+    "vendor/anatomy/examples/turning-dial/turning-dial-light.html",
+    "vendor/anatomy/examples/arcade-cabinet/arcade-cabinet-poster-a4.pdf",
+    "vendor/anatomy/examples/arcade-cabinet/arcade-cabinet-drawing-a4.pdf",
+    "vendor/anatomy/examples/arcade-cabinet/arcade-cabinet-detailed-a4.pdf",
+    "vendor/anatomy/examples/push-button/push-button-poster-a4.pdf",
+    "vendor/anatomy/examples/push-button/push-button-drawing-a4.pdf",
+    "vendor/anatomy/examples/push-button/push-button-detailed-a4.pdf",
+    "vendor/anatomy/examples/raptor-engine/raptor-engine-poster-a4.pdf",
+    "vendor/anatomy/examples/raptor-engine/raptor-engine-drawing-a4.pdf",
+    "vendor/anatomy/examples/raptor-engine/raptor-engine-detailed-a4.pdf"
+  ]
+}
