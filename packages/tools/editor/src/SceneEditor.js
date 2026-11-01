@@ -1997,6 +1997,10 @@ export default class SceneEditor {
       const card = el('details', 'ed-component'); card.open = true;
       card.appendChild(el('summary', '', spec.name + ' · ' + spec.id));
       const body = el('div', 'ed-component-body');
+      if(config.type==='robot'&&config.family==='articulated'&&config.variant==='articulated-general'&&config.visualModel!=='legacy'){
+        const configureAssembly=el('button','ed-button','Configurar montaje 3D y piezas');configureAssembly.type='button';configureAssembly.setAttribute('data-editor-action','robot-assembly');
+        configureAssembly.addEventListener('click',()=>{if(!this.equipmentStudy||!this.equipmentStudy.open(object)){this.toast('El estudio del equipo no está disponible en esta vista.');return;}this.equipmentStudy.showTab('configure');});body.appendChild(configureAssembly);
+      }
       const update = (key, value) => {
         const next = rows.map(row => Object.assign({}, row)); next[index][key] = value;
         if (key === 'quality') next[index].defect = value === 'good' ? 'none' : next[index].defect === 'none' ? 'damaged' : next[index].defect;
@@ -2119,8 +2123,9 @@ export default class SceneEditor {
         if (next.type === 'source' && key === 'productType' && next.productVariant && behaviorSchema.productEquipment.defaults(next.productVariant).productType !== value) next.productVariant = '';
         if (next.type === 'robot' && (key === 'family' || key === 'variant')) {
           const definition = behaviorSchema.robots.getDefinition(value);
-          return Object.assign({}, definition.preset, {type: 'robot', enabled: next.enabled, sourceId: next.sourceId, outputId: next.outputId, targetId: next.targetId, withPanel: next.withPanel, panelDesign: next.panelDesign});
+          return Object.assign({}, definition.preset, {type: 'robot', enabled: next.enabled, sourceId: next.sourceId, outputId: next.outputId, targetId: next.targetId, withPanel: next.withPanel, panelDesign: next.panelDesign, pendantDesign:next.pendantDesign, pendantMount:next.pendantMount});
         }
+        if(next.type==='robot'&&key==='assemblyProfile'&&behaviorSchema.robots.assemblies){for(const part of behaviorSchema.robots.assemblies.keys){const choice=next[part]||'auto';if(choice!=='auto'&&!behaviorSchema.robots.assemblies.partChoices(part,next).some(option=>option.id===choice&&option.compatible))next[part]='auto';}}
         if (next.type === 'robot' && key === 'tool') next.operation = value === 'process' ? 'process' : next.operation === 'process' ? 'pick-place' : next.operation;
         if (next.type === 'robot' && key === 'operation') next.tool = value === 'process' ? 'process' : next.tool === 'process' ? 'gripper' : next.tool;
         if (next.type === 'palletQueue' && ['columns', 'rows', 'layers', 'palletCapacity', 'acceptsPallets'].includes(key)) next.capacity = Math.min(next.capacity, next.acceptsPallets ? next.palletCapacity : next.columns * next.rows * next.layers * next.palletCapacity);
@@ -2202,6 +2207,7 @@ export default class SceneEditor {
       if (config.type === 'robot') {
         if (field.key === 'jointLimitsJson') return;
         if (field.key === 'variant') field = Object.assign({}, field, {options: field.options.filter(option => behaviorSchema.robots.getDefinition(option.value).family === config.family)});
+        if(behaviorSchema.robots.assemblies){const assembly=behaviorSchema.robots.assemblies,supported=config.family==='articulated'&&config.variant==='articulated-general'&&config.visualModel!=='legacy';if(['assemblyProfile',...assembly.keys].includes(field.key)&&!supported)return;if(assembly.keys.includes(field.key)){const allowed=assembly.partChoices(field.key,config).filter(option=>option.compatible).map(option=>option.id);field=Object.assign({},field,{options:field.options.filter(option=>option.value==='auto'||allowed.includes(option.value))});}}
         if (!['amr', 'agv', 'mobileManipulator', 'mobileSorter'].includes(config.family) && ['waypointsJson', 'batteryPercent', 'batteryDrainPerMeter'].includes(field.key)) return;
         if (field.key === 'processTime' && config.operation !== 'process') return;
         if (field.key === 'targetId' && config.operation !== 'process') return;
@@ -2334,14 +2340,15 @@ export default class SceneEditor {
       ['Operación y conexiones', ['enabled', 'running', 'paused', 'delivery', 'outputId', 'outputPort', 'outputInterval']]
     ] : config.type === 'robot' ? [
       ['Arquitectura y herramienta', ['family', 'variant', 'operation', 'tool']],
-      ['Panel de control', ['withPanel', 'panelDesign']],
+      ['Estructura modular · piezas compatibles', ['visualModel','assemblyProfile','baseAssembly','shoulderAssembly','upperArmAssembly','forearmAssembly','wristAssembly']],
+      ['Panel y terminal portátil', ['withPanel', 'panelDesign','pendantDesign','pendantMount']],
       ['Dimensiones y volumen de trabajo', ['reach', 'length', 'width', 'height', 'baseHeight', 'approachHeight', 'positionTolerance']],
       ['Operación y tiempos', ['mode', 'enabled', 'powered', 'running', 'paused', 'emergency', 'speed', 'cycleTime', 'processTime', 'setupTime']],
       ['Recogida y entrega', ['sourceId', 'targetId', 'outputId']],
-      ['Compatibilidad de la carga', ['payloadKg', 'acceptedTypes', 'requireKnownMass', 'maxProductWidth', 'maxProductHeight', 'maxProductDepth']],
+      ['Compatibilidad de la carga', ['payloadKg','toolMassKg', 'acceptedTypes', 'requireKnownMass', 'maxProductWidth', 'maxProductHeight', 'maxProductDepth']],
       ['Ruta y energía', ['waypointsJson', 'batteryPercent', 'batteryDrainPerMeter']],
       ['Apariencia por pieza', ['frameColor', 'accentColor', 'toolColor', 'finish', 'wear']],
-      ['Diseño paramétrico de piezas', ['detail', 'filletRadius', 'chamferSize', 'mountingHoles']]
+      ['Diseño paramétrico y accesorios', ['detail','housingScale','serviceHarness','jointCovers','servicePackage','identificationLabels', 'filletRadius', 'chamferSize', 'mountingHoles']]
     ] : config.type === 'vehicle' ? [
       ['Tipología y operación', ['family', 'variant', 'mode', 'powered', 'running', 'paused', 'parkingBrake', 'emergency', 'lights']],
       ['Chasis y dirección', ['length', 'width', 'height', 'wheelbase', 'track', 'wheelRadius', 'speed', 'reverseSpeed', 'acceleration', 'brakeDeceleration', 'steerLimit']],

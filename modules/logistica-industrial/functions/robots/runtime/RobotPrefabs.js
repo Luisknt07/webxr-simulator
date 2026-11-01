@@ -389,22 +389,31 @@ function link(b, parent, length, thickness, name, distal = false) {
 function tool(b, parent, rig) {
   // The local +X axis is the tool approach axis. Vacuum lips and finger tips
   // end at TCP x=0; the parallel gripper grips with side pads behind its tips.
-  const assembly = group(parent, 'Efector final · ' + b.config.tool, [kinematics.getDimensions(b.config).toolLength, 0, 0]); rig.toolAssembly = assembly;
+  const dimensions=kinematics.getDimensions(b.config),assembly = group(parent, 'Efector final · ' + b.config.tool, dimensions.toolOffset||[dimensions.toolLength,0,0]); rig.toolAssembly = assembly;
   assembly.userData.robotToolAssembly = true;
+  assembly.userData.robotToolMount={offset:dimensions.toolOffset||[dimensions.toolLength,0,0],support:dimensions.toolSupport};
   const contact = (mesh, kind) => {mesh.userData.robotContactSurface = kind; rig.toolContactSurfaces.push(mesh); return mesh;};
   rig.tool = group(assembly, 'TCP · punto de contacto'); rig.tool.userData.robotToolAnchor = true;
   if (b.config.tool === 'platform') {
-    const long = Math.min(b.config.length * .78, 1.3), wide = Math.min(b.config.width * .82, 1.1);
+    const supported=dimensions.toolSupport,long = supported?supported.depth+.10:Math.min(b.config.length * .78, 1.3), wide = supported?supported.width+.10:Math.min(b.config.width * .82, 1.1);
     contact(b.box('Cubierta antideslizante de transferencia', [.045, long, wide], 'rubber', assembly, [.026, 0, 0], true), 'support');
     b.bolts(assembly, [-1, 1].flatMap(y => [-1, 1].map(z => [.003, y * long * .4, z * wide * .4])), .011, 'x');
+    if(supported){
+      const back=dimensions.toolOffset[1],start=(rig.pilotFlangeEnd||.055)-dimensions.toolLength,end=.0965;
+      b.box('Adaptador posterior de plataforma',[end-start,.072,.09],'metal',assembly,[(start+end)/2,-back,0],true);
+      b.box('Travesaño bajo plataforma',[.048,back+.04,.12],'tool',assembly,[.0725,-back/2,0],true);
+      b.box('Placa inferior de plataforma',[.018,long*.82,wide*.78],'metal',assembly,[.0575,0,0],true);
+    }
   } else if (b.config.tool === 'fork') {
     // Tool +X points down in a transport posture. Both horizontal tines have
     // their upper support faces at the TCP plane x=0, below the load.
-    b.box('Portahorquillas', [.34, .075, .55], 'tool', assembly, [.14, -.28, 0], true);
-    for (const z of [-.18, .18]) {
-      b.box('Talón de horquilla', [.24, .07, .065], 'metal', assembly, [.12, -.24, z]);
-      contact(b.box('Horquilla mecanizada', [.035, .62, .065], 'metal', assembly, [.0175, .02, z], true), 'support');
+    const supported=dimensions.toolSupport,back=supported?dimensions.toolOffset[1]:.28,spread=supported?Math.min(.32,supported.width*.24):.18,front=supported?supported.depth/2+.04:.33;
+    b.box('Portahorquillas', [.34, .075, supported?spread*2+.13:.55], 'tool', assembly, [.14, -back, 0], true);
+    for (const z of [-spread, spread]) {
+      b.box('Talón de horquilla', [.24, .07, .065], 'metal', assembly, [.12, -back+.04, z]);
+      contact(b.box('Horquilla mecanizada', [.035, supported?back+front:.62, .065], 'metal', assembly, [.0175, supported?(front-back)/2:.02, z], true), 'support');
     }
+    if(supported){const start=(rig.pilotFlangeEnd||.055)-dimensions.toolLength,end=-.03;b.box('Adaptador estructural de horquillas',[end-start,.07,.11],'metal',assembly,[(start+end)/2,-back,0],true);}
   } else if (b.config.tool === 'vacuum') {
     // The adapter meets the ISO flange, collector and suction stems; no
     // floating manifold. Flexible cup lips terminate on the mathematical TCP.
@@ -445,7 +454,7 @@ function pilotAccessories(b,rig,d,skins,parents,cross) {
     const ray=new THREE.Raycaster(new THREE.Vector3(x,y,side*2*cross),new THREE.Vector3(0,0,-side),0,4*cross);
     // Before posing, skins are in their own native link coordinates. A small
     // temporary mesh avoids applying the parent articulation twice to a ray.
-    const targets=meshes(link).map(skin=>new THREE.Mesh(skin.geometry,new THREE.MeshBasicMaterial({side:THREE.DoubleSide})));
+    const targets=meshes(link).map(skin=>{skin.updateMatrix();const target=new THREE.Mesh(skin.geometry,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));target.matrixAutoUpdate=false;target.matrix.copy(skin.matrix);return target;});
     targets.forEach(o=>o.updateMatrixWorld(true));const value=ray.intersectObjects(targets,false)[0];targets.forEach(o=>o.material.dispose());
     if(value)value.point.robotSurface=meshes(link)[targets.indexOf(value.object)];return value&&value.point;
   };
@@ -454,7 +463,7 @@ function pilotAccessories(b,rig,d,skins,parents,cross) {
   for(const [link,rows] of Object.entries(skins))for(const mesh of rows){
     if(mesh.material.userData.industrialMaterialRole!=='frame')continue;
     const geometry=mesh.geometry,p=geometry.attributes.position,n=geometry.attributes.normal;
-    const role=/neutral fitted service cover/.test(geometry.userData.sourcePart||'')?'accent':link==='link_3'||link==='link_5'?'accent':'frame';
+    const role=mesh.userData.robotAssemblyPart?mesh.material.userData.industrialMaterialRole:/neutral fitted service cover/.test(geometry.userData.sourcePart||'')?'accent':link==='link_3'||link==='link_5'?'accent':'frame';
     // Colouring a curved cap by a face-normal threshold leaves a saw-tooth
     // boundary. Keep connected castings coherent; real perimeter seals and
     // fitted fasteners provide joint contrast without cutting painted faces.
@@ -472,7 +481,8 @@ function pilotAccessories(b,rig,d,skins,parents,cross) {
     mesh.userData.robotSurfaceRole=role;
   }
   const attachLabel=(link,x,y,side,id,width,height)=>{const at=hit(link,x,y,side);if(!at)return;const host=at.robotSurface;if(!host)return;
-    (host.userData.industrialStickerAnchors||(host.userData.industrialStickerAnchors=[])).push({id,position:at.toArray(),normal:[0,0,side],size:[width,height]});};
+    const inverse=new THREE.Matrix4().getInverse(host.matrix),point=at.clone().applyMatrix4(inverse),normal=new THREE.Vector3(0,0,side).transformDirection(inverse);
+    (host.userData.industrialStickerAnchors||(host.userData.industrialStickerAnchors=[])).push({id,position:point.toArray(),normal:normal.toArray(),size:[width,height]});};
   if(c.identificationLabels){
     attachLabel('link_2',d.upperArm*.43,0,1,'equipment-id',Math.min(.18,d.upperArm*.28),.045*cross);
     attachLabel('link_2',d.upperArm*.20,-.018*cross,1,'warning-pinch',.055*cross,.05*cross);
@@ -496,8 +506,8 @@ function pilotAccessories(b,rig,d,skins,parents,cross) {
     return {object:port,point:new THREE.Vector3(0,0,-length)};
   };
   const run=(link,parent,start,end,name,id)=>{
-    const ports=[socket(parent,link,start,0,name+' · entrada',id),socket(parent,link,end,0,name+' · salida',id)];if(ports.some(v=>!v))return null;
     const points=[];for(let i=0;i<=8;i++){const x=start+(end-start)*i/8,at=hit(link,x,0,-1);if(!at)return null;points.push([x,0,at.z-.027*cross]);}
+    const ports=[socket(parent,link,start,0,name+' · entrada',id),socket(parent,link,end,0,name+' · salida',id)];if(ports.some(v=>!v))return null;
     const cable=hose(parent,points,.008*cross,name);tag(cable,id,'services');
     // Saddle feet terminate on measured skin, the band supports the hose at
     // a defined 27 mm offset, not a cylinder suspended alongside the arm.
@@ -510,17 +520,19 @@ function pilotAccessories(b,rig,d,skins,parents,cross) {
     const radius=.008*cross,segments=c.detail==='high'?20:12,around=5;
     const geometry=new THREE.TubeBufferGeometry(new THREE.LineCurve3(new THREE.Vector3(),new THREE.Vector3(0,.1,0)),segments,radius,around,false);
     const mesh=b.mesh(name,geometry,'rubber',rig.visual);tag(mesh,id,'services');mesh.frustumCulled=false;
-    rig.serviceCables.push({mesh,a,z,radius,segments,around,clearance:.070*cross,points:[]});
+    rig.serviceCables.push({mesh,a,z,radius,segments,around,clearance:(robotSchema.assemblies.resolve(c).parts.shoulderAssembly==='reinforced-yoke'?.10:.070)*cross,points:[]});
   };
   if(c.serviceHarness){
     const upper=run('link_2',parents.shoulder,.14*cross,d.upperArm-.11*cross,'Arnés de potencia y encoder J2–J3','robot.harness');
     const forearm=run('link_3',parents.elbow,.075*cross,.17*cross,'Distribuidor de servicios del codo','robot.harness');
-    const basePort=socket(parents.yaw,'link_1',-.055*cross,-.09*baseYFor(d),'Salida de potencia de columna');
+    const customShoulder=robotSchema.assemblies.resolve(c).parts.shoulderAssembly!=='cast-offset';
+    const basePort=socket(parents.yaw,'link_1',customShoulder?0:-.055*cross,customShoulder?0:-.09*baseYFor(d),'Salida de potencia de columna');
     if(upper){flexible(basePort,upper[0],'Lazo articulado de hombro J2','robot.harness');if(forearm)flexible(upper[1],forearm[0],'Lazo articulado de codo J3','robot.harness');}
   }
   if(c.servicePackage!=='none'&&['vacuum','gripper','process'].includes(c.tool)){
     const prefix=c.servicePackage==='pneumatic'?'Manguera neumática':'Cable eléctrico de herramienta';
-    const tail=run('link_4',parents.roll,-d.forearm*.36,-.055*cross,prefix+' · tramo antebrazo','robot.tool-services');
+    const nativeForearm=robotSchema.assemblies.resolve(c).parts.forearmAssembly!=='hollow-drive';
+    const tail=nativeForearm?run('link_3',parents.elbow,d.forearm*.35,d.forearm*.83,prefix+' · tramo antebrazo','robot.tool-services'):run('link_4',parents.roll,-d.forearm*.36,-.055*cross,prefix+' · tramo antebrazo','robot.tool-services');
     // The articulated wrist uses its hollow shaft internally; a short hose
     // follows J6 rigidly to the actual native end effector connector.
     const endX=d.toolLength-(c.tool==='vacuum'?.14:c.tool==='process'?.13:.15),endY=c.tool==='vacuum'?.13:c.tool==='process'?.055:.08;
@@ -530,7 +542,8 @@ function pilotAccessories(b,rig,d,skins,parents,cross) {
   }
   // Root's side-panel placement owns the other endpoint of this floor cable.
   // This stable, real base socket is exposed in the robot actor's local frame.
-  const floor=socket(parents.base,'base_link',-.28*cross,.052,'Conector de alimentación desde consola','robot.base-services');
+  const floorX=robotSchema.assemblies.resolve(c).parts.baseAssembly==='compact-pedestal'?-(rig.assemblyBase&&rig.assemblyBase.radius||.1)*.55:-.28*cross;
+  const floor=socket(parents.base,'base_link',floorX,.052,'Conector de alimentación desde consola','robot.base-services');
   if(floor)rig.panelServiceSocket={object:floor.object,point:floor.point.clone(),radius:.010*cross,minimumFloorHeight:.018};
 }
 function baseYFor(d){return Math.max(.1,d.baseHeight/.4);}
@@ -555,15 +568,87 @@ function updatePilotServices(root,rig){
   }
 }
 
+function assemblyComponents(b,rig,d,parents,skins,assembly,cross){
+  const selected=assembly.parts,t=.10*cross,add=(link,mesh,id)=>{mesh.userData.robotAssemblyPart=selected[({base_link:'baseAssembly',link_1:'shoulderAssembly',link_2:'upperArmAssembly',link_3:'forearmAssembly',link_4:'forearmAssembly',link_5:'wristAssembly'})[link]];mesh.geometry.userData.sourceLink=link;if(id)mesh.userData.robotComponentId=id;(skins[link]||(skins[link]=[])).push(mesh);return mesh;};
+  const surfaceStrip=(host,parent,name,size,position,side,role)=>{
+    const profile=host.geometry.userData.robotCasting,geometry=new THREE.BoxBufferGeometry(size[0],size[1],size[2],b.config.detail==='low'?3:6,1,1),p=geometry.attributes.position;
+    for(let i=0;i<p.count;i++){const x=p.getX(i)+position[0]-host.position.x,y=p.getY(i)+position[1]-host.position.y,z=volumeSurface(profile.sections,x,y,side,profile.exponent);p.setZ(i,p.getZ(i)+z);}
+    geometry.computeVertexNormals();const mesh=b.mesh(name,geometry,role,parent,[position[0],position[1],host.position.z]);mesh.userData.robotConformedCover=true;return mesh;
+  };
+  const baseTop=Math.max(.055,d.baseHeight*.55),wide=selected.baseAssembly==='wide-floor',compact=selected.baseAssembly==='compact-pedestal',footWidth=(wide?.66:compact?.40:.49)*cross,footDepth=(wide?.60:compact?.38:.49)*cross,drum=(wide?.185:compact?.125:.155)*cross;
+  const base=parents.base;
+  add('base_link',b.mesh('Placa de anclaje · '+assembly.effectivePartNames.baseAssembly,b.geometry('footprint',[footWidth,footDepth,.028,Math.min(.035,footWidth*.08)]),'metal',base,[0,.014,0]),'robot.base');
+  if(compact){
+    add('base_link',b.box('Pedestal compacto de bancada',[drum*1.65,Math.max(.02,baseTop-.052),drum*1.7],'accent',base,[0,(baseTop+.028)/2,0],true),'robot.base');
+    add('base_link',b.box('Caja de conexiones compacta',[.13*cross,.075*cross,.055*cross],'accent',base,[-drum*.72,baseTop*.55,-drum*.77],true),'robot.base');
+  }else{
+    const height=Math.max(.025,baseTop-.028),profile=[[0,0],[drum*1.05,0],[drum*1.10,.025],[drum*.94,height*.32],[drum*.91,height*.84],[drum*.87,height],[0,height]];
+    add('base_link',b.mesh('Zócalo estructural de fundición',b.geometry('lathe',[profile]),'accent',base,[0,.028,0]),'robot.base');
+    if(wide)for(const side of[-1,1]){const rib=b.box('Nervio de anclaje al zócalo',[.045*cross,baseTop*.66,drum*.75],'frame',base,[side*drum*.94,.028+baseTop*.33,0],true);rib.rotation.z=side*.14;add('base_link',rib,'robot.base');}
+  }
+  add('base_link',b.cylinder('Corona de apoyo J1 mecanizada',drum*.93,.022,'metal',base,[0,baseTop+.004,0]),'robot.base');
+  b.bolts(base,[-1,1].flatMap(x=>[-1,1].map(z=>[x*footWidth*.39,.033,z*footDepth*.39])),.010*cross,'y');
+  rig.assemblyBase={width:footWidth,depth:footDepth,radius:drum,top:baseTop};
+  const shoulder=selected.shoulderAssembly;
+  if(shoulder!=='cast-offset'){
+    const parent=parents.yaw,reinforced=shoulder==='reinforced-yoke',r=(reinforced?.105:.079)*cross,zRear=-.085*cross,lower=baseTop-d.baseHeight;
+    add('link_1',b.cylinder('Cuerpo giratorio J1',drum*.80,Math.max(.022,-lower-.055*cross),'frame',parent,[0,(lower-.055*cross)/2,0]),'robot.shoulder');
+    const cheek=b.casting(reinforced?'Doble apoyo del hombro · fundición reforzada':'Yugo compacto del hombro',[.075*cross,r*.85,r, .045*cross],'frame',parent,[0,-.045*cross,zRear]);cheek.rotation.z=Math.PI/2;add('link_1',cheek,'robot.shoulder');
+    add('link_1',b.cylinder('Eje de apoyo transversal J2',r*.61,.21*cross,'metal',parent,[0,0,.018*cross],[Math.PI/2,0,0]),'robot.shoulder');
+    add('link_1',b.cylinder('Servorreductor lateral J2',r*.82,.075*cross,'accent',parent,[0,0,-.15*cross],[Math.PI/2,0,0]),'robot.shoulder');
+    if(reinforced)add('link_1',b.box('Puente inferior del yugo reforzado',[r*1.65,.055*cross,.23*cross],'frame',parent,[0,-r*.9,.005*cross],true),'robot.shoulder');
+  }
+  const bearing=(parent,x,r,z,id)=>{
+    const depth=selected.upperArmAssembly==='heavy-box'?.19:selected.upperArmAssembly==='slim-tube'?.08:.13;
+    const shaft=b.cylinder('Cubo de rodamiento del brazo',r*.48,(depth+.016)*cross,'metal',parent,[x,0,z],[Math.PI/2,0,0]);shaft.userData.robotComponentId=id;
+    const disk=b.cylinder('Alojamiento de rodamiento · '+id,r*.78,.022*cross,'accent',parent,[x,0,z+(depth/2+.011)*cross],[Math.PI/2,0,0]);disk.userData.robotComponentId=id;return disk;
+  };
+  const upper=selected.upperArmAssembly;
+  if(upper!=='industrial-cast'){
+    const parent=parents.shoulder,L=d.upperArm,z=.091*cross,heavy=upper==='heavy-box',tube=upper==='slim-tube',r=(heavy?.108:upper==='compact-cast'?.072:.086)*cross;
+    bearing(parent,0,r,z,'robot.upper-arm');bearing(parent,L,r*.74,z,'robot.upper-arm');
+    if(tube){
+      add('link_2',b.box('Perfil cerrado rectangular del brazo',[Math.max(.04,L-r*1.35),.080*cross,.080*cross],'frame',parent,[L/2,0,z],true),'robot.upper-arm');
+      add('link_2',b.box('Tapa longitudinal del perfil del brazo',[Math.max(.03,L-r*2),.048*cross,.008*cross],'accent',parent,[L/2,0,z-.044*cross],true),'robot.upper-arm');
+    }else{
+      const shell=add('link_2',b.housing(heavy?'Carcasa de brazo reforzada con transición':'Carcasa compacta de brazo',[L,r,r*.72,heavy?.19*cross:.13*cross],'frame',parent,[0,0,z]),'robot.upper-arm');
+      if(upper==='ribbed-cast'||heavy)for(const side of[-1,1])add('link_2',surfaceStrip(shell,parent,'Nervio longitudinal conformado del brazo',[L*.68,.014*cross,.020*cross],[L*.49,side*r*.45,z],1,'accent'),'robot.upper-arm');
+      add('link_2',surfaceStrip(shell,parent,'Tapa de mantenimiento conformada del brazo',[L*.46,r*.56,.008*cross],[L*.43,r*.18,z],-1,'accent'),'robot.upper-arm');
+    }
+    if(b.config.jointCovers)for(const x of[0,L]){const mount=group(parent,'Tornillería de apoyo del brazo',[x,0,0]);mount.userData.robotComponentId='robot.bearings';b.boltRing(mount,r*.55,z+((heavy?.19:tube?.08:.13)/2+.025)*cross,6);}
+  }
+  const forearm=selected.forearmAssembly;
+  if(forearm!=='hollow-drive'){
+    const parent=parents.elbow,L=d.forearm,heavy=forearm==='heavy-drive',tube=forearm==='slim-tube',r=(heavy?.083:forearm==='compact-drive'?.060:.072)*cross;
+    add('link_3',b.cylinder('Reductor J3 con eje lateral',r,.17*cross,'accent',parent,[0,0,.026*cross],[Math.PI/2,0,0]),'robot.elbow');
+    add('link_3',b.box('Servomotor protegido del codo',[.14*cross,.09*cross,.10*cross],'accent',parent,[.055*cross,0,-.065*cross],true),'robot.elbow');
+    const start=.11*cross,span=Math.max(.04,L-start-.025*cross),center=start+span/2;
+    if(tube)add('link_3',b.box('Perfil cerrado del antebrazo',[span,.066*cross,.070*cross],'frame',parent,[center,0,0],true),'robot.forearm');
+    else{
+      const shell=add('link_3',b.housing(heavy?'Antebrazo de carga · cuerpo reforzado':'Antebrazo con cubierta de accionamiento',[span,r*.75,r*.40,(heavy?.13:.105)*cross],'frame',parent,[start,0,0]),'robot.forearm');
+      add('link_3',surfaceStrip(shell,parent,'Cubierta de transmisión conformada',[span*.68,r*.40,.009*cross],[center,0,0],-1,'accent'),'robot.forearm');
+      if(heavy)for(const y of[-1,1])add('link_3',surfaceStrip(shell,parent,'Nervio conformado del antebrazo',[span*.7,.011*cross,.018*cross],[center,y*r*.30,0],1,'metal'),'robot.forearm');
+    }
+    add('link_4',b.cylinder('Portaeje hueco J4',r*.57,.10*cross,'accent',parents.roll,[-.040*cross,0,0],[0,0,Math.PI/2]),'robot.forearm');
+  }
+  if(selected.wristAssembly!=='service-wrist'){
+    const strong=selected.wristAssembly==='reinforced-inline',r=(strong?.055:.039)*cross;
+    add('link_5',b.cylinder('Carcasa articulada J5',r,.085*cross,'frame',parents.bend,[0,0,.015*cross],[Math.PI/2,0,0]),'robot.wrist');
+    add('link_5',b.cylinder('Tapa y sello del cabeceo J5',r*.78,.012*cross,'accent',parents.bend,[0,0,.063*cross],[Math.PI/2,0,0]),'robot.wrist');
+    if(strong)add('link_5',b.box('Puente de muñeca reforzada',[.070*cross,.045*cross,.065*cross],'frame',parents.roll,[-.035*cross,-r*.6,.015*cross],true),'robot.wrist');
+  }
+  return {baseTop,baseRadius:drum,upperCenterZ:.091*cross,upperNative:upper==='industrial-cast',forearmNative:forearm==='hollow-drive'};
+}
+
 function referenceArticulated(b, rig, d) {
   // Apache-2.0 visual derivative, revision pinned in the asset and NOTICE.
   // Native joints/limits/TCP stay authoritative. This is not an OEM controller
   // or calibrated replica: skin offsets and link proportions are adapted.
-  const source=robotSchema.referencePilotGeometry(),parts=source.lods[b.config.detail];
+  const source=robotSchema.referencePilotGeometry(),parts=source.lods[b.config.detail],assembly=robotSchema.assemblies.resolve(b.config);
   // Capacity is a runtime constraint, not a casting diameter. Scaling an 80 kg
   // teaching cell by payload used to triple the KR10-derived skin thickness.
   // Preserve its bearing circles; stretch only the clear link between them.
-  const cross=Math.min(1.5,Math.sqrt(d.reach/1.1),d.upperArm/.26,d.forearm/.27)*b.config.housingScale,t=.10*cross,baseY=d.baseHeight/.4;
+  const cross=Math.min(1.5,Math.sqrt(d.reach/1.1),d.upperArm/.26,d.forearm/.27)*b.config.housingScale*(assembly.id==='compact-training'?.80:assembly.id==='heavy-handling'?1.10:assembly.id==='long-reach'?.92:1),t=.10*cross,baseY=d.baseHeight/.4;
   const base=group(rig.visual,'Base anclada al piso'),yaw=joint(rig.visual,'J1',[0,d.baseHeight,0],rig);
   const shoulder=joint(yaw,'J2',[0,0,0],rig),elbow=joint(shoulder,'J3',[d.upperArm,0,0],rig);
   const roll=joint(elbow,'J4',[d.forearm,0,0],rig),bend=joint(roll,'J5',[0,0,0],rig),spin=joint(bend,'J6',[0,0,0],rig);
@@ -576,6 +661,11 @@ function referenceArticulated(b, rig, d) {
     // Replace those disconnected OEM fragments with the native floor socket
     // and the actor-owned connection to its actual side console.
     if(part.link==='base_link'&&/^base_link \/ Mesh[78]$/.test(part.name))return;
+    if(part.link==='base_link'&&(assembly.parts.baseAssembly==='compact-pedestal'||part.name==='base_link / Mesh1.006'))return;
+    if(part.link==='link_1'&&assembly.parts.shoulderAssembly!=='cast-offset')return;
+    if(part.link==='link_2'&&assembly.parts.upperArmAssembly!=='industrial-cast')return;
+    if((part.link==='link_3'||part.link==='link_4')&&assembly.parts.forearmAssembly!=='hollow-drive')return;
+    if(part.link==='link_5'&&assembly.parts.wristAssembly!=='service-wrist')return;
     const q=decode(part.position,Int16Array),encoded=decode(part.normal,Int8Array),positions=new Float32Array(q.length),normals=new Float32Array(q.length),uv=new Float32Array(q.length/3*2);
     let scale=[cross,cross,cross],shift=[0,0,0];
     if(part.link==='base_link')scale=[cross,Math.max(.1,baseY),cross];
@@ -608,20 +698,21 @@ function referenceArticulated(b, rig, d) {
     if(part.link==='link_4')mesh.userData.robotComponentId='robot.forearm';
     if(part.role==='frame')rig.castingShells.push(mesh);
   });
+  const mechanical=assemblyComponents(b,rig,d,{base,yaw,shoulder,elbow,roll,bend,spin},skins,assembly,cross);
   // The native contact-critical end effector remains identical; the source
   // CAD flange is only its visual mounting face, never a substitute TCP.
-  tool(b,spin,rig);
+  rig.pilotFlangeEnd=.006+.0285*(1.90*t/.15);tool(b,spin,rig);
   pilotAccessories(b,rig,d,skins,{base,yaw,shoulder,elbow,roll,bend,spin},cross);
   const radius=Math.max(.10,Math.min(.34,d.reach*.13)),pedestalTop=Math.max(.11,d.baseHeight-t*1.4);
   const upperStart=t*1.08,upperEnd=Math.max(t*1.09,d.upperArm-t*1.55),upperCenterZ=x=>(.0907-.0042*x/d.upperArm)*cross;
-  rig.design={style:'reference-industrial-pilot',visualModel:'reference-pilot',revision:3,section:t,sectionScale:cross,capacityAffectsAppearance:false,manufacturerReplica:false,source:source.source,sourceRevision:source.revision,sourceLicense:source.license,
+  rig.design={style:'reference-industrial-pilot',visualModel:'reference-pilot',revision:4,assembly,section:t,sectionScale:cross,capacityAffectsAppearance:false,manufacturerReplica:false,source:source.source,sourceRevision:source.revision,sourceLicense:source.license,
     adaptation:'CAD visual skins rebased and proportioned to native J1–J6; original OEM offsets removed; native motion and tool are retained.',
     accessories:{harness:b.config.serviceHarness,covers:b.config.jointCovers,labels:b.config.identificationLabels,toolSupply:['vacuum','gripper','process'].includes(b.config.tool)?b.config.servicePackage:'none'},
     upperStructuralCenterline:{startZ:upperCenterZ(upperStart),endZ:upperCenterZ(upperEnd),centerY:.008*cross,radius:t*.24,reference:'Offset CAD cantilever casting; verified by native local Y/Z surface rays at five sections in every LOD.'}};
   rig.selfCollisionCores={
-    upper:{object:shoulder,start:[upperStart,.008*cross,upperCenterZ(upperStart)],end:[upperEnd,.008*cross,upperCenterZ(upperEnd)],radius:t*.24},
+    upper:{object:shoulder,start:[upperStart,mechanical.upperNative?.008*cross:0,mechanical.upperNative?upperCenterZ(upperStart):mechanical.upperCenterZ],end:[upperEnd,mechanical.upperNative?.008*cross:0,mechanical.upperNative?upperCenterZ(upperEnd):mechanical.upperCenterZ],radius:t*.24},
     forearm:{object:elbow,start:[t*1.55,0,0],end:[Math.max(t*1.56,d.forearm-t*.8),0,0],radius:t*.3},
-    pedestal:{object:rig.visual,start:[0,.06,0],end:[0,Math.max(.07,pedestalTop-.035),0],radius:radius*.65}
+    pedestal:{object:rig.visual,start:[0,.06,0],end:[0,Math.max(.07,mechanical.baseTop-.035),0],radius:mechanical.baseRadius*.65}
   };
 }
 

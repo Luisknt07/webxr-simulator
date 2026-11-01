@@ -88,7 +88,8 @@ function constraints() {
   assert(Math.abs(top.distanceTo(contactApi.worldContact(product, null, contact.robot)) - .04) < 1e-7, 'Gripper pads straddle the upper sides by 40 mm without changing the TCP calibration.');
   contact.runtime.stop();
 
-  const lowFps = cell('vr-robot-dispatch'); until(lowFps, () => lowFps.r.completed === 1 && lowFps.r.phase === 'idle', 35, .25);
+  const lowFps=cell('vr-robot-dispatch',f=>{const robot=f.built.lines[0].controller;f.document.setBehaviors(robot,f.document.getBehaviors(robot).map(c=>c.type==='robot'?{...c,mode:'manual'}:c));});
+  lowFps.runtime.command(lowFps.robot.id,'dispatch');until(lowFps,()=>lowFps.r.completed===1&&lowFps.r.phase==='idle',35,.25);
   assert(lowFps.runtime.robotRuntime.armClear(lowFps.robot), 'Fixed substeps preserve safe return at four render frames per second.'); lowFps.runtime.stop();
   console.log('Constraints: contact depth, unrelated-pad obstruction, actual casting-wall intrusion, exact rollback/retry, loaded checkpoint and low-frame-rate return passed.');
 }

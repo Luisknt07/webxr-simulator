@@ -66,6 +66,14 @@ function cartons(entry) {
     z: (Math.floor(i / load.palletColumns) % load.palletRows) * (spec.depth + .02) + (plan.depth - load.palletRows * (spec.depth + .02) + .02) / 2, y: Math.floor(i / (load.palletColumns * load.palletRows)) * spec.height, width: spec.width, depth: spec.depth}));
   return placements.map(p => new THREE.Box3(new THREE.Vector3(p.x - plan.width / 2, base.height + p.y, p.z - plan.depth / 2), new THREE.Vector3(p.x - plan.width / 2 + p.width, base.height + p.y + spec.height, p.z - plan.depth / 2 + p.depth)).expandByScalar(-.005));
 }
+// Immutable historical positive control: the former VR Source emitted a
+// 1,200 × 800 mm wooden pallet carrying four 300 × 300 × 220 mm cartons.
+// Keep this independent of the current individual-carton Source recipe.
+const HISTORICAL_PALLET=Object.freeze({
+  spec:Object.freeze({type:'box',width:.30,height:.22,depth:.30,mass:2}),
+  load:Object.freeze({loadMode:'pallet',palletType:'euro-1200x800',palletMaterial:'wood',palletPacking:'grid',palletWidth:1.2,palletDepth:1,palletColumns:2,palletRows:2,palletLayers:1})
+});
+const HISTORICAL_ROBOT=Object.freeze({family:'articulated',variant:'articulated-general',visualModel:'legacy',reach:3.2,payloadKg:80,baseHeight:.45,tool:'vacuum',jointLimitsJson:'[]'});
 function intersectingBodies(rig, matrix, solids) {
   const inverse = new THREE.Matrix4().getInverse(matrix), hits = [];
   for (const body of rig.collisionBodies) {
@@ -88,19 +96,30 @@ function compactHome() {
     const record = f.runtime.records.get(line.controller.userData.editorId), component = record.components.robot, rig = component.visualRoot.userData.robotRig;
     const source = f.runtime.records.get(line.source.userData.editorId), product = f.runtime.sourceRuntime.materialize(source, source.components.source), entry = f.runtime.sourceRuntime.entryForProduct(source, product);
     const belt = line.objects.map(object => f.runtime.records.get(object.userData.editorId)).find(row => row.components.conveyor), envelope = cartons(entry), config = component.config;
-    assert.equal(entry.units, 4); near(f.runtime.productMetadata(product).mass, 33);
-    const home = kinematics.homePose(config), old = kinematics.homePose({...config, jointLimitsJson: '[]'});
+    assert.equal(entry.units,1);near(f.runtime.productMetadata(product).mass,2);
+    const home = kinematics.homePose(config), old = kinematics.homePose(HISTORICAL_ROBOT),historicalEnvelope=cartons(HISTORICAL_PALLET);
+    assert.equal(historicalEnvelope.length,4,'Historical positive control must remain a complete four-carton pallet.');
     const item = {...product.item, bounds: product.bounds, scale: product.scale, route: 'main', lateral: 0};
-    let oldHits = [];
     for (const offset of [-belt.components.conveyor.config.length / 2, belt.components.conveyor.config.length / 2 - .3]) {
       const matrix = f.runtime.packageMatrix(belt, belt.components.conveyor, offset, item);
-      prefabs.updateRobotPose(component.visualRoot, old); f.scene.updateMatrixWorld(true); oldHits.push(...intersectingBodies(rig, matrix, envelope));
       prefabs.updateRobotPose(component.visualRoot, home); f.scene.updateMatrixWorld(true);
       assert.deepEqual(intersectingBodies(rig, matrix, envelope).map(body => body.object.name), [], 'Actual authored folded home must clear carton interiors both at chain input and retention point.');
     }
+    const historicalRobot=prefabs.createRobot(HISTORICAL_ROBOT),historicalRig=historicalRobot.userData.robotRig;
+    component.visualRoot.updateWorldMatrix(true,true);historicalRobot.matrixAutoUpdate=false;historicalRobot.matrix.copy(component.visualRoot.matrixWorld);
+    prefabs.updateRobotPose(historicalRobot,old);
+    const oldHits=[];
+    for(const x of[1.2,3.3]){
+      // Historical chain origin=(2.4,.65,0), length=2.4 m, surfaceY=0;
+      // the unchanged package stand-off adds 5 mm above that real deck.
+      const matrix=new THREE.Matrix4().makeTranslation(x,.655,0);
+      oldHits.push(...intersectingBodies(historicalRig,matrix,historicalEnvelope));
+      prefabs.updateRobotPose(component.visualRoot,home);f.scene.updateMatrixWorld(true);
+      assert.deepEqual(intersectingBodies(rig,matrix,historicalEnvelope).map(body=>body.object.name),[],'The authored folded home also clears the explicit historical four-carton pallet.');
+    }
     assert(oldHits.some(body => body.object.userData.industrialMaterialRole === 'frame'), 'Regression must reproduce a true orange-casting/carton intersection with the former catalogue home.');
-    near(config.reach, 3.2); near(kinematics.getDimensions(config).toolLength, .2); near(home.tcp.x, .35, .002); near(home.tcp.y, 1.1, .002);
-    console.log('Compact VR home: old orange casting penetration reproduced; actual folded home clears all four real cartons at chain input and retention without changing reach, pallet, units or mass.');
+    near(config.reach, 2.2); near(kinematics.getDimensions(config).toolLength, .2); near(home.tcp.x, .35, .002); near(home.tcp.y, 1.1, .002);
+    console.log('Compact VR home: actual folded home clears individual cartons at chain input and retention; source load is one 2 kg carton, before pallet consolidation.');
   } finally {f.runtime.stop();}
 }
 cachedBodies(); gripperContact(); compactHome();

@@ -168,6 +168,7 @@ export default class RobotRuntime {
       inFlight: r.entry || r.processingProduct ? 1 : 0, queued: r.entry ? 1 : 0, received: r.received, entryCount: r.received, exitCount: r.completed,
       receivedUnits: r.receivedUnits, deliveredUnits: r.deliveredUnits, completed: r.completed, capacity: 1,
       payloadKg: r.config.payloadKg, loadKg: r.entry ? this.runtime.productMetadata(r.entry.product).mass : 0,
+      toolMassKg:r.config.toolMassKg||0,totalPayloadKg:(r.entry?this.runtime.productMetadata(r.entry.product).mass:0)+(r.config.toolMassKg||0),
       cycleProgress: r.phase === 'idle' ? 0 : Math.round(r.phaseElapsed / Math.max(.01, r.duration || 1) * 100),
       runSeconds: r.busySeconds, busySeconds: r.busySeconds, processSeconds: r.processSeconds, idleSeconds: r.idleSeconds, setupSeconds: r.setupSeconds, batteryPercent: r.batteryPercent,
       blockedSeconds: r.blockedSeconds, downSeconds: r.downSeconds, distance: r.distance,
@@ -288,6 +289,8 @@ export default class RobotRuntime {
   pick(record) {
     const r = record.components.robot, c = r.candidate, runtime = this.runtime;
     if (!c || c.product.heldBy || c.product.vehicleOwnerId || c.product.vehicleReservedBy || c.product.robotOwnerId || !visible(c.product.object) || c.product.robotReservedBy !== record.id) return false;
+    const admission = robotSchema.productCompatibility(r.config, runtime.productMetadata(c.product));
+    if (!this.inSitu(r) && !admission.accepted) { this.fault(record, admission.reason); return false; }
     const toolPoint = this.tool(record) ? this.tool(record).getWorldPosition(new THREE.Vector3()) : vector(r.pose.tcp).applyMatrix4(record.object.matrixWorld);
     if ((!this.mobile(r) || this.mobileArm(r)) && toolPoint.distanceTo(this.worldContact(c.product, null, record)) > r.config.positionTolerance) return false;
     const product = c.product, source = c.source, belt = source.components.conveyor;
@@ -663,9 +666,8 @@ export default class RobotRuntime {
     const metadata = this.runtime.productMetadata(c.product);
     // An in-situ nozzle carries its tool, not the mass of the stationary part.
     if (!this.inSitu(r)) {
-      if (metadata.mass > r.config.payloadKg + EPSILON) return this.fault(record, 'Carga de ' + metadata.mass.toFixed(2) + ' kg supera ' + r.config.payloadKg + ' kg.');
-      const verdict = robotSchema.acceptsProduct(r.config, metadata);
-      if (verdict === false || verdict && verdict.accepted === false) return this.fault(record, 'Producto o herramienta incompatible con esta configuración.');
+      const verdict = robotSchema.productCompatibility(r.config, metadata);
+      if (!verdict.accepted) return this.fault(record, verdict.reason || 'Producto o herramienta incompatible con esta configuración.');
     }
     const selectedOutput = robotSchema.destinationFor(r.config, metadata);
     if (!this.inSitu(r) && (!selectedOutput || !this.runtime.records.has(selectedOutput))) { r.blocked = true; return; }

@@ -4,10 +4,10 @@
   "recipeVersion": 2,
   "width": 480,
   "height": 320,
-  "bundleSha256": "ab34a64104f2963b7664a16e4f878303385607cf7eb73bde9b177144f1e1070b",
+  "bundleSha256": "a70f32cbcdc1479bc6075025404b56a9dd183c484ce6ed774a27ceb4455af2e9",
   "catalogSha256": "b025078724fe9ef14a27c8f096a10a1b4a64db312093c7ce585fa09ae9121597",
   "complete": true,
-  "bytes": 3322414,
+  "bytes": 3332874,
   "scenes": [
     {
       "id": "l-transfer",
@@ -80,17 +80,77 @@
       "recipeVersion": 2,
       "width": 480,
       "height": 320,
-      "bytes": 31992,
-      "sha256": "9fdc47cf091fd3738f9a459bf9d1b376738ae6ae513cac0efdc876c1be4a4740",
-      "bundleSha256": "ab34a64104f2963b7664a16e4f878303385607cf7eb73bde9b177144f1e1070b",
-      "sceneSha256": "d8d6d299a9c7e37fd6e30a8d1ce94935f5868c7103d100d701b0e179e8d213f7",
+      "source": "loaded-scene-document",
+      "models": [
+        {
+          "id": "custom-public-3",
+          "type": "source",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-4",
+          "type": "robot",
+          "variant": "articulated-general",
+          "visualModel": "auto",
+          "renderedVariant": "articulated-general",
+          "renderedVisualModel": "reference-pilot"
+        },
+        {
+          "id": "custom-public-5",
+          "type": "conveyor",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-6",
+          "type": "palletQueue",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-7",
+          "type": "conveyor",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-8",
+          "type": "palletQueue",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-9",
+          "type": "vehicle",
+          "variant": "forklift-electric-4w",
+          "visualModel": "reference-pilot",
+          "renderedVariant": "forklift-electric-4w",
+          "renderedVisualModel": "reference-pilot"
+        }
+      ],
+      "sourceUnchanged": true,
+      "bytes": 36143,
+      "sha256": "f94a7f3ad42a4185442ddeba83a5d5fbc080cf650900f9724764c26582ad22f6",
+      "bundleSha256": "a70f32cbcdc1479bc6075025404b56a9dd183c484ce6ed774a27ceb4455af2e9",
+      "sceneSha256": "f6341e98b45cc3de78e213f78c913bde8279351f916201dfe2a57ee880ad5109",
       "quality": {
         "width": 480,
         "height": 320,
-        "mean": 45.87326388888889,
-        "variance": 521.9992736062877,
-        "min": 33.333333333333336,
-        "max": 213.66666666666666
+        "mean": 46.42144097222221,
+        "variance": 537.0563284791542,
+        "min": 40,
+        "max": 234
       }
     },
     {
@@ -101,17 +161,77 @@
       "recipeVersion": 2,
       "width": 480,
       "height": 320,
-      "bytes": 31856,
-      "sha256": "2246a59afc3f35a10d7475556ed3f8e4a76b14156941f4de8bfd44389d26f760",
-      "bundleSha256": "ebb8e4b70d59f64fef8744956851bdd6cf97237eb84be8a27083e0c21d96e315",
-      "sceneSha256": "afab5abd9fd491429e88e97740ebc0bf470088e4c8abd3d9e911ca2cc504a92e",
+      "source": "loaded-scene-document",
+      "models": [
+        {
+          "id": "custom-public-3",
+          "type": "source",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-4",
+          "type": "robot",
+          "variant": "articulated-general",
+          "visualModel": "auto",
+          "renderedVariant": "articulated-general",
+          "renderedVisualModel": "reference-pilot"
+        },
+        {
+          "id": "custom-public-5",
+          "type": "conveyor",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-6",
+          "type": "palletQueue",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-7",
+          "type": "conveyor",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-8",
+          "type": "palletQueue",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-9",
+          "type": "vehicle",
+          "variant": "forklift-electric-3w",
+          "visualModel": "auto",
+          "renderedVariant": "forklift-electric-3w",
+          "renderedVisualModel": "legacy"
+        }
+      ],
+      "sourceUnchanged": true,
+      "bytes": 33768,
+      "sha256": "bef608f317b63738917ffb50d1f31de7eb439157690a1d1e1b7601bce735680a",
+      "bundleSha256": "a70f32cbcdc1479bc6075025404b56a9dd183c484ce6ed774a27ceb4455af2e9",
+      "sceneSha256": "a8be6d22b7af1990f7ec24722513430e29cc172780599bd1b3cb733d43c94c8c",
       "quality": {
         "width": 480,
         "height": 320,
-        "mean": 44.65755208333334,
-        "variance": 328.0417282669621,
+        "mean": 46.07074652777779,
+        "variance": 525.3493062713969,
         "min": 40,
-        "max": 189.33333333333334
+        "max": 231
       }
     },
     {
@@ -122,17 +242,77 @@
       "recipeVersion": 2,
       "width": 480,
       "height": 320,
-      "bytes": 32413,
-      "sha256": "5d554032df4017f988e9b6c787788320130e7dd3672947974cbb38c130c17c8f",
-      "bundleSha256": "ebb8e4b70d59f64fef8744956851bdd6cf97237eb84be8a27083e0c21d96e315",
-      "sceneSha256": "4b3e0e73d7785c16d2cefb2e4a8b9f41e1aef3b1f762c43c1262f36310e9c212",
+      "source": "loaded-scene-document",
+      "models": [
+        {
+          "id": "custom-public-3",
+          "type": "source",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-4",
+          "type": "robot",
+          "variant": "articulated-general",
+          "visualModel": "auto",
+          "renderedVariant": "articulated-general",
+          "renderedVisualModel": "reference-pilot"
+        },
+        {
+          "id": "custom-public-5",
+          "type": "conveyor",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-6",
+          "type": "palletQueue",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-7",
+          "type": "conveyor",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-8",
+          "type": "palletQueue",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-9",
+          "type": "vehicle",
+          "variant": "forklift-electric-3w",
+          "visualModel": "auto",
+          "renderedVariant": "forklift-electric-3w",
+          "renderedVisualModel": "legacy"
+        }
+      ],
+      "sourceUnchanged": true,
+      "bytes": 36810,
+      "sha256": "ad02c748398d32aa1dd5b1d10669756b6185ec653ba191f24817a372d4b08896",
+      "bundleSha256": "a70f32cbcdc1479bc6075025404b56a9dd183c484ce6ed774a27ceb4455af2e9",
+      "sceneSha256": "8dd9348d64da3af958f28b1471ae425a3b4ee09a68c7d8656984a69cc09cfeb6",
       "quality": {
         "width": 480,
         "height": 320,
-        "mean": 47.20312500000002,
-        "variance": 655.4384856047436,
+        "mean": 49.30772569444446,
+        "variance": 842.9734472580867,
         "min": 40,
-        "max": 224
+        "max": 237.33333333333334
       }
     },
     {

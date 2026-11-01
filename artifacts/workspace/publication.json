@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "9d2eaea0fbcc39af900ea56369e7d0dc06c38cdf",
-  "bundleSha256": "f13b68a208b9df1337431d8ded659ffa284dba530fbf0b316aa647dcef616852",
+  "revision": "896fbf75c5fa06545dd4e38a2cb3d73db3d0df75",
+  "bundleSha256": "a70f32cbcdc1479bc6075025404b56a9dd183c484ce6ed774a27ceb4455af2e9",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -44,23 +44,23 @@
   "files": [
     {
       "path": "0.bundle.js",
-      "sha256": "0b29e9f08b28e0995e7bf947217c0e09c07ca0fc0b914578d81111b33b4185e7"
+      "sha256": "276405733933e4d589d8fc110dfb93f37c7e4991a4ab990e159b9b112013f638"
     },
     {
       "path": "2.bundle.js",
-      "sha256": "954928a1c76006e76c8242582bb896b6e54e5d8e689b7668860272c71d894ed2"
+      "sha256": "4c6cf293465accb68c7fc156aa03a0411f38dbbe857a12088d7916b6f386096d"
     },
     {
       "path": "3.bundle.js",
-      "sha256": "e364268325f748675804b81496d293f7dff9ad0325955e043a687f30fac9c489"
+      "sha256": "0d4805c4e53aa5ff04158618501e739c0acef1ad7df926d4b462f035fcf55915"
     },
     {
       "path": "4.bundle.js",
-      "sha256": "37aa826b418f27e821b98eac8d62cb58ef143387cfbbf718c7cd17b27826b035"
+      "sha256": "245152486d1344c9572ed9f2230813398807e59d02839da95210e6b0758f3e14"
     },
     {
       "path": "5.bundle.js",
-      "sha256": "5a5522597e0c5374ebc1cd70a0d0e664079898027eb563d23de94132fcbae050"
+      "sha256": "5d2df1ba697da63f445853942e82c887fa0a51ce4c07228deb69fc081daf77cb"
     },
     {
       "path": "apps/workspace/studio/admin-workspace.css",
@@ -72,7 +72,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "f13b68a208b9df1337431d8ded659ffa284dba530fbf0b316aa647dcef616852"
+      "sha256": "a70f32cbcdc1479bc6075025404b56a9dd183c484ce6ed774a27ceb4455af2e9"
     },
     {
       "path": "cad-worker.js",
@@ -1264,7 +1264,7 @@
     },
     {
       "path": "projects/smarttwin/previews/manifest.json",
-      "sha256": "e5222762108fa18786a7c3d99a4cd422f62380c5164027b853c8c0c7e26b4fba"
+      "sha256": "87df21f6bea883feefda4bb86c9c300c5a04cf8fad0ee02ab4540a1f3a676660"
     },
     {
       "path": "projects/smarttwin/previews/manual-station.png",
@@ -1320,15 +1320,15 @@
     },
     {
       "path": "projects/smarttwin/previews/vr-robot-dispatch.png",
-      "sha256": "9fdc47cf091fd3738f9a459bf9d1b376738ae6ae513cac0efdc876c1be4a4740"
+      "sha256": "f94a7f3ad42a4185442ddeba83a5d5fbc080cf650900f9724764c26582ad22f6"
     },
     {
       "path": "projects/smarttwin/previews/vr-robot-transfer.png",
-      "sha256": "2246a59afc3f35a10d7475556ed3f8e4a76b14156941f4de8bfd44389d26f760"
+      "sha256": "bef608f317b63738917ffb50d1f31de7eb439157690a1d1e1b7601bce735680a"
     },
     {
       "path": "projects/smarttwin/previews/vr-robot-turn.png",
-      "sha256": "5d554032df4017f988e9b6c787788320130e7dd3672947974cbb38c130c17c8f"
+      "sha256": "ad02c748398d32aa1dd5b1d10669756b6185ec653ba191f24817a372d4b08896"
     },
     {
       "path": "projects/smarttwin/previews/vr-warehouse-missions.png",
@@ -1464,15 +1464,15 @@
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-dispatch.json",
-      "sha256": "d8d6d299a9c7e37fd6e30a8d1ce94935f5868c7103d100d701b0e179e8d213f7"
+      "sha256": "f6341e98b45cc3de78e213f78c913bde8279351f916201dfe2a57ee880ad5109"
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-transfer.json",
-      "sha256": "85274f4333b0c415ac1423448011e9a2d3f1fa3bb96280aafbf6d02d29fef565"
+      "sha256": "a8be6d22b7af1990f7ec24722513430e29cc172780599bd1b3cb733d43c94c8c"
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-turn.json",
-      "sha256": "b15f14507a77af4a223e465e9bf8f6556d1a91bc3a6f0014f297a9332fb715e5"
+      "sha256": "8dd9348d64da3af958f28b1471ae425a3b4ee09a68c7d8656984a69cc09cfeb6"
     },
     {
       "path": "projects/smarttwin/scenes/vr-warehouse-missions.json",
@@ -1481,8 +1481,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "02359195dfe2df27fbcb",
-    "statsSha256": "54091dcccd8bf0c2fafc5fd5a360be5f05dedee03f72538113f17a9f7a7938a1",
+    "hash": "a75c3b7490385449f29c",
+    "statsSha256": "f1dde64bf646af6467efa6a8aa10361fa9636a2c4598eb1b054796b4b7d69c6a",
     "assets": [
       {
         "path": "0.bundle.js",
@@ -1506,7 +1506,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 5626269
+        "size": 5671882
       }
     ]
   }

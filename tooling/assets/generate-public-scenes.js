@@ -46,7 +46,7 @@ async function generate(root = __layout.map(path.resolve(__layout.oldDir("script
     const template = id === PUBLIC_DEMO.id ? compiler.STUDY_SCENES.find(row => row.id === PUBLIC_DEMO.templateId) : definition;
     const metadata = {id, roomId, name: id === PUBLIC_DEMO.id ? PUBLIC_DEMO.name : template.title, templateId: template.id, collection: template.family, difficulty: template.difficulty, mode: template.mode};
     if (only && only !== id) {append(metadata); continue;}
-    const w = workspace(); compiler.studySceneBase(w.document, roomId); compiler.buildStudyScene(w.document, roomId, template.id, {scene: w.scene, continuous: true});
+    const w = workspace(); compiler.studySceneBase(w.document, roomId); compiler.buildStudyScene(w.document, roomId, template.id, {scene: w.scene, continuous: true,publicDemo:id===PUBLIC_DEMO.id});
     const document = await w.document.serialize(); document.rooms[roomId].overrides = Array.from({length: counts[roomId]}, (_, index) => ({id: 'native:' + roomId + ':root.' + index, visible: false}));
     if (id === PUBLIC_DEMO.id) authorPublicAdvisoryRoute(document, roomId);
     append(metadata, document);

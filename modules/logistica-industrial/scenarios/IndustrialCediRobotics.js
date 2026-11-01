@@ -175,6 +175,9 @@ export function retrofitCediRobotics(document, roomId, options = {}) {
       for (const edge of existing ? previousEdge.source && previousEdge.target ? [previousEdge] : [] : categories[role]) {
         if (cells.some(cell => cell.source === edge.source.object)) continue;
         const line = lines.find(item => item.objects.includes(edge.source.object)), sources = upstreamSources(rows, edge.source);
+        if(sources.some(object=>{const config=machine(document,object,'source');return config&&(config.loadMode==='pallet'||schema.productSources.normalizeCatalog(config.catalog||'[]').some(spec=>['pallet','cage'].includes(spec.type)));})){
+          warnings.push('El enlace de '+edge.source.object.name+' transporta pallets completos; se conserva su conexión. Instala un manipulador con horquillas o plataforma y capacidad para carga, pallet y herramienta.');continue;
+        }
         const profiles = sources.flatMap(object => {const value = machine(document, object, 'source'); if (!value) return []; const catalogue = schema.productSources.normalizeCatalog(value.catalog || '[]'); return catalogue.length ? catalogue : [value];});
         const maximum = (key, fallback) => Math.max(fallback, ...profiles.map(spec => spec[key]).filter(Number.isFinite));
         const productSize = {width: maximum('width', .3), depth: maximum('depth', .3), height: maximum('height', .3), mass: maximum('mass', 4)};

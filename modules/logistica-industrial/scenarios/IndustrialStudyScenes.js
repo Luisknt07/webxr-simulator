@@ -129,8 +129,8 @@ function localBounds(root, objects) {
   objects.forEach(visit); return bounds;
 }
 
-// Small, finite teaching cells for standalone XR. The same physical pallet
-// crosses Source -> robot -> conveyor(s) -> manual forklift -> floor stock.
+// Small, finite teaching cells for standalone XR. The robot handles real
+// individual cartons; a full physical pallet then travels by belt/forklift.
 // A bounded warehouse shell supplies a real interior without background
 // production, texture overlays, extra shadow lights or continuous feed.
 function compactVrStudy(document, roomId, definition, scene, options) {
@@ -145,16 +145,16 @@ function compactVrStudy(document, roomId, definition, scene, options) {
     links.push({source: from.userData.editorId, sourcePort: port, target: to.userData.editorId, targetPort: 'input'});
   };
   try {
-    const source = add('source', 'RV · dos pallets / cuatro cajas cada uno', undefined, {
-      running: true, autoGenerate: true, initialCount: 1, totalLimit: 2, capacity: 2, interval: 18, delivery: 'manual', withPanel: false,
-      loadMode: 'pallet', palletType: 'euro-1200x800', palletColumns: 2, palletRows: 2, palletLayers: 1,
+    const source = add('source', 'RV · ocho cajas individuales / dos pallets', undefined, {
+      running: true, autoGenerate: true, initialCount: 1, totalLimit: 8, capacity: 2, interval: 4, delivery: 'manual', withPanel: false,
+      loadMode: 'individual',
       // The 80kg teaching arm needs real elbow/shoulder clearance beside the
       // table edge. Its former z=.8 put that edge inside the upper-arm body
       // even in the authored waiting pose. This edits new examples only.
       generationMode: 'sequence', catalog: JSON.stringify([{id: 'vr-four-boxes', name: 'Caja de práctica RV', type: 'box', variant: 'box-small', width: .3, depth: .3, height: .22, mass: 2, base: 'flat', color: '#b98d53', quality: 'good', defect: 'none'}])}, [-1.3, 1, 1.3]);
     const robot = add('robot', 'RV · robot de expedición', 'articulated-general', {
-      running: true, mode: 'automatic', withPanel: true, sourceId: source.userData.editorId, reach: 3.2, payloadKg: 80,
-      tool: 'vacuum', acceptedTypes: 'pallets', requireKnownMass: true, maxProductWidth: 1.3, maxProductDepth: 1.1, maxProductHeight: 1,
+      running: true, mode: 'automatic', operation: 'palletize', withPanel: true, sourceId: source.userData.editorId, reach: 2.2, payloadKg: 12, toolMassKg: 1.5,
+      tool: 'vacuum', acceptedTypes: 'boxes', requireKnownMass: true, maxProductWidth: .45, maxProductDepth: .45, maxProductHeight: .4,
       baseHeight: .45, speed: .8, cycleTime: 4, processTime: 0, setupTime: .4, approachHeight: .18, wear: .34}, [0, 0, 0]);
     // The catalogue home scales its horizontal offset with arm reach. At 3.2m
     // that puts the wrist inside a loaded pallet at the adjoining chain input.
@@ -168,8 +168,13 @@ function compactVrStudy(document, roomId, definition, scene, options) {
     const entry = add('conveyor', turn ? 'RV · mesa de giro a 90°' : 'RV · banda de recepción', turn ? 'pallet-turntable' : 'pallet-chain', {
       length: turn ? 2.8 : 2.4, width: 1.4, supportHeight: .65, powered: true, running: true, autoSpawn: false,
       withSensors: false, withPanel: one, speed: .25, maxPackages: 1, maxLoad: 150, clearance: 1.5}, [turn ? 2.9 : 2.4, .65, 0]);
-    conveyors.push(entry); patch(document, robot, {outputId: entry.userData.editorId});
-    links.push({source: source.userData.editorId, sourcePort: 'output', target: robot.userData.editorId, targetPort: 'input'}, {source: robot.userData.editorId, sourcePort: 'output', target: entry.userData.editorId, targetPort: 'input'});
+    const entryConfig = machine(document,entry), inlet = schema.conveyorLayout.ports(entryConfig).input;
+    const palletizer = add('palletQueue','RV · paletizado físico / cuatro cajas por pallet',undefined,{
+      running:true,withPanel:false,palletize:true,palletizeLimit:2,acceptsPallets:false,palletCapacity:1,capacity:4,columns:2,rows:2,layers:1,
+      palletType:'euro-1200x800',palletMaterial:'wood',layoutMode:'grid',autoRelease:false,delivery:'automatic',outputId:entry.userData.editorId,outputInterval:.1
+    },[entry.position.x+inlet.x,entry.position.y+1,entry.position.z+inlet.z]);
+    conveyors.push(entry); patch(document, robot, {outputId: palletizer.userData.editorId});
+    links.push({source: source.userData.editorId, sourcePort: 'output', target: robot.userData.editorId, targetPort: 'input'}, {source: robot.userData.editorId, sourcePort: 'output', target:palletizer.userData.editorId,targetPort:'input'}, {source:palletizer.userData.editorId,sourcePort:'output',target:entry.userData.editorId,targetPort:'input'});
     let pickup = entry;
     if (!one) {
       pickup = add('conveyor', 'RV · salida / recogida de montacargas', 'pallet-chain', {
@@ -188,9 +193,10 @@ function compactVrStudy(document, roomId, definition, scene, options) {
       running: true, withPanel: false, acceptsPallets: true, palletType: 'euro-1200x800', width: 1.2, depth: .8,
       palletCapacity: 2, capacity: 2, columns: 1, rows: 1, layers: 1, autoRelease: false, delivery: 'manual'}, [parking.x - direction.z * 4.5, 1, parking.z + direction.x * 4.5]);
     document.setTransform(destination, {quaternion: pickup.quaternion.toArray()});
-    const vehicle = add('vehicle', 'RV · único montacargas manual', one ? 'forklift-electric-4w' : 'forklift-electric-3w', {
+    const vehiclePilot=one||options.publicDemo===true;
+    const vehicle = add('vehicle', 'RV · único montacargas manual', vehiclePilot ? 'forklift-electric-4w' : 'forklift-electric-3w', {
       mode: 'manual', powered: true, running: true, parkingBrake: true, forkSpread: .312, sourceId: pickup.userData.editorId,
-      outputId: destination.userData.editorId, waypointsJson: '[]', serial: 'RV-COMPACTO', detail: 'balanced'}, parking.toArray());
+      outputId: destination.userData.editorId, waypointsJson: '[]', serial: 'RV-COMPACTO', detail: 'balanced',visualModel:vehiclePilot?'reference-pilot':'auto'}, parking.toArray());
     document.setTransform(vehicle, {rotation: [0, Math.atan2(-direction.x, -direction.z), 0]});
     links.push({source: pickup.userData.editorId, sourcePort: 'output', target: vehicle.userData.editorId, targetPort: 'input'}, {source: vehicle.userData.editorId, sourcePort: 'output', target: destination.userData.editorId, targetPort: 'input'});
     const line = {id: definition.id, title: definition.title, mode: 'mixed', continuous: false, objects: objects.slice(), links,
@@ -237,7 +243,7 @@ function compactVrStudy(document, roomId, definition, scene, options) {
         bounds: {min: [-9, 0, -10], max: [15, 5.6, 10], width: 24, depth: 20, height: 5.6}};
     }
     return {objects, cells: [line], lines: [line], sources: [source], receivers: [destination], controllers: [robot], vehicles: [vehicle],
-      conveyors, robot, source, pickup, destination, vehicle, links, expectedUnits: 8, environment, compactVR: true, presetId: definition.id, definition};
+      conveyors, robot, source, palletizer, pickup, destination, vehicle, links, expectedUnits: 8, environment, compactVR: true, presetId: definition.id, definition};
   } finally { assembly.clear(); }
 }
 

@@ -24,7 +24,10 @@ export default class PalletQueueRuntime {
     record.writable.push({key: 'enabled', type: 'boolean', label: 'Habilitado'}, {key: 'running', type: 'boolean', label: 'En marcha'},
       {key: 'paused', type: 'boolean', label: 'En pausa'}, {key: 'outputInterval', type: 'number', label: 'Intervalo de salida (s)', min: .1, max: 120});
     if (layout.rack) this.attachRack(record, component, layout);
+    behaviorSchema.palletQueues.physical.attach(this,record);
   }
+
+  dimensions(config) { return behaviorSchema.productSources.pallets.dimensions(config,true); }
 
   attachRack(record, component, layout) {
     const config = component.config, banks = [], carts=[]; let carriage = null;
@@ -475,7 +478,9 @@ export default class PalletQueueRuntime {
   }
 
   canPickup(product) {
+    if(product&&product.palletAssemblyIncomplete)return false;
     const item = product && product.item, record = item && this.runtime.records.get(item.palletOwnerId), component = record && record.components.palletQueue;
+    if(component&&component.config.palletize&&!(product.sourceEntry&&product.sourceEntry.load&&product.sourceEntry.load.physicalAssembly))return false;
     return !component || this.top(component, item);
   }
 
@@ -526,6 +531,7 @@ export default class PalletQueueRuntime {
   placement(record, product, reservations = [], preferredCenter, markFull = false, receivingIgnore) {
     const component = record.components.palletQueue;
     if (!component || component.queue.length + reservations.length >= component.config.capacity) return null;
+    if(component.config.palletize&&(!component.pallets[0].assemblyProduct||component.pallets[0].sealed||this.runtime.productMetadata(product).loadMode==='pallet'))return null;
     if(component.rack)return this.rackPlacement(record,product,reservations,preferredCenter,receivingIgnore);
     const item = this.itemFor(product), perPallet = component.config.acceptsPallets ? 1 : component.config.columns * component.config.rows * component.config.layers;
     // Authored pallets keep their metadata in the visual child; generated
@@ -602,6 +608,7 @@ export default class PalletQueueRuntime {
     this.runtime.sourceRuntime.entries.add(entry); this.order(component);
     this.rackAfterReceive(record,item);
     this.runtime.event(record.id, 'pallet-queue-entry', 'Carga apilada en la estiba: ' + component.queue.length + '/' + component.config.capacity + '.');
+    behaviorSchema.palletQueues.physical.seal(THREE,this,record);
     return true;
   }
 
@@ -623,6 +630,7 @@ export default class PalletQueueRuntime {
     // Removing the source membership must preserve that new ownership.
     if (item.palletOwnerId === component.ownerId) { item.palletOwnerId = null; item.palletSide = null; item.palletSlot = null; item.palletIndex = null; }
     component.blocked = false;
+    if(component.config.palletize&&component.pallets[0].assemblyProduct===product){component.pallets[0].assemblyProduct=null;component.pallets[0].sealed=false;}
     this.order(component);
     if(component.rack)this.syncIdentification(true);
   }
@@ -637,6 +645,7 @@ export default class PalletQueueRuntime {
 
   dispatch(record) {
     const component = record.components.palletQueue;
+    if(component.config.palletize)return behaviorSchema.palletQueues.physical.dispatch(THREE,this,record);
     if(component.rack&&component.rack.preparedLane!==null){component.rack.preparedLane=null;return false;}
     if(component.rack){if(this.rackBusy(component))return false;if(this.rackAutomatic(component)&&component.rack.presentedSlot===null)return this.rackRequestRetrieval(record,component.rackSelectedSlot);}
     this.order(component);
@@ -706,6 +715,7 @@ export default class PalletQueueRuntime {
     this.runtime.records.forEach(record => {
       const component = record.components.palletQueue;
       if (!component || !visible(record.object) || !this.operational(component)) return;
+      if(component.config.palletize){behaviorSchema.palletQueues.physical.ensure(THREE,this,record);behaviorSchema.palletQueues.physical.seal(THREE,this,record);}
       if(component.rack){this.rackStep(record,delta);if(this.rackBusy(component))return;}
       if (component.config.autoRelease && !component.rack) {
         const complete = component.pallets.map((pallet, index) => this.bayFull(component, index));
@@ -780,6 +790,7 @@ export default class PalletQueueRuntime {
     this.runtime.records.forEach(record => {
       const component = record.components.palletQueue;
       if (!component) return;
+      behaviorSchema.palletQueues.physical.stop(this,record);
       if(component.rack){component.rack.banks.forEach((bank,index)=>bank.position.copy(component.rack.homes[index]));component.rack.carts.forEach((cart,index)=>cart.position.copy(component.rack.cartHomes[index]));if(component.rack.carriage&&component.rack.carriageHome)component.rack.carriage.position.copy(component.rack.carriageHome);this.rackSyncVisual(record);record.object.updateWorldMatrix(true,true);this.runtime.invalidateCollision(record.object);}
       if (component.helper.parent) component.helper.parent.remove(component.helper);
       component.pallets.forEach(pallet => { pallet.items.length = 0; });

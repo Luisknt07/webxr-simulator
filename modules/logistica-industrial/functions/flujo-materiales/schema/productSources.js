@@ -91,7 +91,7 @@ function entryMass(entry, ancestors = new Set()) {
   const members = Array.isArray(entry.members) && entry.members.length ? entry.members : null;
   let mass = members ? members.reduce((sum, member) => sum + entryMass(member, ancestors), 0) :
     (entry.spec && Number.isFinite(entry.spec.mass) ? entry.spec.mass : 1) * (Number.isFinite(entry.units) && entry.units >= 0 ? entry.units : 1);
-  if (entry.load && entry.load.loadMode === 'pallet') mass += Number.isFinite(entry.load.palletTare) ? entry.load.palletTare : pallets.dimensions(entry.load, true).tare;
+  if (entry.load && (entry.load.loadMode === 'pallet' || entry.load.physicalAssembly === true)) mass += Number.isFinite(entry.load.palletTare) ? entry.load.palletTare : pallets.dimensions(entry.load, true).tare;
   ancestors.delete(entry); return mass;
 }
 function loadSize(spec, config = {}) {

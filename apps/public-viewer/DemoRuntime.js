@@ -33,9 +33,11 @@ export const demoFunction = defineFunction({
         const robot = Array.from(simulation.records.values()).find(record => record.components.robot);
         const vehicle = Array.from(simulation.records.values()).find(record => record.components.vehicle);
         const belt = vehicle && simulation.records.get(vehicle.components.vehicle.config.sourceId) || Array.from(simulation.records.values()).find(record => record.components.conveyor);
+        const palletizer=Array.from(simulation.records.values()).find(record=>record.components.palletQueue&&record.components.palletQueue.config.palletize),assembly=palletizer&&palletizer.components.palletQueue;
         return {time: simulation.time, running: simulation.running, paused: session.paused, products: simulation.products.size,
           robot: robot ? {id: robot.id, phase: robot.components.robot.phase, completed: robot.components.robot.completed || 0, warning: robot.components.robot.warning || ''} : null,
           belt: belt ? {id: belt.id, running: belt.components.conveyor.running, packages: belt.components.conveyor.packages.length, blocked: belt.components.conveyor.transferBlocked} : null,
+          palletizer:assembly?{completed:assembly.assembly.completed,cartons:assembly.received,perPallet:assembly.config.capacity,limit:assembly.config.palletizeLimit}:null,
           vehicle: vehicle ? {id: vehicle.id, carrying: !!vehicle.components.vehicle.entry, delivered: vehicle.components.vehicle.delivered || 0, driving: driving.id === vehicle.id} : null};
       }
     };

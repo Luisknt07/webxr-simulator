@@ -50,7 +50,9 @@ async function run() {
   const input = () => f.runtime.records.get(source.userData.editorId).components.source;
   const output = () => f.runtime.records.get(sink.userData.editorId).components.palletQueue;
   assert.equal(f.ctx.raycontrol.controllers.length, 2);
-  assert.equal(f.document.getObjects('hall').filter(object => object.userData.industrialAction && f.document.getBehaviors(object).some(config => config.type === 'control' && config.targetId === f.head.userData.editorId)).length, 9);
+  const boundControls=f.document.getObjects('hall').filter(object => object.userData.industrialAction && f.document.getBehaviors(object).some(config => config.type === 'control' && config.targetId === f.head.userData.editorId));
+  assert.equal(boundControls.length,19,'Nine original console commands and ten pendant commands target the same native robot.');
+  const pendantControls=boundControls.filter(object=>{for(let p=object.parent;p;p=p.parent)if(p.userData.robotTeachPendant)return true;return false;});assert.equal(pendantControls.length,10);assert.equal(boundControls.length-pendantControls.length,9);
   press(f, 'powerOn', f.left); assert(vars(f).powered);
   press(f, 'start', f.right); assert(vars(f).running);
   until(f, () => !!robot().entry);

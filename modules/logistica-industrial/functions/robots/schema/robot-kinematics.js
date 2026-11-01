@@ -30,10 +30,10 @@ function configuration(value) {
   if (!value || typeof value !== 'object') return robots.normalize({});
   // Geometry/runtime hold stable config objects during a cycle. Invalidate on
   // every mechanical field edit while avoiding full schema parsing per frame.
-  const signature = [value.variant, value.family, value.tool, value.reach, value.length, value.width, value.height, value.baseHeight, value.maxProductDepth, value.jointLimitsJson].join('|');
+  const signature = [value.variant, value.family, value.visualModel, value.tool, value.reach, value.length, value.width, value.height, value.baseHeight, value.maxProductDepth, value.jointLimitsJson].join('|');
   const cached = prepared.get(value); if (cached && cached.signature === signature) return cached.config;
   const config = robots.normalize(value); prepared.set(value, {signature, config});
-  prepared.set(config, {signature: [config.variant, config.family, config.tool, config.reach, config.length, config.width, config.height, config.baseHeight, config.maxProductDepth, config.jointLimitsJson].join('|'), config});
+  prepared.set(config, {signature: [config.variant, config.family, config.visualModel, config.tool, config.reach, config.length, config.width, config.height, config.baseHeight, config.maxProductDepth, config.jointLimitsJson].join('|'), config});
   return config;
 }
 
@@ -42,11 +42,13 @@ function getDimensions(value) {
   // `reach` retains its saved-data meaning: combined shoulder/elbow span.
   // The existing 0.20 m tool offset is additional; changing a catalogue preset
   // must never rescale or silently shorten an authored/custom kinematic chain.
+  const support=c.family==='articulated'&&c.variant==='articulated-general'&&c.visualModel!=='legacy'&&['fork','platform'].includes(c.tool),toolLength=['amr', 'agv', 'shuttle', 'mobileSorter'].includes(c.family)?0:.20;
+  const toolSupport=support?{width:clamp(c.maxProductWidth,.40,1.40),depth:clamp(c.maxProductDepth,.40,1.60),rearClearance:.12}:null;
   return {family: c.family, reach, length: c.length, width: c.width, height: c.height, baseHeight: c.baseHeight,
     shoulder: [0, c.baseHeight, 0], upperArm: reach * .52, forearm: reach * .48,
     deltaTop: c.baseHeight + c.height, deltaRadius: reach * .42,
     deltaUpper: reach * .34, deltaLower: reach * .90, deltaEffector: reach * .075,
-    toolLength: ['amr', 'agv', 'shuttle', 'mobileSorter'].includes(c.family) ? 0 : .20};
+    toolLength,toolOffset:[toolLength,toolSupport?toolSupport.depth/2+toolSupport.rearClearance:0,0],toolSupport};
 }
 function jointDefinitions(value) { return robots.getJointDefinitions(configuration(value)); }
 // The parallel gripper grips the sides below the top of a carton. Its real
@@ -111,7 +113,7 @@ function forward(value, input) {
       q = quat(q, axis(2, j[4])); frames.push(frame(p, q));
       q = quat(q, axis(0, j[5])); frames.push(frame(p, q));
     }
-    p = add(p, rotate([d.toolLength, 0, 0], q));
+    p = add(p, rotate(d.toolOffset, q));
   } else if (c.family === 'cylindrical' || c.family === 'polar') {
     q = axis(1, j[0]); frames.push(frame(p, q));
     if (c.family === 'cylindrical') p[1] += j[1];
@@ -149,7 +151,7 @@ function inverse(value, target, seed) {
   const targetPoint = point(target && target.position ? target.position : target), desired = target && (target.quaternion || target.toolQuaternion);
   const initial = Array.isArray(seed) ? seed : seed && seed.joints || [], joints = jointDefinitions(c).map((definition, index) => Number.isFinite(initial[index]) ? initial[index] : definition.home || 0);
   if (c.family === 'articulated' || c.family === 'palletizer' || c.family === 'mobileManipulator') {
-    const targetOrientation = desired || axis(2, -PI / 2), wristPoint = sub(targetPoint, rotate([d.toolLength, 0, 0], targetOrientation));
+    const targetOrientation = desired || axis(2, -PI / 2), wristPoint = sub(targetPoint, rotate(d.toolOffset, targetOrientation));
     const xz = Math.hypot(wristPoint[0], wristPoint[2]), y = wristPoint[1] - c.baseHeight;
     const cosElbow = clamp((xz * xz + y * y - d.upperArm * d.upperArm - d.forearm * d.forearm) / (2 * d.upperArm * d.forearm), -1, 1);
     const limits = jointDefinitions(c), choices = [];

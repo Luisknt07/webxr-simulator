@@ -1,6 +1,9 @@
 # Native six-axis visual pilot
 
 `articulated-general` uses the reference pilot when `visualModel` is `auto`.
+Its default assembly retains the industrial cast skins; the additional compact,
+long-reach and reinforced native structures are described in
+[Native modular robot assemblies](robot-modular-assemblies.md).
 Choose `legacy` to compare the previous model. All other variants retain their
 previous visual. Explicit `reference-pilot` is restricted to this variant.
 
@@ -37,11 +40,11 @@ its full machine exceeds that Quest triangle profile.
 
 | Native mechanism, without side console | Low | Balanced | High |
 | --- | ---: | ---: | ---: |
-| Triangles, standard gripper and accessories | 14,198 | 27,623 | 40,139 |
-| Native mesh draws | 62 | 68 | 68 |
+| Triangles, standard gripper and accessories | 13,362 | 25,922 | 37,720 |
+| Native mesh draws | 64 | 71 | 71 |
 
-The native authored dispatch mechanism (3.2 m reach, vacuum tooling), isolated
-for study, exports at 29,503 triangles including its vacuum tooling and native service connections. Three LODs occupy about
+The native mechanism can also be isolated for study/export with its actual
+configured tooling and service connections. Three CAD LODs occupy about
 1.58 MB of quantized source data. The editable Blender and GLB study exports
 retain semantic components and joint IDs; the JSON packet route transfers PBR
 factors and geometry, with browser GLB preferred for image maps.

@@ -2018,7 +2018,9 @@ function robotEquipment(variant = 'articulated-general', value) {
   const identification = panel.children.find(node => node.name === 'Identificación del tablero');
   if (identification) { const previous = identification.material.map; identification.material.map = labelTexture('CONTROL / ROBOT'); if (previous) previous.dispose(); }
   applyPanelDesign(panel, config, 'robot');
-  root.add(panel); root.updateMatrixWorld(true); require('./RobotPanelCable.js').attachRobotPanelCable(root, panel, config); return root;
+  root.add(panel); root.updateMatrixWorld(true);
+  require('./RobotTeachPendant.js').attachRobotTeachPendant(root,panel,config,{control,builder,batchDetails,disposeDetached,panelWidth:behaviorSchema.controlPanels.spec(config,'robot').width});
+  require('./RobotPanelCable.js').attachRobotPanelCable(root, panel, config); return root;
 }
 
 export function createIndustrialPrefab(kind, variant, value) {
@@ -2082,6 +2084,7 @@ createIndustrialPrefab.refresh = (object, config) => {
       }
       panel.visible = config.withPanel !== false;
       applyPanelDesign(panel, config, 'robot');
+      require('./RobotTeachPendant.js').attachRobotTeachPendant(object,panel,config,{control,builder,batchDetails,disposeDetached,panelWidth:behaviorSchema.controlPanels.spec(config,'robot').width});
       require('./RobotPanelCable.js').attachRobotPanelCable(object, panel, config);
     }
     return changed;

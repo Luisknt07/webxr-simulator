@@ -69,6 +69,8 @@ export default class ProductSourceRuntime {
     return new THREE.Box3(new THREE.Vector3(-size.width / 2, 0, -size.depth / 2), new THREE.Vector3(size.width / 2, size.height, size.depth / 2));
   }
 
+  createVisual(spec, load) { return createSourceProductVisual(spec, load); }
+
   frontMatrix(record, bounds, worldScale, positionOverride) {
     record.object.updateWorldMatrix(true, true);
     const metadata = record.object.userData.industrialSource;

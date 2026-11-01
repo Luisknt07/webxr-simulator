@@ -53,4 +53,4 @@ function layout(value = {}) {
     pallet: {width: config.width, depth: config.depth, columns: config.columns, rows: config.rows, layers: config.layers, capacity: config.capacity, top: -1 + config.palletHeight, floor: -1}};
 }
 
-module.exports = {settings, layout, bayCapacity, pallets, racks};
+module.exports = {settings, layout, bayCapacity, pallets, racks, physical:require('../runtime/physical-palletization.cjs')};

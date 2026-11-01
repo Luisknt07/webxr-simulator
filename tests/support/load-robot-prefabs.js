@@ -16,6 +16,7 @@ module.exports = function loadRobotPrefabs(THREE) {
   result.resolve = id => {
     const name = typeof id === 'string' ? path.posix.basename(id.replace(/\\/g, '/')) : '';
     if (name === 'RobotPanelCable.js') return require('../../modules/logistica-industrial/functions/presentacion/runtime/RobotPanelCable.js');
+    if (name === 'RobotTeachPendant.js') return require('../../modules/logistica-industrial/functions/presentacion/runtime/RobotTeachPendant.js');
     if (!['RobotPrefabs.js', 'ProductPrefabs.js', 'VehiclePrefabs.js'].includes(name)) throw new Error('Módulo de prefab no compatible: ' + id);
     return result;
   };

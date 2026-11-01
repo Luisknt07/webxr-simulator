@@ -188,6 +188,8 @@ const definitions = [
   {type: 'palletQueue', label: 'Pallet Queue / almacén temporal con estibas', fields: [
     checkbox('withPanel', 'Panel de control local', true),
     number('palletCapacity', 'Posiciones de pallets', 1, 1, 4, 1), checkbox('acceptsPallets', 'Recibir pallets completos', false),
+    checkbox('palletize', 'Consolidar cajas reales sobre pallet para montacargas', false),
+    number('palletizeLimit', 'Pallets vacíos disponibles por ejecución', 2, 1, 32, 1),
     {key: 'palletType', label: 'Formato de pallet', input: 'select', default: 'custom', options: productSources.pallets.types.map(value => ({value: value.id, label: value.label}))},
     {key: 'palletMaterial', label: 'Material de pallet', input: 'select', default: 'wood', options: [{value: 'wood', label: 'Madera'}, {value: 'plastic', label: 'Plastico'}]},
     {key: 'layoutMode', label: 'Distribucion en estibas', input: 'select', default: 'grid', options: [{value: 'grid', label: 'Cuadricula configurada'}, {value: 'fit', label: 'Empaque por dimensiones reales (hasta 5 niveles)'}]},
@@ -233,7 +235,7 @@ const definitions = [
     {key: 'mode', label: 'Acción', input: 'select', default: 'set', options: [{value: 'set', label: 'Asignar'}, {value: 'toggle', label: 'Alternar'}, {value: 'command', label: 'Mando de máquina'}]},
     {key: 'command', label: 'Mando', input: 'select', default: 'start', options: [
       ['start', 'Arrancar'], ['stop', 'Parar'], ['pause', 'Pausar / continuar'], ['powerOn', 'Encender'], ['powerOff', 'Apagar'],
-      ['speedUp', 'Aumentar velocidad'], ['speedDown', 'Reducir velocidad'], ['insertBox', 'Insertar caja'], ['resetEmergency', 'Rearmar emergencia'],
+      ['speedUp', 'Aumentar velocidad'], ['speedDown', 'Reducir velocidad'], ['insertBox', 'Insertar caja'], ['emergency', 'Enclavar emergencia'], ['resetEmergency', 'Rearmar emergencia'],
       ['generate', 'Generar una carga'], ['dispatch', 'Despachar primera carga'], ['dispatchPallet', 'Retirar estiba completa'], ['clearQueue', 'Vaciar cola'], ['operator', 'Alternar disponibilidad del operario'],
       ['pickup', 'Vehículo · tomar carga'], ['release', 'Vehículo · depositar carga'], ['parkingBrake', 'Vehículo · freno de estacionamiento'], ['lights', 'Vehículo · luces'], ['horn', 'Vehículo · bocina'], ['couple', 'Vehículo · enganchar'], ['uncouple', 'Vehículo · desenganchar']
     ].map(([value, label]) => ({value, label}))},
@@ -367,6 +369,7 @@ function normalizeBehaviors(list) {
     if (value.type === 'palletQueue') {
       objectReference(result.outputId, true);
       if (warehouseRacks.isRack(result)) {
+        if(result.palletize)throw new Error('El paletizado físico utiliza una estación de construcción, no una estantería.');
         Object.assign(result, warehouseRacks.normalize(result));
       } else {
       warehouseRacks.FIELDS.forEach(field => delete result[field.key]);
@@ -376,6 +379,9 @@ function normalizeBehaviors(list) {
       if (result.layoutMode !== 'fit' && result.capacity > 128) throw new Error('La capacidad de cuadricula admite hasta 128 cargas.');
       if (result.capacity > (result.acceptsPallets ? result.palletCapacity : result.layoutMode === 'fit' ? 500 : result.columns * result.rows * result.layers * result.palletCapacity)) throw new Error('La capacidad supera las posiciones disponibles en las estibas.');
       if (result.palletType !== 'custom') { const base = productSources.pallets.dimensions(result); result.width = base.width; result.depth = base.depth; }
+      if (result.palletize && (result.acceptsPallets || result.palletCapacity !== 1 || result.layoutMode !== 'grid' || result.autoRelease || result.capacity > 32)) throw new Error('El paletizado físico requiere una posición, cuadrícula de hasta 32 cajas, sin recibir pallets completos ni retirar cargas automáticamente del sistema.');
+      if(result.palletize&&result.capacity*result.palletizeLimit>128)throw new Error('La ejecución de paletizado físico admite hasta 128 cajas en total. Reduce cajas por pallet o pallets disponibles.');
+      if (!Number.isInteger(result.palletizeLimit)) throw new Error('La disponibilidad de pallets vacíos debe ser entera.');
       }
     }
     if (value.type === 'news') assetReference(result.url, false);

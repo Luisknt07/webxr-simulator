@@ -3,6 +3,8 @@
 'use strict';
 const automation = require('../../flujo-materiales/schema/automation.js');
 const controlPanels = require('../../presentacion/schema/control-panels.js');
+const assemblies = require('./robot-assemblies.js');
+const loadPolicy = require('./robot-load-policy.js');
 
 const VERSION = 1;
 const MAX_WAYPOINTS = 48, MAX_WAYPOINT_JSON = 10000, MAX_JOINT_JSON = 3000;
@@ -45,7 +47,7 @@ const DEFAULTS = {
   frameColor: '#e87825', accentColor: '#26333f', toolColor: '#aebdc7', finish: 'painted',
   wear: 0.16, detail: 'balanced', filletRadius: 0.025, chamferSize: 0.012, mountingHoles: true, visualModel: 'auto',
   housingScale: 1, serviceHarness: true, jointCovers: true, servicePackage: 'pneumatic', identificationLabels: true,
-  taskEnabled:false, taskProgramJson:''
+  taskEnabled:false, taskProgramJson:'', assemblyProfile:'auto', baseAssembly:'auto', shoulderAssembly:'auto', upperArmAssembly:'auto', forearmAssembly:'auto', wristAssembly:'auto',toolMassKg:0,pendantDesign:'industrial',pendantMount:'cabinet'
 };
 function variant(id, family, name, preset) { return {id, family, name, preset: Object.assign({}, DEFAULTS, preset, {family, variant: id})}; }
 const VARIANTS = [
@@ -94,6 +96,11 @@ function fields() {
     number('dischargeTime', 'Tiempo de carga / descarga móvil · s', .2, 30, .1), number('transferTolerance', 'Desnivel máximo de descarga móvil · m', .01, .3, .01), number('dockDistance', 'Separación de atraque del brazo móvil · m', .25, 2, .05),
     text('frameColor', 'Color · carcasa / bastidor', 7, 'color'), text('accentColor', 'Color · juntas / protecciones', 7, 'color'), text('toolColor', 'Color · herramienta', 7, 'color'),
     choice('visualModel', 'Diseño 3D · piloto disponible en Articulado de manipulación', [{id: 'auto', name: 'Automático según variante'}, {id: 'legacy', name: 'Diseño anterior · comparar'}, {id: 'reference-pilot', name: 'Piloto industrial de seis ejes'}]),
+    choice('assemblyProfile','Ensamblaje · estructura compatible',[{id:'auto',name:'Automático · industrial de seis ejes'},...assemblies.profiles]),
+    ...assemblies.keys.map(key=>choice(key,({baseAssembly:'Ensamblaje · base',shoulderAssembly:'Ensamblaje · hombro',upperArmAssembly:'Ensamblaje · brazo',forearmAssembly:'Ensamblaje · antebrazo',wristAssembly:'Ensamblaje · muñeca'})[key],[{id:'auto',name:'Automático según estructura'},...assemblies.partChoices(key)])),
+    number('toolMassKg','Masa del efector final · kg',0,3000,.1),
+    choice('pendantDesign','Panel portátil',[{id:'none',name:'Sin panel portátil'},{id:'industrial',name:'Panel industrial de programación'},{id:'training',name:'Tableta de formación'}]),
+    choice('pendantMount','Soporte del panel portátil',[{id:'cabinet',name:'En armario del robot'},{id:'pedestal',name:'Pedestal independiente'}]),
     number('housingScale', 'Piloto · sección de carcasa (no altera ejes ni carga)', .85, 1.15, .05),
     check('serviceHarness', 'Piloto · arnés articulado con abrazaderas'), check('jointCovers', 'Piloto · tapas, sellos y tornillería'),
     choice('servicePackage', 'Piloto · suministro de herramienta', [{id:'none', name:'Sin manguera exterior'}, {id:'pneumatic', name:'Neumático · ventosas o pinza'}, {id:'electric', name:'Eléctrico · pinza o proceso'}]),
@@ -180,6 +187,7 @@ function normalize(value = {}) {
   // complete preset in the editor, rather than silently overwrite user values.
   if (getDefinition(result.variant).family !== result.family) result.variant = getDefinition(result.family).id;
   if (result.visualModel === 'reference-pilot' && (result.variant !== 'articulated-general' || result.family !== 'articulated')) throw new Error('El piloto industrial sólo está disponible en Articulado de manipulación.');
+  if(result.variant==='articulated-general'&&result.visualModel!=='legacy')assemblies.validate(result);
   if ((result.tool === 'process') !== (result.operation === 'process')) throw new Error('La herramienta de proceso requiere la operación de proceso; para transportar una carga elige pinza, ventosas o plataforma.');
   ['sourceId', 'targetId', 'outputId'].forEach(key => objectReference(result[key]));
   const waypoints = parseWaypoints(result);
@@ -204,6 +212,7 @@ function productCompatibility(value = {}, metadata = {}) {
   const massKnown = typeof mass === 'number' && Number.isFinite(mass) && mass > 0;
   if (mass !== undefined && !massKnown) return {accepted: false, reason: 'Masa de producto inválida.', massKnown: false};
   if (!massKnown && config.requireKnownMass) return {accepted: false, reason: 'La carga necesita una masa declarada.', massKnown};
+  const assessed=loadPolicy.assess(config,metadata);if(!assessed.accepted)return assessed;
   if (massKnown && mass > config.payloadKg + 1e-8) return {accepted: false, reason: 'La carga supera la capacidad simulada del robot.', massKnown};
   const size = metadata.size || {}, dimensions = {width: metadata.width === undefined ? size.x : metadata.width, height: metadata.height === undefined ? size.y : metadata.height, depth: metadata.depth === undefined ? size.z : metadata.depth};
   for (const key of ['width', 'height', 'depth']) {
@@ -214,5 +223,5 @@ function productCompatibility(value = {}, metadata = {}) {
   return {accepted: true, reason: massKnown ? '' : 'Masa no declarada: comprobación de carga no disponible.', massKnown};
 }
 function acceptsProduct(value, metadata) { return productCompatibility(value, metadata).accepted; }
-module.exports = {VERSION, FAMILIES, VARIANTS, variants: VARIANTS.map(item => item.id), TOOLS, OPERATIONS, DEFAULTS, MAX_WAYPOINTS, MAX_WAYPOINT_JSON, MAX_JOINT_JSON, taskProgram:require('./robot-task-program.js'),
+module.exports = {VERSION, FAMILIES, VARIANTS, variants: VARIANTS.map(item => item.id), TOOLS, OPERATIONS, DEFAULTS, MAX_WAYPOINTS, MAX_WAYPOINT_JSON, MAX_JOINT_JSON, assemblies, loadPolicy, taskProgram:require('./robot-task-program.js'),
   defaults, fields, getDefinition, normalize, validate, visualModel, referencePilotGeometry, parseWaypoints, parseDestinationRules, destinationFor, getJointDefinitions, productCompatibility, acceptsProduct};

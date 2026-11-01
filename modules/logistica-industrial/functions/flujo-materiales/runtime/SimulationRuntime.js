@@ -750,7 +750,7 @@ export default class SimulationRuntime {
       defect: leaves.length ? !defects.length ? 'none' : defects.every(value => value === defects[0]) ? defects[0] : 'mixed' : metadata.defect,
       width: Math.abs(size.x), height: Math.abs(size.y), depth: Math.abs(size.z), units: entry ? entry.units : metadata.units || 1,
       mass: entry ? behaviorSchema.productSources.entryMass(entry) : metadata.mass || 1,
-      loadMode: metadata.loadMode === 'pallet' || entry && entry.load && entry.load.loadMode === 'pallet' ? 'pallet' : 'individual', base: entry && entry.load && entry.load.loadMode === 'pallet' ? 'runners' : uniform('base', 'flat')};
+      loadMode: metadata.loadMode === 'pallet' || entry && entry.load && (entry.load.loadMode === 'pallet' || entry.load.physicalAssembly) ? 'pallet' : 'individual', base: entry && entry.load && (entry.load.loadMode === 'pallet' || entry.load.physicalAssembly) ? 'runners' : uniform('base', 'flat')};
   }
 
   routeDecision(belt, product, sequenceOffset = 0) {
@@ -1342,6 +1342,10 @@ export default class SimulationRuntime {
     // A carrier may supply its fork mesh only after validating both tines in
     // the final pallet pockets. Keep all chassis, mast and receiver collisions.
     const options = this.packageCollisionOptions(record, item); options.ignore.push(product.object, ...receivingIgnore);
+    // Admission stages a copy of the existing item. Its source stock may
+    // still list the authoritative item until custody commits; never collide
+    // the product with its own exact source box during that transaction.
+    if(existingItem)options.extraBoxes=options.extraBoxes.filter(box=>box!==existingItem.box);
     if (world && world.testBox(item.bounds.clone().applyMatrix4(matrix), options)) return false;
     if (existingItem) { Object.assign(existingItem, item); item = existingItem; }
     belt.helper.add(item.mesh); item.beltId = record.id;
@@ -2103,6 +2107,7 @@ export default class SimulationRuntime {
     this.invalidateCollision(item.mesh);
     const product = this.products.get(item.mesh);
     if (product) {
+      if(behaviorSchema.palletQueues.physical)behaviorSchema.palletQueues.physical.dispose(this,product);
       this.sourceRuntime.disposed(product);
       const entry = product.stateEntry;
       if (entry && this.ctx.raycontrol && this.ctx.raycontrol.states[entry.name] === entry.state) {
