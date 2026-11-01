@@ -1067,3 +1067,19 @@ body:has(#editor-return:not([hidden])) #vehicle-operation-panels{--vehicle-hud-t
  #vehicle-operation-panels .vehicle-navigation-display[data-operation="drop"][data-display="inspection"][data-expanded="true"] .vehicle-docking-summary,
  #vehicle-operation-panels .vehicle-navigation-display[data-operation="drop"][data-display="inspection"][data-expanded="true"] .vehicle-docking-metrics:not([hidden]){max-height:none!important;white-space:normal!important;font-size:11px!important;line-height:1.4!important}
 }
+/* Optional authoring tools are isolated from editor/global header rules. */
+dialog.ed-design-dialog{position:fixed!important;inset:0!important;display:grid;grid-template-rows:auto auto minmax(0,1fr);gap:0;width:calc(100vw - 36px);height:calc(100vh - 36px);max-width:1800px;max-height:none;margin:auto!important;padding:0!important;border:1px solid #54707e;border-radius:14px;background:#13252e;color:#e8f1f4;box-shadow:0 22px 80px #0009;z-index:10000;overflow:hidden;font:14px system-ui,sans-serif}
+dialog.ed-design-dialog:not([open]){display:none!important}
+dialog.ed-design-dialog::backdrop{background:#031017ba;backdrop-filter:blur(3px)}
+dialog.ed-design-dialog>.ed-design-header{position:static!important;inset:auto!important;display:flex!important;align-items:center;justify-content:space-between;gap:12px;width:auto!important;min-height:48px;margin:0!important;padding:8px 14px!important;border:0!important;border-bottom:1px solid #49616d!important;background:#1a303b!important;color:#ecf6f8!important;pointer-events:auto!important;transform:none!important}
+dialog.ed-design-dialog>.ed-design-header strong{font:600 15px system-ui,sans-serif}
+dialog.ed-design-dialog>.ed-design-header button{position:static!important;inset:auto!important;flex:none;min-height:32px;margin:0!important}
+dialog.ed-design-dialog>.ed-design-status{margin:0;padding:8px 14px;background:#203d46;color:#c3e4e2;font:12px system-ui,sans-serif}
+dialog.ed-design-dialog>.ed-design-status[hidden]{display:none!important}
+dialog.ed-design-dialog>iframe{position:static!important;display:block;grid-row:3;min-width:0;min-height:0;width:100%;height:100%;border:0;background:#142d36;transform:none!important}
+dialog.ed-design-dialog>iframe[hidden]{display:none!important}
+dialog.ed-design-dialog>.ed-design-tools{grid-row:3;min-height:0;overflow:auto;padding:24px;display:grid;align-content:start;gap:14px}
+dialog.ed-design-dialog>.ed-design-tools article{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;border:1px solid #47636e;border-radius:10px;background:#1b3440}
+dialog.ed-design-dialog>.ed-design-tools label{display:flex;align-items:center;gap:12px;font-size:15px}
+dialog.ed-design-dialog .ed-design-tool-choice{max-width:300px;min-height:30px;color:#e8f3f4;background:#24404c;border:1px solid #54707e;border-radius:6px}
+@media(max-width:800px),(max-height:560px){dialog.ed-design-dialog{width:100vw;height:100dvh;max-width:100vw;border-radius:0}dialog.ed-design-dialog>.ed-design-header{min-height:40px;padding:5px 9px!important}dialog.ed-design-dialog>.ed-design-header strong{font-size:12px}}

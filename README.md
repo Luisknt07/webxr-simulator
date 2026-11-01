@@ -46,6 +46,8 @@ El Workspace incorpora un [asistente inteligente modular](docs/intelligent-assis
 
 La [configuración de mandos y volante](docs/input-devices.md) permite detectar entradas estándar, calibrar pedales y adaptar los mandos del vehículo. El paquete no depende del renderizador ni escribe contenido de proyectos; utiliza el bucle existente y preferencias locales del navegador.
 
+El [taller opcional de diseño Anatomy](docs/anatomy-design.md) crea piezas paramétricas, materiales, articulaciones y despieces 2D/3D. Se abre desde **Añadir → Diseño y despiece 2D/3D** o el inspector de un objeto. Inserta mallas CAD reales, conserva el modelo editable y guarda planos SVG y diseños JSON en los archivos del proyecto; el kit completo original se conserva con licencia MIT.
+
 ## Ejecutar y compilar
 
 Requiere Node.js 24 o posterior. En PowerShell utiliza `npm.cmd` si la política bloquea `npm.ps1`.

@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "45068bf03122e36ce2b79589fa9b926601df7e76",
-  "bundleSha256": "de311db63f6274633e1e81f563017b6852964dc5efd80fea9b07d342a5255495",
+  "revision": "edf8d0db6e0787270f54353ef3852dcaa765535d",
+  "bundleSha256": "bf9d11c83894ed3ed1b10fe01220b2e8e27ae20bab63098a2b571fdfc3594e6b",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -72,15 +72,19 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "de311db63f6274633e1e81f563017b6852964dc5efd80fea9b07d342a5255495"
+      "sha256": "bf9d11c83894ed3ed1b10fe01220b2e8e27ae20bab63098a2b571fdfc3594e6b"
     },
     {
       "path": "cad-worker.js",
-      "sha256": "f82a0bbb232773f5432769e0d6507444139ab28340dc7416b4e035bbb8ce69dc"
+      "sha256": "2b8ea4701174222b172ecefb0d072ff0c9e5324abcb88cb83858341c447516ce"
     },
     {
       "path": "collision-worker.js",
       "sha256": "85574d4efe07fbb87ce1ce6e1ae14b349024addf288100e4dd95ac76cfe352da"
+    },
+    {
+      "path": "editor-tools.json",
+      "sha256": "8891c18222ad8d03af9061b1a58b21bafddefd0e4f5a76b76e87655a9c1eb9e5"
     },
     {
       "path": "index.html",
@@ -943,6 +947,266 @@
       "sha256": "605cec4aa401dbebf71da6ddc8d73191eeb19f6e1af8b3942b3146adffaccefd"
     },
     {
+      "path": "packages/tools/anatomy/README.md",
+      "sha256": "616e67a78d6b840ddd12a47022c94add43ac8c70923aee1acaccde9d68581828"
+    },
+    {
+      "path": "packages/tools/anatomy/adapter.mjs",
+      "sha256": "38bbb0b4e9d2d1488a7b0a8cc9c68dfadb62f602e5b1cc9856cd77d49494926c"
+    },
+    {
+      "path": "packages/tools/anatomy/app/index.html",
+      "sha256": "ff659fdf162ea033188e90b42245551c073151f7b70168cb575cf67578737dab"
+    },
+    {
+      "path": "packages/tools/anatomy/app/main.mjs",
+      "sha256": "bb073c09189df600d80d5196ab44816eed0219b17e7e67c6f4fc23f8e4dd61b3"
+    },
+    {
+      "path": "packages/tools/anatomy/app/style.css",
+      "sha256": "5b705214d2ff418e557f048f0517e134d6ca297f8a7515f6e094e3f79674666a"
+    },
+    {
+      "path": "packages/tools/anatomy/shared/base64.mjs",
+      "sha256": "2edd602150d313fdaff7929c7787e3e1769cad83f272e95a9b6a631b59898eee"
+    },
+    {
+      "path": "packages/tools/anatomy/shared/canvas-painter.browser.mjs",
+      "sha256": "7d9e48f2a5001904c06e7273451c41a368a7d922f0e8e7b5e7d0930fc5e40c59"
+    },
+    {
+      "path": "packages/tools/anatomy/shared/geometry.mjs",
+      "sha256": "70c620c22fe8ef2a7442c28ebbc3b3c6d46ad20145e8e036bcef263dc02f642b"
+    },
+    {
+      "path": "packages/tools/anatomy/shared/model.mjs",
+      "sha256": "a5575d929b250c354e9db64afd9f54ef38e791e7278006ed1b6a631760e871f9"
+    },
+    {
+      "path": "packages/tools/anatomy/shared/render.mjs",
+      "sha256": "d5c35d49e44b9143a051a0796ce921f4448673d44a917e90743a2404fa384f97"
+    },
+    {
+      "path": "packages/tools/anatomy/shared/templates.mjs",
+      "sha256": "2bb721ec40ef85732c90d4f23b8b34d4aa4cdc384acba02edcd9fb5c158ef977"
+    },
+    {
+      "path": "packages/tools/anatomy/shared/toolkit.mjs",
+      "sha256": "f8b072353ccf1a99ddbf8a6c23f74ea703e27bae236b0e96c589985ec6956b26"
+    },
+    {
+      "path": "packages/tools/anatomy/shared/turn-build.browser.mjs",
+      "sha256": "a9c2077d098835ddbd7593001fafbc24e61b3d9f09a7fb8ded2cb7e6337ae9f6"
+    },
+    {
+      "path": "packages/tools/anatomy/tool.json",
+      "sha256": "51267b51725b70d0f61d337ec89353141b8db58a8fafe82015349921bdfe3340"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/LICENSE",
+      "sha256": "87c078ab9d90a3044f359e6b563d4e6afea7aa060897cf4f21618687b3856796"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/README.md",
+      "sha256": "a1bc269d3d1b75a230a2ae54cb43c63c19a0a3a067f6a7bb0baf5a7785e3de16"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/VENDOR.json",
+      "sha256": "abbec1b4a9c88093a5661e60422449f00353c960b41fdd0fef650a8878aa4f7b"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/arcade-cabinet/arcade-cabinet-detailed-a4.pdf",
+      "sha256": "592a5cd875f386cfc2bdd6f4b7ae6b1bba17677d79a4ce9074b5cc28620b70a3"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/arcade-cabinet/arcade-cabinet-drawing-a4.pdf",
+      "sha256": "233092454ca079083346c3287bab477fcb3f1fd4805ceae8a037bdf7d04b8658"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/arcade-cabinet/arcade-cabinet-light.html",
+      "sha256": "f54197aa4c3b7e5b00469266f38f79bc0d907f52bf572838eea2acaac89ddbc7"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/arcade-cabinet/arcade-cabinet-poster-a4.pdf",
+      "sha256": "2d45bd3bdf863bd908d19cd2c1304bdbceed117a7a817098af4e751d88f376e8"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/arcade-cabinet/arcade-cabinet.css",
+      "sha256": "a0ea7bce89a665ddd13f72daf31849c07d8b517b66a3d555543aa506b8933629"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/desk-computer/desk-computer-light.html",
+      "sha256": "ce63c5bed81b76491a82f5e94d22e5f64744c87bc448fdad8726ae0c6ecd0b59"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/dial-indicator/dial-indicator-light.html",
+      "sha256": "bc1810e340d916a25cc1749589b44096b7e41970f22fa7fce569bbefc0613093"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/push-button/push-button-detailed-a4.pdf",
+      "sha256": "694380d98939910affe24844a39bbd8e52527f07c1754ba0d184a9e4a029789a"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/push-button/push-button-drawing-a4.pdf",
+      "sha256": "0e2f2a3b1aeaa1ba52ef6a8cfd65762f6b3227f04cfb3a8143b6f9394602c308"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/push-button/push-button-light.html",
+      "sha256": "88b1a2a242d7674a23c802d3657257dda52c997ccbe7bdff4534d0dff5ad29bd"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/push-button/push-button-poster-a4.pdf",
+      "sha256": "c757010ee2c207724557da3dd6c0d4e760b4033ed126490f4c2fd350a2b4e98b"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/raptor-engine/raptor-engine-detailed-a4.pdf",
+      "sha256": "8ea62e8fc0566dc54c54f3e58112cb7bf4d2a5ebb3666782d85bc4e8a3ef179e"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/raptor-engine/raptor-engine-drawing-a4.pdf",
+      "sha256": "3a4de2fc7dd52dc9149dc9038996ce2da8b3dcce250be8bae42faeebb4cca698"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/raptor-engine/raptor-engine-light.html",
+      "sha256": "48f64b954b93567f1a5ca87fa823c34ae9e81842fa5b95512deba6b22b37a537"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/raptor-engine/raptor-engine-poster-a4.pdf",
+      "sha256": "a3f3c40c5b9f916a0d457909d853f83e1aef61f2858f09632430a9065fe25756"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/raptor-engine/raptor.css",
+      "sha256": "f850575feeeacac8ef5d9d9c49359f4deaef848666c68a4dafa9727fe926cd6e"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/ripple-tank/ripple-tank-light.html",
+      "sha256": "15b5b7a1e738fb5e435e9c1dccea874f6d292962fb31943fdd4466c15b351b59"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/ripple-tank/ripple.css",
+      "sha256": "1bf7a778f0b50928adcd54e67c44aa2b12a6877b45f15a0b697d87ab7be0dd5c"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/spot-plate/spot-plate.css",
+      "sha256": "b31e4c8e02f4de0b77fe0a71718f59d7df2e3abc3d9772f802e00fc3d8a582bd"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/test-rig/stretch.css",
+      "sha256": "dd15f4582b5fb9b228dc7e32ef57dbcba0129dad38b36e5707247eeb7a2abe8b"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/turning-dial/dial.css",
+      "sha256": "769fc9596dcd2bbc46823d6e2816a3e584b52e0a6db359d93bedce16f354bedd"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/examples/turning-dial/turning-dial-light.html",
+      "sha256": "7873a4873e4f1a204ca59691765915f155f44095c2c290730aa2b915b4c88c9e"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/audit.mjs",
+      "sha256": "74e605b5d549c1f31c8a1104db7560057105cf86809bf6ced00e4ac79194c8e2"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/canvas-painter.mjs",
+      "sha256": "1918db10279c9d9df87d7df52c7ed8c2de8acd0bbce214c8f2115a39e7f955ac"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/gl-shared.mjs",
+      "sha256": "8c3773cf3e15844df332db3ba55af940186edb2227201e5839347ecc390c039c"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/gl.mjs",
+      "sha256": "17a477411e0b9fcb8e84e718094eaefa6be2c0b7d6ce15ee03fe8e252944130a"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/iso-kit.mjs",
+      "sha256": "6d3ecc725d30c3b0346da309cf61dfa5a65017c23620bbd4093009d4fb104018"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/iso-kit.ts",
+      "sha256": "e9fc988c61a11bfac1f097e62419915ea86b2130ab091f1b50c0e019c907e253"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/iso.css",
+      "sha256": "ef19bac5a42ba9be42b56b2c1cf7fc7e21d332a8060765e9ca1d987b8ab23924"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/lathe.mjs",
+      "sha256": "a4e7e974b1a37e603ad2b76363b6f9815cc101dfff0ad277a5d4e8f1dc56fccb"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/pdf-button.mjs",
+      "sha256": "884de49c75f11c78a102b4b413006f36b087e0e3bc9f33dc462dc44430d69342"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/react/draw.tsx",
+      "sha256": "d5389bd78aa3d5424a37b1ce6f635bd102eb86faf27d064b10957716278a631c"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/react/live.tsx",
+      "sha256": "6d01fa12bca4ec14d1b7d7d5331d18a997dd3ee131d59dd57f83b932a1705f42"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/tube.mjs",
+      "sha256": "bcb3cc360f6d83e6a5753f4c464b4587ab7965028b05a5d58e285abce58667c9"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/turn-audit.mjs",
+      "sha256": "e4385f1a8a388c4544b49c6677ff8ab7048f7fcfa8cd5fe653d96a4a0df62843"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/turn-build.mjs",
+      "sha256": "0c088efd9f22329d1b0c2190c95e5b5b43a2c46deae6ff047b3166ef643cfa83"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/turn-fixed.mjs",
+      "sha256": "7429b46eb7673aefb6ed90adeaf130c1dafe8e32af038cbde24a04e693d13fc7"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/kit/turn.mjs",
+      "sha256": "cb4b530b5e1750ba0e4fd2367d5f25e00195c0136672aa2ecd665c0622ffd1a2"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/references/3d.md",
+      "sha256": "de58da5415b4c9fe7712b5b71e0868c4d36363d54e4e32d98a6b016363554536"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/references/craft.md",
+      "sha256": "38761fa9b81d66b30e50b05488501d4815830d3627f153d60f76ca783f598936"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/references/kit.md",
+      "sha256": "684672e069fdb52735efabc3f4310dedd840d0c8066a8dc7784be2b7e656be71"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/references/motion.md",
+      "sha256": "dda401ca1b4661a5f0b7c1e33dac6e7e4b8c13d51ca5d9312123a5c02dab320b"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/references/print.md",
+      "sha256": "1b4146c35214f76bf8ddc1765b3d1540d9bdfceba0c641e7b93c33229265c0be"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/references/publish.md",
+      "sha256": "57790e740662bc8f2044ba5f0385598bad955d6a38dd2a47d56d644f21d8deb8"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/references/react.md",
+      "sha256": "76b5cee6e0a7513e3c77a832e3f58b1343806597d469774e1749f141525801fd"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/references/verify.md",
+      "sha256": "fb81437fc5d75094a34432eb6f545644aa228e15173a27d08b3cace912033561"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/references/walkthrough.md",
+      "sha256": "4d157e0169080a6ed44d5b06de0a5de2931baf3d0fac30283d2644dd66506dfa"
+    },
+    {
+      "path": "packages/tools/anatomy/vendor/anatomy/references/webgl.md",
+      "sha256": "fb4e2421c6a705d4ad849c8e516731ebc958bc5ff0855548ff58232b0aa01923"
+    },
+    {
       "path": "packages/tools/cad/src/cad-workbench.css",
       "sha256": "0d4373c331597078ec4dcf3835053f9370077b9b4edf5cc5945de2e8edcbc7ab"
     },
@@ -992,7 +1256,7 @@
     },
     {
       "path": "packages/tools/editor/src/editor.css",
-      "sha256": "14a882f3ea53f49503d81229c11be1379fae81cba71ed6989da793447be3f4ee"
+      "sha256": "7a361f8b592a0710fd8cd756fd7b34b349f2ab3dfe1c7ea0226f577920e3fbe5"
     },
     {
       "path": "packages/tools/editor/src/floor-plan-editor.css",
@@ -1397,8 +1661,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "d1ebf8cdf607bad47cb7",
-    "statsSha256": "e87dbe55c1f0859f6df6a8a6743a3866a329981bc3cfcf4b56c93990bb084d97",
+    "hash": "c41823ee29f5dbe4d401",
+    "statsSha256": "3ebc4a790a7e0e0d5d395395c1a5ce52a40742bddddb4711d2262c5c39fcf760",
     "assets": [
       {
         "path": "0.bundle.js",
@@ -1422,7 +1686,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 3700474
+        "size": 3726785
       }
     ]
   }

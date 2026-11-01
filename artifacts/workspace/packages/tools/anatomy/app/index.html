@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="referrer" content="same-origin">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'none'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Taller de diseño · SmartTwin</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main id="workbench" aria-label="Taller de diseño y despiece">
+    <header class="workbench-header">
+      <div class="brand"><span aria-hidden="true">◇</span><div><strong>Taller de diseño</strong><small>ANATOMY · SMARTTWIN</small></div></div>
+      <label class="name-field"><span class="sr-only">Nombre del diseño</span><input id="model-name" maxlength="160" placeholder="Nombre del diseño" disabled></label>
+      <div class="header-actions"><button id="undo" title="Deshacer · Ctrl+Z" disabled>↶ <span>Deshacer</span></button><button id="redo" title="Rehacer · Ctrl+Mayús+Z" disabled>↷ <span>Rehacer</span></button><button id="theme" title="Alternar tema claro y oscuro" aria-label="Alternar tema claro y oscuro">◐</button><button id="close" title="Volver al escenario">Cerrar <span aria-hidden="true">×</span></button></div>
+    </header>
+    <nav class="mobile-tabs" aria-label="Panel de diseño"><button data-panel="canvas" aria-pressed="true">Vista</button><button data-panel="library" aria-pressed="false">Piezas</button><button data-panel="properties" aria-pressed="false">Propiedades</button></nav>
+    <div class="workbench-grid" data-mobile-panel="canvas">
+      <aside class="library-pane" aria-label="Biblioteca y piezas">
+        <div class="pane-heading"><h1>Construye por piezas</h1><p>Un modelo editable para ilustrar, explicar y llevar a tu escenario.</p></div>
+        <details class="template-section" open><summary>Empezar con una plantilla</summary><div id="templates" class="templates"></div></details>
+        <section class="parts-section"><div class="section-heading"><h2>Piezas</h2><span id="part-count" class="badge">0</span></div><div class="add-part"><select id="new-shape" aria-label="Tipo de pieza nueva" disabled></select><button id="add-part" title="Añadir pieza" disabled>＋</button></div><div id="parts" class="part-tree" role="list" aria-label="Piezas del diseño"></div><div class="part-actions"><button id="duplicate" disabled>⧉ Duplicar</button><button id="delete" disabled>⌫ Eliminar</button></div></section>
+        <details class="files-section"><summary>Archivos y contenidos</summary><div class="file-actions"><button id="import-json">↑ Abrir diseño JSON</button><button id="export-json" disabled>↓ Diseño JSON</button><button id="export-svg" disabled>↓ Ilustración SVG</button><button id="export-png" disabled>↓ Imagen PNG</button><button id="print" disabled>▤ Imprimir / PDF</button></div><input id="file-input" type="file" accept="application/json,.json" hidden><p>Los archivos contienen datos del modelo. No se ejecuta código importado.</p></details>
+        <details id="examples-section" hidden><summary>Ejemplos de Anatomy</summary><div id="examples" class="file-actions"></div></details>
+      </aside>
+      <section class="canvas-pane" aria-label="Vista del diseño">
+        <div class="view-toolbar"><div class="segmented" role="group" aria-label="Modo de interacción"><button id="mode-2d" aria-pressed="true">Vista 2D</button><button id="mode-3d" aria-pressed="false">Orbitar 3D</button></div><select id="projection" aria-label="Proyección de cámara"><option value="isometric">Isométrica</option><option value="front">Frontal</option><option value="side">Lateral</option><option value="top">Superior</option></select><select id="display-mode" aria-label="Acabado de la vista"><option value="solid">Sólido</option><option value="transparent">Transparente</option><option value="wireframe">Alámbrico</option></select><button id="fit" title="Restaurar cámara">⛶ Encuadrar</button><button id="verify" disabled>✓ Verificar</button></div>
+        <div id="preview" class="preview" tabindex="0" aria-label="Vista interactiva del modelo"><p class="empty-state">Preparando el taller…</p></div>
+        <div class="preview-readout"><p id="view-help">Ilustración vectorial 2D de un modelo 3D. La geometría se conserva para insertar.</p><div id="stats" class="stats" aria-live="polite"></div></div>
+        <div class="explosion-controls"><label for="explode">Despiece <output id="explode-value">0 %</output></label><input id="explode" type="range" min="0" max="1" step="0.01" value="0" aria-label="Separación de las piezas" disabled><button id="assemble" disabled>↙ Ensamblar</button></div>
+        <div id="orbit-controls" class="orbit-controls" hidden><label>Giro <input id="azimuth" type="range" min="-180" max="180" step="1" value="45"></label><label>Elevación <input id="elevation" type="range" min="1" max="89" step="1" value="30"></label></div>
+      </section>
+      <aside class="properties-pane" aria-label="Propiedades de la pieza"><div class="pane-heading"><h2 id="properties-title">Selecciona una pieza</h2><p id="properties-subtitle">Sus dimensiones y acabados se editan aquí.</p></div><section id="audit-results" class="property-group" hidden aria-label="Resultado de verificación geométrica"></section><div id="properties"></div><section class="material-transfer"><h2>Usar en el escenario</h2><p id="selection-context">Abre el taller desde el editor para guardar o insertar.</p><button id="apply-material" disabled>Aplicar material a la selección</button></section></aside>
+    </div>
+    <footer class="workbench-footer"><div id="status" role="status" aria-live="polite">Esperando el editor…</div><div class="commit-actions"><button id="save" disabled>Guardar diseño</button><button id="update" hidden disabled>Actualizar objeto</button><button id="insert" class="primary" disabled>＋ Insertar en escenario</button></div></footer>
+  </main>
+  <script type="module" src="./main.mjs"></script>
+</body>
+</html>
