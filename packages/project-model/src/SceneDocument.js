@@ -208,6 +208,21 @@ function migratePanelDesign(record) {
   const panels = behaviorSchema.controlPanels;
   const config = (record.behaviors || []).find(row => row.type === kind) || {};
   const requested = config.panelDesign || 'auto';
+  // The pilot changes the automatic articulated robot console. Recognize the
+  // preceding automatic layout without shifting a user's individually edited
+  // controls or their machine bindings. This also works in unopened rooms.
+  if (kind === 'robot' && requested === 'auto' && panels.resolve(config, kind) === 'cell-console') {
+    const oldDesign = panels.spec({panelDesign:'console'},kind), nextDesign = panels.spec(config,kind), changes = [];
+    const actions = ['start','stop','emergency','pause','powerOff','powerOn','speedUp','speedDown','dispatch'];
+    const close = (a,b) => a && b.every((n,i) => Math.abs(a[i]-n)<1e-6);
+    actions.forEach((action,index) => {
+      const state = nodes['1.'+(index+2)], pose = panels.controlPose(oldDesign,action,index);
+      if (state && close(state.position,pose.position) && close(state.scale,[1,1,1]) &&
+          (close(state.quaternion,pose.quaternion) || close(state.quaternion,pose.quaternion.map(n=>-n))))
+        changes.push({state,pose:panels.controlPose(nextDesign,action,index)});
+    });
+    if (changes.length >= 2) changes.forEach(({state,pose}) => {state.position=pose.position;state.quaternion=pose.quaternion;});
+  }
   const previousId = requested === 'auto' && kind === 'robot' ?
     (['amr', 'agv', 'mobileSorter', 'shuttle'].includes(config.family) ? 'compact' : 'pendant') : panels.resolve(config, kind);
   const previous = panels.spec({panelDesign: previousId}, kind);

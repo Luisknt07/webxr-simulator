@@ -116,6 +116,10 @@ function wheels(b,rig,c,parent) {
     const x=rearOnly&&end<0?0:side*c.track/2,z=end*c.wheelbase/2;
     const pivot=group(parent,'Dirección '+(end<0?'trasera':'delantera'),[x,c.wheelRadius,z]);
     const roll=group(pivot,'Giro de rueda'),radius=c.wheelRadius,treadWidth=c.width*.15;
+    if(rig.visualModel==='reference-pilot'){
+      rig.detail.referenceWheel(roll,radius,treadWidth);rig.wheels.push({pivot,roll,steering:end<0});
+      const guard=rig.detail.referenceFender(parent,x,z,radius,treadWidth);if(!rig.fenders)rig.fenders=[];rig.fenders.push(guard);continue;
+    }
     const profile=[[-treadWidth/2,radius*.77],[-treadWidth*.46,radius*.94],[-treadWidth*.32,radius],[treadWidth*.32,radius],[treadWidth*.46,radius*.94],[treadWidth/2,radius*.77],[treadWidth/2,radius*.57],[-treadWidth/2,radius*.57],[-treadWidth/2,radius*.77]].map(([y,r])=>new THREE.Vector2(r,y));
     const tyre=b.mesh('Neumático de hombro redondeado',b.geometry('tire:'+radius+':'+treadWidth+':'+d.segments,()=>new THREE.LatheBufferGeometry(profile,d.segments)),'rubber',roll,[0,0,0]);tyre.rotation.z=Math.PI/2;
     const hub=b.cylinder('Llanta embutida',radius*.58,treadWidth*.89,'steel',roll,[0,0,0],d.segments);hub.rotation.z=Math.PI/2;
@@ -267,10 +271,13 @@ function telehandler(b,rig,c,parent) {
 }
 function build(root,c) {
   const b=builder(c),visual=group(root,'Vehículo · conjunto mecánico');visual.userData.vehicleVisual=true;
-  const rig={config:c,visual,wheels:[],lights:[],forks:null,driverSeat:null,pose:null,resources:b};
+  const pilotEnvelope=c.length>=1.9&&c.length<=3.1&&c.width>=.95&&c.width<=1.6&&c.height>=1.8&&c.wheelRadius>=.20&&c.wheelRadius<=.34&&Math.min(.94,c.height*.44)>c.wheelRadius*2+.25&&c.wheelbase>=c.length*.58&&c.track>=c.width*.65;
+  const rig={config:c,visual,wheels:[],lights:[],forks:null,driverSeat:null,pose:null,resources:b,visualModel:c.variant==='forklift-electric-4w'&&c.visualModel!=='legacy'&&pilotEnvelope?'reference-pilot':'legacy'};
+  if(c.variant==='forklift-electric-4w'&&c.visualModel!=='legacy'&&!pilotEnvelope)rig.visualModelFallback='El piloto corresponde a una carrocería industrial de 1.9–3.1 m por 0.95–1.6 m, con ruedas de 0.20–0.34 m y holguras de eje y capó. Para estas dimensiones se conserva el modelo paramétrico anterior.';
   rig.detail=createVehicleDetailBuilder(b,c);const d=rig.detail;
   const f=vehicles.supports(c),bodyTop=vehicles.getDimensions(c).bodyTop;
-  d.contactPlate('Bastidor inferior biselado',[c.width,.20,c.length],'accent',visual,[0,Math.max(.18,c.wheelRadius-.04),0],d.bevel);
+  if(rig.visualModel==='reference-pilot')d.referenceChassis(visual);
+  else d.contactPlate('Bastidor inferior biselado',[c.width,.20,c.length],'accent',visual,[0,Math.max(.18,c.wheelRadius-.04),0],d.bevel);
   if(c.family==='cart') {
     b.box('Plataforma de carga',[c.width,.09,c.length],'frame',visual,[0,c.height,0]);
     for(const end of [-1,1]){const skirt=d.solid('Faldón plegado de plataforma',[c.width*.96,.16,.024],'accent',visual,[0,c.height-.06,end*c.length*.49],.006);if(end<0)d.decal(visual,3,[.18,.075],[0,c.height-.06,-c.length*.49-.016],[0,Math.PI,0],skirt);}
@@ -306,6 +313,8 @@ function build(root,c) {
     rig.driverSeat=group(visual,'Vista del operador acompañante',[0,1.65,-c.length/2-.55]);mast(b,rig,c,visual);
     for(const side of [-1,1])b.box('Brazo estabilizador',[.13,.13,c.length*.85],'accent',visual,[side*(c.width/2-.08),.13,c.length*.62]);
   } else {
+    if(rig.visualModel==='reference-pilot')d.referenceBody(rig,visual);
+    else {
     // Rear counterweight terminates behind the seat. The central volume is a
     // low power/battery deck, leaving real legroom and a clear seat silhouette.
     const hoodRear=-c.length*.495,hoodFront=Math.min(-c.length*.27,-c.length*.08-.54),hoodDepth=hoodFront-hoodRear,hoodHeight=Math.min(.70,c.height*.30),hoodZ=(hoodRear+hoodFront)/2;
@@ -330,12 +339,14 @@ function build(root,c) {
     const rearPanel=d.solid('Panel posterior de servicio',[c.width*.50,.30,.016],'accent',visual,[0,.60,rearZ-.004],.003);rearPanel.userData.equipmentComponentId='vehicle.cooling';
     for(let i=0;i<5+d.level;i++){const slat=b.box('Lama inclinada de refrigeración',[c.width*.43,.014,.017],'accent',visual,[0,.50+i*.030,rearZ-.017]);slat.rotation.x=.28;}
     d.decal(visual,2,[.18,.055],[0,.61+hoodHeight*.5+.025,hoodZ-hoodDepth*.025],[-Math.PI/2,0,0],access);d.decal(visual,0,[.20,.040],[0,.72,rearZ-.013],[0,Math.PI,0],rearPanel);d.decal(visual,5,[.17,.025],[0,.47,rearZ-.013],[0,Math.PI,0],rearPanel);
+    }
     if(c.family==='telehandler') {cab(b,rig,Object.assign({},c,{width:c.width*.62,height:c.height}),visual);rig.cabin.position.x=-c.width*.25;telehandler(b,rig,c,visual);}
     else {cab(b,rig,c,visual,['reach','order-picker','turret','stacker'].includes(c.family));if(f.forks)mast(b,rig,c,visual);}
     if(c.family==='reach'||c.family==='stacker')for(const side of [-1,1])b.box('Brazo de apoyo inferior',[.13,.13,c.length*.8],'accent',visual,[side*(c.width/2-.08),.13,c.length*.6]);
     if(c.variant==='forklift-ic') {const tank=b.cylinder('Depósito posterior de combustible',.17,c.width*.65,'steel',visual,[0,1.06,-c.length*.44],d.segments);tank.rotation.z=Math.PI/2;for(const side of [-1,1]){const strap=d.torus('Abrazadera de depósito',.174,.013,'accent',visual,[side*c.width*.20,1.06,-c.length*.44]);strap.rotation.y=Math.PI/2;}d.hose('Línea de combustible',[[c.width*.3,1.06,-c.length*.44],[c.width*.40,.94,-c.length*.42],[c.width*.35,.56,-c.length*.30]],.012,visual);b.rod('Escape protegido',[c.width*.35,.6,-c.length*.3],[c.width*.35,c.height*.9,-c.length*.3],.035,'accent',visual);}
   }
   wheels(b,rig,c,visual);
+  if(rig.visualModel==='reference-pilot'&&rig.cabin)d.referenceCab(rig,rig.cabin);
   if(c.family==='reach'||c.family==='stacker')for(const side of [-1,1]){const pivot=group(visual,'Rodillo de apoyo delantero',[side*(c.width/2-.08),.065,c.length*.94]),roll=group(pivot,'Giro de rodillo de apoyo');const wheel=b.cylinder('Rodillo de brazo estabilizador',.065,.08,'rubber',roll,[0,0,0],10);wheel.rotation.z=Math.PI/2;rig.wheels.push({pivot,roll,steering:false});}
   if(rig.cabin){
     const dims=rig.cabDimensions;rig.cabLampMounts=[];
@@ -354,11 +365,14 @@ function build(root,c) {
   }else if(c.family==='stacker'&&rig.mast){for(const side of [-1,1]){const lamp=b.box('Faro anclado al travesaño',[.10,.075,.06],'light',rig.mast,[side*c.width*.17,c.mastHeight+.015,.065]);rig.lights.push(lamp);}}
   rig.hitch=group(visual,'Enganche posterior',[0,.3,-c.length/2-.18]);rig.trailerHitch=group(visual,'Lanza delantera',[0,.3,c.length/2+.35]);
   if(f.hitch){b.rod('Lanza y ojo de enganche',[0,.3,c.length/2-.05],[0,.3,c.length/2+.35],.025,'steel',visual);b.box('Bloque de enganche',[.12,.12,.10],'steel',rig.hitch,[0,0,0]);}
+  if(rig.visualModel!=='reference-pilot'){
   const boltGeo=new THREE.CylinderBufferGeometry(.016,.016,.018,6),bolts=new THREE.InstancedMesh(boltGeo,b.materials.steel,16),matrix=new THREE.Matrix4();
   for(let i=0;i<16;i++){const side=i<8?-1:1,n=i%8;matrix.compose(new THREE.Vector3(side*c.width*.46,.48+(n%2)*.18,-c.length*.35+Math.floor(n/2)*c.length*.2),new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),Math.PI/2),new THREE.Vector3(1,1,1));bolts.setMatrixAt(i,matrix);}bolts.name='Tornillería de chasis';bolts.castShadow=true;visual.add(bolts);
+  }
   if(!rig.controls)rig.controls={wheel:null,levers:[]};
   if(rig.tiller){const head=rig.tillerGripPosition||[0,.70,-.33],grip=group(rig.tiller,'Agarre de timón',head);rig.controls.wheel={id:'steering',object:rig.tiller,pivot:rig.tiller,grip,gripOnly:true,axis:[0,1,0],inputSign:1,pivotLocal:[0,0,0],radius:.22,maxAngle:c.steerLimit,restQuaternion:rig.tiller.quaternion.clone()};rig.controls.steering=rig.controls.wheel;const lever=group(rig.tiller,'Mando de elevación',[.11,head[1]-.01,head[2]]);d.solid('Gatillo de elevación',[.06,.03,.08],'red',lever,[0,0,0],.005);rig.controls.levers.push({id:'lift',object:lever,pivot:lever,grip:group(lever,'Agarre lift'),axis:[0,0,1],rotationAxis:[1,0,0],pivotLocal:[0,0,0],travel:.04,maxAngle:.25,restQuaternion:lever.quaternion.clone()});}
   d.batch(visual);
+  if(rig.visualModel==='reference-pilot')d.releaseUnused(visual);
   // Append presentation children after batching so existing generated node
   // paths used by saved material parts and checkpoints keep their identities.
   if(f.forks&&rig.forks)forkEntryContrast(rig,c,rig.forks);

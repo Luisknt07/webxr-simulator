@@ -74,7 +74,7 @@ async function run(){
  await loaded.activateRoom('sound');near((await loaded.serialize()).rooms,expected.rooms,'hydrated rooms');
  for(const {test,object} of created){
   const entry=loaded.additions.get(object.userData.editorId),p=prefix(test),newPanel=entry.nodes.get(p.slice(0,-1));
-  assert.equal(newPanel.userData.industrialPanelDesign,test.kind==='robot'&&test.design==='auto'?'console':test.before);
+  assert.equal(newPanel.userData.industrialPanelDesign,test.kind==='robot'&&test.design==='auto'?'cell-console':test.before);
   for(let index=2;index<=10;index++){
    const actor=entry.nodes.get(p+index),state=find(expected,object.userData.editorId).nodes[p+index];
    near(actor.position.toArray(),state.position);near(actor.quaternion.toArray(),state.quaternion);near(actor.scale.toArray(),state.scale);

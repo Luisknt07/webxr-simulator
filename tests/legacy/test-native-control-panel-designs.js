@@ -6,7 +6,7 @@ const robots=require('../support/load-robot-prefabs.js')(THREE);
 const source=name=>fs.readFileSync(name,'utf8').replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
 const factory=new Function('THREE','behaviorSchema','require',source('modules/logistica-industrial/functions/presentacion/runtime/IndustrialPrefabs.js')+'\nreturn createIndustrialPrefab;')(THREE,behaviors,robots.resolve);
 const SceneDocument=new Function('THREE','behaviorSchema','createIndustrialPrefab',source('packages/project-model/src/SceneDocument.js').replace('default class SceneDocument','return class SceneDocument'))(THREE,behaviors,factory);
-const panels=behaviors.controlPanels,ids=panels.DESIGNS.filter(item=>item.id!=='auto').map(item=>item.id);
+const panels=behaviors.controlPanels,ids=panels.DESIGNS.filter(item=>item.id!=='auto'&&item.id!=='cell-console').map(item=>item.id);
 function measure(root){let triangles=0,meshes=0;root.traverse(node=>{if(node.geometry){triangles+=(node.geometry.index?node.geometry.index.count:node.geometry.attributes.position.count)/3;meshes++;for(const attribute of Object.values(node.geometry.attributes))for(const n of attribute.array)assert(Number.isFinite(n));}});return{triangles,meshes};}
 function visible(node){for(let p=node;p;p=p.parent)if(!p.visible)return false;return true;}
 const near=(a,b)=>assert(Math.abs(a-b)<1e-5,`${a} != ${b}`);

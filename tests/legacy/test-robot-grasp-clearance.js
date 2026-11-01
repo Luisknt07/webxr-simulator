@@ -54,11 +54,21 @@ function constraints() {
 
   const blocked = cell('vr-robot-dispatch', addObstacle); until(blocked, () => blocked.r.phase === 'carry' && blocked.r.phaseElapsed > .1);
   const api = blocked.runtime.robotRuntime, rig = blocked.r.visualRoot.userData.robotRig;
-  const body = rig.collisionBodies.find(value => /Antebrazo.*carcasa/.test(value.object.name)); assert(body);
+  const body = rig.collisionBodies.filter(value => value.object.userData.equipmentComponentId === 'robot.forearm')
+    .sort((a,b)=>b.bounds.getSize(new THREE.Vector3()).lengthSq()-a.bounds.getSize(new THREE.Vector3()).lengthSq())[0]; assert(body);
   blocked.scene.updateMatrixWorld(true);
-  const obstacle = obstacleAt(blocked, body.bounds.getCenter(new THREE.Vector3()).applyMatrix4(body.object.matrixWorld));
+  let intrusion=body.bounds.getCenter(new THREE.Vector3());
+  if(body.object.userData.robotReferenceCAD){
+    // The CAD forearm is hollow: its bounding-box centre can be empty space.
+    // Sample the real wall, instead of asserting that a harmless void is solid.
+    const sample=new THREE.Mesh(body.object.geometry,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));sample.updateMatrixWorld(true);
+    const origin=intrusion.clone();origin.y=body.bounds.max.y+.1;
+    const hit=new THREE.Raycaster(origin,new THREE.Vector3(0,-1,0)).intersectObject(sample)[0];assert(hit,'The semantic forearm exposes an actual mechanical casing wall.');
+    intrusion=hit.point.clone().add(new THREE.Vector3(0,-.003,0));sample.material.dispose();
+  }
+  const obstacle = obstacleAt(blocked, intrusion.applyMatrix4(body.object.matrixWorld));
   const pose = blocked.r.pose.joints.slice(), elapsed = blocked.r.phaseElapsed, entry = blocked.r.entry, matrix = entry.product.object.matrixWorld.toArray();
-  assert.equal(api.armClear(blocked.robot, api.carriedMatrix(blocked.robot)), false, 'A tiny load completely contained inside the casting is an obstruction.');
+  assert.equal(api.armClear(blocked.robot, api.carriedMatrix(blocked.robot)), false, 'A tiny load intruding into the actual casting wall is an obstruction.');
   tick(blocked, .25);
   assert(blocked.r.blocked); assert.deepEqual(blocked.r.pose.joints, pose); assert.equal(blocked.r.phaseElapsed, elapsed);
   assert.equal(blocked.r.entry, entry); assert.deepEqual(entry.product.object.matrixWorld.toArray(), matrix, 'A refused motion rolls back tool and carried product together.');
@@ -80,7 +90,7 @@ function constraints() {
 
   const lowFps = cell('vr-robot-dispatch'); until(lowFps, () => lowFps.r.completed === 1 && lowFps.r.phase === 'idle', 35, .25);
   assert(lowFps.runtime.robotRuntime.armClear(lowFps.robot), 'Fixed substeps preserve safe return at four render frames per second.'); lowFps.runtime.stop();
-  console.log('Constraints: contact depth, unrelated-pad obstruction, contained carton, exact rollback/retry, loaded checkpoint and low-frame-rate return passed.');
+  console.log('Constraints: contact depth, unrelated-pad obstruction, actual casting-wall intrusion, exact rollback/retry, loaded checkpoint and low-frame-rate return passed.');
 }
 function run() {
   const ids = process.argv.slice(2);

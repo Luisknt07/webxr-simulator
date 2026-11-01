@@ -1,0 +1,70 @@
+{
+  "source": "https://github.com/kuka-ros/kuka_robot_descriptions",
+  "revision": "5ddbc41ce8726fd680bcc19562d78bcabfbdf96d",
+  "license": "Apache-2.0",
+  "copyright": "Copyright 2025 KUKA Hungaria Kft.",
+  "modifiedBy": "SmartTwin native visual pilot",
+  "files": {
+    "base_link.dae": {
+      "sha256": "45a1a397abb8f9fd9b8083894e0f572618083341147e4762562d9c5d9ee22aea",
+      "source": "kuka_agilus_support/meshes/kr10_r900_2/visual/base_link.dae"
+    },
+    "link_1.dae": {
+      "sha256": "bff0e982d9f8656772107ef7a3094e3a9f4e19a7d23a9c1dcc03901b54f22acc",
+      "source": "kuka_agilus_support/meshes/kr10_r900_2/visual/link_1.dae"
+    },
+    "link_2.dae": {
+      "sha256": "ca46fd1295d8e05496299d56a39dbe0f81d15bceb037af68ae4c1af953b1426a",
+      "source": "kuka_agilus_support/meshes/kr10_r900_2/visual/link_2.dae"
+    },
+    "link_3.dae": {
+      "sha256": "588e0df17ac2290631072144179d67fc10cc6e6055b06085afd0890f5a7539e8",
+      "source": "kuka_agilus_support/meshes/kr10_r900_2/visual/link_3.dae"
+    },
+    "link_4.dae": {
+      "sha256": "a587c09df5bfa649e1152d6f1c0a2fd78fafdff85989fae7bec40dccc08c640e",
+      "source": "kuka_agilus_support/meshes/kr10_r900_2/visual/link_4.dae"
+    },
+    "link_5.dae": {
+      "sha256": "090cd1380e032e098ce589e9a88b2276e422c7737cd9b1234d6d905b0adcf339",
+      "source": "kuka_agilus_support/meshes/kr10_r900_2/visual/link_5.dae"
+    },
+    "link_6.dae": {
+      "sha256": "49c8ae2d8953afefa8d75aae4f33bce4c19766b5e65673ba27702f279f1c60c1",
+      "source": "kuka_agilus_support/meshes/kr10_r900_2/visual/link_6.dae"
+    },
+    "kr10_r900_2_macro.xacro": {
+      "sha256": "713848ca3c25be381ef30f5f852962385a16c07ace335059fd0d59a2c3c4e3a5",
+      "source": "kuka_agilus_support/urdf/kr10_r900_2_macro.xacro"
+    },
+    "LICENSE": {
+      "sha256": "b246743db2810348d271c24bbfb2824bb37543bc97ddbe52216e40a30c9e9f05",
+      "source": "LICENSE"
+    }
+  },
+  "delivery": {
+    "file": "cad.json",
+    "sha256": "d20716d02aaaa781d0563ac48497237e2574f5533eb528db16ea66a17f8f8247",
+    "normalModel": {
+      "method": "corner-angle-weighted",
+      "creaseDegrees": 35,
+      "geometryAudit": {
+        "low": {
+          "triangles": 12358,
+          "orderedQuantizedTriangleSHA256": "1e4adfc1d6f75dea96586133ed27d5fd21ea42a641fd4cda0cec5f57e04eb338",
+          "positionsAndTriangleOrderUnchanged": true
+        },
+        "balanced": {
+          "triangles": 24723,
+          "orderedQuantizedTriangleSHA256": "64e0f8de5becb1679ccaca579fe46f2dc4cb90b21f6a52e1f774ad1af6b52a6d",
+          "positionsAndTriangleOrderUnchanged": true
+        },
+        "high": {
+          "triangles": 34771,
+          "orderedQuantizedTriangleSHA256": "28db16c66090aa8afe9f10896cc061892f25b3f63d34c30dd9c25d3403638492",
+          "positionsAndTriangleOrderUnchanged": true
+        }
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@
 'use strict';
 const automation = require('../../flujo-materiales/schema/automation.js');
 const robots = require('../../robots/schema/robots.js');
+const learning = require('./equipment-learning.js');
 const TYPES = ['robot', 'vehicle', 'conveyor', 'palletQueue', 'processor', 'source'];
 const part = (id, name, match, purpose, mechanism, electrical, inspect) => ({id, name, match, purpose, mechanism, electrical, inspect});
 const REFERENCES = {
@@ -50,8 +51,13 @@ const CONTENT = {
 };
 CONTENT.processor={...CONTENT.conveyor,title:'Estación de proceso',overview:'Una estación recibe material, ejecuta preparación/proceso y entrega un resultado. Sus tiempos, capacidad y recursos configurados determinan el flujo; el aspecto no implica una máquina OEM concreta.'};
 CONTENT.source={...CONTENT.palletQueue,title:'Fuente y almacén de suministro',overview:'La estación suministra cargas con identidad y contenido definidos. Intervalo, capacidad, existencias y destino controlan cuándo puede entregar; no se deben confundir unidades disponibles y productos ya despachados.'};
+const ROBOT_COMPONENT_GROUPS={base:['robot.base'],shoulder:['robot.shoulder','robot.upper-arm'],forearm:['robot.elbow','robot.forearm'],wrist:['robot.wrist'],tool:['robot.tool'],harness:['robot.harness','robot.cabling','robot.actuation']};
+CONTENT.robot.parts.forEach(part=>{part.componentIds=ROBOT_COMPONENT_GROUPS[part.id]||[];});
+const VEHICLE_COMPONENT_GROUPS={chassis:['vehicle.chassis','vehicle.counterweight','vehicle.power','vehicle.cooling'],mast:['vehicle.mast'],forks:['vehicle.forks'],wheels:['vehicle.wheels','vehicle.steering'],cab:['vehicle.controls','vehicle.seat','vehicle.safety'],hydraulics:['vehicle.hydraulics']};
+CONTENT.vehicle.parts.forEach(part=>{part.componentIds=VEHICLE_COMPONENT_GROUPS[part.id]||[];if(part.id==='forks')part.preferredRoles=['forkSteel'];if(part.id==='hydraulics')part.preferredNames=['Placas de cadena de elevación'];});
 function configuration(object, document) { const values=document&&document.getBehaviors?document.getBehaviors(object):object&&object.userData&&(object.userData.editorBehaviors||object.userData.editorDefaultBehaviors)||[];return (values||[]).find(value=>TYPES.includes(value.type))||null; }
 function componentJointId(object){for(let node=object;node;node=node.parent){const data=node.userData||{},id=data.robotJointId||data.robotJoint;if(typeof id==='string'&&id)return id;}return '';}
+function visualDesign(object,type){if(type!=='vehicle'&&type!=='robot')return null;let rig,integratedBaseDetails=false;object.traverse(node=>{const value=node.userData||{};if(!rig)rig=type==='vehicle'?value.vehicleRig:type==='robot'?value.robotRig:null;if(type==='robot'&&value.robotReferenceCAD&&value.equipmentComponentId==='robot.base')integratedBaseDetails=true;});const id=rig&&(rig.visualModel||rig.design&&rig.design.visualModel);return id?{id:String(id),fallback:typeof rig.visualModelFallback==='string'?rig.visualModelFallback:'',integratedBaseDetails}:null;}
 function jointEntries(object,config){
  if(!config||config.type!=='robot')return [];let rig;object.traverse(node=>{if(!rig&&node.userData.robotRig)rig=node.userData.robotRig;});if(!rig||!Array.isArray(rig.joints))return [];
  const definitions=robots.getJointDefinitions(config),available=new Set(rig.joints.map((node,index)=>node.userData.robotJoint||node.userData.robotJointId||definitions[index]&&definitions[index].id).filter(Boolean)),pose=rig.pose&&rig.pose.joints||[];
@@ -65,7 +71,7 @@ function jointEntries(object,config){
    inspect:'Compara mínimo, máximo, home y valor de la pose capturada en '+definition.unit+'. Son límites del modelo configurado, no límites certificados de un robot OEM. Cambia sus límites mediante las propiedades completas del equipo; esta vista no aplica movimientos.'};
  });
 }
-function describe(object,document){const config=configuration(object,document);if(!config)return null;const joints=jointEntries(object,config),base=CONTENT[config.type],content=joints.length?{...base,parts:base.parts.concat(joints)}:base;return {type:config.type,config,content,joints,references:REFERENCES[config.type]||REFERENCES.conveyor,id:String(object.userData.editorId||object.uuid||''),name:String(object.name||base.title)};}
+function describe(object,document){const config=configuration(object,document);if(!config)return null;const joints=jointEntries(object,config),base=CONTENT[config.type],visual=visualDesign(object,config.type),parts=visual&&visual.integratedBaseDetails?base.parts.map(part=>part.id==='harness'?{...part,integratedWith:'base',representation:'El CAD representa conectores y cableado de potencia dentro del grupo Base y anclaje. Se muestra ese conjunto combinado; no existe una malla independiente para separar solo esos cables. Los servomotores internos siguen siendo contenido conceptual.'}:part):base.parts,content=joints.length||parts!==base.parts?{...base,parts:parts.concat(joints)}:base,description={type:config.type,config,content,joints,visual,references:REFERENCES[config.type]||REFERENCES.conveyor,id:String(object.userData.editorId||object.uuid||''),name:String(object.name||base.title)};description.learning=learning.describeLearning(description);return description;}
 function ruleExample(id){automation.objectReference(id,false);return [{sourceId:id,variable:'emergency',operator:'eq',value:true,targetId:id,targetVariable:'running',set:false,edge:'rising'}];}
 function validateRules(text,document){const rules=automation.normalizeRules(text);for(const rule of rules)for(const id of [rule.sourceId,rule.targetId])if(!document||!document.getObject||!document.getObject(id))throw Error('La regla referencia un equipo que no existe en este nivel: '+id);return rules;}
 function planRules(object,document,text){const rules=validateRules(text,document),current=document.getBehaviors(object),before=current.find(value=>value.type==='automation');return {targetId:object.userData.editorId,ruleCount:rules.length,rules,replaceExisting:!!before,behaviors:current.filter(value=>value.type!=='automation').concat([{type:'automation',enabled:true,rules:JSON.stringify(rules)}])};}

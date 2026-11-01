@@ -60,6 +60,17 @@ test('publication manifests are accepted by the actual API artifact reader witho
   for (const output of outputs) { const build = artifact(output.directory, output.application === 'public-viewer'); assert.equal(build.files.has('index.html'), true); assert.equal(build.manifest.bundleSha256, output.manifest.bundleSha256); }
 });
 
+test('public study images are explicitly declared and cannot open arbitrary local files',t=>{
+  const root=fixture(t),manifest='modules/logistica-industrial/functions/presentacion/content/equipment-references.json',image='modules/logistica-industrial/assets/study/robot-example.jpg';
+  write(root,image,'approved reference image');write(root,manifest,JSON.stringify({version:1,items:[{id:'example',localPath:image}]}));
+  const result=packageApps({root,revision:'study-images'}).find(row=>row.application==='public-viewer');
+  assert(result.manifest.files.some(file=>file.path===image));assert(!result.manifest.files.some(file=>file.path===manifest));
+  const before=fs.readFileSync(path.join(root,'artifacts/public-viewer/publication.json'));
+  write(root,manifest,JSON.stringify({version:1,items:[{localPath:'modules/logistica-industrial/assets/study/../../data/studio.sqlite'}]}));
+  assert.throws(()=>packageApps({root,revision:'invalid-study'}),{code:'invalid_study_references'});
+  assert.deepEqual(fs.readFileSync(path.join(root,'artifacts/public-viewer/publication.json')),before);
+});
+
 test('repackaging is deterministic and removes only owned generated maps, never source/sibling files', t => {
   const root = fixture(t); const first = packageApps({root, revision: 'fixture-stable'}), second = packageApps({root, revision: 'fixture-stable'});
   assert.deepEqual(first.map(value => value.manifest), second.map(value => value.manifest)); assert.deepEqual(fs.readdirSync(path.join(root, 'artifacts')).sort(), ['core-empty', 'public-viewer', 'workspace']); assert.match(fs.readFileSync(path.join(root, 'data/studio.sqlite'), 'utf8'), /^SENSITIVE/); assert.match(fs.readFileSync(path.join(root, 'apps/api/server/secret.js'), 'utf8'), /^SENSITIVE/); assert.equal(fs.existsSync(path.join(root, 'artifacts/workspace/bundle.js.map')), false);

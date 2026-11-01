@@ -29,7 +29,7 @@ const maxima = {};
 for (const detail of ['low', 'balanced', 'high']) {
   const maximum = maxima[detail] = {triangles: 0, draws: 0, bytes: 0};
   for (const variant of ['articulated-general', 'articulated-process', 'collaborative', 'palletizer', 'mobile-manipulator']) {
-    const config = robots.normalize(Object.assign({}, robots.defaults(variant), {detail}));
+    const config = robots.normalize(Object.assign({}, robots.defaults(variant), {detail, visualModel: 'legacy'}));
     const robot = createRobot(config), rig = robot.userData.robotRig, d = kinematics.getDimensions(config);
     assert.equal(robot.userData.robotGeometryVersion, 3);
     assert.ok(rig.castingShells.length >= 6, `${variant}: the silhouette requires actual contoured housings`);
@@ -87,8 +87,8 @@ for (const detail of ['low', 'balanced', 'high']) {
     for (const key of Object.keys(maximum)) maximum[key] = Math.max(maximum[key], measured[key]);
   }
 }
-const sharp = createRobot(Object.assign({}, robots.defaults('articulated-general'), {filletRadius: 0}));
-const rounded = createRobot(Object.assign({}, robots.defaults('articulated-general'), {filletRadius: .06}));
+const sharp = createRobot(Object.assign({}, robots.defaults('articulated-general'), {filletRadius: 0, visualModel: 'legacy'}));
+const rounded = createRobot(Object.assign({}, robots.defaults('articulated-general'), {filletRadius: .06, visualModel: 'legacy'}));
 const arm = robot => robot.userData.robotRig.castingShells.find(mesh => /Brazo superior/.test(mesh.name));
 assert.notEqual(arm(sharp).geometry.userData.robotCasting.exponent, arm(rounded).geometry.userData.robotCasting.exponent);
 assert.ok(arm(sharp).geometry.attributes.position.array.some((value, index) => Math.abs(value - arm(rounded).geometry.attributes.position.array[index]) > .001),

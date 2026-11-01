@@ -343,6 +343,54 @@ function plc() {
 }
 
 const PANEL_DESIGN_REST = new WeakMap();
+// This is the operating panel of the native machine, not a study-only model.
+// The original PLC and nine editable command actors retain their saved paths.
+function pilotCellConsole(panel, design, point) {
+  let assembly = panel.children.find(node => node.userData.industrialCellConsole);
+  if (!assembly) {
+    assembly = new THREE.Group(); assembly.name = 'Consola de celda · envolvente de piso';
+    assembly.userData.industrialCellConsole = true;
+    assembly.userData.equipmentComponentId = 'robot.control-cabinet';
+    const make = builder(), faceZ = .14 + .021 * design.depth / .28;
+    const upper = point(0, design.centerY + design.height / 2, faceZ - .004);
+    const lower = point(0, design.centerY - design.height / 2, faceZ - .004);
+    const rear = Math.min(-.43, upper.z - .12), shape = new THREE.Shape();
+    shape.moveTo(rear, -1.28); shape.lineTo(lower.z, -1.28);
+    shape.lineTo(lower.z, lower.y); shape.lineTo(upper.z, upper.y);
+    shape.lineTo(rear, upper.y); shape.closePath();
+    const shellGeometry = new THREE.ExtrudeBufferGeometry(shape, {depth:design.width,bevelEnabled:false,steps:1,curveSegments:1});
+    shellGeometry.rotateY(-Math.PI / 2); shellGeometry.translate(design.width / 2, 0, 0);
+    const shell = new THREE.Mesh(shellGeometry, material(design.body,{metalness:.12,roughness:.46}));
+    shell.name = 'Armario plegado · frente inclinado y zócalo'; assembly.add(shell);
+    const planar = (name,w,h,d,color,x,y,z,extra) => {
+      const p = point(x,y,z), mesh = make.box(name,w,h,d,color,p.toArray(),extra);
+      mesh.rotation.x = design.tilt; assembly.add(mesh); return mesh;
+    };
+    planar('Chapa frontal de operación',design.width-.035,design.height-.025,.009,design.door,0,design.centerY,faceZ-.004,{metalness:.22,roughness:.4});
+    planar('Bisel de HMI con junta negra',.755,.34,.014,design.trim,design.screen[2],design.screen[3],faceZ+.003,{roughness:.32});
+    for (const x of [-.535,.535]) for (const y of [-.355,.355]) {
+      const bolt = make.cylinder('Tornillo cautivo de consola',.008,.006,'#c6d0d3',point(x,y,faceZ+.003).toArray(),6,{metalness:.85,roughness:.3});
+      bolt.rotation.x = Math.PI / 2 + design.tilt; assembly.add(bolt);
+    }
+    // A physically separated twelve-key HMI pad; the nine operating commands
+    // below remain the interactive control actors with their existing bindings.
+    planar('Rebaje del teclado HMI',.235,.30,.010,'#25323b',.385,.19,faceZ+.003);
+    for (let row=0;row<4;row++) for (let col=0;col<3;col++)
+      planar('Tecla HMI '+(row*3+col+1),.045,.035,.012,row===3&&col===2?'#6eaa98':'#c3cccf',.32+col*.065,.285-row*.063,faceZ+.013,{roughness:.36});
+    for (const x of [-.46,.45]) {
+      const foot = make.box('Apoyo nivelable de consola',.10,.028,.09,'#1f2b33',[x,-1.266,rear+.15]); assembly.add(foot);
+    }
+    assembly.add(make.box('Junta de puerta de servicio',.84,.80,.010,'#25323b',[0,-.79,lower.z+.001]));
+    assembly.add(make.box('Puerta de acceso a electrónica',.812,.77,.012,'#66757d',[0,-.79,lower.z+.008],{metalness:.18,roughness:.44}));
+    assembly.add(make.box('Tirador de puerta',.028,.135,.035,'#182832',[.31,-.67,lower.z+.035]));
+    for (let i=0;i<7;i++) assembly.add(make.box('Ranura de ventilación',.40,.009,.003,'#17252d',[0,-.92-i*.025,lower.z+.016]));
+    for (const y of [-.52,-1.03]) assembly.add(make.box('Bisagra de puerta',.025,.085,.025,'#aebac1',[-.423,y,lower.z+.025],{metalness:.8,roughness:.3}));
+    assembly.add(make.box('Zócalo de protección',design.width+.018,.055,lower.z-rear+.018,'#22313a',[0,-1.252,(lower.z+rear)/2]));
+    batchDetails(assembly); panel.add(assembly);
+  }
+  assembly.visible = true; return assembly;
+}
+
 function applyPanelDesign(panel, config, kind) {
   if (!panel || !behaviorSchema.controlPanels) return false;
   const design = behaviorSchema.controlPanels.spec(config || {}, kind), key = design.id;
@@ -422,6 +470,24 @@ function applyPanelDesign(panel, config, kind) {
     if (/Frente de puerta/.test(name)) paint(mesh.material, design.door);
     if (/Marco de pantalla|Junta de puerta|Bisagra/.test(name)) paint(mesh.material, design.trim);
   });
+  const cellConsole = key === 'cell-console', previousConsole = panel.children.find(node => node.userData.industrialCellConsole);
+  const legacyDetails = panel.children.find(node => node.name === 'Armario y pedestal');
+  if (cabinet) cabinet.visible = !cellConsole;
+  if (legacyDetails) legacyDetails.visible = !cellConsole;
+  if (previousConsole) previousConsole.visible = cellConsole;
+  if (cellConsole) {
+    pilotCellConsole(panel, design, point);
+    const faceZ = .14 + .021 * design.depth / .28;
+    // The floor console has a real horizontal rear deck. Keep its beacon on
+    // that deck instead of reusing the old flat-panel anchor over the keypad.
+    if (tower) {
+      const upper = point(0, design.centerY + design.height / 2, faceZ - .004);
+      const rear = Math.min(-.43, upper.z - .12);
+      auto(tower,new THREE.Vector3(design.width*.36,upper.y,rear+.10),new THREE.Vector3(1,1,1));
+    }
+    if (screen) auto(screen, point(design.screen[2],design.screen[3],faceZ+.015),new THREE.Vector3(design.screen[0]/.74,design.screen[1]/.28,1),design.tilt);
+    if (title) auto(title,point(0,design.titleY,faceZ+.006),new THREE.Vector3(.9/.69,1,1),design.tilt);
+  }
   panel.userData.industrialStickerAnchors = [];
   panel.userData.industrialPanelDesign = key; panel.userData.industrialPanelApplied = key;
   panel.userData.industrialPanelKind = kind;

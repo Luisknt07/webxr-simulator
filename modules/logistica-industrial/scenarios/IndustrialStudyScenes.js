@@ -44,7 +44,10 @@ function robotNetwork(document, roomId, definition, scene, options = {}) {
     const conveyor = add('conveyor', sorting ? 'Clasificador · defecto a ramal' : 'Banda · expedición de producto', sorting ? 'distributor' : 'belt', {
       powered: true, running: true, autoSpawn: false, withPanel: false, withSensors: sorting, length: 2.4, speed: .55,
       routing: sorting ? 'rules' : 'primary', routingDefault: 'main', branchSide: 'left',
-      routingRules: sorting ? JSON.stringify([{field: 'quality', operator: 'eq', value: 'defective', route: 'branch'}]) : '[]'}, [1.65, 1, sorting ? -.8 : -1.2]);
+      // The CAD wrist needs 15 cm less reach here to keep its open yoke clear
+      // of the transported 400 mm carton at the taught delivery orientation.
+      // Moving closer than z=-1.05 would enter the waiting forearm/motor space.
+      routingRules: sorting ? JSON.stringify([{field: 'quality', operator: 'eq', value: 'defective', route: 'branch'}]) : '[]'}, [1.65, 1, sorting ? -.8 : -1.05]);
     patch(document, robot, {outputId: conveyor.userData.editorId});
     links.push({source: source.userData.editorId, sourcePort: 'output', target: robot.userData.editorId, targetPort: 'input'}, {source: robot.userData.editorId, sourcePort: 'output', target: conveyor.userData.editorId, targetPort: 'input'});
     const stockValues = {running: true, delivery: 'manual', layoutMode: 'fit', palletType: 'euro-1200x800', palletCapacity: 2, capacity: 64, layers: 5, maxStackHeight: 1.8,
@@ -185,7 +188,7 @@ function compactVrStudy(document, roomId, definition, scene, options) {
       running: true, withPanel: false, acceptsPallets: true, palletType: 'euro-1200x800', width: 1.2, depth: .8,
       palletCapacity: 2, capacity: 2, columns: 1, rows: 1, layers: 1, autoRelease: false, delivery: 'manual'}, [parking.x - direction.z * 4.5, 1, parking.z + direction.x * 4.5]);
     document.setTransform(destination, {quaternion: pickup.quaternion.toArray()});
-    const vehicle = add('vehicle', 'RV · único montacargas manual', 'forklift-electric-3w', {
+    const vehicle = add('vehicle', 'RV · único montacargas manual', one ? 'forklift-electric-4w' : 'forklift-electric-3w', {
       mode: 'manual', powered: true, running: true, parkingBrake: true, forkSpread: .312, sourceId: pickup.userData.editorId,
       outputId: destination.userData.editorId, waypointsJson: '[]', serial: 'RV-COMPACTO', detail: 'balanced'}, parking.toArray());
     document.setTransform(vehicle, {rotation: [0, Math.atan2(-direction.x, -direction.z), 0]});

@@ -2,6 +2,25 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const SCENE='vr-robot-dispatch',FILES=['index.html','viewer.js','viewer.css','config.js','cover.jpg',`projects/smarttwin/previews/${SCENE}.png`,`projects/smarttwin/scenes/${SCENE}.json`,'projects/smarttwin/scenes/catalog.json'];
 FILES.push('packages/voice-assistant/voice-assistant.css','packages/input-devices/input-device.css',...['welcome','pickup','route','deposit','completed','safety'].map(id=>'packages/voice-assistant/assets/'+id+'.wav'));
+// These are individually reviewed publication resources. A reference manifest
+// or a matching folder/extension must never expand this deployment allowlist.
+const STUDY_FILES=[
+ 'modules/logistica-industrial/assets/study/cat-counterbalance.jpg',
+ 'modules/logistica-industrial/assets/study/cat-electric.jpg',
+ 'modules/logistica-industrial/assets/study/ifm-encoder.jpg',
+ 'modules/logistica-industrial/assets/study/kuka-agilus.jpg',
+ 'modules/logistica-industrial/assets/study/kuka-controller-ports.jpg',
+ 'modules/logistica-industrial/assets/study/kuka-controller.jpg',
+ 'modules/logistica-industrial/assets/study/robot-external-ports.jpg',
+ 'modules/logistica-industrial/assets/study/robot-io-board.jpg',
+ 'modules/logistica-industrial/assets/study/siemens-servo.jpg'
+];
+const CAD_NOTES=[
+ 'modules/logistica-industrial/assets/robot-pilot/LICENSE.txt',
+ 'modules/logistica-industrial/assets/robot-pilot/NOTICE.txt',
+ 'modules/logistica-industrial/assets/robot-pilot/provenance.json'
+];
+FILES.push(...STUDY_FILES,...CAD_NOTES);
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
 function verifyPublic(options={}){
  const root=fs.realpathSync(options.root||path.resolve(__dirname,'../..')),directory=path.join(root,'artifacts/public-viewer');
@@ -21,5 +40,5 @@ function verifyPublic(options={}){
  if(!keys(snapshot,['project'])||!keys(project,['id','name','revision','document','access','allowedRoomIds','publicSceneId'])||project.publicSceneId!==SCENE||!keys(access,['role','canEdit','canShare'])||access.role!=='public'||access.canEdit!==false||access.canShare!==false||!keys(document,['format','version','rooms','imports','studio'])||!Array.isArray(document.imports)||document.imports.length||!document.rooms||Object.keys(document.rooms).length!==1||!keys(studio,['version','environments','entities','spawns','missions','groups','startRoomId'])||JSON.stringify(project.allowedRoomIds)!==JSON.stringify(Object.keys(document.rooms)))throw Error('The public snapshot has private or editable content.');
  return {root,directory,manifest,files:actual.length,bytes};
 }
-module.exports={verifyPublic,SCENE,FILES};
+module.exports={verifyPublic,SCENE,FILES,STUDY_FILES,CAD_NOTES};
 if(require.main===module){const result=verifyPublic();console.log('Verified public viewer: '+result.files+' files, one scene, '+result.manifest.bundleSha256);}

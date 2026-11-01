@@ -9,6 +9,7 @@ const KEY_LIGHT = new THREE.Vector3(-.45,.85,.65).normalize(), FILL_LIGHT = new 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 function jointOf(object){for(let node=object;node;node=node.parent){const data=node.userData||{},id=data.robotJointId||data.robotJoint;if(typeof id==='string'&&id)return id;}return '';}
+function componentsOf(object){const ids=[];for(let node=object;node;node=node.parent){const data=node.userData||{};for(const id of [data.equipmentComponentId,data.robotComponentId,data.industrialComponentId,data.componentId])if(typeof id==='string'&&id&&!ids.includes(id))ids.push(id);}return ids;}
 function machineOwner(object) {
   const data=object.userData||{},key=data.editorPrefabKey||data.editorDescriptor&&data.editorDescriptor.prefab;
   return ['robot','conveyor','vehicle','source','processor','palletQueue'].includes(key)||data.robotRig||data.vehicleRig||data.warehouseRackRig;
@@ -49,7 +50,7 @@ function capture(object,options={}) {
     for(let instance=0;instance<instances&&meshes.length<meshLimit;instance++){
       const world=new THREE.Matrix4().copy(mesh.matrixWorld);if(mesh.isInstancedMesh){const local=new THREE.Matrix4();mesh.getMatrixAt(instance,local);world.multiply(local);}
       const matrix=new THREE.Matrix4().multiplyMatrices(scale,inverse).multiply(world);if(!matrix.elements.every(finite))continue;
-      meshes.push({mesh,geometry,position,materials,names:names.join(' / '),jointId:jointOf(mesh),role:mesh.userData.industrialMaterialPart||mesh.userData.materialPart||'',matrix,count,start,instance});
+      meshes.push({mesh,geometry,position,materials,names:names.join(' / '),jointId:jointOf(mesh),componentIds:componentsOf(mesh),role:mesh.userData.industrialMaterialPart||mesh.userData.materialPart||mesh.userData.role||'',matrix,count,start,instance});
     }
   });Object.defineProperties(meshes,{truncatedMeshes:{value:truncatedMeshes},omittedInstances:{value:omittedInstances},sourceTriangles:{value:sourceTriangles}});return meshes;
 }
@@ -117,7 +118,7 @@ function build(meshes,parts=[],turn=0,requestedMode='isometric',options={}) {
     const matrix=rotation.clone().multiply(entry.matrix),box=new THREE.Box3();
     if(entry.geometry.boundingBox)box.copy(entry.geometry.boundingBox);else{const p=entry.position,cached=BOUNDS.get(entry.geometry);if(cached&&cached.attribute===p&&cached.version===p.version)box.copy(cached.box);else{for(let i=0;i<p.count;i++)box.expandByPoint(new THREE.Vector3().fromBufferAttribute(p,i));BOUNDS.set(entry.geometry,{attribute:p,version:p.version,box:box.clone()});}}
     const worldBox=box.clone().applyMatrix4(matrix);bounds.union(worldBox);sourceTriangles+=entry.count;
-    const matches=parts.map(part=>part.jointId?(entry.jointId?entry.jointId===part.jointId:!!part.jointNodeName&&entry.names.includes(part.jointNodeName.toLowerCase())):(part.roles||[]).includes(entry.role)||(part.match||[]).some(match=>entry.names.includes(String(match).toLowerCase())));return{entry,matrix,box,worldBox,matches,part:matches.findIndex(Boolean)};
+    let semantic=parts.findIndex(part=>(part.preferredRoles||[]).includes(entry.role)||(part.preferredNames||[]).includes(entry.mesh.name));if(semantic<0)for(const id of entry.componentIds||[]){semantic=parts.findIndex(part=>(part.componentIds||[]).includes(id));if(semantic>=0)break;}const matches=parts.map((part,index)=>part.jointId?(entry.jointId?entry.jointId===part.jointId:!!part.jointNodeName&&entry.names.includes(part.jointNodeName.toLowerCase())):part.integratedWith?semantic>=0&&parts[semantic].id===part.integratedWith:semantic>=0?index===semantic:(part.roles||[]).includes(entry.role)||(part.match||[]).some(match=>entry.names.includes(String(match).toLowerCase())));return{entry,matrix,box,worldBox,matches,part:matches.findIndex(Boolean)};
   });
   if(bounds.isEmpty())bounds.set(new THREE.Vector3(-1,0,-1),new THREE.Vector3(1,1,1));
   const center=bounds.getCenter(new THREE.Vector3()),size=bounds.getSize(new THREE.Vector3()),groups=new Map();

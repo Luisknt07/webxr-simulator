@@ -4,10 +4,10 @@
   "recipeVersion": 2,
   "width": 480,
   "height": 320,
-  "bundleSha256": "b922eb05c4c74574cb8517461079aec1726e14c7e2c3f678be1753eee8236dfa",
+  "bundleSha256": "cdc4faebfc8e0e44e32b85598d953a89b01ac3df7b5b6f7a82da2a9968d4647e",
   "catalogSha256": "b025078724fe9ef14a27c8f096a10a1b4a64db312093c7ce585fa09ae9121597",
   "complete": true,
-  "bytes": 3322278,
+  "bytes": 3323452,
   "scenes": [
     {
       "id": "l-transfer",
@@ -74,25 +74,24 @@
     },
     {
       "id": "vr-robot-dispatch",
-      "title": "RV ? Transferencia guiada",
+      "title": "RV · Transferencia guiada",
       "file": "vr-robot-dispatch.png",
       "method": "actual-study-factory",
       "recipeVersion": 2,
       "width": 480,
       "height": 320,
-      "bytes": 31856,
-      "sha256": "2246a59afc3f35a10d7475556ed3f8e4a76b14156941f4de8bfd44389d26f760",
-      "bundleSha256": "ebb8e4b70d59f64fef8744956851bdd6cf97237eb84be8a27083e0c21d96e315",
-      "sceneSha256": "afab5abd9fd491429e88e97740ebc0bf470088e4c8abd3d9e911ca2cc504a92e",
+      "bytes": 33030,
+      "sha256": "491648210b3febe485e6113645831a63cb9d60c42818ec522352145f0558230b",
+      "bundleSha256": "cdc4faebfc8e0e44e32b85598d953a89b01ac3df7b5b6f7a82da2a9968d4647e",
+      "sceneSha256": "52491b8574a52e1f8628edf0f8c55c202ae55c9e1f8d5be3683d4087277c8e73",
       "quality": {
         "width": 480,
         "height": 320,
-        "mean": 44.65755208333334,
-        "variance": 328.0417282669621,
+        "mean": 46.13194444444446,
+        "variance": 539.8049286265409,
         "min": 40,
-        "max": 189.33333333333334
-      },
-      "sourceSceneId": "vr-robot-transfer"
+        "max": 214.33333333333334
+      }
     },
     {
       "id": "vr-robot-transfer",

@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "public-viewer",
-  "revision": "f737ea7c44ee44d2ddfd4160d4d6b6a889c20dc0",
-  "bundleSha256": "94b821d555f0e5d172cd5edd2ac911527dd0c0d46b641f3845dd739131aa3a80",
+  "revision": "0ceb123749de1faaee3b992fd4417d6a0d69191c",
+  "bundleSha256": "e71b8169bfe26cfbac8c7590ac89cc53e7e6ebd6723a79555d9493224ed53f44",
   "scenes": [
     "vr-robot-dispatch"
   ],
@@ -19,6 +19,54 @@
     {
       "path": "index.html",
       "sha256": "8241cf49975961a6f78b0d7eb1c3ca04c62b9c55295f66100b3c06b1a64eea03"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/robot-pilot/LICENSE.txt",
+      "sha256": "b246743db2810348d271c24bbfb2824bb37543bc97ddbe52216e40a30c9e9f05"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/robot-pilot/NOTICE.txt",
+      "sha256": "a2b53f1683bb579bbc02e069c425105ab45197fc05b395043cfeb2d859934868"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/robot-pilot/provenance.json",
+      "sha256": "ba9da26afe049a9f0544a76029ed434a03c8578a19e1f04eadf8e0c459675fec"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/study/cat-counterbalance.jpg",
+      "sha256": "477fdd75342746fd6bcde959489c559de1856558817baa6716b537d740b25b98"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/study/cat-electric.jpg",
+      "sha256": "d3753c29718140d83f943e5185c5024426f0a72a7554622e4027b40704eb2e87"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/study/ifm-encoder.jpg",
+      "sha256": "5b974738031ff81dce7e841761737ce42b210e8b4ec8ad682d7e7a1b6959a75b"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/study/kuka-agilus.jpg",
+      "sha256": "95663833f09c2ac8f335cae89f2a7b728625d462c39d2e1c6c75203fcf797109"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/study/kuka-controller-ports.jpg",
+      "sha256": "d4c75998322e7dd0307dbbdf7ceb6df36ab1d529934eec251d4ab3153bebcd0b"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/study/kuka-controller.jpg",
+      "sha256": "247e7d2e10789c591fe6dae63aaafdbcd5c72ad38192fe67c3f2337faace49bc"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/study/robot-external-ports.jpg",
+      "sha256": "e4c53b7f239a94ccee88e24a4cf03223743ff84b6f8a1152f3949be144356f66"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/study/robot-io-board.jpg",
+      "sha256": "52a282608d5c8baf7274d976a41eb92ec63c69d76345243afa80543969b96f39"
+    },
+    {
+      "path": "modules/logistica-industrial/assets/study/siemens-servo.jpg",
+      "sha256": "1d5e91e4d5862b43ce940475984009ba0c2beac5a3d05970111a55d8cf13e610"
     },
     {
       "path": "packages/input-devices/input-device.css",
@@ -54,7 +102,7 @@
     },
     {
       "path": "projects/smarttwin/previews/vr-robot-dispatch.png",
-      "sha256": "2246a59afc3f35a10d7475556ed3f8e4a76b14156941f4de8bfd44389d26f760"
+      "sha256": "491648210b3febe485e6113645831a63cb9d60c42818ec522352145f0558230b"
     },
     {
       "path": "projects/smarttwin/scenes/catalog.json",
@@ -62,7 +110,7 @@
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-dispatch.json",
-      "sha256": "8876fda601f7c69074c758d5f7c899b43ae165c56c29d411961530e91df319b7"
+      "sha256": "52491b8574a52e1f8628edf0f8c55c202ae55c9e1f8d5be3683d4087277c8e73"
     },
     {
       "path": "viewer.css",
@@ -70,7 +118,7 @@
     },
     {
       "path": "viewer.js",
-      "sha256": "94b821d555f0e5d172cd5edd2ac911527dd0c0d46b641f3845dd739131aa3a80"
+      "sha256": "e71b8169bfe26cfbac8c7590ac89cc53e7e6ebd6723a79555d9493224ed53f44"
     }
   ]
 }

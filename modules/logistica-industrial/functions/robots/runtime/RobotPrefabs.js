@@ -296,7 +296,7 @@ function componentIdentity(rig) {
       if (node.name === 'Base anclada al piso') inBase = true;
       if (!jointId && node.userData.robotJoint) jointId = node.userData.robotJoint;
     }
-    let id = inTool ? 'robot.tool' : inBase ? 'robot.base' : jointId === 'J1' ? 'robot.shoulder' : jointId === 'J2' ? 'robot.upper-arm' : jointId === 'J3' ? 'robot.forearm' : /^J[456]$/.test(jointId) ? 'robot.wrist' : 'robot.carriage';
+    let id = inTool ? 'robot.tool' : inBase ? 'robot.base' : object.userData.robotComponentId || (jointId === 'J1' ? 'robot.shoulder' : jointId === 'J2' ? 'robot.upper-arm' : jointId === 'J3' ? 'robot.forearm' : /^J[456]$/.test(jointId) ? 'robot.wrist' : 'robot.carriage');
     if (/Eje pasante|Oreja de apoyo/.test(object.name)) id = 'robot.shoulder';
     if (/Reductor|Tapa mecanizada|Servomotor/.test(object.name) && jointId === 'J3') id = 'robot.elbow';
     object.userData.equipmentComponentId = id;
@@ -432,6 +432,60 @@ function tool(b, parent, rig) {
     });
   }
   return assembly;
+}
+
+function referenceArticulated(b, rig, d) {
+  // Apache-2.0 visual derivative, revision pinned in the asset and NOTICE.
+  // Native joints/limits/TCP stay authoritative. This is not an OEM controller
+  // or calibrated replica: skin offsets and link proportions are adapted.
+  const source=robotSchema.referencePilotGeometry(),parts=source.lods[b.config.detail];
+  const payload=Math.max(.86,Math.min(1.18,Math.pow(b.config.payloadKg/16,.09))),t=Math.max(.085,Math.min(.30,d.reach*.112*payload));
+  const cross=t/.10,baseY=d.baseHeight/.4;
+  const base=group(rig.visual,'Base anclada al piso'),yaw=joint(rig.visual,'J1',[0,d.baseHeight,0],rig);
+  const shoulder=joint(yaw,'J2',[0,0,0],rig),elbow=joint(shoulder,'J3',[d.upperArm,0,0],rig);
+  const roll=joint(elbow,'J4',[d.forearm,0,0],rig),bend=joint(roll,'J5',[0,0,0],rig),spin=joint(bend,'J6',[0,0,0],rig);
+  const parents={base_link:base,link_1:yaw,link_2:shoulder,link_3:elbow,link_4:roll,link_5:bend,link_6:spin};
+  const names={base_link:'Base · fundición, conectores y cableado de potencia',link_1:'Hombro · columna giratoria y alojamiento de servomotor',link_2:'Brazo superior · fundición y tapa del reductor J2',link_3:'Reductor J3 · codo asimétrico y servomotor',link_4:'Antebrazo · transmisión hueca y alojamiento J4',link_5:'Muñeca · horquilla y mecanismo de cabeceo J5',link_6:'Brida ISO de herramienta · eje J6'};
+  const decode=(value,Type)=>{const text=atob(value),bytes=new Uint8Array(text.length);for(let i=0;i<text.length;i++)bytes[i]=text.charCodeAt(i);return new Type(bytes.buffer);};
+  rig.castingShells=[];rig.shoulderCheeks=[];
+  parts.forEach(part=>{
+    const q=decode(part.position,Int16Array),encoded=decode(part.normal,Int8Array),positions=new Float32Array(q.length),normals=new Float32Array(q.length),uv=new Float32Array(q.length/3*2);
+    let scale=[cross,cross,cross],shift=[0,0,0];
+    if(part.link==='base_link')scale=[cross,Math.max(.1,baseY),cross];
+    if(part.link==='link_1')scale=[cross,Math.max(.1,baseY),cross];
+    if(part.link==='link_2')scale[0]=d.upperArm/.455;
+    if(part.link==='link_3'||part.link==='link_4')scale[0]=d.forearm/.42;
+    if(part.link==='link_4')shift[0]=-d.forearm;
+    if(part.link==='link_5')scale[0]=.60*t/.15;
+    if(part.link==='link_6'){scale[0]=1.90*t/.15;shift[0]=.006;}
+    for(let i=0;i<q.length;i+=3){
+      const v=[0,1,2].map(axis=>part.center[axis]+q[i+axis]*part.scale[axis]);
+      if(part.link==='base_link'){v[0]+=.025;v[1]+=.4;v[2]-=.0907;}
+      for(let axis=0;axis<3;axis++)positions[i+axis]=v[axis]*scale[axis]+shift[axis];
+      const normal=new THREE.Vector3(encoded[i]/scale[0],encoded[i+1]/scale[1],encoded[i+2]/scale[2]).normalize();normals.set([normal.x,normal.y,normal.z],i);
+      uv[i/3*2]=positions[i]*3;uv[i/3*2+1]=(Math.abs(normal.y)>.7?positions[i+2]:positions[i+1])*3;
+    }
+    const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));geometry.setAttribute('normal',new THREE.BufferAttribute(normals,3));geometry.setAttribute('uv',new THREE.BufferAttribute(uv,2));geometry.setIndex(new THREE.BufferAttribute(decode(part.index,part.indexType==='H'?Uint16Array:Uint32Array),1));
+    geometry.computeBoundingBox();geometry.computeBoundingSphere();geometry.userData={robotReferenceCAD:true,sourceLink:part.link,sourceRevision:source.revision,sourceLOD:b.config.detail};
+    const mesh=b.mesh(names[part.link],geometry,part.role,parents[part.link]);mesh.userData.robotReferenceCAD=true;mesh.userData.robotContouredHousing=true;
+    mesh.userData.industrialSourceLicense='Apache-2.0';mesh.userData.industrialSourceRevision=source.revision;
+    if(part.link==='link_3')mesh.userData.robotComponentId='robot.elbow';
+    if(part.link==='link_4')mesh.userData.robotComponentId='robot.forearm';
+    if(part.role==='frame')rig.castingShells.push(mesh);
+  });
+  // The native contact-critical end effector remains identical; the source
+  // CAD flange is only its visual mounting face, never a substitute TCP.
+  tool(b,spin,rig);
+  const radius=Math.max(.10,Math.min(.34,d.reach*.13)),pedestalTop=Math.max(.11,d.baseHeight-t*1.4);
+  const upperStart=t*.6,upperEnd=Math.max(t*.61,d.upperArm-t*1.55),upperCenterZ=x=>(.0907-.0042*x/d.upperArm)*cross;
+  rig.design={style:'reference-industrial-pilot',visualModel:'reference-pilot',revision:2,section:t,manufacturerReplica:false,source:source.source,sourceRevision:source.revision,sourceLicense:source.license,
+    adaptation:'CAD visual skins rebased and proportioned to native J1–J6; original OEM offsets removed; native motion and tool are retained.',
+    upperStructuralCenterline:{startZ:upperCenterZ(upperStart),endZ:upperCenterZ(upperEnd),radius:t*.24,reference:'CAD cantilever casting; verified against native local surface rays. The narrow web has a minimum sampled half-width of 0.275t.'}};
+  rig.selfCollisionCores={
+    upper:{object:shoulder,start:[upperStart,0,upperCenterZ(upperStart)],end:[upperEnd,0,upperCenterZ(upperEnd)],radius:t*.24},
+    forearm:{object:elbow,start:[t*1.55,0,0],end:[Math.max(t*1.56,d.forearm-t*.8),0,0],radius:t*.3},
+    pedestal:{object:rig.visual,start:[0,.06,0],end:[0,Math.max(.07,pedestalTop-.035),0],radius:radius*.65}
+  };
 }
 
 function articulated(b, rig, d) {
@@ -700,7 +754,9 @@ export function refreshRobotGeometry(root, value = {}, options = {}) {
   const visual = new THREE.Group(); visual.name = 'Robot · conjunto mecánico'; visual.userData.robotVisual = true;
   root.add(visual); root.children.splice(root.children.indexOf(visual), 1); root.children.unshift(visual);
   const rig = {visual, config, joints: [], tool: null, fingers: [], toolContactSurfaces: []}, b = builder(config), d = kinematics.getDimensions(config);
-  if (config.family === 'articulated' || config.family === 'palletizer') articulated(b, rig, d);
+  const model=robotSchema.visualModel(config);
+  if (model === 'reference-pilot') referenceArticulated(b, rig, d);
+  else if (config.family === 'articulated' || config.family === 'palletizer') articulated(b, rig, d);
   else if (config.family === 'mobileManipulator') { mobile(b, rig, d); articulated(b, rig, d); }
   else if (config.family === 'cylindrical' || config.family === 'polar') radialRobot(b, rig, d);
   else if (config.family === 'mobileSorter') mobileSorter(b, rig, d);
@@ -725,7 +781,7 @@ export function refreshRobotGeometry(root, value = {}, options = {}) {
     }
   }
   visual.userData.robotParametricDesign = {filletRadius: config.filletRadius, chamferSize: config.chamferSize, mountingHoles: config.mountingHoles, detail: config.detail};
-  root.userData.robotGeometryVersion = 3; root.userData.robotFamily = config.family; root.userData.editorPrefabVariant = config.variant;
+  root.userData.robotGeometryVersion = model === 'reference-pilot' ? 4 : 3; root.userData.robotVisualModel = model; root.userData.robotFamily = config.family; root.userData.editorPrefabVariant = config.variant;
   componentIdentity(rig);
   expose(root, rig); updateRobotPose(root, kinematics.homePose(config)); collisionBodies(rig);
   return root;

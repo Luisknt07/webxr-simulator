@@ -79,6 +79,21 @@ function makePlan(root, application, compilation) {
     for (const id of ['welcome','pickup','route','deposit','completed','safety']) {
       const file='packages/voice-assistant/assets/'+id+'.wav'; add(file,file);
     }
+    const referencePath='modules/logistica-industrial/functions/presentacion/content/equipment-references.json';
+    if (safePath(root,referencePath,false)) {
+      const references=JSON.parse(read(root,referencePath));
+      if (references.version!==1||!Array.isArray(references.items)||references.items.length>24) error('invalid_study_references','Invalid reference image pack.');
+      const paths=new Set(); let imageBytes=0;
+      for(const reference of references.items){
+        const name=reference&&reference.localPath;
+        if(typeof name!=='string'||!/^modules\/logistica-industrial\/assets\/study\/[a-z0-9-]+\.(?:jpg|png|webp)$/.test(name)||paths.has(name)) error('invalid_study_references','Only distinct local study images may be published.');
+        const bytes=read(root,name);imageBytes+=bytes.length;
+        if(bytes.length>2*1024*1024||imageBytes>8*1024*1024) error('invalid_study_references','Reference images exceed the publication budget.');
+        paths.add(name);add(name,name);
+      }
+    }
+    const robotNotes='modules/logistica-industrial/assets/robot-pilot/';
+    if(safePath(root,robotNotes+'LICENSE.txt',false))for(const name of ['LICENSE.txt','NOTICE.txt','provenance.json'])add(robotNotes+name,robotNotes+name);
     add('cover.jpg', 'modules/turismo/assets/smart-twin-cover.jpg');
     const previewPath = 'projects/smarttwin/previews/' + PUBLIC_SCENE + '.png';
     add(previewPath, previewPath);

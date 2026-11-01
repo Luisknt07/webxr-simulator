@@ -43,7 +43,7 @@ const DEFAULTS = {
   batteryPercent: 100, batteryDrainPerMeter: 0.025,
   destinationRulesJson: '[]', sorterMode: 'crossbelt', dischargeTime: 1, transferTolerance: .10, dockDistance: .65,
   frameColor: '#e87825', accentColor: '#26333f', toolColor: '#aebdc7', finish: 'painted',
-  wear: 0.16, detail: 'balanced', filletRadius: 0.025, chamferSize: 0.012, mountingHoles: true
+  wear: 0.16, detail: 'balanced', filletRadius: 0.025, chamferSize: 0.012, mountingHoles: true, visualModel: 'auto'
 };
 function variant(id, family, name, preset) { return {id, family, name, preset: Object.assign({}, DEFAULTS, preset, {family, variant: id})}; }
 const VARIANTS = [
@@ -91,6 +91,7 @@ function fields() {
     choice('sorterMode', 'Descarga del clasificador móvil', [{id: 'crossbelt', name: 'Cinta transversal'}, {id: 'tilttray', name: 'Bandeja inclinable'}]),
     number('dischargeTime', 'Tiempo de carga / descarga móvil · s', .2, 30, .1), number('transferTolerance', 'Desnivel máximo de descarga móvil · m', .01, .3, .01), number('dockDistance', 'Separación de atraque del brazo móvil · m', .25, 2, .05),
     text('frameColor', 'Color · carcasa / bastidor', 7, 'color'), text('accentColor', 'Color · juntas / protecciones', 7, 'color'), text('toolColor', 'Color · herramienta', 7, 'color'),
+    choice('visualModel', 'Diseño 3D · piloto disponible en Articulado de manipulación', [{id: 'auto', name: 'Automático según variante'}, {id: 'legacy', name: 'Diseño anterior · comparar'}, {id: 'reference-pilot', name: 'Piloto industrial de seis ejes'}]),
     choice('finish', 'Acabado estructural', [{id: 'painted', name: 'Metal pintado'}, {id: 'steel', name: 'Acero satinado'}, {id: 'aluminum', name: 'Aluminio'}, {id: 'polymer', name: 'Polímero'}]),
     number('wear', 'Desgaste superficial', 0, 1, 0.05), choice('detail', 'Detalle geométrico', [{id: 'low', name: 'Ligero'}, {id: 'balanced', name: 'Equilibrado'}, {id: 'high', name: 'Alto · piezas clave'}]),
     number('filletRadius', 'Radio de redondeo de carcasas · m', 0, 0.12, 0.005), number('chamferSize', 'Chaflán de placas · m', 0, 0.08, 0.002), check('mountingHoles', 'Perforaciones de montaje visibles')];
@@ -171,6 +172,7 @@ function normalize(value = {}) {
   // A family edit keeps that architecture; a preset selection should apply its
   // complete preset in the editor, rather than silently overwrite user values.
   if (getDefinition(result.variant).family !== result.family) result.variant = getDefinition(result.family).id;
+  if (result.visualModel === 'reference-pilot' && (result.variant !== 'articulated-general' || result.family !== 'articulated')) throw new Error('El piloto industrial sólo está disponible en Articulado de manipulación.');
   if ((result.tool === 'process') !== (result.operation === 'process')) throw new Error('La herramienta de proceso requiere la operación de proceso; para transportar una carga elige pinza, ventosas o plataforma.');
   ['sourceId', 'targetId', 'outputId'].forEach(key => objectReference(result[key]));
   const waypoints = parseWaypoints(result);
@@ -183,6 +185,8 @@ function normalize(value = {}) {
   return result;
 }
 function validate(value) { return normalize(value); }
+function visualModel(value = {}) { return value.visualModel === 'legacy' ? 'legacy' : value.variant === 'articulated-general' && value.family === 'articulated' ? 'reference-pilot' : 'legacy'; }
+function referencePilotGeometry() { return require('../assets/reference-pilot/cad.json'); }
 function productCompatibility(value = {}, metadata = {}) {
   const config = Object.assign({}, defaults(value.variant || value.family), value);
   if (!plain(metadata)) return {accepted: false, reason: 'Metadatos de carga inválidos.', massKnown: false};
@@ -203,4 +207,4 @@ function productCompatibility(value = {}, metadata = {}) {
 }
 function acceptsProduct(value, metadata) { return productCompatibility(value, metadata).accepted; }
 module.exports = {VERSION, FAMILIES, VARIANTS, variants: VARIANTS.map(item => item.id), TOOLS, OPERATIONS, DEFAULTS, MAX_WAYPOINTS, MAX_WAYPOINT_JSON, MAX_JOINT_JSON,
-  defaults, fields, getDefinition, normalize, validate, parseWaypoints, parseDestinationRules, destinationFor, getJointDefinitions, productCompatibility, acceptsProduct};
+  defaults, fields, getDefinition, normalize, validate, visualModel, referencePilotGeometry, parseWaypoints, parseDestinationRules, destinationFor, getJointDefinitions, productCompatibility, acceptsProduct};

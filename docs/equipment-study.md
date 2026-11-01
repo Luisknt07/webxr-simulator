@@ -74,7 +74,43 @@ herramientas opcionales. La lectura de diseños importados y el código fuente s
 mantienen para compatibilidad; los modelos funcionales siguen siendo los del
 escenario. La proyección técnica pequeña ya integrada continúa utilizándose.
 
-## Verificación
+## Electrónica, diagramas y referencias del piloto
+
+El robot `articulated-general` y el montacargas `forklift-electric-4w` incorporan
+una ficha seleccionable de sistemas. Cada piloto contiene 16 bloques con función,
+secuencia de trabajo, interfaces y unidades, posibles fallos razonados y fuentes
+oficiales. El diagrama separa potencia, señales, seguridad, movimiento y fluido;
+al seleccionar un bloque destaca sus conexiones y permite seguirlas a otro bloque.
+La fuente auxiliar de control se distingue de la rama de potencia de los motores.
+
+Los símbolos SVG son ilustraciones conceptuales, no nuevos objetos de la escena.
+Las coordenadas de J1–J6 se marcan como pose capturada; las variables se etiquetan
+como configuración o simulación actual. Corriente, temperatura, presión y tensión
+no aparecen como mediciones cuando el runtime no las proporciona. La opción de
+resaltar una zona mecánica conserva el mismo equipo y no presenta una carcasa
+como si fuese un encoder o un circuito interno modelado.
+Los sistemas visibles del montacargas se identifican también en sus mallas
+agrupadas. Si el CAD incluye cableado dentro de la base sin una malla separable,
+la ficha indica **grupo combinado** y muestra ese conjunto real. **Encuadrar**
+se ajusta a las superficies actualmente visibles al aislar una pieza.
+
+**Imágenes y fuentes** compara las referencias locales con el objeto nativo que
+permanece visible en la izquierda. Las fotos llevan contexto, autor y enlace al
+documento original. Solo se aceptan imágenes bajo
+`modules/logistica-industrial/assets/study/` y fuentes HTTPS de fabricantes y
+organismos registrados. No se incluyen páginas externas en iframes ni se ejecutan
+instrucciones de esas fuentes.
+Cada fotografía puede ampliarse dentro de la ficha y acercarse hasta 3×; Escape
+cierra únicamente la fotografía ampliada y conserva el estudio de la máquina.
+
+**Preparar pregunta al asistente** abre el asistente ya existente y rellena un
+borrador de consulta. El usuario revisa y envía; este botón no transmite la pregunta
+ni ejecuta órdenes. Se indica cuándo falta un proveedor de IA o búsqueda web;
+la lectura y los enlaces oficiales siguen funcionando sin una API configurada.
+El asistente no recibe una supuesta visión del modelo ni lecturas eléctricas
+inexistentes mediante este enlace.
+
+## Pruebas de la ficha
 
 - `node tests/legacy/test-equipment-study.js`: cuatro familias nativas,
   conservación del origen, aislamiento, exportación, jerarquía, despiece y
@@ -82,3 +118,6 @@ escenario. La proyección técnica pequeña ya integrada continúa utilizándose
 - `node tests/legacy/test-equipment-study-ui.js`: apertura diferida, ficha real,
   fallback 2D, lectura pública, permisos tardíos, cambio de proyecto, aplicación
   de reglas y limpieza de recursos.
+- `node --test tests/framework/equipment-learning.test.mjs`: integridad de
+  diagramas, unidades y procedencia de lecturas, dominios/rutas admitidos y
+  consultas que no conceden edición ni navegación al asistente.

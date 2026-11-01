@@ -9,7 +9,7 @@ const Runtime = require('../support/load-robot-runtime.js')(THREE, prefabs);
 const api = new Runtime({ctx: {}}), variants = ['articulated-general', 'articulated-process', 'collaborative', 'palletizer', 'mobile-manipulator'];
 let checked = 0, maxTriangles = 0;
 for (const variant of variants) for (const detail of ['low', 'balanced', 'high']) for (const filletRadius of [0, .025, .06]) {
-  const config = schema.normalize(Object.assign({}, schema.defaults(variant), {detail, filletRadius}));
+  const config = schema.normalize(Object.assign({}, schema.defaults(variant), {detail, filletRadius, visualModel: 'legacy'}));
   const object = prefabs.createRobot(config), rig = object.userData.robotRig, component = {visualRoot: object, config}, record = {object, components: {robot: component}};
   assert.equal(object.userData.robotGeometryVersion, 3);
   assert.equal(rig.shoulderCheeks.length, 2);

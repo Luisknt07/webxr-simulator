@@ -6,6 +6,7 @@ const path = require('node:path');
 const THREE = require('three');
 const robots = require('../../modules/logistica-industrial/functions/robots/schema/robots.js');
 const kinematics = require('../../modules/logistica-industrial/functions/robots/schema/robot-kinematics.js');
+const deliveryProfiles = require('../../tooling/modeling/profiles.json');
 const source = fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-robot-geometry.js"), '../src/editor/RobotPrefabs.js')), 'utf8').replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
 const {createRobot, refreshRobotGeometry, updateRobotPose, getRobotToolTransform} = new Function('THREE', 'robotSchema', 'kinematics', source + '\nreturn {createRobot, refreshRobotGeometry, updateRobotPose, getRobotToolTransform};')(THREE, robots, kinematics);
 const near = (a, b, tolerance = 1e-6) => assert.ok(Math.abs(a - b) < tolerance, `${a} differs from ${b}`);
@@ -22,7 +23,9 @@ for (const definition of robots.VARIANTS) {
   for (const detail of ['low', 'balanced', 'high']) {
     const config = Object.assign({}, definition.preset, {detail}), object = createRobot(config), rig = object.userData.robotRig;
     assert.equal(object.children[0], rig.visual); assert.equal(rig.joints.length, robots.getJointDefinitions(config).length);
-    assert.ok(triangles(object) < 18000, `${definition.id}/${detail}: ${triangles(object)} triangles`);
+    const pilot = object.userData.robotVisualModel === 'reference-pilot';
+    const triangleBudget = pilot ? deliveryProfiles[detail === 'high' ? 'desktop' : 'quest'].maxTriangles : 18000;
+    assert.ok(triangles(object) < triangleBudget, `${definition.id}/${detail}: ${triangles(object)} triangles exceed ${triangleBudget}`);
     const bounds = new THREE.Box3().setFromObject(object);
     assert.ok(Number.isFinite(bounds.min.x) && bounds.max.y > .2, definition.id);
     assert.ok(bounds.min.y > -.08, `${definition.id}: below floor ${bounds.min.y}`);
@@ -87,4 +90,4 @@ for (const toolKind of ['fork', 'platform']) {
     assert.ok(bounds.getSize(new THREE.Vector3()).y > .3, 'Forks run horizontally in a downward tool posture.');
   }
 }
-console.log(`Robot geometry: ${tested} variants/detail combinations; real joint/TCP transforms, IK orientation, Delta closures, unique GPU owners and <18k triangles passed.`);
+console.log(`Robot geometry: ${tested} variants/detail combinations; real joint/TCP transforms, IK orientation, Delta closures, unique GPU owners, legacy <18k and pilot Quest/desktop budgets passed.`);

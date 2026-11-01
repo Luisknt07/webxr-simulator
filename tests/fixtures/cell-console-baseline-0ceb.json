@@ -1,0 +1,199 @@
+{
+  "format": "smarttwin.historic-control-poses",
+  "revision": "0ceb123749de1faaee3b992fd4417d6a0d69191c",
+  "factory": {
+    "path": "modules/logistica-industrial/functions/presentacion/runtime/IndustrialPrefabs.js",
+    "sha256": "ab1f29a3195789f706e8fc7b0f99bd29c01785926310fa9ff94b04a6eef13e88"
+  },
+  "schema": {
+    "path": "modules/logistica-industrial/functions/presentacion/schema/control-panels.js",
+    "sha256": "3a0dc165c80d3c36c188bd4265439b527a3d2703595c5ad53fd54d16b8d978aa"
+  },
+  "description": "Actual local poses captured from the preceding native factory and its pinned control-panel schema; robot geometry is irrelevant to these actor poses.",
+  "kind": "robot",
+  "variant": "articulated-general",
+  "panelDesign": "auto",
+  "resolvedDesign": "console",
+  "controls": [
+    {
+      "path": "1.2",
+      "action": "start",
+      "position": [
+        -0.48,
+        0.18338696783239178,
+        0.17733484003655947
+      ],
+      "quaternion": [
+        -0.10977830083717481,
+        0,
+        0,
+        0.9939560979566968
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "path": "1.3",
+      "action": "stop",
+      "position": [
+        -0.24,
+        0.18338696783239178,
+        0.17733484003655947
+      ],
+      "quaternion": [
+        -0.10977830083717481,
+        0,
+        0,
+        0.9939560979566968
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "path": "1.4",
+      "action": "emergency",
+      "position": [
+        0.54,
+        0.21656748110963236,
+        0.16991503285180992
+      ],
+      "quaternion": [
+        -0.10977830083717481,
+        0,
+        0,
+        0.9939560979566968
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "path": "1.5",
+      "action": "pause",
+      "position": [
+        0,
+        0.18338696783239178,
+        0.17733484003655947
+      ],
+      "quaternion": [
+        -0.10977830083717481,
+        0,
+        0,
+        0.9939560979566968
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "path": "1.6",
+      "action": "powerOff",
+      "position": [
+        0.48,
+        -0.05082842000695352,
+        0.2297099495759681
+      ],
+      "quaternion": [
+        -0.10977830083717481,
+        0,
+        0,
+        0.9939560979566968
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "path": "1.7",
+      "action": "powerOn",
+      "position": [
+        0.24,
+        0.18338696783239178,
+        0.17733484003655947
+      ],
+      "quaternion": [
+        -0.10977830083717481,
+        0,
+        0,
+        0.9939560979566968
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "path": "1.8",
+      "action": "speedUp",
+      "position": [
+        0.24,
+        -0.05082842000695352,
+        0.2297099495759681
+      ],
+      "quaternion": [
+        -0.10977830083717481,
+        0,
+        0,
+        0.9939560979566968
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "path": "1.9",
+      "action": "speedDown",
+      "position": [
+        -0.24,
+        -0.05082842000695352,
+        0.2297099495759681
+      ],
+      "quaternion": [
+        -0.10977830083717481,
+        0,
+        0,
+        0.9939560979566968
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "path": "1.10",
+      "action": "dispatch",
+      "position": [
+        0,
+        -0.05082842000695352,
+        0.2297099495759681
+      ],
+      "quaternion": [
+        -0.10977830083717481,
+        0,
+        0,
+        0.9939560979566968
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  ]
+}
