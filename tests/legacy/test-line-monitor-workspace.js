@@ -6,7 +6,7 @@ const {h, Monitor, drawing, step, click} = new Function('require', '__dirname', 
 const id = object => object.userData.editorId;
 const THREE = require('three'), schema = require('../../modules/logistica-industrial/contracts/behaviors');
 const Assembly = new Function('THREE', 'conveyorLayout', fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-line-monitor-workspace.js"), '../src/editor/ConveyorAssembly.js')), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class ConveyorAssembly', 'return class ConveyorAssembly'))(THREE, schema.conveyorLayout);
-const previewHelpers = new Function('THREE', 'behaviorSchema', 'DynamicDisplayResolution', fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-line-monitor-workspace.js"), '../src/editor/LineMonitorSystem.js')), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class LineMonitorSystem', 'class LineMonitorSystem') + '\nreturn {previewMeshes,previewModel};')(THREE, schema, require('../support/load-dynamic-display-resolution')(THREE));
+const previewHelpers = new Function('THREE', 'behaviorSchema', 'DynamicDisplayResolution', 'nativeIllustration', fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-line-monitor-workspace.js"), '../src/editor/LineMonitorSystem.js')), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class LineMonitorSystem', 'class LineMonitorSystem') + '\nreturn {previewMeshes,previewModel};')(THREE, schema, require('../support/load-dynamic-display-resolution')(THREE), require('../support/load-native-technical-illustration')(THREE));
 
 function cataloguePreviewQuality() {
   const f = h.setup();

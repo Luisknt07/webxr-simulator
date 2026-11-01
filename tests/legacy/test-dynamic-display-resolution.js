@@ -3,7 +3,7 @@ const __layout = require("../../tooling/layout.cjs");
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), THREE = require('three');
 const schema = require('../../modules/logistica-industrial/contracts/behaviors'), Resolution = require('../support/load-dynamic-display-resolution')(THREE);
 const read = file => fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-dynamic-display-resolution.js"), '../src/editor', file)), 'utf8').replace(/^import .*;\r?\n/gm, '');
-const Monitor = new Function('THREE', 'behaviorSchema', 'DynamicDisplayResolution', read('LineMonitorSystem.js').replace('export default class LineMonitorSystem', 'return class LineMonitorSystem'))(THREE, schema, Resolution);
+const Monitor = new Function('THREE', 'behaviorSchema', 'DynamicDisplayResolution', 'nativeIllustration', read('LineMonitorSystem.js').replace('export default class LineMonitorSystem', 'return class LineMonitorSystem'))(THREE, schema, Resolution, require('../support/load-native-technical-illustration')(THREE));
 const Memory = new Function('THREE', read('RuntimeResourceMemory.js').replace('export default class RuntimeResourceMemory', 'return class RuntimeResourceMemory'))(THREE);
 function drawingCanvas() {
   let width = 0, height = 0;

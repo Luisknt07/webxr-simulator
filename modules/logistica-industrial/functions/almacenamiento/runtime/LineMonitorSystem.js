@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import behaviorSchema from '../../../contracts/behaviors.js';
 import DynamicDisplayResolution from '../../../../../packages/render-three/src/DynamicDisplayResolution.js';
+import nativeIllustration from '../../presentacion/runtime/NativeTechnicalIllustration.js';
 
 const WIDTH = 1024, HEIGHT = 576, PAGE_SIZE = 10, PREVIEW_LIMIT = 4, PREVIEW_TRIANGLES = 10000;
 const MAP = {x: 20, y: 116, width: 660, height: 364, right: 680, bottom: 480};
@@ -125,53 +126,10 @@ function equipmentParts(selected) {
   return Array.from(names).slice(0, 100).map((name, index) => ({id: 'part-' + index, name, match: [name], function: partDescription(name)}));
 }
 
-// A shaded projection of the actual instance, not a catalogue thumbnail. It
-// shares no GPU scene/material and cannot disturb the active WebXR renderer.
-function previewMeshes(object) {
-  const meshes = []; object.updateWorldMatrix(true, true);
-  const inverse = new THREE.Matrix4().getInverse(object.matrixWorld), scale = new THREE.Matrix4().makeScale(object.scale.x, object.scale.y, object.scale.z);
-  object.traverse(mesh => {
-    const geometry = mesh.geometry, position = geometry && geometry.attributes && geometry.attributes.position;
-    if (!mesh.isMesh || !position || !visible(mesh) || mesh.userData.editorHelper || mesh.userData.industrialSensorVolume || meshes.length >= 400) return;
-    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    if (!materials.some(material => material && material.visible !== false && (material.opacity === undefined || material.opacity >= .2))) return;
-    const names = []; for (let parent = mesh; parent && parent !== object; parent = parent.parent) if (parent.name) names.push(parent.name.toLowerCase());
-    meshes.push({mesh, geometry, position, materials, names: names.join(' / '), matrix: new THREE.Matrix4().multiplyMatrices(scale, inverse).multiply(mesh.matrixWorld),
-      count: Math.floor((geometry.index ? geometry.index.count : position.count) / 3)});
-  }); return meshes;
-}
-
-function previewModel(meshes, parts, turn = 0) {
-  const bounds = new THREE.Box3(), partBounds = parts.map(() => new THREE.Box3()), faces = [];
-  // Back-face removal keeps all faces of the included industrial catalogue
-  // intact; exceptionally dense replacements receive a bounded preview only.
-  const count = meshes.reduce((sum, value) => sum + value.count, 0), step = Math.max(1, Math.ceil(count / (PREVIEW_TRIANGLES * 2))); let ordinal = 0;
-  const light = new THREE.Vector3(-.4, 1, 1.7).normalize(), camera = new THREE.Vector3(1, 1.1, 1).normalize();
-  const project = point => ({x: (point.x - point.z) * .7071, y: (point.x + point.z) * .3536 - point.y * .866, depth: point.dot(camera)});
-  meshes.forEach(entry => {
-    const {geometry, position, materials} = entry, matrix = new THREE.Matrix4().makeRotationY(turn * Math.PI / 2).multiply(entry.matrix);
-    if (!geometry.boundingBox) geometry.computeBoundingBox();
-    const box = geometry.boundingBox.clone().applyMatrix4(matrix); bounds.union(box);
-    const matches = parts.map(part => (part.match || []).some(match => entry.names.includes(match.toLowerCase())));
-    matches.forEach((matched, index) => { if (matched) partBounds[index].union(box); });
-    for (let face = 0; face < entry.count; face++, ordinal++) {
-      if (ordinal % step || faces.length >= PREVIEW_TRIANGLES) continue;
-      const start = face * 3, group = (geometry.groups || []).find(group => start >= group.start && start < group.start + group.count), material = materials[group ? group.materialIndex : 0] || materials[0];
-      if (!material || material.visible === false || material.opacity < .2) continue;
-      const vertices = [0, 1, 2].map(index => new THREE.Vector3().fromBufferAttribute(position, geometry.index ? geometry.index.array[start + index] : start + index).applyMatrix4(matrix));
-      const normal = new THREE.Vector3().crossVectors(vertices[1].clone().sub(vertices[0]), vertices[2].clone().sub(vertices[0])).normalize();
-      if (material.side !== THREE.DoubleSide && normal.dot(camera) < 0) continue;
-      const color = material.color ? material.color.clone() : new THREE.Color('#82929d'), shade = .42 + .58 * Math.max(0, normal.dot(light));
-      color.multiplyScalar(shade); if (material.emissive) color.add(material.emissive.clone().multiplyScalar(.35));
-      const points = vertices.map(project);
-      faces.push({points, depth: points.reduce((sum, point) => sum + point.depth, 0) / 3, color: '#' + color.getHexString(), part: matches.findIndex(Boolean)});
-    }
-  });
-  if (bounds.isEmpty()) bounds.set(new THREE.Vector3(-1, 0, -1), new THREE.Vector3(1, 1, 1));
-  const projected = corners(bounds, new THREE.Matrix4()).map(project), xs = projected.map(point => point.x), ys = projected.map(point => point.y);
-  return {faces: faces.sort((a, b) => a.depth - b.depth), parts: parts.map((part, index) => Object.assign({}, part, {point: partBounds[index].isEmpty() ? null : project(partBounds[index].getCenter(new THREE.Vector3()))})),
-    triangleCount: faces.length, sourceTriangles: count, meshCount: meshes.length, bounds: {minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys)}};
-}
+// Shared read-only native illustration. Anatomy projection is a small common
+// capability; the optional design workbench and its painter stay unloaded.
+function previewMeshes(object, options) { return nativeIllustration.capture(object, options); }
+function previewModel(meshes, parts, turn = 0, mode = 'isometric', options) { return nativeIllustration.build(meshes, parts, turn, mode, options); }
 
 /** World-space, ray-operated HMI. Simulation remains the sole source of machine
  * state; canvases, hit regions and render resources never enter the document. */
@@ -181,7 +139,7 @@ export default class LineMonitorSystem {
     this.entries = new Map(); this.roomId = null;
     this.inventory = []; this.inventoryStamp = []; this.inventoryDirty = true; this.scanElapsed = 1;
     this.prefix = 'industrial-line-monitor-' + (++nextMonitor) + '-';
-    this.previewCache = new Map(); this.stats = {draws: 0, previewBuilds: 0};
+    this.previewCache = new Map(); this.previewClock = 0; this.stats = {draws: 0, previewBuilds: 0, previewBuildMilliseconds: 0, peakPreviewBuildMilliseconds: 0};
     this.displayResolution = new DynamicDisplayResolution(ctx, WIDTH, HEIGHT);
   }
 
@@ -253,6 +211,7 @@ export default class LineMonitorSystem {
     if (this.simulation.pulse) this.simulation.pulse(controller, .18, 25);
     if (region.product) { entry.selectedProductId = region.product; return; }
     if (region.part !== undefined) { entry.previewPart = region.part; return; }
+    if (region.previewMode) { entry.previewMode = region.previewMode; return; }
     if (region.key === 'preview-turn') { entry.previewTurn = ((entry.previewTurn || 0) + 1) % 4; return; }
     if (region.node) { entry.selectedId = region.node; entry.selectedProductId = null; entry.previewPart = ''; entry.detailPage = 0; return; }
     if (region.key === 'view') { entry.focused = !entry.focused; return; }
@@ -482,29 +441,29 @@ export default class LineMonitorSystem {
   }
 
   preview(selected, entry) {
-    const meshes = previewMeshes(selected.object), key = selected.id + ':' + (entry.previewTurn || 0);
-    const signature = JSON.stringify([selected.object.name, selected.config, meshes.map(value => [value.geometry.uuid, value.position.version, value.names, value.mesh.visible, value.matrix.elements,
-      value.materials.map(material => material && [material.uuid, material.color && material.color.getHex(), material.opacity, material.visible])])]);
+    const hints = this.ctx.graphics && this.ctx.graphics.hints || {}, limited = !!(this.ctx.vrMode || hints.mobile || hints.standaloneXR), budget = limited ? {faces:2000,sourceFaces:4000,maxMeshes:160} : undefined;
+    const mode = nativeIllustration.MODES.includes(entry.previewMode) ? entry.previewMode : 'isometric', key = selected.id + ':' + (entry.previewTurn || 0) + ':' + mode + (limited ? ':light' : ':full');
+    const previous = this.previewCache.get(key);
+    if (previous && !entry.dirty && this.previewClock - previous.checkedAt < .5) return previous;
+    const meshes = previewMeshes(selected.object, budget);
+    const signature = JSON.stringify([selected.object.name, selected.config, mode, meshes.sourceTriangles, meshes.truncatedMeshes, meshes.omittedInstances, meshes.map(value => [value.geometry.uuid, value.position.version, value.geometry.index && value.geometry.index.version, value.geometry.attributes.normal && value.geometry.attributes.normal.version, value.start, value.count, value.names, value.mesh.visible, value.matrix.elements,
+      value.materials.map(material => material && [material.uuid, material.color && material.color.getHex(), material.opacity, material.visible, material.roughness, material.metalness])])]);
     const cached = this.previewCache.get(key);
-    if (cached && cached.signature === signature) { this.previewCache.delete(key); this.previewCache.set(key, cached); return cached; }
+    if (cached && cached.signature === signature) { this.previewCache.delete(key); cached.checkedAt = this.previewClock; this.previewCache.set(key, cached); return cached; }
     if (cached) { cached.canvas.width = cached.canvas.height = 0; this.previewCache.delete(key); }
     const dom = this.ctx.document || (typeof document !== 'undefined' ? document : null), canvas = dom.createElement('canvas'); canvas.width = 438; canvas.height = 326;
-    const model = previewModel(meshes, equipmentParts(selected), entry.previewTurn || 0), context = canvas.getContext('2d');
+    const model = previewModel(meshes, equipmentParts(selected), entry.previewTurn || 0, mode, budget), context = canvas.getContext('2d');
     const bounds = model.bounds, scale = Math.min(372 / Math.max(.1, bounds.maxX - bounds.minX), 246 / Math.max(.1, bounds.maxY - bounds.minY));
     model.project = point => ({x: 219 + (point.x - (bounds.minX + bounds.maxX) / 2) * scale, y: 155 + (point.y - (bounds.minY + bounds.maxY) / 2) * scale});
     context.fillStyle = '#122432'; context.fillRect(0, 0, canvas.width, canvas.height);
     this.previewFaces(context, model);
-    const value = {signature, canvas, model}; this.previewCache.set(key, value); this.stats.previewBuilds++;
+    const value = {signature, canvas, model, checkedAt: this.previewClock}; this.previewCache.set(key, value); this.stats.previewBuilds++; this.stats.previewBuildMilliseconds += model.buildMilliseconds; this.stats.peakPreviewBuildMilliseconds = Math.max(this.stats.peakPreviewBuildMilliseconds, model.buildMilliseconds);
     while (this.previewCache.size > PREVIEW_LIMIT) { const first = this.previewCache.keys().next().value, obsolete = this.previewCache.get(first); obsolete.canvas.width = obsolete.canvas.height = 0; this.previewCache.delete(first); }
     return value;
   }
 
   previewFaces(context, model, offset = {x: 0, y: 0}, highlight) {
-    model.faces.forEach(face => {
-      if (highlight !== undefined && (!model.parts[face.part] || model.parts[face.part].name !== highlight)) return;
-      context.beginPath(); face.points.forEach((point, index) => { const p = model.project(point); context[index ? 'lineTo' : 'moveTo'](p.x + offset.x, p.y + offset.y); }); context.closePath();
-      context.fillStyle = highlight !== undefined ? 'rgba(85,215,242,.48)' : face.color; context.fill();
-    });
+    nativeIllustration.paint(context, model, offset, highlight);
   }
 
   drawPreview(entry, selected) {
@@ -521,7 +480,8 @@ export default class LineMonitorSystem {
       this.button(entry, 'preview-part:' + selected.id + ':' + index, short(part.name, 19), offset.x + x, offset.y + y, width, 36, {part: part.name, fontSize: 13, active: entry.previewPart === part.name});
       entry.previewLabels.push({name: part.name, point, x: offset.x + x, y: offset.y + y, width, height: 36});
     });
-    this.text(entry, 'Modelo actual · geometría y colores', 28, 544, 14, COLORS.dim, 428);
+    [['isometric','ISO'],['front','FRONTAL'],['top','PLANTA'],['exploded','DESPIECE']].forEach(([mode,label],index) => this.button(entry, 'preview-mode:'+mode, label, 20+index*111, 520, 105, 34, {previewMode:mode,active:model.mode===mode,fontSize:12}));
+    this.text(entry, model.truncatedMeshes ? 'Vista parcial \u00b7 '+model.omittedInstances+' superficies fuera del l\u00edmite' : model.simplifiedMeshes ? 'Envolvente de detalle \u00b7 '+model.simplifiedMeshes+' piezas densas' : 'Geometr\u00eda actual \u00b7 proyecci\u00f3n Anatomy', 28, 569, 12, (model.simplifiedMeshes || model.truncatedMeshes) ? COLORS.amber : COLORS.dim, 428);
   }
 
   drawDiagram(entry, model, selected) {
@@ -904,6 +864,7 @@ export default class LineMonitorSystem {
   sync(roomId, delta = 0, editing = false) {
     roomId = String(roomId);
     if (this.roomId !== roomId) { this.dispose(); this.roomId = roomId; }
+    this.previewClock += Math.max(0, Math.min(1, number(delta)));
     const found = new Set();
     this.owners(roomId, delta).forEach(owner => {
       const config = rawBehaviors(this.document, owner).find(value => value.type === 'lineMonitor' && value.enabled !== false);
@@ -928,7 +889,7 @@ export default class LineMonitorSystem {
       const analyticsSignature = analytics && [analytics.observedSeconds, analytics.summary,
         analytics.machines.map(machine => [machine.id, machine.state, machine.metrics, machine.capacity, machine.contents]),
         samples.length, samples[0] && samples[0].time, samples[samples.length - 1], analytics.control];
-      const signature = JSON.stringify([editing, entry.page, entry.detailPage, entry.eventPage, entry.analysisPage, entry.equipmentPage, entry.equipmentOffset, entry.selectedId, entry.selectedProductId, entry.focused, entry.moduleOnly,
+      const signature = JSON.stringify([editing, entry.page, entry.detailPage, entry.eventPage, entry.analysisPage, entry.equipmentPage, entry.equipmentOffset, entry.selectedId, entry.selectedProductId, entry.focused, entry.moduleOnly, entry.previewMode, entry.previewTurn, entry.page === 'equipment' ? Math.floor(this.previewClock*2) : 0,
         model.records.map(item => [item.id, item.object.name, item.object.matrixWorld.elements, item.config, item.variables]),
         model.products.map(item => [item.contour.map(point => point.toArray()), item.stage, item.sku, item.quality, item.defect]), model.events.map(item => item.id), model.snapshot && model.snapshot.variables, analyticsSignature]);
       if (entry.dirty || signature !== entry.signature) { entry.signature = signature; this.draw(entry, model); }
@@ -938,7 +899,7 @@ export default class LineMonitorSystem {
 
   dispose() {
     Array.from(this.entries.keys()).forEach(owner => this.remove(owner)); this.roomId = null;
-    this.previewCache.forEach(value => { value.canvas.width = value.canvas.height = 0; }); this.previewCache.clear();
+    this.previewCache.forEach(value => { value.canvas.width = value.canvas.height = 0; }); this.previewCache.clear(); nativeIllustration.clearCache();
     this.inventory = []; this.inventoryStamp = []; this.inventoryDirty = true; this.scanElapsed = 1;
   }
 }

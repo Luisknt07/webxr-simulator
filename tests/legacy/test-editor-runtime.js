@@ -320,6 +320,9 @@ const prefabRequire = robotPrefabs.resolve;
 const {industrialPrefabs, createIndustrialPrefab, createProductVisual} = new Function('THREE', 'behaviorSchema', 'require', prefabSource)(THREE, behaviorSchema, prefabRequire);
 const browserGlobals = {THREE, behaviorSchema, automationSchema, materialSchema, wearSchema, createIndustrialPrefab, createProductVisual, document: dom, window: browserWindow, localStorage, URL: BrowserURL, Blob,
   setTimeout: () => 1, clearTimeout: () => {}};
+// The source fixture removes ESM imports; inject the real Content contract too
+// so offline JSON follows the same import path as the compiled editor.
+Object.assign(browserGlobals,require('../../packages/project-format/index.js'));
 const SceneDocument = loadClass('SceneDocument.js', browserGlobals);
 browserGlobals.RuntimeResourceMemory = loadClass('RuntimeResourceMemory.js', browserGlobals);
 browserGlobals.CosmeticVisualLod = loadClass('CosmeticVisualLod.js', browserGlobals);
@@ -338,6 +341,7 @@ const SimulationRuntime = loadClass('SimulationRuntime.js', browserGlobals);
 browserGlobals.RollerInstanceBatches = require('../support/load-roller-instance-batches')(THREE);
 const IndustrialVisuals = loadClass('IndustrialVisuals.js', browserGlobals);
 browserGlobals.DynamicDisplayResolution = loadClass('DynamicDisplayResolution.js', browserGlobals);
+browserGlobals.nativeIllustration = require('../support/load-native-technical-illustration')(THREE);
 const LineMonitorSystem = loadClass('LineMonitorSystem.js', browserGlobals);
 const IndustrialAudioSystem = loadClass('IndustrialAudioSystem.js', browserGlobals);
 const SurfaceMaterialSystem = loadClass('SurfaceMaterialSystem.js', browserGlobals);

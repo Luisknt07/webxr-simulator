@@ -10,7 +10,7 @@ const behaviorSchema = require('../../modules/logistica-industrial/contracts/beh
 const text = fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-line-monitor.js"), 'test-industrial-xr.js')), 'utf8');
 const h = new Function('require', '__dirname', text.slice(0, text.indexOf('async function run()')) + '\nreturn {setup,advance,aim,away,select,vars,wall,removeWall};')(require, __dirname);
 const source = fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-line-monitor.js"), '../src/editor/LineMonitorSystem.js')), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class LineMonitorSystem', 'return class LineMonitorSystem');
-const Monitor = new Function('THREE', 'behaviorSchema', 'DynamicDisplayResolution', source)(THREE, behaviorSchema, require('../support/load-dynamic-display-resolution')(THREE));
+const Monitor = new Function('THREE', 'behaviorSchema', 'DynamicDisplayResolution', 'nativeIllustration', source)(THREE, behaviorSchema, require('../support/load-dynamic-display-resolution')(THREE), require('../support/load-native-technical-illustration')(THREE));
 function drawing() {
   const canvas = {width: 0, height: 0, text: []};
   const context = {fillRect(x, y, width, height) { if (!x && !y && width === canvas.width && height === canvas.height) canvas.text = []; },

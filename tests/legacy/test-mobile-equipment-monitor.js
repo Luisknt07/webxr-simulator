@@ -3,7 +3,7 @@ const __layout = require("../../tooling/layout.cjs");
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), THREE = require('three');
 const schema = require('../../modules/logistica-industrial/contracts/behaviors.js'), h = require('./test-vehicle-runtime.js');
 const read = file => fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-mobile-equipment-monitor.js"), '../src/editor', file)), 'utf8').replace(/^import .*;\r?\n/gm, '');
-const {Monitor, machineName} = new Function('THREE', 'behaviorSchema', 'DynamicDisplayResolution', read('LineMonitorSystem.js').replace('export default class LineMonitorSystem', 'class LineMonitorSystem') + '\nreturn {Monitor:LineMonitorSystem,machineName};')(THREE, schema, require('../support/load-dynamic-display-resolution')(THREE));
+const {Monitor, machineName} = new Function('THREE', 'behaviorSchema', 'DynamicDisplayResolution', 'nativeIllustration', read('LineMonitorSystem.js').replace('export default class LineMonitorSystem', 'class LineMonitorSystem') + '\nreturn {Monitor:LineMonitorSystem,machineName};')(THREE, schema, require('../support/load-dynamic-display-resolution')(THREE), require('../support/load-native-technical-illustration')(THREE));
 const Visuals = new Function('THREE', 'RollerInstanceBatches', read('IndustrialVisuals.js').replace('export default class IndustrialVisuals', 'return class IndustrialVisuals'))(THREE, require('../support/load-roller-instance-batches')(THREE));
 const documentSource = read('SceneDocument.js').split('export default class SceneDocument')[0];
 const remap = new Function('THREE', 'behaviorSchema', documentSource + '\nreturn remapBehaviorReferences;')(THREE, schema);
