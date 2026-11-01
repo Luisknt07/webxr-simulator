@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "edf8d0db6e0787270f54353ef3852dcaa765535d",
-  "bundleSha256": "bf9d11c83894ed3ed1b10fe01220b2e8e27ae20bab63098a2b571fdfc3594e6b",
+  "revision": "e69b38e71bf7764a673bcd6fba6133178340c41d",
+  "bundleSha256": "01b8f7776a6e115fcba7ca0aae4a224d32b04336cb074c3f3b22918537937118",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -44,23 +44,23 @@
   "files": [
     {
       "path": "0.bundle.js",
-      "sha256": "66e59f5f65b46e548aea729c1f2f1d5eb837a8e1d78ac3e2645bddfccfb9f710"
+      "sha256": "f5b0c5896a68f9a9ed5824569a90b27a4b651e6763de549cc0bd8aff12d34d11"
     },
     {
       "path": "2.bundle.js",
-      "sha256": "97e63ed193e0012880c2eb8bfaeb1426e9ab940fe4522998f57b525b27f2986c"
+      "sha256": "85e038a4cf0951ccc8af311613eb6d192bcb46375cb8d347d4c6b5082d0b79fc"
     },
     {
       "path": "3.bundle.js",
-      "sha256": "8a3efa94261250a1520c3577907c1cb105f2c6e7a672050d274de5cc01af621f"
+      "sha256": "6b7a53413f247fff10bc869740fcd5f32d51e9eebaade5f6899f08f35d0b6468"
     },
     {
       "path": "4.bundle.js",
-      "sha256": "abd45af96632f93a9a64ff2e63d8f6615733217a77bc728382a2da6e5fa1b347"
+      "sha256": "76cb416c7dfc53570f464291c86b7d2900fca5a8cafdc63001ae79ed8d8a741c"
     },
     {
       "path": "5.bundle.js",
-      "sha256": "027c54009ac13670609ee4bfd2e59f7a8a16d81a310edaea72bf597315375eb5"
+      "sha256": "184fadf7094dbc1a9c5ba96678a07d5c782cb79febbb5de44960678df8833708"
     },
     {
       "path": "apps/workspace/studio/admin-workspace.css",
@@ -72,7 +72,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "bf9d11c83894ed3ed1b10fe01220b2e8e27ae20bab63098a2b571fdfc3594e6b"
+      "sha256": "01b8f7776a6e115fcba7ca0aae4a224d32b04336cb074c3f3b22918537937118"
     },
     {
       "path": "cad-worker.js",
@@ -1661,8 +1661,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "c41823ee29f5dbe4d401",
-    "statsSha256": "3ebc4a790a7e0e0d5d395395c1a5ce52a40742bddddb4711d2262c5c39fcf760",
+    "hash": "a57b84142cd35fe60a92",
+    "statsSha256": "0dff1cbc9115353492a4615b00673cd9fc92c7de7a1f4bffc9d82c223d5fae2d",
     "assets": [
       {
         "path": "0.bundle.js",
@@ -1686,7 +1686,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 3726785
+        "size": 3747176
       }
     ]
   }

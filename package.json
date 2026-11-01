@@ -25,7 +25,7 @@
     "test:vehicles": "node tests/legacy/test-vehicle-control-guide.js && node tests/legacy/test-vehicle-cab-labels.js && node tests/legacy/test-vehicle-control-workflow.js && node tests/legacy/test-vehicle-geometry.js && node tests/legacy/test-vehicle-runtime.js && node tests/legacy/test-vehicle-integration.js && node tests/legacy/test-vehicle-driving.js && node tests/legacy/test-vehicle-checkpoint.js && node tests/legacy/test-vehicle-audio.js && node tests/legacy/test-product-equipment.js && node tests/legacy/test-cedi-robotics.js && node tests/legacy/test-mobile-equipment-monitor.js && node tests/legacy/test-vehicle-line-controls.js && node tests/legacy/test-vehicle-audit.js && node tests/legacy/test-cargo-conservation.js && node tests/legacy/test-cedi-robotics-placement.js && node tests/legacy/test-vehicle-detail.js && node tests/legacy/test-vehicle-cab.js && node tests/legacy/test-vehicle-missions.js && node tests/legacy/test-vehicle-cad-collisions.js && node tests/legacy/test-vehicle-continuity.js && node tests/legacy/test-vehicle-steering.js && node tests/legacy/test-vehicle-handling.js && node tests/legacy/test-vehicle-docking-view.js && node tests/legacy/test-vehicle-fork-camera.js && node tests/legacy/test-vehicle-fork-camera-residency.js && node tests/legacy/test-vehicle-study-scene.js && node tests/legacy/test-vehicle-docking.js && node tests/legacy/test-vehicle-belt-docking.js && node tests/legacy/test-cedi-logistics.js && node tests/legacy/test-vehicle-cab-panel-layout.js && node tests/legacy/test-vehicle-storage.js && node tests/legacy/test-vehicle-front-visibility.js && node tests/legacy/test-vehicle-compact-controls.js",
     "audit:tests": "node tooling/build/audit-project.js",
     "test:cad": "node tests/legacy/test-cad-modeling.js && node tests/legacy/test-cad-document.js && node tests/legacy/test-cad-advanced.js",
-    "test:industrial-presentation": "node tests/legacy/test-industrial-photographic.js && node tests/legacy/test-industrial-fabrication-detail.js",
+    "test:industrial-presentation": "node tests/legacy/test-industrial-photographic.js && node tests/legacy/test-industrial-fabrication-detail.js && npm run test:native-design",
     "test:loading": "node tests/legacy/test-room-navigation.js && node tests/legacy/test-room-transition.js && node tests/legacy/test-project-loading-transition.js && node tests/legacy/test-room-assets.js && node tests/legacy/test-startup-status.js",
     "test:vr-compact": "node tests/legacy/test-compact-vr-scenes.js && node tests/legacy/test-compact-vr-facility.js && node tests/legacy/test-public-scene-library.js",
     "test:floor-plan": "node tests/legacy/test-floor-plan-editor.js && node tests/legacy/test-equipment-placement.js",
@@ -63,7 +63,9 @@
     "test:input-devices": "node --test tests/framework/input-devices.test.mjs tests/framework/input-device-panel.test.mjs && node tests/legacy/test-vehicle-external-input.js",
     "test:drop-placement": "node tests/legacy/test-vehicle-drop-placement.js && node tests/legacy/test-vehicle-drop-camera.js && node tests/legacy/test-vehicle-drop-monitor.js",
     "test:anatomy": "node --test --test-concurrency=1 tests/framework/anatomy-*.test.mjs tests/framework/editor-tools.test.mjs tests/framework/design-tool-host.test.mjs && node tests/legacy/test-anatomy-workbench-ui.js",
-    "test:anatomy-browser": "node tooling/qa/anatomy-production.cjs"
+    "test:anatomy-browser": "node tooling/qa/anatomy-production.cjs",
+    "test:native-design": "node --test tests/framework/native-technical-illustration.test.mjs && node tests/legacy/test-native-manufactured-surfaces.js && node tests/legacy/test-robot-native-realism.js && node tests/legacy/test-native-control-panel-designs.js",
+    "test:native-design-browser": "node tooling/qa/native-design-production.cjs"
   },
   "repository": {
     "type": "git",

@@ -48,6 +48,8 @@ La [configuración de mandos y volante](docs/input-devices.md) permite detectar 
 
 El [taller opcional de diseño Anatomy](docs/anatomy-design.md) crea piezas paramétricas, materiales, articulaciones y despieces 2D/3D. Se abre desde **Añadir → Diseño y despiece 2D/3D** o el inspector de un objeto. Inserta mallas CAD reales, conserva el modelo editable y guarda planos SVG y diseños JSON en los archivos del proyecto; el kit completo original se conserva con licencia MIT.
 
+La [presentación de los equipos existentes](docs/native-equipment-design.md) integra acabados de fabricación, normales de superficie corregidas, paneles de control seleccionables y vistas técnicas de Anatomy en los monitores. Actúa directamente sobre los robots, montacargas, transportadores y estanterías nativos; las vistas 2D usan sus propias mallas y poses. La mejora conserva sus presupuestos de triángulos y sus mecanismos de simulación.
+
 ## Ejecutar y compilar
 
 Requiere Node.js 24 o posterior. En PowerShell utiliza `npm.cmd` si la política bloquea `npm.ps1`.
