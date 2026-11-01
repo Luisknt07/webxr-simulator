@@ -13,23 +13,67 @@ function surfaceMap(wear, seed, brushed) {
   let state = seed;
   const random = () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296; };
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const n = random(), line = brushed ? .035 * Math.sin(y * 2.6) : 0;
-    const dirt = Math.max(0, Math.sin(x * .17 + Math.cos(y * .23)) - .76) * wear;
-    const chip = n > 1 - wear * .028 ? .30 + random() * .3 : 1;
-    const value = Math.round(255 * Math.max(.28, (.94 + .06 * n - line - dirt) * chip));
+    const n = random(), line = brushed ? .012 * Math.sin(y * 2.6) : 0;
+    // Paint is a coating, not a height field of chipped cast iron. The former
+    // dark flecks doubled as deep bump pits, even on a nearly new robot.
+    const dirt = Math.max(0, Math.sin(x * .17 + Math.cos(y * .23)) - .91) * wear * wear * .16;
+    const chip = wear > .5 && n > 1 - (wear - .5) * .006 ? .84 + random() * .08 : 1;
+    const value = Math.round(255 * Math.max(.78, (.984 + .016 * n - line - dirt) * chip));
     const i = (y * size + x) * 4; data[i] = data[i + 1] = data[i + 2] = value; data[i + 3] = 255;
   }
   // Sparse longitudinal tool marks read close up, without additional polygons.
-  for (let i = 0; i < Math.ceil(wear * 23); i++) {
+  for (let i = 0; i < Math.floor(wear * wear * 9); i++) {
     const row = Math.floor(random() * size), start = Math.floor(random() * size), length = 3 + Math.floor(random() * 18);
     for (let x = start; x < Math.min(size, start + length); x++) {
-      const index = (row * size + x) * 4; data[index] = data[index + 1] = data[index + 2] = 120 + Math.floor(random() * 55);
+      const index = (row * size + x) * 4; data[index] = data[index + 1] = data[index + 2] = 220 + Math.floor(random() * 18);
     }
   }
   const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping; texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter; texture.generateMipmaps = true; texture.needsUpdate = true;
   return texture;
+}
+
+// Imported/extruded CAD surfaces often contain independent triangle vertices.
+// Smooth only coincident corners inside the manufacturing crease, weighting
+// by the corner angle rather than triangle area. The actual positions, index,
+// caps and triangle budget remain unchanged; large planar edges stay crisp.
+function machinedNormals(geometry, crease = Math.PI * 55 / 180) {
+  const position = geometry.attributes.position, index = geometry.index;
+  if (!position || index) return;
+  const groups = new Map(), corners = [], threshold = Math.cos(crease), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  for (let first = 0; first + 2 < position.count; first += 3) {
+    a.fromBufferAttribute(position, first); b.fromBufferAttribute(position, first + 1); c.fromBufferAttribute(position, first + 2);
+    const points = [a.clone(), b.clone(), c.clone()], normal = b.clone().sub(a).cross(c.clone().sub(a));
+    if (normal.lengthSq() < 1e-20) continue; normal.normalize();
+    points.forEach((point, corner) => {
+      const u = points[(corner + 1) % 3].clone().sub(point).normalize(), v = points[(corner + 2) % 3].clone().sub(point).normalize();
+      const weight = Math.acos(Math.max(-1, Math.min(1, u.dot(v))));
+      const key = [point.x, point.y, point.z].map(value => Math.round(value * 1e6)).join(':');
+      const value = {index: first + corner, normal, weight, key}; corners.push(value);
+      if (!groups.has(key)) groups.set(key, []); groups.get(key).push(value);
+    });
+  }
+  if (!geometry.attributes.normal) geometry.computeVertexNormals();
+  const normal = geometry.attributes.normal, sum = new THREE.Vector3();
+  corners.forEach(corner => {sum.set(0, 0, 0); groups.get(corner.key).forEach(other => {if (corner.normal.dot(other.normal) >= threshold) sum.addScaledVector(other.normal, other.weight);}); sum.normalize();normal.setXYZ(corner.index, sum.x, sum.y, sum.z);});
+  normal.needsUpdate = true; geometry.userData.industrialCreaseAngle = crease;
+}
+
+// Rotational symmetry is known exactly. Area-weighted triangle normals put a
+// diagonal ripple through shiny circular covers at low tessellation. Derive
+// normals from the profile while preserving every existing vertex and face.
+function turnedNormals(geometry, profile, segments) {
+  const normal = geometry.attributes.normal, count = profile.length;
+  for (let row = 0; row < count; row++) {
+    const at = profile[row], before = profile[Math.max(0, row - 1)], after = profile[Math.min(count - 1, row + 1)];
+    const left = new THREE.Vector2(at[1] - before[1], before[0] - at[0]).normalize();
+    const right = new THREE.Vector2(after[1] - at[1], at[0] - after[0]).normalize();
+    const n = left.add(right).normalize();
+    if (Math.abs(at[0]) < 1e-9) n.set(0, row < count / 2 ? -1 : 1);
+    for (let side = 0; side <= segments; side++) {const angle = side / segments * Math.PI * 2;normal.setXYZ(side * count + row, Math.sin(angle) * n.x, n.y, Math.cos(angle) * n.x);}
+  }
+  normal.needsUpdate = true; geometry.userData.industrialNormalModel = 'turned-profile';
 }
 
 function roundedShape(w, h, radius) {
@@ -91,14 +135,16 @@ function builder(config) {
     if (!surfaces.has(role)) {
       const color = role === 'frame' ? config.frameColor : role === 'accent' ? config.accentColor : role === 'tool' ? config.toolColor : role === 'rubber' ? '#252b2e' : role === 'light' ? '#4ff2a6' : role === 'aluminum' ? '#b5c0c7' : '#909ba2';
       const metal = role === 'metal' || role === 'aluminum' || role === 'tool' || role === 'frame' && steelFinish;
-      const surface = new THREE.MeshStandardMaterial({color, roughness: role === 'rubber' ? .88 : metal ? .32 + config.wear * .22 : .44 + config.wear * .15,
-        metalness: role === 'rubber' || role === 'light' ? 0 : metal ? .87 : config.finish === 'polymer' ? .04 : .32});
+      const surface = new THREE.MeshStandardMaterial({color, roughness: role === 'rubber' ? .84 : metal ? .25 + config.wear * .16 : role === 'accent' ? .39 + config.wear * .08 : .30 + config.wear * .12,
+        metalness: role === 'rubber' || role === 'light' ? 0 : metal ? .86 : config.finish === 'polymer' ? .03 : role === 'accent' ? .22 : .12});
       surface.name = 'Robot · ' + LABELS[role]; surface.userData.industrialSurfaceName = surface.name;
       surface.color.convertSRGBToLinear(); surface.userData.studioColorSpace = 'linear';
       surface.userData.industrialMaterialRole = role;
+      surface.userData.industrialManufacturedFinish = true;
+      surface.userData.industrialPaintWear = config.wear;
       if (role !== 'light' && role !== 'rubber') {
         surface.map = surfaceMap(config.wear, role.length * 617 + 41, metal); surface.bumpMap = surface.map;
-        surface.bumpScale = metal ? .0009 : .0005;
+        surface.bumpScale = metal ? .00022 : .00010 + config.wear * .00015;
       }
       if (role === 'light') { surface.emissive.set(color); surface.emissiveIntensity = .6; }
       surfaces.set(role, surface);
@@ -111,7 +157,7 @@ function builder(config) {
       let result;
       if (type === 'box') result = new THREE.BoxBufferGeometry(...args);
       if (type === 'cylinder') result = new THREE.CylinderBufferGeometry(args[0], args[1], args[2], args[3] || segments);
-      if (type === 'lathe') result = new THREE.LatheBufferGeometry(args[0].map(p => new THREE.Vector2(p[0], p[1])), args[1] || segments);
+      if (type === 'lathe') {result = new THREE.LatheBufferGeometry(args[0].map(p => new THREE.Vector2(p[0], p[1])), args[1] || segments);turnedNormals(result, args[0], args[1] || segments);}
       if (type === 'casting') {
         const [length, proximal, distal, depth] = args;
         const bevel = Math.min(Math.max(config.filletRadius * .38, config.chamferSize), depth * .18, distal * .30);
@@ -124,6 +170,7 @@ function builder(config) {
         for (let index = 0; index < position.count; index++) position.setZ(index, position.getZ(index) * housingDepth(length, 1, position.getX(index)));
         result.computeVertexNormals();
         result.userData = {robotCasting: {length, proximal, distal, depth, bevel}};
+        machinedNormals(result);
       }
       if (type === 'volume') {
         const [length, proximal, distal, depth] = args, sections = volumeSections(length, proximal, distal, depth);
@@ -146,19 +193,28 @@ function builder(config) {
         });
         result = new THREE.BufferGeometry(); result.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
         result.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); result.setIndex(indices); result.computeVertexNormals();
-        // The UV seam is duplicated, but its normals must describe one smooth
-        // casting, not a hard line along the front face.
+        // A continuous section gradient removes the diagonal shading facets
+        // caused by triangle-area averaging. This changes only the lighting
+        // field: all collision vertices and manufacturing dimensions remain.
         const normal = result.attributes.normal;
-        sections.forEach((_, ring) => {
+        sections.forEach((section, ring) => {
           const a = ring * (around + 1), b = a + around;
           if (ring === 0 || ring === sections.length - 1) {
             for (let side = 0; side <= around; side++) normal.setXYZ(a + side, ring === 0 ? -1 : 1, 0, 0);
             return;
           }
-          const n = new THREE.Vector3(normal.getX(a) + normal.getX(b), normal.getY(a) + normal.getY(b), normal.getZ(a) + normal.getZ(b)).normalize();
-          normal.setXYZ(a, n.x, n.y, n.z); normal.setXYZ(b, n.x, n.y, n.z);
+          const before = sections[ring - 1], after = sections[ring + 1], slope = key => ((section[key] - before[key]) / (section[0] - before[0]) + (after[key] - section[key]) / (after[0] - section[0])) / 2;
+          const hy = slope(1), hz = slope(2), cy = slope(3), cz = slope(4), power = 2 / exponent;
+          for (let side = 0; side <= around; side++) {
+            const angle = side / around * Math.PI * 2, sine = Math.abs(Math.sin(angle)) < 1e-10 ? 0 : Math.sin(angle), cosine = Math.abs(Math.cos(angle)) < 1e-10 ? 0 : Math.cos(angle);
+            const y = Math.sign(sine) * Math.pow(Math.abs(sine), exponent), z = Math.sign(cosine) * Math.pow(Math.abs(cosine), exponent);
+            const ny = Math.sign(y) * Math.pow(Math.abs(y), power - 1) / section[1], nz = Math.sign(z) * Math.pow(Math.abs(z), power - 1) / section[2];
+            const n = new THREE.Vector3(-ny * (cy + hy * y) - nz * (cz + hz * z), ny, nz).normalize();
+            normal.setXYZ(a + side, n.x, n.y, n.z);
+          }
         });
-        result.userData = {robotCasting: {length, proximal, distal, depth, bevel: Math.min(config.filletRadius, depth * .18), exponent, volumetric: true, sections}};
+        normal.needsUpdate = true;
+        result.userData = {robotCasting: {length, proximal, distal, depth, bevel: Math.min(config.filletRadius, depth * .18), exponent, volumetric: true, sections}, industrialNormalModel: 'manufactured-section-gradient'};
       }
       if (type === 'footprint') {
         const [length, width, height, radius] = args, bevel = Math.min(config.chamferSize, height * .15);
@@ -167,6 +223,7 @@ function builder(config) {
           bevelEnabled: bevel > 0, bevelSize: bevel, bevelThickness: bevel, bevelSegments: config.detail === 'high' ? 2 : 1
         });
         result.translate(0, 0, -height / 2 + bevel); result.rotateX(Math.PI / 2);
+        machinedNormals(result);
       }
       if (type === 'round') {
         const [w, h, depth] = args, bevel = Math.min(config.chamferSize, Math.min(w, h, depth) * .16);
@@ -174,6 +231,7 @@ function builder(config) {
         result = new THREE.ExtrudeBufferGeometry(roundedShape(w - 2 * bevel, h - 2 * bevel, radius), {depth: Math.max(.001, depth - 2 * bevel), steps: 1,
           curveSegments: config.detail === 'high' ? 4 : 2, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: config.detail === 'high' ? 2 : 1});
         result.translate(0, 0, -depth / 2 + bevel);
+        machinedNormals(result);
       }
       geometries.set(key, result);
     }
@@ -292,7 +350,7 @@ function link(b, parent, length, thickness, name, distal = false) {
   const vertices = cover.geometry.attributes.position;
   // The builder owns one independently disposable casting geometry per shape.
   for (let index = 0; index < vertices.count; index++) vertices.setZ(index, vertices.getZ(index) + back(vertices.getX(index) + coverStart, vertices.getY(index)) - .001);
-  cover.geometry.computeVertexNormals();
+  cover.geometry.computeVertexNormals(); machinedNormals(cover.geometry);
   b.bolts(parent, [.20, .72].flatMap(x => [-1, 1].map(y => [length * x, thickness * .36 * y, surface(length * x, thickness * .36 * y, 1) + .004])), thickness * .046);
   const start = length * .12, end = length * .86;
   for (const x of [start, end]) b.cylinder(name + ' · racor sellado de cable', thickness * .105, thickness * .14, 'metal', parent, [x, 0, back(x) - thickness * .035], [Math.PI / 2, 0, 0]);

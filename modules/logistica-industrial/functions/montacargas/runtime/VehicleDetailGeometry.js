@@ -1,5 +1,23 @@
 import * as THREE from 'three';
 
+// r112 extrusion side walls are unindexed triangles. Default vertex normals
+// therefore reveal every triangulation diagonal, even on a continuous casting.
+// Blend coincident corners by angle while retaining real folded-sheet creases.
+// Positions, UVs, indices, draw groups and contact envelopes stay byte-identical.
+function manufacturedNormals(geometry, degrees = 52) {
+  const p=geometry.attributes.position,index=geometry.index,normal=geometry.attributes.normal;
+  if(!p||!normal||index)return geometry;
+  const original=normal.array.slice(),buckets=new Map(),a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),u=new THREE.Vector3(),v=new THREE.Vector3(),face=new THREE.Vector3(),limit=Math.cos(degrees*Math.PI/180);
+  for(let i=0;i+2<p.count;i+=3){
+    a.fromBufferAttribute(p,i);b.fromBufferAttribute(p,i+1);c.fromBufferAttribute(p,i+2);face.crossVectors(u.copy(b).sub(a),v.copy(c).sub(a));
+    if(face.lengthSq()<1e-22)continue;face.normalize();const points=[a,b,c];
+    for(let corner=0;corner<3;corner++){const at=i+corner,point=points[corner],weight=u.copy(points[(corner+1)%3]).sub(point).angleTo(v.copy(points[(corner+2)%3]).sub(point));
+      const key=[point.x,point.y,point.z].map(n=>Math.round(n*1e6)).join(':');if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push({at,x:face.x,y:face.y,z:face.z,weight});}
+  }
+  for(const entries of buckets.values())for(const own of entries){let x=0,y=0,z=0;for(const other of entries){if(own.x*other.x+own.y*other.y+own.z*other.z<limit)continue;x+=other.x*other.weight;y+=other.y*other.weight;z+=other.z*other.weight;}const length=Math.hypot(x,y,z);if(length>1e-12)normal.setXYZ(own.at,x/length,y/length,z/length);else normal.setXYZ(own.at,...original.subarray(own.at*3,own.at*3+3));}
+  normal.needsUpdate=true;geometry.userData.manufacturedNormals={creaseDegrees:degrees,vertices:p.count};return geometry;
+}
+
 // Selective swept/extruded profiles provide machined edges without a CAD kernel
 // or a dense imported asset. Dimensions remain in metres and vehicle-local.
 export function createVehicleDetailBuilder(b, c) {
@@ -12,7 +30,7 @@ export function createVehicleDetailBuilder(b, c) {
     points.forEach((point,index)=>{const incoming=corner(point,points[(index+points.length-1)%points.length]),outgoing=corner(point,points[(index+1)%points.length]);shape.lineTo(...incoming);shape.quadraticCurveTo(...point,...outgoing);});shape.closePath();
     const geometry = new THREE.ExtrudeBufferGeometry(shape, {depth, steps: 1, curveSegments: 1 + level,
       bevelEnabled: radius > 0, bevelThickness: radius, bevelSize: radius, bevelSegments: level + 1});
-    geometry.translate(0, 0, -depth / 2); return mesh(name, geometry, role, parent, position);
+    geometry.translate(0, 0, -depth / 2); manufacturedNormals(geometry);return mesh(name, geometry, role, parent, position);
   };
   const solid = (name, size, role, parent, position, radius = bevel) => {
     const [w,h,d] = size, r = Math.min(radius,w*.18,h*.18,d*.18);

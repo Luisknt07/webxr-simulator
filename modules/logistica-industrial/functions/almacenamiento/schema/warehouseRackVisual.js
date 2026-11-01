@@ -5,8 +5,8 @@
 const racks = require('./warehouseRacks');
 const FLOOR = -1;
 const ROLES = {
-  frame: ['Bastidores de estantería', '#346483', .55, .56],
-  beam: ['Largueros y brazos pintados', '#d88335', .3, .58],
+  frame: ['Bastidores de estantería', '#346483', .16, .38],
+  beam: ['Largueros y brazos pintados', '#d88335', .14, .38],
   steel: ['Acero de guías y rodillos', '#a4b1b5', .82, .4],
   deck: ['Entrepaños y bandejas metálicas', '#8e9b9e', .55, .65],
   guard: ['Protecciones de seguridad', '#c5aa3f', .18, .7],
@@ -126,7 +126,7 @@ function createBuilder(THREE, config) {
       if(role==='ink')ownGlyphMaterial(THREE,m);
       if (!['ink', 'label'].includes(role)) {m.map = texture(role === 'steel' || role === 'deck' ? 'steel' : 'paint'); m.bumpMap = m.map; m.bumpScale = role === 'steel' ? .0008 : .00035;}
       m.color.convertSRGBToLinear(); m.name = entry[0];
-      Object.assign(m.userData, {studioColorSpace: 'linear', industrialMaterialRole: role === 'steel' || role === 'deck' ? 'steel' : role === 'dark' ? 'metal' : 'frame'});
+      Object.assign(m.userData, {studioColorSpace: 'linear', industrialManufacturedFinish:true, industrialMaterialRole: role === 'steel' || role === 'deck' ? 'steel' : role === 'dark' ? 'metal' : 'frame'});
       materials.set(role, m);
     }
     return materials.get(role);

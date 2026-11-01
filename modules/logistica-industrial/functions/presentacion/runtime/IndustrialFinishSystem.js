@@ -14,7 +14,13 @@ function retainMaps(material,wanted){for(const field of ['map','normalMap','roug
 export default class IndustrialFinishSystem {
  constructor(ctx,document,options={}){this.ctx=ctx;this.document=document;this.bindings=new Map();this.stickers=new Map();this.elapsed=1;this.dirty=true;this.roomId=null;this.store=new IndustrialPBRTextures(ctx,()=>{this.dirty=true;},options);this.stats={rejectedStickers:0,projectedStickers:0};}
  restore(material,binding){for(const key of ['map','normalMap','roughnessMap','roughness','metalness','bumpMap','normalScale'])if(material[key]===binding.installed[key])material[key]=binding.original[key];material.needsUpdate=true;delete material.userData.industrialPhotographicDefault;delete material.userData.industrialPhotographicBase;}
- bind(material,mesh,id,active,wanted){active.add(material);const profile=pbr.PROFILES.find(p=>p.id===id),entry=this.store.acquire(id);wanted.add(entry.key);const old=this.bindings.get(material);
+ bind(material,mesh,id,active,wanted){
+  // Native machine paint already has its own scale-aware microfinish. The
+  // photographic paint preset is chipped paint, suitable for an explicitly
+  // chosen worn surface, not a universal factory coating. Do not overwrite a
+  // manufactured robot/vehicle/rack with pits and patches unrelated to wear.
+  if(id==='paint'&&material.userData.industrialManufacturedFinish){const old=this.bindings.get(material);if(old){this.restore(material,old);this.bindings.delete(material);}return;}
+  active.add(material);const profile=pbr.PROFILES.find(p=>p.id===id),entry=this.store.acquire(id);wanted.add(entry.key);const old=this.bindings.get(material);
   // Keep the previous GPU owner while the replacement image batch is pending
   // or failed. Rendering a disposed-but-still-bound Texture would re-upload it
   // after the pool had forgotten the owner, leaking that allocation.
