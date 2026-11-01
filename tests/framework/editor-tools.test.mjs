@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),{discoverEditorTools}=require('../../tooling/build/editor-tools.cjs');
+function fixture(t){const root=fs.mkdtempSync(path.join(os.tmpdir(),'smarttwin-editor-tools-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));return root;}
+function put(root,name,text='module'){const file=path.join(root,name);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,text);}
+function manifest(root,changes={}){const folder='packages/tools/design';for(const file of ['app/index.html','adapter.mjs','shared/model.mjs','vendor/kit/core.mjs','vendor/scripts/publish.mjs','README.md','LICENSE','private.key'])put(root,folder+'/'+file);const value={format:'smarttwin.editor-tool',version:1,id:'design',name:'Diseño',entry:'app/index.html',adapter:'adapter.mjs',resources:['app','shared','vendor'],files:['adapter.mjs','README.md','LICENSE'],...changes};put(root,folder+'/tool.json',JSON.stringify(value));return value;}
+test('editor tool discovery is optional, data-only and does not include developer or private files',t=>{const root=fixture(t);assert.deepEqual(discoverEditorTools(root).catalog.tools,[]);manifest(root);const result=discoverEditorTools(root);assert.equal(result.catalog.tools[0].entry,'packages/tools/design/app/index.html');assert(result.files.includes('packages/tools/design/vendor/kit/core.mjs'));assert(!result.files.some(name=>name.includes('/scripts/')||name.endsWith('.key')));fs.renameSync(path.join(root,'packages/tools/design'),path.join(root,'removed-design'));assert.deepEqual(discoverEditorTools(root).catalog.tools,[]);});
+test('explicit resources cannot bypass private paths, extension or normal file constraints',t=>{const root=fixture(t);for(const file of ['vendor/scripts/publish.mjs','private.key','../outside.js','app']){manifest(root,{files:['adapter.mjs',file]});assert.throws(()=>discoverEditorTools(root));}});
+test('editor tool manifests cannot register network addresses, commands or escaping entry points',t=>{const root=fixture(t);for(const change of [{entry:'https://example.invalid/tool.html'},{adapter:'../other/adapter.mjs'},{command:'node server.cjs'},{resources:['../outside']},{id:'other'}]){manifest(root,change);assert.throws(()=>discoverEditorTools(root));}});
+test('published tool metadata is detached from manifest objects and bounded by exact tool directories',t=>{const root=fixture(t);manifest(root);const one=discoverEditorTools(root);one.catalog.tools[0].entry='https://example.invalid';assert.equal(discoverEditorTools(root).catalog.tools[0].entry,'packages/tools/design/app/index.html');});

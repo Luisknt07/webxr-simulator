@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {createHash, randomUUID} = require('node:crypto');
 const {spawnSync} = require('node:child_process');
+const {discoverEditorTools} = require('./editor-tools.cjs');
 const ROOT = path.resolve(__dirname, '../..');
 const FORMAT = 'smarttwin.publication', PUBLIC_SCENE = 'vr-robot-dispatch';
 const PROFILES = ['public-viewer', 'core-empty', 'workspace'];
@@ -101,6 +102,9 @@ function makePlan(root, application, compilation) {
     }
     // Other applications own their styles and their relative media. They are
     // separate distributions, never dependencies of the private Workspace.
+    const editorTools = discoverEditorTools(root);
+    add('editor-tools.json', null, Buffer.from(JSON.stringify(editorTools.catalog)));
+    editorTools.files.forEach(name => add(name, name));
     for (const folder of ['packages', 'modules', 'apps']) walk(root, folder, name => { if (/\.css$/i.test(name) && allowedAsset(name) && (folder !== 'apps' || name.startsWith('apps/workspace/'))) add(name, name); }, {skipPrivate: true});
     add('packages/render-three/src/StartupStatus.js', 'packages/render-three/src/StartupStatus.js'); VENDOR_FILES.forEach(name => add(name, name));
     scenes = [...files.keys()].filter(name => /^projects\/smarttwin\/scenes\/[^/]+\.json$/.test(name) && !name.endsWith('/catalog.json')).map(name => path.posix.basename(name, '.json')).sort();

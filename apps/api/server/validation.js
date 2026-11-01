@@ -23,7 +23,7 @@ function plain(value) {
 
 // Reject dangerous keys before copying any untrusted JSON into application objects.
 function safeTree(value, depth = 0, budget = {count: 0}) {
-  if (++budget.count > 500000 || depth > 30) invalid('El documento es demasiado complejo.');
+  if (++budget.count > (budget.limit || 500000) || depth > 30) invalid('El documento es demasiado complejo.');
   if (typeof value === 'number' && !Number.isFinite(value)) invalid('El documento contiene un número inválido.');
   if (!value || typeof value !== 'object') return;
   if (!Array.isArray(value) && !plain(value)) invalid('El documento debe contener datos JSON.');
@@ -32,6 +32,11 @@ function safeTree(value, depth = 0, budget = {count: 0}) {
     safeTree(value[key], depth + 1, budget);
   }
 }
+
+// Rebuildable CAD stores both numeric recipe inputs and baked triangles. Keep
+// the higher, finite budget restricted to scene documents, not account/control
+// requests. HTTP byte limits, per-mesh bounds and account quotas still apply.
+function safeDocumentTree(value) { safeTree(value, 0, {count: 0, limit: 4000000}); }
 
 function nameValue(value) {
   if (typeof value !== 'string' || !value.trim() || value.length > 160 || /[\u0000-\u001f]/.test(value)) {
@@ -142,7 +147,7 @@ function interactionValue(value, importIds) {
 }
 
 function validateDocument(data, normalizeImport) {
-  safeTree(data);
+  safeDocumentTree(data);
   if (!plain(data) || data.format !== 'hello-webxr-editor' || data.version !== 1 || !plain(data.rooms)) {
     invalid('Este documento no es un escenario compatible del editor.');
   }
@@ -206,4 +211,4 @@ function validateDocument(data, normalizeImport) {
   return result;
 }
 
-module.exports = {ApiError, invalid, plain, safeTree, nameValue, pathValue, validateDocument};
+module.exports = {ApiError, invalid, plain, safeTree, safeDocumentTree, nameValue, pathValue, validateDocument};

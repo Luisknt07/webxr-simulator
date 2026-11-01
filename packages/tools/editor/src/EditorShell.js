@@ -197,6 +197,8 @@ export default class EditorShell {
         ['Equipo de biblioteca', () => this.openResources('library')],
         ['Pasillos, zonas y textos de piso…', () => this.openFloorPlan()],
         ['Diseño paramétrico CAD…', () => e.cadWorkbench && e.cadWorkbench.open()],
+        ['Diseño y despiece 2D/3D…', () => e.designTools && e.designTools.open(), '', () => Boolean(e.designTools)],
+        ['Herramientas de diseño instaladas…', () => e.designTools && e.designTools.manage(), '', () => Boolean(e.designTools)],
         ['Monitor de producción', () => e.monitorWidgets && e.monitorWidgets.add()],
         ['Vincular monitor seleccionado…', () => e.monitorWidgets && e.monitorWidgets.openBinding(e.selected), '', selected],
         ...[['box', 'Cubo'], ['sphere', 'Esfera'], ['plane', 'Plano'], ['cylinder', 'Cilindro']].map(([kind, label]) => [label, mutate(() => e.createPlacedObject(() => e.document.addPrimitive(e.roomId, kind)))]),

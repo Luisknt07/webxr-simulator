@@ -7,7 +7,10 @@ export const CONTENT_PROJECT_FORMAT='smarttwin.content-project';
 export const CONTENT_LEVEL_FORMAT='smarttwin.level';
 export const CONTENT_PROJECT_FILE='project.stproject';
 export const CONTENT_LIMITS=Object.freeze({files:10000,levels:256,assets:8192,totalBytes:512*1024*1024,fileBytes:384*1024*1024});
-const jsonOptions={maxString:384*1024*1024,maxNodes:1000000,maxDepth:60};
+// A bounded 60k-triangle CAD input retains both its rebuildable recipe and
+// baked runtime geometry. Keep the Content budget coherent with that format.
+export const CONTENT_JSON_OPTIONS=Object.freeze({maxString:384*1024*1024,maxNodes:4000000,maxDepth:60});
+const jsonOptions=CONTENT_JSON_OPTIONS;
 const copy=value=>cloneData(value,jsonOptions);
 const text=(value,label,maximum=180)=>{if(typeof value!=='string'||!value.trim()||value.length>maximum||/[\0-\x1f\x7f]/.test(value))fail('content_schema',`Invalid ${label}.`);return value;};
 const stem=value=>/^[a-z][a-z0-9_-]{0,99}$/.test(value)?value:(value.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,65)||'item')+'-'+contentHash(value).slice(0,12);

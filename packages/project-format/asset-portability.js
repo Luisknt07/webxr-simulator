@@ -1,5 +1,5 @@
 import {cloneData} from '../contracts/index.js';
-import {readContentProject,createContentProject,contentHash} from './index.js';
+import {readContentProject,createContentProject,contentHash,CONTENT_JSON_OPTIONS} from './index.js';
 const MAX_ASSET_BYTES=256*1024*1024,MIME=/^[a-zA-Z0-9!#$&^_.+-]{1,99}\/[a-zA-Z0-9!#$&^_.+-]{1,100}$/;
 const problem=message=>{throw Object.assign(new Error(message),{code:'content_asset'});};
 function planFor(restored){
@@ -19,7 +19,7 @@ function browserBase64(bytes){const chunks=[];for(let offset=0;offset<bytes.leng
  * Opaque generic module fields are never scanned for URLs or asset claims. */
 export function withPortableContentAssets(bundle,assets,{encodeBase64=browserBase64}={}){
   const restored=readContentProject(bundle),plan=planFor(restored);if(!plan.length)return bundle;
-  const document=cloneData(restored.document,{maxString:384*1024*1024,maxNodes:1000000,maxDepth:60}),byId=new Map(plan.map(entry=>[entry.id,entry]));
+  const document=cloneData(restored.document,CONTENT_JSON_OPTIONS),byId=new Map(plan.map(entry=>[entry.id,entry]));
   for(const record of document.imports||[]){const entry=byId.get(record.id);if(!entry)continue;
     const bytes=assets instanceof Map?assets.get(entry.sha256):null;
     if(!(bytes instanceof Uint8Array)||bytes.length!==entry.size||contentHash(bytes)!==entry.sha256)problem('The project asset blob is missing or does not match its declared hash and size.');

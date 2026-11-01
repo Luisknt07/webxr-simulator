@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {randomUUID, createHash} = require('node:crypto');
 const {DatabaseSync} = require('node:sqlite');
-const {ApiError, invalid, plain, safeTree, nameValue, pathValue, validateDocument} = require('./validation');
+const {ApiError, invalid, plain, safeDocumentTree, nameValue, pathValue, validateDocument} = require('./validation');
 const {validateRun, runMeta} = require('./telemetry');
 const {MAX_ASSET_BYTES} = require('../../../packages/render-three/schema/asset-limits');
 
@@ -330,7 +330,7 @@ class ProjectStore {
 
   saveProject(id, payload, hooks = {}) {
     if (!plain(payload)) invalid('Los datos del proyecto no son válidos.');
-    safeTree(payload);
+    safeDocumentTree(payload);
     const name = nameValue(payload.name);
     if (id && (!Number.isSafeInteger(payload.expectedRevision) || payload.expectedRevision < 1)) {
       invalid('Falta la versión del proyecto que intentas guardar.');

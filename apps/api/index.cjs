@@ -66,6 +66,11 @@ function createApplication(options={}){
    if(!relativePath(relative))return json(res,404,{error:'Recurso no disponible.'});
    if(relative==='publication.json'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});return res.end(req.method==='HEAD'?undefined:JSON.stringify(build.manifest));}
    const file=realFile(build,relative);if(!file)return json(res,404,{error:'Recurso no disponible.'});
+   if(privateRoute&&/^packages\/tools\/[a-z][a-z0-9-]*\/vendor\/[a-z][a-z0-9-]*\/examples\/[^?#]+\.html$/.test(relative)){
+    // Pinned, manifest-verified demonstrations are documents, never editor
+    // plugins. Their inline code cannot access the host, network or account.
+    res.setHeader('Content-Security-Policy',"sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'");
+   }
    if(!privateRoute&&relative==='config.js'){
     // The static configuration is integrity-checked above. This capability is
     // server-owned and identical for every visitor; no session data is emitted.
