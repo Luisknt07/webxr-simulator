@@ -202,10 +202,11 @@ export default class VehicleHolographicGuide {
     else if (this.depart) model = Object.assign(model, {phase: 'withdraw-source', title: 'Pallet sujeto: retira del origen', instruction: 'Retrocede lentamente manteniendo la carga por encima del apoyo. Cuando esté libre, bájala a altura de transporte.', targetName: this.depart.name, distanceM: Math.max(0, Math.min(.85, v.config.forkLength * .8) - point(record.object).sub(this.depart.origin).dot(new THREE.Vector3(-Math.sin(this.depart.yaw),0,-Math.cos(this.depart.yaw)))), ready: false, severity: 'near'});
     const marked = this.withdraw ? {matrix: this.withdraw.product.object.matrixWorld, bounds: this.withdraw.product.bounds} : this.depart || chosen;
     Object.assign(model, bearing(record, marked && marked.matrix, marked && marked.bounds));
-    // Missed approach arrows are guidance, not a reason to reverse out of a
-    // physically correct pickup. Delivery routes remain mission requirements.
-    const dockedAdvisoryPickup = !!(mission && mission.pickupRouteAdvisory && mission.phase === 'pickup' && ready && !mission.routeFault);
-    this.route = chosen && chosen.allowed && !this.withdraw && !this.depart && !dockedAdvisoryPickup ? guidanceRoute(this.driving, record, mission, chosen) : null;
+    // A physically safe pickup or delivery may use another driven approach.
+    // Retain actual waypoint progress, but stop routing a docked learner back
+    // through missed advisory arrows instead of showing the ready maneuver.
+    const dockedAdvisory = !!(mission && (mission.pickupRouteAdvisory && mission.phase === 'pickup' || mission.dropRouteAdvisory && mission.phase === 'drop') && ready && !mission.routeFault);
+    this.route = chosen && chosen.allowed && !this.withdraw && !this.depart && !dockedAdvisory ? guidanceRoute(this.driving, record, mission, chosen) : null;
     if (mission && mission.routeFault) this.route = Object.assign({distanceM: 0, index: mission.waypointIndex || 0, total: Array.isArray(mission.route) ? mission.route.length : 0}, this.route || {}, {
       arrows: [], points: [], blockedAt: point(record.object).setY(v.originWorld.y + .035), blocked: true, clear: false, note: mission.status || 'Vuelve al último punto válido y recorre las flechas conduciendo.'});
     model.routePath = this.route ? Object.freeze({points: Object.freeze((this.route.points || []).map(value => Object.freeze(value.toArray()))), blocked: !!this.route.blocked, stop: this.route.blockedAt ? Object.freeze(this.route.blockedAt.toArray()) : null}) : EMPTY_PATH;

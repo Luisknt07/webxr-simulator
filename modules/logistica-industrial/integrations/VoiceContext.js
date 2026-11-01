@@ -83,7 +83,7 @@ export function createVoiceSnapshot(ctx = {}, supplied = {}) {
     else if (next && immediate.has(next.stage)) spokenText = join(next.instruction, next.control && 'Control: ' + next.control + '.');
     else if (lesson.phase === 'error' || lesson.routeFault) spokenText = instruction;
     else if (lesson.phase === 'withdraw') spokenText = 'Retrocede lentamente hasta retirar las dos horquillas. El simulador confirmará el depósito.';
-    else if (lesson.phase === 'drop' && !lesson.routeComplete) spokenText = join(targetName && 'Lleva la carga a ' + targetName + '.', 'Sigue las flechas del plano y mantén la carga baja.');
+    else if (lesson.phase === 'drop' && !lesson.routeComplete && !['align', 'drop'].includes(lesson.stage)) spokenText = join(targetName && 'Lleva la carga a ' + targetName + '.', 'Las flechas del plano orientan el recorrido. Mantén la carga baja.');
     else spokenText = join(lesson.instruction || next && next.instruction || guide && guide.instruction || lesson.status, targetName && !lesson.instruction && 'Ubicación: ' + targetName + '.');
     base.mission = {id: text(lesson.taskId, 120), title: text(lesson.title, 260), phase: text(lesson.phase, 40), stage: text(lesson.stage || stage, 60), stageTitle: text(lesson.stageTitle, 140),
       instruction: text(lesson.instruction || instruction, 400), pickup: {id: text(lesson.sourceId, 100), code: text(lesson.sourceLocationCode, 120)},
@@ -97,7 +97,7 @@ export function createVoiceSnapshot(ctx = {}, supplied = {}) {
       text: join(lesson.title, targetName && 'Destino o punto de recogida: ' + targetName + '.', lesson.stageTitle, lesson.instruction, instruction, points),
       spokenText: compact(spokenText),
       critical: !!(vehicle.emergency || vehicle.blocked || lesson.routeFault || lesson.phase === 'error'),
-      completed, completionVerified: completed, sampleId: completed ? 'completed' : lesson.phase === 'error' || lesson.routeFault ? 'safety' : lesson.phase === 'withdraw' || lesson.phase === 'drop' && lesson.routeComplete ? 'deposit' : lesson.phase === 'drop' ? 'route' : 'pickup'};
+      completed, completionVerified: completed, sampleId: completed ? 'completed' : lesson.phase === 'error' || lesson.routeFault ? 'safety' : lesson.phase === 'withdraw' || lesson.phase === 'drop' && (lesson.routeComplete || ['align', 'drop'].includes(lesson.stage)) ? 'deposit' : lesson.phase === 'drop' ? 'route' : 'pickup'};
     return base;
   }
   if (vehicle && next) {

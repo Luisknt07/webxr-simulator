@@ -25,10 +25,10 @@ function run(){
   p.object.userData.sourceRackLocationCode='wrong-slot';assert(a.validatePickup(r,p));p.object.userData.sourceRackLocationCode=t.sourceLocationCode;
   assert.equal(a.validatePickup(r,p),'');r.components.vehicle.entry={product:p};a.onPickup(r,p);
   const destination={kind:'stock',targetId:t.destinationId,placement:{locationCode:t.locationCode,palletIndex:0}};
-  assert(a.validateDrop(r,destination),'Delivery route is mandatory.');
+  assert.equal(a.validateDrop(r,destination),'','Delivery arrows are advisory; actual receiver geometry is checked by the physical release planner.');
   assert(a.validateDrop(r,{...destination,targetId:'wrong-rack'}));assert(a.validateDrop(r,{...destination,placement:{locationCode:'wrong-slot',palletIndex:0}}));
   f.move(2);assert.equal(a.guidance(r).routeComplete,false,'Teleport to the next waypoint must not receive route credit.');assert(r.components.vehicle.training.routeFault);
-  f.move(1);assert(!r.components.vehicle.training.routeFault);f.drive(2);assert.equal(a.validateDrop(r,destination),'');
+  f.move(1);assert(r.components.vehicle.training.routeFault,'Returning to the last valid pose still needs a continuous observation.');a.step(1/60);assert(!r.components.vehicle.training.routeFault);f.drive(2);assert.equal(a.validateDrop(r,destination),'');
   p.sourceEntry.ownerId=t.destinationId;p.item.palletOwnerId=t.destinationId;p.object.userData.sourceRackLocationCode=t.locationCode;p.object.position.set(0,0,2);r.components.vehicle.entry=null;f.root.updateMatrixWorld(true);a.onDrop(r,p,destination);
   assert.equal(a.guidance(r).phase,'withdraw');a.step(1/60);assert.equal(a.guidance(r).completed,0,'Deposit alone cannot count while tines remain in the pallet.');
   f.drive(.3);assert.equal(a.guidance(r).phase,'complete');assert.equal(a.guidance(r).completed,1);assert.equal(f.events.filter(e=>e.type==='warehouse-task-completed').length,1);a.step(1/60);assert.equal(f.events.filter(e=>e.type==='warehouse-task-completed').length,1,'Completed tasks do not emit twice.');

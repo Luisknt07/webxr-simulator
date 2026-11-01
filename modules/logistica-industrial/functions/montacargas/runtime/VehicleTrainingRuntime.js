@@ -7,7 +7,7 @@ const RADIUS = .85;
 const STAGES = [
   {id: 'approach', title: 'Acércate al pallet', instruction: 'Acércate al pallet asignado; las flechas orientan el recorrido de recogida.'},
   {id: 'pickup', title: 'Recoge el pallet', instruction: 'Detente, introduce ambas horquillas y pulsa Recoger.'},
-  {id: 'transport', title: 'Transporta la carga', instruction: 'Conduce por la ruta señalada con la carga baja.'},
+  {id: 'transport', title: 'Transporta la carga', instruction: 'Conduce con la carga baja hasta el destino marcado; las flechas orientan el recorrido.'},
   {id: 'align', title: 'Alinea con el destino', instruction: 'Alinea el pallet con la ubicación exacta y bájalo hasta el apoyo.'},
   {id: 'drop', title: 'Deposita la carga', instruction: 'El apoyo está preparado. Detente y pulsa Depositar.'},
   {id: 'withdraw', title: 'Retira las horquillas', instruction: 'Retrocede despacio hasta retirar ambas horquillas del pallet.'}
@@ -33,11 +33,11 @@ export default class VehicleTrainingRuntime {
     const s = this.state(record);
     if (!s) return '';
     const complete = this.routeComplete(record);
-    if (s.phase === 'pickup' && complete || !['pickup', 'drop'].includes(s.phase) || s.phase === 'drop' && !complete) {
+    if (s.phase === 'pickup' && complete || !['pickup', 'drop'].includes(s.phase)) {
       this.stageReadiness.delete(record);
       return s.phase === 'pickup' ? 'pickup' : s.phase === 'drop' ? 'transport' : s.phase;
     }
-    const api = this.runtime.vehicleRuntime, pickup = s.phase === 'pickup', method = pickup ? 'pickupPlan' : 'releasePlan', pending = pickup ? 'approach' : 'align';
+    const api = this.runtime.vehicleRuntime, pickup = s.phase === 'pickup', method = pickup ? 'pickupPlan' : 'releasePlan', pending = pickup ? 'approach' : complete ? 'align' : 'transport';
     if (!api || typeof api[method] !== 'function') { this.stageReadiness.delete(record); return pending; }
     const tasks = this.tasks(record), entry = record.components.vehicle.entry, cached = this.stageReadiness.get(record);
     const valid = cached && cached.training === s && cached.tasks === tasks && cached.index === s.index && cached.entry === entry && cached.phase === s.phase && cached.routeFault === s.routeFault;
@@ -48,7 +48,8 @@ export default class VehicleTrainingRuntime {
     if (valid && clock >= cached.time && clock - cached.time < .2) return cached.stage;
     const target = pickup ? this.product(this.task(record).productId) : this.destination(record);
     const plan = pickup && !target ? null : api[method](record, target);
-    const stage = plan && plan.ready ? pickup ? 'pickup' : 'drop' : pending;
+    const cargo = entry && entry.product, nearDestination = !pickup && cargo && target && target.matrix && horizontal(position(cargo.object), new THREE.Vector3().setFromMatrixPosition(target.matrix)) <= 2.5;
+    const stage = plan && plan.ready ? pickup ? 'pickup' : 'drop' : nearDestination ? 'align' : pending;
     this.stageReadiness.set(record, {training: s, tasks, index: s.index, entry, phase: s.phase, routeFault: s.routeFault, time: clock, stage});
     return stage;
   }
@@ -75,7 +76,7 @@ export default class VehicleTrainingRuntime {
       if (this.runtime.palletQueueRuntime.palletIdentity(product) !== task.productId || owner !== task.sourceId || task.sourceLocationCode && product.object.userData.sourceRackLocationCode !== task.sourceLocationCode) code = 'wrong-pallet';
     }
     if (action === 'drop' && (plan.targetId && plan.targetId !== task.destinationId || plan.placement && (task.locationCode && plan.placement.locationCode !== task.locationCode || task.destinationSlot !== undefined && plan.placement.palletIndex !== task.destinationSlot) || plan.trainingRejected && plan.kind !== 'stock')) code = 'wrong-destination';
-    const retry = action === 'pickup' ? 'Comprueba el pallet asignado, completa la aproximación, detente y alinea ambas horquillas.' : 'Sigue la ruta y alinea la carga con la ubicación exacta antes de depositar.';
+    const retry = action === 'pickup' ? 'Comprueba el pallet asignado, completa la aproximación, detente y alinea ambas horquillas.' : 'Conduce hasta la ubicación asignada, detente y apoya la carga antes de depositar; las flechas son orientación.';
     this.publishScore(record, trainingSchema.score.penalize(s.scoring, task, s.index, code, plan.reason || 'La maniobra todavía no es segura.', retry));
   }
   onCollision(record) {
@@ -94,7 +95,11 @@ export default class VehicleTrainingRuntime {
   route(record) { const task = this.task(record), s = this.state(record); return task && s ? (s.phase === 'pickup' ? task.pickupRoute : s.phase === 'drop' ? task.route : []).map(point => this.world(point)) : []; }
   beginRoute(record, phase) {
     const s = this.state(record), v = record.components.vehicle, p = position(record.object);
+    // Legacy checkpoints required every delivery arrow. Preserve their route
+    // receipts when the next leg starts; new lessons start with no credits.
+    if (!Array.isArray(s.routeCredits)) s.routeCredits = this.tasks(record).filter((task, index) => task.route.length && (index < s.index || index === s.index && ['drop', 'withdraw'].includes(s.phase) && s.waypointIndex >= task.route.length)).map(task => task.id);
     Object.assign(s, {phase, waypointIndex: 0, lastPosition: p.toArray(), lastDistance: v.distance, legStart: p.toArray(), legDistance: 0, routeFault: false});
+    delete s.recoveryPosition;
   }
   prepare() {
     const seeded = new Set();
@@ -155,7 +160,7 @@ export default class VehicleTrainingRuntime {
   guidance(record) {
     const s = this.state(record); if (!s) return null;
     const tasks = this.tasks(record), task = tasks[s.index];
-    return Object.assign({taskId: task && task.id || '', title: task && task.name || 'Práctica completada', phase: s.phase, route: this.route(record), waypointIndex: s.waypointIndex, completed: s.completed.length, total: tasks.length, routeComplete: this.routeComplete(record), pickupRouteAdvisory: s.phase === 'pickup', routeFault: !!s.routeFault, status: s.error || s.status || (s.phase === 'pickup' ? 'Recoge el pallet indicado. Las flechas de recogida son orientación; una aproximación válida también permite tomarlo.' : s.phase === 'drop' ? 'Sigue las flechas hasta la ubicación asignada.' : s.phase === 'withdraw' ? 'Retira ambas horquillas para confirmar el depósito.' : 'Todas las misiones verificadas.')}, task ? {productId: task.productId, sourceId: task.sourceId, sourceLocationCode: task.sourceLocationCode || '', destinationId: task.destinationId, locationCode: task.locationCode || '', destinationSlot: task.destinationSlot} : {}, this.scoringGuidance(record));
+    return Object.assign({taskId: task && task.id || '', title: task && task.name || 'Práctica completada', phase: s.phase, route: this.route(record), waypointIndex: s.waypointIndex, completed: s.completed.length, total: tasks.length, routeComplete: this.routeComplete(record), pickupRouteAdvisory: s.phase === 'pickup', dropRouteAdvisory: s.phase === 'drop', routeFault: !!s.routeFault, status: s.error || s.status || (s.phase === 'pickup' ? 'Recoge el pallet indicado. Las flechas de recogida son orientación; una aproximación válida también permite tomarlo.' : s.phase === 'drop' ? 'Lleva la carga al destino asignado. Las flechas orientan; también se acepta otra aproximación conducida y segura.' : s.phase === 'withdraw' ? 'Retira ambas horquillas para confirmar el depósito.' : 'Todas las misiones verificadas.')}, task ? {productId: task.productId, sourceId: task.sourceId, sourceLocationCode: task.sourceLocationCode || '', destinationId: task.destinationId, locationCode: task.locationCode || '', destinationSlot: task.destinationSlot} : {}, this.scoringGuidance(record));
   }
   validatePickup(record, product) {
     const s = this.state(record); if (!s) return '';
@@ -173,7 +178,7 @@ export default class VehicleTrainingRuntime {
     if (!destination || destination.targetId !== task.destinationId || destination.kind !== 'stock') return 'Deposita en la ubicación asignada, no en otra superficie.';
     const p = destination.placement;
     if (!p || task.locationCode && p.locationCode !== task.locationCode || task.destinationSlot !== undefined && p.palletIndex !== task.destinationSlot) return 'El pallet debe quedar en la posición exacta indicada por su código.';
-    if (!this.routeComplete(record)) return 'Completa la ruta señalada antes de confirmar el depósito.';
+    if (!this.continuousApproach(record)) return 'Se detectó un cambio de posición sin conducción. Vuelve al último punto válido y aproxímate conduciendo al destino.';
     return '';
   }
   destination(record) {
@@ -206,7 +211,7 @@ export default class VehicleTrainingRuntime {
     const s = this.state(record); if (!s) return;
     const task = this.task(record), item = product.item;
     // Observe the actual receiver after custody has succeeded, not a command.
-    if (s.phase !== 'drop' || record.components.vehicle.entry || !task || this.runtime.palletQueueRuntime.palletIdentity(product) !== task.productId || !product.sourceEntry || product.sourceEntry.ownerId !== task.destinationId || !item || item.palletOwnerId !== task.destinationId || task.locationCode && product.object.userData.sourceRackLocationCode !== task.locationCode || task.destinationSlot !== undefined && item.palletIndex !== task.destinationSlot || !destination || destination.kind !== 'stock' || destination.targetId !== task.destinationId || !this.routeComplete(record)) return;
+    if (s.phase !== 'drop' || record.components.vehicle.entry || !task || this.runtime.palletQueueRuntime.palletIdentity(product) !== task.productId || !product.sourceEntry || product.sourceEntry.ownerId !== task.destinationId || !item || item.palletOwnerId !== task.destinationId || task.locationCode && product.object.userData.sourceRackLocationCode !== task.locationCode || task.destinationSlot !== undefined && item.palletIndex !== task.destinationSlot || !destination || destination.kind !== 'stock' || destination.targetId !== task.destinationId || !this.continuousApproach(record)) return;
     s.phase = 'withdraw'; s.status = ''; s.depositedProductId = task.productId;
   }
   withdrawn(record, product) {
@@ -234,17 +239,26 @@ export default class VehicleTrainingRuntime {
         return;
       }
       const points = this.route(record);
-      // Once every corridor checkpoint is driven, the docking phase remains
-      // free for centimetre-level positioning and fork withdrawal.
-      if (s.waypointIndex >= points.length) return;
-      const p = position(record.object), previous = new THREE.Vector3().fromArray(s.lastPosition), movement = horizontal(p, previous), traveled = Math.max(0, v.distance - s.lastDistance), allowed = Math.max(.025, Math.max(v.config.speed, v.config.reverseSpeed) * delta + .012);
-      if (movement > allowed || movement > traveled + .025) { s.routeFault = true; s.status = 'Vuelve al último punto válido y recorre las flechas conduciendo.'; }
-      if (s.routeFault && horizontal(p, new THREE.Vector3().fromArray(s.legStart)) < RADIUS) { s.routeFault = false; s.status = ''; s.legDistance = 0; }
+      // Keep checking driven movement while docking too. Arrows are advisory,
+      // but neither missing nor completing them may hide a teleport.
+      const p = position(record.object), previous = new THREE.Vector3().fromArray(s.lastPosition), movement = horizontal(p, previous), distanceDelta = v.distance - s.lastDistance, traveled = Math.max(0, distanceDelta), allowed = Math.max(.025, Math.max(v.config.speed, v.config.reverseSpeed) * delta + .012);
+      const continuous = distanceDelta >= -.001 && movement <= allowed && movement <= traveled + .025;
+      if (!continuous) {
+        if (!s.routeFault) s.recoveryPosition = previous.toArray();
+        s.routeFault = true; s.status = 'Vuelve al último punto válido y aproxímate conduciendo al destino.';
+      }
+      // A waypoint's generous arrival radius must never clear an unobserved
+      // move in the same frame. Recover at the last actually observed pose.
+      if (s.routeFault && continuous && horizontal(p, new THREE.Vector3().fromArray(s.recoveryPosition || s.legStart)) <= .05) { s.routeFault = false; s.status = ''; s.legDistance = 0; delete s.recoveryPosition; }
       if (!s.routeFault) s.legDistance += Math.min(movement, traveled);
       const next = points[s.waypointIndex];
       if (!s.routeFault && next && horizontal(p, next) <= RADIUS && s.legDistance + RADIUS >= horizontal(new THREE.Vector3().fromArray(s.legStart), next)) {
         s.waypointIndex++; s.legStart = p.toArray(); s.legDistance = 0; s.status = '';
-        if (s.phase === 'drop' && s.waypointIndex >= points.length) this.reward(record, 'route');
+        if (s.phase === 'drop' && s.waypointIndex >= points.length) {
+          if (!Array.isArray(s.routeCredits)) s.routeCredits = this.tasks(record).filter((task, index) => index < s.index && task.route.length).map(task => task.id);
+          if (!s.routeCredits.includes(task.id)) s.routeCredits.push(task.id);
+          this.reward(record, 'route');
+        }
       }
       s.lastPosition = p.toArray(); s.lastDistance = v.distance;
     });
@@ -256,12 +270,14 @@ export default class VehicleTrainingRuntime {
     const entry = record.components.vehicle.entry;
     if (!trainingSchema.score.validate(s.scoring, tasks, s, entry && this.runtime.palletQueueRuntime.palletIdentity(entry.product) || '')) return false;
     const task = tasks[s.index] || tasks[tasks.length - 1], route = s.phase === 'pickup' ? task.pickupRoute : task.route, v = record.components.vehicle;
-    if (!Number.isInteger(s.waypointIndex) || s.waypointIndex < 0 || s.waypointIndex > route.length || typeof s.routeFault !== 'boolean' || s.routeFault && s.waypointIndex >= route.length || !['lastPosition','legStart'].every(key => Array.isArray(s[key]) && s[key].length === 3 && s[key].every(Number.isFinite)) || !Number.isFinite(s.lastDistance) || s.lastDistance < 0 || s.lastDistance > v.distance + .001 || !Number.isFinite(s.legDistance) || s.legDistance < 0) return false;
+    if (!Number.isInteger(s.waypointIndex) || s.waypointIndex < 0 || s.waypointIndex > route.length || typeof s.routeFault !== 'boolean' || !['lastPosition','legStart'].every(key => Array.isArray(s[key]) && s[key].length === 3 && s[key].every(Number.isFinite)) || !Number.isFinite(s.lastDistance) || s.lastDistance < 0 || s.lastDistance > v.distance + .001 || !Number.isFinite(s.legDistance) || s.legDistance < 0) return false;
+    if (s.recoveryPosition !== undefined && (!s.routeFault || !Array.isArray(s.recoveryPosition) || s.recoveryPosition.length !== 3 || !s.recoveryPosition.every(Number.isFinite))) return false;
+    if (s.routeCredits !== undefined && (!Array.isArray(s.routeCredits) || new Set(s.routeCredits).size !== s.routeCredits.length || s.routeCredits.some(id => { const index = tasks.findIndex(task => task.id === id); return index < 0 || index > s.index || !tasks[index].route.length || index === s.index && (!['drop', 'withdraw'].includes(s.phase) || s.waypointIndex !== tasks[index].route.length); }))) return false;
     if (s.phase === 'drop') return !!v.entry && this.runtime.palletQueueRuntime.palletIdentity(v.entry.product) === task.productId;
     if (['pickup','withdraw','complete'].includes(s.phase) && v.entry) return false;
     if (s.phase === 'withdraw') {
       const product = this.product(s.depositedProductId);
-      return s.depositedProductId === task.productId && !!product && !!product.sourceEntry && product.sourceEntry.ownerId === task.destinationId && !!product.item && product.item.palletOwnerId === task.destinationId && (!task.locationCode || product.object.userData.sourceRackLocationCode === task.locationCode) && (task.destinationSlot === undefined || product.item.palletIndex === task.destinationSlot) && s.waypointIndex === route.length;
+      return s.depositedProductId === task.productId && !!product && !!product.sourceEntry && product.sourceEntry.ownerId === task.destinationId && !!product.item && product.item.palletOwnerId === task.destinationId && (!task.locationCode || product.object.userData.sourceRackLocationCode === task.locationCode) && (task.destinationSlot === undefined || product.item.palletIndex === task.destinationSlot) && !s.routeFault;
     }
     return true;
   }

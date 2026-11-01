@@ -200,7 +200,11 @@ function createBuilder(THREE, config) {
       geometry.setIndex(b.i); geometry.computeBoundingBox(); geometry.computeBoundingSphere();
       const mesh = new THREE.Mesh(geometry, material(role)); mesh.name = ROLES[role][0]; mesh.castShadow = mesh.receiveShadow = true;
       Object.assign(mesh.userData, {warehouseRackStructure: true, industrialMaterialPart: role, materialPart: role, materialPartLabel: ROLES[role][0], industrialMaterialRole: role === 'steel' || role === 'deck' ? 'steel' : 'frame'});
-      if (role === 'label' || role === 'ink') Object.assign(mesh.userData, {warehouseRackLocationLabels: true, editorNonCollidable: true});
+      // Printed location codes have no load-bearing volume. Use the same
+      // collision behavior understood by the physical world, while retaining
+      // their meshes for rendering, picking and equipment explanations.
+      if (role === 'label' || role === 'ink') Object.assign(mesh.userData, {warehouseRackLocationLabels: true, editorNonCollidable: true,
+        editorDefaultBehaviors: [{type: 'collision', enabled: false, mode: 'solid'}]});
       parent.add(mesh);
       if (b.motions.length) motionBanks.push({geometry, rest: geometry.attributes.position.array.slice(), motions: b.motions, previous: ''});
     }));

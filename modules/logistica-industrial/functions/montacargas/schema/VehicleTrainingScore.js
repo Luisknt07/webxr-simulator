@@ -55,7 +55,10 @@ function expectedKeys(tasks, training, activeProductId) {
     const completed = index < training.index, current = index === training.index;
     const picked = completed || current && ['drop', 'withdraw'].includes(training.phase) || current && training.phase === 'error' && activeProductId === task.productId;
     if (picked) keys.push(rewardKey(task, 'pickup'));
-    if (task.route.length && (completed || picked && training.waypointIndex === task.route.length && !training.routeFault)) keys.push(rewardKey(task, 'route'));
+    // A safe delivery can use another driven approach. Its completion reward
+    // does not imply that every authored route arrow was actually traversed.
+    const routeEarned = Array.isArray(training.routeCredits) ? training.routeCredits.includes(task.id) : completed || picked && training.waypointIndex === task.route.length;
+    if (task.route.length && routeEarned) keys.push(rewardKey(task, 'route'));
     if (completed) {
       keys.push(rewardKey(task, 'complete'));
       if (training.scoring.missionErrors[index] === 0) keys.push(rewardKey(task, 'clean'));

@@ -16,11 +16,19 @@ export default class VehicleFrontVisibility {
   mount(root) {
     this.unmount(); this.root = root; this.rig = root && root.userData.vehicleRig;
     const rig = this.rig; if (!rig || !rig.forks) return;
-    const meshes = new Set(), visit = object => {if (object) object.traverse(node => {
+    const record = typeof this.driving.record === 'function' && this.driving.record();
+    const vehicle = record && record.components && record.components.vehicle;
+    const cargo = vehicle && vehicle.entry && vehicle.entry.product && vehicle.entry.product.object;
+    const meshes = new Set(), visit = node => {
+      // Runtime custody parents the existing pallet below the real forks.
+      // After boarding again it is still cargo, never a mast component: skip
+      // its whole subtree before collecting ghost materials or wire edges.
+      if (!node || node === cargo || this.driving.id && node.userData.vehicleOwnerId === this.driving.id) return;
       // Keep only the horizontal blades and entry tips opaque. Upright heels
       // otherwise resemble two false prongs in front of the pallet pockets.
       if (node.isMesh && node.material && !node.userData.vehicleForkBlade && !node.userData.editorRuntimeHelper && !node.userData.editorHelper && !node.userData.vehicleDecal) meshes.add(node);
-    });};
+      node.children.forEach(visit);
+    };
     visit(rig.mast || rig.reach); visit(rig.boom); visit(rig.forks);
     (rig.cabPosts || []).filter(post => post.end > 0).forEach(post => visit(post.object));
     visit(rig.frontGlass); visit(rig.dashboard); visit(rig.dashSupport);

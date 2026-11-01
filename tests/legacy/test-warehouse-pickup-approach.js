@@ -35,7 +35,7 @@ function run() {
   assert.equal(docked.v.entry.product, docked.product); assert.equal(docked.v.training.phase, 'drop');
   assert.equal(docked.v.training.scoring.score, 20, 'Only the actual pickup earns its reward.');
   assert.equal(docked.v.training.waypointIndex, 0, 'The delivery route starts normally; pickup arrows are not transferred to it.');
-  assert(docked.training.validateDrop(docked.record, {kind: 'stock', targetId: docked.tasks[0].destinationId, placement: {palletIndex: 0}}), 'Delivery route remains mandatory.');
+  assert.equal(docked.training.validateDrop(docked.record, {kind: 'stock', targetId: docked.tasks[0].destinationId, placement: {palletIndex: 0}}), '', 'Delivery arrows are advisory too; real destination support is still required by the release planner.');
   const saved = clone(docked.v.training); docked.v.training = clone(saved); assert(docked.training.validateState(docked.record));
   docked.training.onPickup(docked.record); assert.deepEqual(docked.v.training, saved, 'Restored custody cannot replay pickup points or reset delivery progress.');
   docked.runtime.stop();
