@@ -1,0 +1,24 @@
+import * as THREE from 'three';
+const KEY='robotPanelCableState';
+function release(state){if(!state)return;for(const object of [state.group,state.gland]){if(object.parent)object.parent.remove(object);object.traverse(node=>{if(node.geometry)node.geometry.dispose();});}state.materials.forEach(material=>material.dispose());}
+function attachRobotPanelCable(root,panel,config){
+ const rig=root&&root.userData.robotRig,prior=root&&root.userData[KEY];if(prior)release(prior);if(root){delete root.userData[KEY];delete root.userData.robotPanelCableSync;}
+ if(!rig||!rig.panelServiceSocket||!panel||config.serviceHarness===false||config.withPanel===false||panel.userData.industrialPanelApplied!=='cell-console')return;
+ const assembly=panel.children.find(node=>node.userData.industrialCellConsole),anchor=assembly&&assembly.userData.robotCableGland;if(!Array.isArray(anchor))return;
+ const group=new THREE.Group(),gland=new THREE.Group(),rubber=new THREE.MeshStandardMaterial({color:0x222a2c,roughness:.9,metalness:0}),metal=new THREE.MeshStandardMaterial({color:0x7c8991,roughness:.48,metalness:.85});group.name='Mazo de servicio · base a armario';gland.name='Entrada de cable del armario';gland.position.fromArray(anchor);group.userData.equipmentComponentId=gland.userData.equipmentComponentId='robot.base-services';group.userData.robotPanelCable=true;group.userData.industrialPanelAccessory=true;
+ for(const [radius,length,z,material]of [[.024,.025,0,metal],[.018,.035,-.022,rubber]]){const mesh=new THREE.Mesh(new THREE.CylinderBufferGeometry(radius,radius,length,8),material);mesh.rotation.x=Math.PI/2;mesh.position.z=z;mesh.name=material===metal?'Tuerca del prensaestopas':'Alivio de tensión';mesh.userData.equipmentComponentId='robot.base-services';gland.add(mesh);}panel.add(gland);root.add(group);
+ const socket=rig.panelServiceSocket,state={group,gland,materials:new Set([rubber,metal]),rootMatrix:new THREE.Matrix4(),panelMatrix:new THREE.Matrix4(),socketMatrix:new THREE.Matrix4(),built:false,updates:0,points:[],socket},inverse=new THREE.Matrix4(),start=new THREE.Vector3(),end=new THREE.Vector3(),normalA=new THREE.Vector3(),normalB=new THREE.Vector3();
+ state.sync=()=>{
+  root.updateWorldMatrix(true,false);socket.object.updateWorldMatrix(true,false);gland.updateWorldMatrix(true,false);group.visible=gland.visible=panel.visible&&!!panel.parent;
+  if(state.built&&state.rootMatrix.equals(root.matrixWorld)&&state.panelMatrix.equals(gland.matrixWorld)&&state.socketMatrix.equals(socket.object.matrixWorld))return false;
+  state.rootMatrix.copy(root.matrixWorld);state.panelMatrix.copy(gland.matrixWorld);state.socketMatrix.copy(socket.object.matrixWorld);start.copy(socket.point).applyMatrix4(socket.object.matrixWorld);end.set(0,0,-.0395).applyMatrix4(gland.matrixWorld);normalA.set(0,0,-1).transformDirection(socket.object.matrixWorld);normalB.set(0,0,-1).transformDirection(gland.matrixWorld);
+  const floor=Math.min(.018,start.y-.02,end.y-.02),a=start.clone().addScaledVector(normalA,.09),b=end.clone().addScaledVector(normalB,.09),radius=Math.max(.007,Math.min(.016,socket.radius));
+  const points=[start.clone(),a,new THREE.Vector3(a.x,floor+.08,a.z),new THREE.Vector3(a.x,floor,b.z),new THREE.Vector3(b.x,floor,b.z),new THREE.Vector3(b.x,floor+.08,b.z),b,end.clone()];inverse.getInverse(root.matrixWorld);points.forEach(p=>p.applyMatrix4(inverse));
+  const raw=new THREE.CatmullRomCurve3(points,false,'centripetal'),samples=[];for(let i=0;i<=36;i++){const p=raw.getPoint(i/36),world=p.clone().applyMatrix4(root.matrixWorld);if(world.y<floor){world.y=floor;p.copy(world.applyMatrix4(inverse));}samples.push(p);}
+  const curve=new THREE.CatmullRomCurve3(samples,false,'centripetal'),geometry=new THREE.TubeBufferGeometry(curve,48,radius,6,false);if(state.mesh){state.mesh.geometry.dispose();state.mesh.geometry=geometry;}else{state.mesh=new THREE.Mesh(geometry,rubber);state.mesh.name='Mazo protegido de alimentación y señales';state.mesh.userData.equipmentComponentId='robot.base-services';state.mesh.userData.industrialMaterialPart='rubber';group.add(state.mesh);}state.points=samples;state.start=start.clone();state.end=end.clone();state.floor=floor;state.updates++;state.built=true;return true;
+ };
+ rubber.color.convertSRGBToLinear();rubber.userData={industrialMaterialRole:'rubber',studioColorSpace:'linear'};metal.color.convertSRGBToLinear();metal.userData={industrialMaterialRole:'steel',studioColorSpace:'linear'};
+ Object.defineProperty(root.userData,KEY,{value:state,configurable:true,enumerable:false});Object.defineProperty(root.userData,'robotPanelCableSync',{value:state.sync,configurable:true,enumerable:false});state.sync();return state;
+}
+function syncRobotPanelCable(root){const state=root&&root.userData[KEY];return state?state.sync():false;}
+export {attachRobotPanelCable,syncRobotPanelCable};

@@ -6,7 +6,7 @@ const schema=require('../../modules/logistica-industrial/functions/robots/schema
 const kin=require('../../modules/logistica-industrial/functions/robots/schema/robot-kinematics.js');
 const prefabs=require('../support/load-robot-prefabs.js')(THREE);
 const Runtime=require('../support/load-robot-runtime.js')(THREE,prefabs);
-const data=schema.referencePilotGeometry(),api=new Runtime({ctx:{}}),budgets={low:13500,balanced:26000,high:37000},originalAsset=JSON.stringify(data);
+const data=schema.referencePilotGeometry(),api=new Runtime({ctx:{}}),budgets={low:17000,balanced:35000,high:55000},originalAsset=JSON.stringify(data);
 assert.equal(data.revision,'5ddbc41ce8726fd680bcc19562d78bcabfbdf96d');assert.equal(data.license,'Apache-2.0');
 assert.equal(data.normalModel.method,'corner-angle-weighted');assert.equal(data.normalModel.creaseDegrees,35);
 const geometryHashes={low:'1e4adfc1d6f75dea96586133ed27d5fd21ea42a641fd4cda0cec5f57e04eb338',balanced:'64e0f8de5becb1679ccaca579fe46f2dc4cb90b21f6a52e1f774ad1af6b52a6d',high:'28db16c66090aa8afe9f10896cc061892f25b3f63d34c30dd9c25d3403638492'};
@@ -35,7 +35,7 @@ for(const detail of ['low','balanced','high']){
   for(const material of [mesh.material].flat())for(const key of ['map','bumpMap','normalMap','roughnessMap','metalnessMap'])if(material[key])textures.add(material[key]);
  });
  assert.equal(links.size,7,'All seven actual CAD link skins participate, including the asymmetric native base and shoulder.');
- assert(triangles<budgets[detail]);assert(draws<50);measured.push({detail,triangles,draws});
+ assert(triangles<budgets[detail]);assert(draws<100);measured.push({detail,triangles,draws});
  for(let i=0;i<6;i++){
   assert.equal(r.joints[i].userData.robotJoint,old.joints[i].userData.robotJoint);
   assert.deepEqual(r.joints[i].position.toArray(),old.joints[i].position.toArray(),'Native bearing frame translations cannot move to fit imported CAD.');

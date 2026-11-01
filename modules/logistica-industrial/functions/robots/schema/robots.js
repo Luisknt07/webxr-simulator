@@ -43,7 +43,9 @@ const DEFAULTS = {
   batteryPercent: 100, batteryDrainPerMeter: 0.025,
   destinationRulesJson: '[]', sorterMode: 'crossbelt', dischargeTime: 1, transferTolerance: .10, dockDistance: .65,
   frameColor: '#e87825', accentColor: '#26333f', toolColor: '#aebdc7', finish: 'painted',
-  wear: 0.16, detail: 'balanced', filletRadius: 0.025, chamferSize: 0.012, mountingHoles: true, visualModel: 'auto'
+  wear: 0.16, detail: 'balanced', filletRadius: 0.025, chamferSize: 0.012, mountingHoles: true, visualModel: 'auto',
+  housingScale: 1, serviceHarness: true, jointCovers: true, servicePackage: 'pneumatic', identificationLabels: true,
+  taskEnabled:false, taskProgramJson:''
 };
 function variant(id, family, name, preset) { return {id, family, name, preset: Object.assign({}, DEFAULTS, preset, {family, variant: id})}; }
 const VARIANTS = [
@@ -92,6 +94,11 @@ function fields() {
     number('dischargeTime', 'Tiempo de carga / descarga móvil · s', .2, 30, .1), number('transferTolerance', 'Desnivel máximo de descarga móvil · m', .01, .3, .01), number('dockDistance', 'Separación de atraque del brazo móvil · m', .25, 2, .05),
     text('frameColor', 'Color · carcasa / bastidor', 7, 'color'), text('accentColor', 'Color · juntas / protecciones', 7, 'color'), text('toolColor', 'Color · herramienta', 7, 'color'),
     choice('visualModel', 'Diseño 3D · piloto disponible en Articulado de manipulación', [{id: 'auto', name: 'Automático según variante'}, {id: 'legacy', name: 'Diseño anterior · comparar'}, {id: 'reference-pilot', name: 'Piloto industrial de seis ejes'}]),
+    number('housingScale', 'Piloto · sección de carcasa (no altera ejes ni carga)', .85, 1.15, .05),
+    check('serviceHarness', 'Piloto · arnés articulado con abrazaderas'), check('jointCovers', 'Piloto · tapas, sellos y tornillería'),
+    choice('servicePackage', 'Piloto · suministro de herramienta', [{id:'none', name:'Sin manguera exterior'}, {id:'pneumatic', name:'Neumático · ventosas o pinza'}, {id:'electric', name:'Eléctrico · pinza o proceso'}]),
+    check('identificationLabels', 'Piloto · identificación y advertencias'),
+    check('taskEnabled','Programa de tarea propio'), text('taskProgramJson','Programa validado de recogida y entrega · JSON',16000,'textarea'),
     choice('finish', 'Acabado estructural', [{id: 'painted', name: 'Metal pintado'}, {id: 'steel', name: 'Acero satinado'}, {id: 'aluminum', name: 'Aluminio'}, {id: 'polymer', name: 'Polímero'}]),
     number('wear', 'Desgaste superficial', 0, 1, 0.05), choice('detail', 'Detalle geométrico', [{id: 'low', name: 'Ligero'}, {id: 'balanced', name: 'Equilibrado'}, {id: 'high', name: 'Alto · piezas clave'}]),
     number('filletRadius', 'Radio de redondeo de carcasas · m', 0, 0.12, 0.005), number('chamferSize', 'Chaflán de placas · m', 0, 0.08, 0.002), check('mountingHoles', 'Perforaciones de montaje visibles')];
@@ -180,6 +187,7 @@ function normalize(value = {}) {
   if (result.family === 'mobileSorter' && result.tool !== 'platform') throw new Error('El clasificador móvil usa su plataforma de cinta o bandeja.');
   result.destinationRulesJson = JSON.stringify(parseDestinationRules(result));
   result.waypointsJson = JSON.stringify(waypoints);
+  result.taskProgramJson = require('./robot-task-program.js').normalizeConfig(result);
   getJointDefinitions(result);
   result.jointLimitsJson = JSON.stringify(jsonList(result.jointLimitsJson, MAX_JOINT_JSON, 6, 'Límites articulares'));
   return result;
@@ -206,5 +214,5 @@ function productCompatibility(value = {}, metadata = {}) {
   return {accepted: true, reason: massKnown ? '' : 'Masa no declarada: comprobación de carga no disponible.', massKnown};
 }
 function acceptsProduct(value, metadata) { return productCompatibility(value, metadata).accepted; }
-module.exports = {VERSION, FAMILIES, VARIANTS, variants: VARIANTS.map(item => item.id), TOOLS, OPERATIONS, DEFAULTS, MAX_WAYPOINTS, MAX_WAYPOINT_JSON, MAX_JOINT_JSON,
+module.exports = {VERSION, FAMILIES, VARIANTS, variants: VARIANTS.map(item => item.id), TOOLS, OPERATIONS, DEFAULTS, MAX_WAYPOINTS, MAX_WAYPOINT_JSON, MAX_JOINT_JSON, taskProgram:require('./robot-task-program.js'),
   defaults, fields, getDefinition, normalize, validate, visualModel, referencePilotGeometry, parseWaypoints, parseDestinationRules, destinationFor, getJointDefinitions, productCompatibility, acceptsProduct};

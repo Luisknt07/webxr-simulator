@@ -66,5 +66,18 @@
         }
       }
     }
+  },
+  "runtimeAdaptation": {
+    "version": 3,
+    "capacityAffectsVisualSection": false,
+    "section": "sqrt(reach/1.1) limited to1.5, multiplied by bounded housingScale; short-link limit",
+    "lengthMapping": "Uniform bearing ends with piecewise stretched intervening spans; native J1-J6 and TCP preserved",
+    "omittedNativeParts": [
+      "base_link / Mesh7",
+      "base_link / Mesh8"
+    ],
+    "omissionReason": "Disconnected cut OEM cable tails replaced by native base gland and scene-owned console connection",
+    "accessories": "Native articulated harness J2/J3, attached clamps/glands, seals/fasteners, tool-service fitting, projected identity/warning labels",
+    "internalMechanisms": "Sealed drive housings only; no internal winding/rotor/PCB or OEM electrical pin claim"
   }
 }

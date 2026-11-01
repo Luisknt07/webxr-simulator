@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import technicalProjection from '../../../../../packages/render-three/src/TechnicalProjection.js';
 
 const LIMITS = Object.freeze({meshes:400, faces:10000, sourceFaces:20000});
-const MODES = ['isometric','front','top','exploded'];
+const MODES = ['isometric','front','rear','side','top','exploded'];
 const BOUNDS = new WeakMap();
 const TOPOLOGY = new Map();let cachedTriangles=0;
 const KEY_LIGHT = new THREE.Vector3(-.45,.85,.65).normalize(), FILL_LIGHT = new THREE.Vector3(.7,.45,-.6).normalize();
@@ -17,6 +17,7 @@ function machineOwner(object) {
 function visible(object, root) {
   for(let node=object;node;node=node.parent){
     if(!node.visible || node.userData.editorHelper || node.userData.editorRuntimeHelper || node.userData.editorGeometryReplaced || node.userData.industrialSensorVolume)return false;
+    if(node.userData.industrialPanelAccessory&&machineOwner(root))return false;
     // The machine's mechanical illustration has its own framing. An attached
     // full-size HMI must not shrink the arm/deck to a thumbnail. A PLC selected
     // in its own right (including a wrapper) still shows its complete model.
@@ -57,9 +58,11 @@ function capture(object,options={}) {
 
 function projection(mode) {
   const options={origin:[0,0],scale:1,azimuth:45,elevation:30},c=technicalProjection.cameraOf(options);
-  const camera=mode==='front'?new THREE.Vector3(0,0,1):mode==='top'?new THREE.Vector3(0,1,0):new THREE.Vector3(c.cosA*c.cosE,c.sinE,-c.sinA*c.cosE);
+  const camera=mode==='front'?new THREE.Vector3(0,0,1):mode==='rear'?new THREE.Vector3(0,0,-1):mode==='side'?new THREE.Vector3(1,0,0):mode==='top'?new THREE.Vector3(0,1,0):new THREE.Vector3(c.cosA*c.cosE,c.sinE,-c.sinA*c.cosE);
   const project=point=>{
     if(mode==='front')return{x:point.x,y:-point.y,depth:point.z};
+    if(mode==='rear')return{x:-point.x,y:-point.y,depth:-point.z};
+    if(mode==='side')return{x:-point.z,y:-point.y,depth:point.x};
     if(mode==='top')return{x:point.x,y:point.z,depth:point.y};
     // Y-up metres -> right-handed Z-up Anatomy coordinates.
     const value=[point.x,-point.z,point.y],p=technicalProjection.iso(value,options);

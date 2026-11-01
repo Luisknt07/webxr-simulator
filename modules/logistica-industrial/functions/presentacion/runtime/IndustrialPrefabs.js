@@ -358,6 +358,7 @@ function pilotCellConsole(panel, design, point) {
     shape.moveTo(rear, -1.28); shape.lineTo(lower.z, -1.28);
     shape.lineTo(lower.z, lower.y); shape.lineTo(upper.z, upper.y);
     shape.lineTo(rear, upper.y); shape.closePath();
+    assembly.userData.robotCableGland = [design.width * .32, -1.10, rear - .002];
     const shellGeometry = new THREE.ExtrudeBufferGeometry(shape, {depth:design.width,bevelEnabled:false,steps:1,curveSegments:1});
     shellGeometry.rotateY(-Math.PI / 2); shellGeometry.translate(design.width / 2, 0, 0);
     const shell = new THREE.Mesh(shellGeometry, material(design.body,{metalness:.12,roughness:.46}));
@@ -2017,7 +2018,7 @@ function robotEquipment(variant = 'articulated-general', value) {
   const identification = panel.children.find(node => node.name === 'Identificación del tablero');
   if (identification) { const previous = identification.material.map; identification.material.map = labelTexture('CONTROL / ROBOT'); if (previous) previous.dispose(); }
   applyPanelDesign(panel, config, 'robot');
-  root.add(panel); root.updateMatrixWorld(true); return root;
+  root.add(panel); root.updateMatrixWorld(true); require('./RobotPanelCable.js').attachRobotPanelCable(root, panel, config); return root;
 }
 
 export function createIndustrialPrefab(kind, variant, value) {
@@ -2081,6 +2082,7 @@ createIndustrialPrefab.refresh = (object, config) => {
       }
       panel.visible = config.withPanel !== false;
       applyPanelDesign(panel, config, 'robot');
+      require('./RobotPanelCable.js').attachRobotPanelCable(object, panel, config);
     }
     return changed;
   }

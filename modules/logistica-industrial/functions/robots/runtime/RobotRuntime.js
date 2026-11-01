@@ -8,6 +8,7 @@ const EPSILON = 1e-6;
 const PHASES = {idle: 'Esperando carga', setup: 'Preparación', approach: 'Aproximación', pick: 'Recogiendo', lift: 'Elevando', carry: 'Trasladando', place: 'Depositando', release: 'Entregando', return: 'Retorno', process: 'Procesando', 'wait-output': 'Esperando destino', 'drive-input': 'Viaje a recogida', 'drive-output': 'Viaje a entrega'};
 Object.assign(PHASES, {engage: 'Posicionando herramienta', 'process-inplace': 'Proceso en estación', retract: 'Retirando herramienta', 'drive-home': 'Retorno a origen'});
 Object.assign(PHASES, {'stow-input': 'Retrayendo brazo para viajar', 'stow-output': 'Retrayendo brazo tras entrega', 'mobile-wait-output': 'Atracado · esperando receptor', 'sorter-load': 'Cargando cinta / bandeja', 'sorter-discharge': 'Descargando al destino seleccionado', 'sorter-reset': 'Rearmando clasificador'});
+Object.assign(PHASES, {'task-via': 'Trayectoria programada', 'task-grip-wait': 'Confirmando agarre', 'task-release-wait': 'Confirmando depósito'});
 function visible(object) { for (let node = object; node; node = node.parent) if (!node.visible) return false; return true; }
 function vector(point) { return Array.isArray(point) ? new THREE.Vector3().fromArray(point) : new THREE.Vector3(point.x, point.y, point.z); }
 function smooth(t) { return t * t * (3 - 2 * t); }
@@ -93,6 +94,9 @@ export default class RobotRuntime {
     const waypoints = robotSchema.parseWaypoints(config);
     component.waypoints = waypoints.map(point => vector(point)); component.waypointSpeeds = waypoints.map(point => point.speed || null);
     component.homeMatrix = record.object.matrixWorld.clone();
+    component.taskProgram = robotSchema.taskProgram.forConfig(config);
+    component.taskViaIndex = 0; component.taskCycleCompleted = false;
+    if (component.taskProgram) component.speed = component.taskProgram.speed;
     updateRobotPose(visualRoot, component.pose);
     ['enabled', 'powered', 'running', 'paused', 'emergency'].forEach(key => record.writable.push({key, type: 'boolean', label: key}));
     record.writable.push({key: 'speed', type: 'number', min: .05, max: 3, label: 'Factor de velocidad del robot'});
@@ -105,6 +109,8 @@ export default class RobotRuntime {
   orientedArm(robot) { return this.cartesianArm(robot) || robot.config.family === 'scara'; }
   sorter(robot) { return robot.config.family === 'mobileSorter'; }
   outputId(robot) { return robot.activeOutputId || robot.config.outputId; }
+  approachHeight(robot) { return robot.taskProgram ? robot.taskProgram.clearance : robot.config.approachHeight; }
+  returnPoint(robot) { return robot.taskProgram && robot.taskProgram.returnPoint ? vector(robot.taskProgram.returnPoint) : vector(robotKinematics.homePose(robot.config).tcp); }
   inSitu(robot) { return robot.config.operation === 'process' && robot.config.tool === 'process'; }
   tool(record) { const root = record.components.robot.visualRoot; return root.userData.robotRig && root.userData.robotRig.tool; }
 
@@ -167,6 +173,7 @@ export default class RobotRuntime {
       blockedSeconds: r.blockedSeconds, downSeconds: r.downSeconds, distance: r.distance,
       utilization: r.elapsed ? r.busySeconds / r.elapsed * 100 : 0,
       activeOutputId: this.outputId(r), sorterMode: this.sorter(r) ? r.config.sorterMode : '',
+      taskEnabled: !!r.taskProgram, taskName: r.taskProgram ? r.taskProgram.name : '', taskWaypoint: r.taskViaIndex || 0, taskComplete: !!r.taskCycleCompleted,
       clearanceObstacle: r.clearanceObstacle || '', clearanceBody: r.clearanceBody || '',
       clearanceWarning: r.blocked && r.clearanceObstacle ? 'Interferencia de ' + (r.clearanceBody || 'un componente') + ' con ' + r.clearanceObstacle + '. Pausa y reubica el obstáculo o ajusta el recorrido antes de reanudar.' : '',
       joints: JSON.stringify(r.pose.joints || []), tcpX: r.pose.tcp.x, tcpY: r.pose.tcp.y, tcpZ: r.pose.tcp.z};
@@ -323,7 +330,7 @@ export default class RobotRuntime {
     if ((!this.mobile(r) || this.mobileArm(r)) && (this.worldContact(product).distanceTo(this.worldContact(product, destination.matrix)) > r.config.positionTolerance || orientationChanged)) {
       if (!this.reachable(record, this.worldContact(product, destination.matrix))) return this.fault(record, 'Destino fuera del alcance configurado.');
       r.destination = destination; r.placePoint = this.local(record, this.worldContact(product, destination.matrix)); r.destinationToolQuaternion = this.destinationQuaternion(record, destination.matrix);
-      const above = r.placePoint.clone(); above.y += r.config.approachHeight;
+      const above = r.placePoint.clone(); above.y += this.approachHeight(r);
       this.moveTo(record, above, 'carry', r.destinationToolQuaternion); return false;
     }
     product.robotOwnerId = ''; delete product.object.userData.robotOwnerId; product.processorLocked = false; product.processorOwnerId = '';
@@ -360,7 +367,7 @@ export default class RobotRuntime {
     let distance = r.from.distanceTo(r.to), angularDuration = this.orientedArm(r) ? rotationAngle(new THREE.Quaternion().fromArray(r.pose.quaternion), new THREE.Quaternion().fromArray(pose.quaternion)) : 0;
     if (this.cartesianArm(r) || r.config.family === 'scara' && this.runtime.ctx.collisionWorld) {
       const points = [r.from.clone()], orientations = [r.pose.quaternion.slice()];
-      if (['approach', 'carry', 'return', 'stow-output'].includes(phase) && Math.hypot(r.to.x - r.from.x, r.to.z - r.from.z) > .01) {
+      if (['approach', 'carry', 'task-via', 'return', 'stow-output'].includes(phase) && Math.hypot(r.to.x - r.from.x, r.to.z - r.from.z) > .01) {
         const clearance = this.travelClearance(record, r.from, r.to, phase);
         points.push(new THREE.Vector3(r.from.x, clearance, r.from.z), new THREE.Vector3(r.to.x, clearance, r.to.z));
         // Rotate only during the high crossing. Keep the original grasp while
@@ -393,7 +400,7 @@ export default class RobotRuntime {
 
   travelClearance(record, from, to, phase) {
     const r = record.components.robot, product = r.entry && r.entry.product;
-    let clearance = Math.max(from.y, to.y) + (['return', 'stow-output'].includes(phase) ? r.config.approachHeight : 0);
+    let clearance = Math.max(from.y, to.y) + (['return', 'stow-output'].includes(phase) ? this.approachHeight(r) : 0);
     if (r.config.family === 'scara') {
       const maximum = r.config.baseHeight - robotKinematics.getDimensions(r.config).toolLength - robotSchema.getJointDefinitions(r.config)[2].min;
       clearance = Math.min(clearance, maximum);
@@ -664,10 +671,20 @@ export default class RobotRuntime {
     if (!this.inSitu(r) && (!selectedOutput || !this.runtime.records.has(selectedOutput))) { r.blocked = true; return; }
     const point = this.worldContact(c.product, null, record);
     if (!this.mobile(r) && !this.reachable(record, point)) return this.fault(record, 'Producto fuera del alcance configurado.');
+    // User waypoints are verified against the same local IK before reserving
+    // inventory. An unreachable task cannot remove its first carton.
+    if (r.taskProgram) {
+      const points = r.taskProgram.via.concat(r.taskProgram.returnPoint ? [r.taskProgram.returnPoint] : []);
+      for (const point of points) {
+        const pose = robotKinematics.inverse(r.config, point, r.pose.joints);
+        if (pose.reached === false || pose.error > r.config.positionTolerance) return this.fault(record, 'Punto de tarea programada fuera del alcance o los límites.');
+      }
+    }
     r.activeOutputId = selectedOutput; r.candidate = c; c.product.robotReservedBy = record.id; r.requested = false; r.blocked = false;
+    r.taskViaIndex = 0; r.taskCycleCompleted = false;
     if (this.mobile(r)) { this.navigation(record, this.dock(record, c.source, true), 'drive-input'); return; }
     r.pickPoint = this.local(record, point);
-    const above = r.pickPoint.clone(); above.y += r.config.approachHeight;
+    const above = r.pickPoint.clone(); above.y += this.approachHeight(r);
     const clearApproach = this.reachable(record, above.clone().applyMatrix4(record.object.matrixWorld));
     if (!clearApproach && this.cartesianArm(r)) return this.fault(record, 'No hay altura de aproximación libre dentro del alcance configurado.');
     r.approachPoint = clearApproach ? above : r.pickPoint;
@@ -679,7 +696,7 @@ export default class RobotRuntime {
   advance(record, delta) {
     const r = record.components.robot;
     this.ensureGrip(record);
-    if (r.phase === 'idle') { if (r.config.mode !== 'manual' || r.requested) this.begin(record); return; }
+    if (r.phase === 'idle') { if ((r.config.mode !== 'manual' || r.requested || r.taskProgram && r.taskProgram.repeat && r.taskCycleCompleted) && (!r.taskProgram || r.taskProgram.repeat || !r.taskCycleCompleted || r.requested)) this.begin(record); return; }
     if (r.phase === 'drive-input' || r.phase === 'drive-output' || r.phase === 'drive-home') {
       if (!this.navigate(record, delta)) return;
       if (r.phase === 'drive-home') { r.phase = 'idle'; return; }
@@ -700,14 +717,14 @@ export default class RobotRuntime {
         if (this.mobileArm(r)) this.moveTo(record, vector(robotKinematics.homePose(r.config).tcp), 'stow-output');
         else if (this.sorter(r)) { r.phase = 'sorter-reset'; r.phaseElapsed = 0; r.duration = r.config.dischargeTime; r.sorterFrom = r.pose.joints.slice(); }
         else if (this.mobile(r)) r.phase = 'idle';
-        else this.moveTo(record, vector(robotKinematics.homePose(r.config).tcp), 'return');
+        else this.moveTo(record, this.returnPoint(r), 'return');
       }
       return;
     }
     const previousElapsed = r.phaseElapsed, previousPose = r.pose;
     r.phaseElapsed += delta;
     const complete = r.phaseElapsed + EPSILON >= r.duration;
-    if (['approach', 'pick', 'lift', 'carry', 'place', 'return', 'engage', 'retract', 'stow-input', 'stow-output'].includes(r.phase)) {
+    if (['approach', 'pick', 'lift', 'carry', 'task-via', 'place', 'return', 'engage', 'retract', 'stow-input', 'stow-output'].includes(r.phase)) {
       const fraction = smooth(Math.min(1, r.phaseElapsed / r.duration));
       const pose = r.cartesianPath ? this.pathPose(record, fraction) : robotKinematics.forward(r.config, r.fromJoints.map((value, index) => value + (r.toJoints[index] - value) * fraction));
       if (pose.reached === false || pose.error > r.config.positionTolerance) { r.phaseElapsed = previousElapsed; return this.fault(record, 'La trayectoria cartesiana sale del alcance configurado.'); }
@@ -731,7 +748,9 @@ export default class RobotRuntime {
       this.runtime.event(record.id, 'robot-process-complete', 'Proceso completado en estación · ' + units + ' ud. · conserva propietario.');
       this.moveTo(record, r.approachPoint, 'retract');
     } else if (r.phase === 'retract') { this.unreserve(r); this.moveTo(record, vector(robotKinematics.homePose(r.config).tcp), 'return'); }
-    else if (r.phase === 'pick') {
+    else if (r.phase === 'pick' && r.taskProgram && r.taskProgram.gripWait > 0) {
+      r.phase = 'task-grip-wait'; r.phaseElapsed = 0; r.duration = r.taskProgram.gripWait;
+    } else if (r.phase === 'pick' || r.phase === 'task-grip-wait') {
       if (!this.pick(record)) { this.unreserve(r); r.phase = 'idle'; return; }
       this.moveTo(record, r.approachPoint, 'lift');
     } else if (r.phase === 'lift' && this.mobileArm(r)) {
@@ -741,14 +760,18 @@ export default class RobotRuntime {
     } else if (r.phase === 'stow-input') {
       const target = this.runtime.records.get(this.outputId(r)); this.navigation(record, this.dock(record, target, false), 'drive-output');
     } else if (r.phase === 'stow-output') r.phase = 'idle';
-    else if (r.phase === 'lift' || r.phase === 'wait-output') {
+    else if (r.phase === 'lift' || r.phase === 'wait-output' || r.phase === 'task-via') {
       const destination = this.destination(record, r.entry);
       if (!destination) { r.phase = 'wait-output'; r.blocked = true; return; }
       const point = this.local(record, this.worldContact(r.entry.product, destination.matrix)); r.destination = destination;
       if (!this.reachable(record, point.clone().applyMatrix4(record.object.matrixWorld))) return this.fault(record, 'Destino fuera del alcance configurado.');
       r.placePoint = point; r.destinationToolQuaternion = this.destinationQuaternion(record, destination.matrix);
-      const above = point.clone(); above.y = Math.max(above.y + r.config.approachHeight, r.approachPoint ? r.approachPoint.y : -Infinity);
-      r.blocked = false; this.moveTo(record, !this.cartesianArm(r) && !this.reachable(record, above.clone().applyMatrix4(record.object.matrixWorld)) ? point : above, 'carry', r.destinationToolQuaternion);
+      const above = point.clone(); above.y = Math.max(above.y + this.approachHeight(r), r.approachPoint ? r.approachPoint.y : -Infinity);
+      r.blocked = false;
+      if (r.taskProgram && r.taskViaIndex < r.taskProgram.via.length) {
+        const next = vector(r.taskProgram.via[r.taskViaIndex]);
+        if (this.moveTo(record, next, 'task-via', r.pose.quaternion)) r.taskViaIndex++;
+      } else this.moveTo(record, !this.cartesianArm(r) && !this.reachable(record, above.clone().applyMatrix4(record.object.matrixWorld)) ? point : above, 'carry', r.destinationToolQuaternion);
     } else if (r.phase === 'carry') {
       if (r.config.operation === 'process' && r.config.processTime > 0) { r.phase = 'process'; r.phaseElapsed = 0; r.duration = r.config.processTime; }
       else this.moveTo(record, r.placePoint, 'place');
@@ -756,8 +779,11 @@ export default class RobotRuntime {
       // Processing annotates the same load. It cannot create arbitrary stock.
       r.entry.processHistory = (r.entry.processHistory || []).concat({robotId: record.id, at: this.runtime.time, operation: 'process'}).slice(-64);
       this.moveTo(record, r.placePoint, 'place');
-    } else if (r.phase === 'place') r.phase = 'release';
-    else if (r.phase === 'return') r.phase = 'idle';
+    } else if (r.phase === 'place') {
+      if (r.taskProgram && r.taskProgram.releaseWait > 0) {r.phase = 'task-release-wait'; r.phaseElapsed = 0; r.duration = r.taskProgram.releaseWait;}
+      else r.phase = 'release';
+    } else if (r.phase === 'task-release-wait') r.phase = 'release';
+    else if (r.phase === 'return') {r.phase = 'idle'; if (r.taskProgram) r.taskCycleCompleted = true;}
   }
 
   armAtInput(record) {

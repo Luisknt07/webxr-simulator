@@ -286,7 +286,7 @@ function joint(parent, id, position, rig) {
 }
 
 function componentIdentity(rig) {
-  const names = {'robot.base': 'Base y alimentación', 'robot.shoulder': 'Giro y apoyo del hombro', 'robot.upper-arm': 'Brazo superior', 'robot.elbow': 'Codo', 'robot.forearm': 'Antebrazo', 'robot.wrist': 'Muñeca orientable', 'robot.tool': 'Herramienta y TCP', 'robot.carriage': 'Guías y accionamiento lineal'};
+  const names = {'robot.base': 'Base y alimentación', 'robot.shoulder': 'Giro y apoyo del hombro', 'robot.upper-arm': 'Brazo superior', 'robot.elbow': 'Codo', 'robot.forearm': 'Antebrazo', 'robot.wrist': 'Muñeca orientable', 'robot.tool': 'Herramienta y TCP', 'robot.carriage': 'Guías y accionamiento lineal', 'robot.bearings':'Tornillería y rodamientos', 'robot.harness':'Arnés de potencia y encoder', 'robot.tool-services':'Suministro de herramienta', 'robot.base-services':'Alimentación desde consola'};
   const groups = new Map();
   rig.visual.traverse(object => {
     if (!object.isMesh) return;
@@ -296,12 +296,12 @@ function componentIdentity(rig) {
       if (node.name === 'Base anclada al piso') inBase = true;
       if (!jointId && node.userData.robotJoint) jointId = node.userData.robotJoint;
     }
-    let id = inTool ? 'robot.tool' : inBase ? 'robot.base' : object.userData.robotComponentId || (jointId === 'J1' ? 'robot.shoulder' : jointId === 'J2' ? 'robot.upper-arm' : jointId === 'J3' ? 'robot.forearm' : /^J[456]$/.test(jointId) ? 'robot.wrist' : 'robot.carriage');
+    let id = object.userData.robotComponentId || (inTool ? 'robot.tool' : inBase ? 'robot.base' : jointId === 'J1' ? 'robot.shoulder' : jointId === 'J2' ? 'robot.upper-arm' : jointId === 'J3' ? 'robot.forearm' : /^J[456]$/.test(jointId) ? 'robot.wrist' : 'robot.carriage');
     if (/Eje pasante|Oreja de apoyo/.test(object.name)) id = 'robot.shoulder';
     if (/Reductor|Tapa mecanizada|Servomotor/.test(object.name) && jointId === 'J3') id = 'robot.elbow';
     object.userData.equipmentComponentId = id;
     object.userData.robotJointId = jointId;
-    object.userData.equipmentSubsystem = /encoder|Conector|conexiones|prensaestopas|Indicador/i.test(object.name) ? 'electronics' : /Manguera|racor/.test(object.name) ? 'services' : 'mechanical';
+    object.userData.equipmentSubsystem = object.userData.equipmentSubsystem || (/encoder|Conector|conexiones|prensaestopas|Indicador/i.test(object.name) ? 'electronics' : /Manguera|racor/.test(object.name) ? 'services' : 'mechanical');
     if (!groups.has(id)) groups.set(id, {id, name: names[id], jointIds: [], objects: []});
     const entry = groups.get(id); entry.objects.push(object);
     if (jointId && !entry.jointIds.includes(jointId)) entry.jointIds.push(jointId);
@@ -434,21 +434,148 @@ function tool(b, parent, rig) {
   return assembly;
 }
 
+function pilotAccessories(b,rig,d,skins,parents,cross) {
+  const c=b.config;
+  const hose=(parent,points,radius,name)=>{
+    if(c.detail!=='low')return b.cable(parent,points,radius,name);
+    const curve=new THREE.CatmullRomCurve3(points.map(point=>new THREE.Vector3().fromArray(point)));
+    return b.mesh(name,new THREE.TubeBufferGeometry(curve,8,radius,4,false),'rubber',parent);
+  };
+  const meshes=link=>(skins[link]||[]),hit=(link,x,y,side=-1)=>{
+    const ray=new THREE.Raycaster(new THREE.Vector3(x,y,side*2*cross),new THREE.Vector3(0,0,-side),0,4*cross);
+    // Before posing, skins are in their own native link coordinates. A small
+    // temporary mesh avoids applying the parent articulation twice to a ray.
+    const targets=meshes(link).map(skin=>new THREE.Mesh(skin.geometry,new THREE.MeshBasicMaterial({side:THREE.DoubleSide})));
+    targets.forEach(o=>o.updateMatrixWorld(true));const value=ray.intersectObjects(targets,false)[0];targets.forEach(o=>o.material.dispose());
+    if(value)value.point.robotSurface=meshes(link)[targets.indexOf(value.object)];return value&&value.point;
+  };
+  // Material groups cover the actual CAD triangles, never a duplicate shell.
+  // Coaxial covers and drive housings remain distinct from painted castings.
+  for(const [link,rows] of Object.entries(skins))for(const mesh of rows){
+    if(mesh.material.userData.industrialMaterialRole!=='frame')continue;
+    const geometry=mesh.geometry,p=geometry.attributes.position,n=geometry.attributes.normal;
+    const role=/neutral fitted service cover/.test(geometry.userData.sourcePart||'')?'accent':link==='link_3'||link==='link_5'?'accent':'frame';
+    // Colouring a curved cap by a face-normal threshold leaves a saw-tooth
+    // boundary. Keep connected castings coherent; real perimeter seals and
+    // fitted fasteners provide joint contrast without cutting painted faces.
+    mesh.material=b.material(role);mesh.userData.industrialMaterialRole=role;
+    // Worn edges use the existing native PBR material and wear control. The
+    // small vertex tint is concentrated at exposed lips/covers, not giant
+    // random black islands or a second coplanar painted surface.
+    const colors=new Float32Array(p.count*3);
+    for(let i=0;i<p.count;i++){
+      const x=p.getX(i),y=p.getY(i),z=p.getZ(i),edge=Math.pow(Math.max(Math.abs(n.getX(i)),Math.abs(n.getY(i))),8);
+      const grain=(Math.sin(x*713+y*419+z*971)*43758.5453)%1,wear=c.wear*edge*(grain>.50?.22:.035),shade=1-wear;
+      colors.set([shade,shade,shade],i*3);
+    }
+    geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));mesh.material.vertexColors=true;mesh.material.userData.industrialPaintWear=c.wear;
+    mesh.userData.robotSurfaceRole=role;
+  }
+  const attachLabel=(link,x,y,side,id,width,height)=>{const at=hit(link,x,y,side);if(!at)return;const host=at.robotSurface;if(!host)return;
+    (host.userData.industrialStickerAnchors||(host.userData.industrialStickerAnchors=[])).push({id,position:at.toArray(),normal:[0,0,side],size:[width,height]});};
+  if(c.identificationLabels){
+    attachLabel('link_2',d.upperArm*.43,0,1,'equipment-id',Math.min(.18,d.upperArm*.28),.045*cross);
+    attachLabel('link_2',d.upperArm*.20,-.018*cross,1,'warning-pinch',.055*cross,.05*cross);
+    attachLabel('link_4',-d.forearm*.18,.008*cross,-1,'electrical',.045*cross,.045*cross);
+    attachLabel('base_link',-.18*cross,.11,-1,'electrical',.045*cross,.055);
+  }
+  const tag=(object,id,subsystem)=>{if(!object)return;object.userData.robotComponentId=id;object.userData.robotAccessory=true;object.userData.equipmentSubsystem=subsystem;object.userData.industrialCosmeticDetail=true;};
+  if(c.jointCovers&&c.detail!=='low')for(const row of [{link:'link_2',parent:parents.shoulder,x:0,r:.055*cross},{link:'link_2',parent:parents.shoulder,x:d.upperArm,r:.041*cross},{link:'link_3',parent:parents.elbow,x:0,r:.046*cross}]){
+    const points=[];for(let i=0;i<8;i++){const angle=i*Math.PI/4,at=hit(row.link,row.x+Math.cos(angle)*row.r,Math.sin(angle)*row.r,1);if(at){at.z+=.0025*cross;points.push(at.toArray());}}
+    const bolts=b.bolts(row.parent,points,.0037*cross);if(bolts){bolts.name='Tornillería de tapa y reductor · '+row.link;tag(bolts,'robot.bearings','mechanical');}
+    const seal=[];for(let i=0;i<=24;i++){const angle=i/24*Math.PI*2,at=hit(row.link,row.x+Math.cos(angle)*row.r*1.16,Math.sin(angle)*row.r*1.16,1);if(at){at.z+=.0016*cross;seal.push(at.toArray());}}
+    if(seal.length===25){const ring=hose(row.parent,seal,.0018*cross,'Sello perimetral ajustado · '+row.link);tag(ring,'robot.bearings','mechanical');}
+  }
+  rig.serviceSockets=[];rig.serviceCables=[];
+  const socket=(parent,link,x,y,name,id='robot.harness')=>{
+    const at=hit(link,x,y,-1);if(!at)return null;
+    const port=group(parent,name,at.toArray()),length=.020*cross;
+    const fitting=b.cylinder('Prensaestopas · '+name,.012*cross,length,'metal',port,[0,0,-length/2],[Math.PI/2,0,0]);tag(fitting,id,'services');
+    const seal=b.cylinder('Sello · '+name,.014*cross,.005*cross,'rubber',port,[0,0,-.002*cross],[Math.PI/2,0,0]);tag(seal,id,'services');
+    port.userData.robotServiceSocket=true;port.userData.robotComponentId=id;rig.serviceSockets.push(port);
+    return {object:port,point:new THREE.Vector3(0,0,-length)};
+  };
+  const run=(link,parent,start,end,name,id)=>{
+    const ports=[socket(parent,link,start,0,name+' · entrada',id),socket(parent,link,end,0,name+' · salida',id)];if(ports.some(v=>!v))return null;
+    const points=[];for(let i=0;i<=8;i++){const x=start+(end-start)*i/8,at=hit(link,x,0,-1);if(!at)return null;points.push([x,0,at.z-.027*cross]);}
+    const cable=hose(parent,points,.008*cross,name);tag(cable,id,'services');
+    // Saddle feet terminate on measured skin, the band supports the hose at
+    // a defined 27 mm offset, not a cylinder suspended alongside the arm.
+    for(const fraction of [.2,.5,.8]){const x=start+(end-start)*fraction,at=hit(link,x,0,-1);if(!at)continue;
+      const clamp=b.box('Abrazadera anclada · '+name,[.021*cross,.022*cross,.032*cross],'metal',parent,[x,0,at.z-.014*cross],true);tag(clamp,id,'services');}
+    return ports;
+  };
+  const flexible=(a,z,name,id)=>{
+    if(!a||!z)return;
+    const radius=.008*cross,segments=c.detail==='high'?20:12,around=5;
+    const geometry=new THREE.TubeBufferGeometry(new THREE.LineCurve3(new THREE.Vector3(),new THREE.Vector3(0,.1,0)),segments,radius,around,false);
+    const mesh=b.mesh(name,geometry,'rubber',rig.visual);tag(mesh,id,'services');mesh.frustumCulled=false;
+    rig.serviceCables.push({mesh,a,z,radius,segments,around,clearance:.070*cross,points:[]});
+  };
+  if(c.serviceHarness){
+    const upper=run('link_2',parents.shoulder,.14*cross,d.upperArm-.11*cross,'Arnés de potencia y encoder J2–J3','robot.harness');
+    const forearm=run('link_3',parents.elbow,.075*cross,.17*cross,'Distribuidor de servicios del codo','robot.harness');
+    const basePort=socket(parents.yaw,'link_1',-.055*cross,-.09*baseYFor(d),'Salida de potencia de columna');
+    if(upper){flexible(basePort,upper[0],'Lazo articulado de hombro J2','robot.harness');if(forearm)flexible(upper[1],forearm[0],'Lazo articulado de codo J3','robot.harness');}
+  }
+  if(c.servicePackage!=='none'&&['vacuum','gripper','process'].includes(c.tool)){
+    const prefix=c.servicePackage==='pneumatic'?'Manguera neumática':'Cable eléctrico de herramienta';
+    const tail=run('link_4',parents.roll,-d.forearm*.36,-.055*cross,prefix+' · tramo antebrazo','robot.tool-services');
+    // The articulated wrist uses its hollow shaft internally; a short hose
+    // follows J6 rigidly to the actual native end effector connector.
+    const endX=d.toolLength-(c.tool==='vacuum'?.14:c.tool==='process'?.13:.15),endY=c.tool==='vacuum'?.13:c.tool==='process'?.055:.08;
+    const fitting=b.cylinder('Racor de servicio del efector',.009,.014,'metal',parents.spin,[endX,endY+.007,0]);tag(fitting,'robot.tool-services','services');
+    const h=hose(parents.spin,[[.015,0,-.043*cross],[.025,endY+.045,-.055*cross],[endX,endY+.04,-.015],[endX,endY+.014,0]],.0055*cross,prefix+' · conexión al efector');tag(h,'robot.tool-services','services');
+    if(tail)rig.internalServiceRoute={from:tail[1].object.name,to:'Efector final',through:['J4','J5','J6'],kind:c.servicePackage};
+  }
+  // Root's side-panel placement owns the other endpoint of this floor cable.
+  // This stable, real base socket is exposed in the robot actor's local frame.
+  const floor=socket(parents.base,'base_link',-.28*cross,.052,'Conector de alimentación desde consola','robot.base-services');
+  if(floor)rig.panelServiceSocket={object:floor.object,point:floor.point.clone(),radius:.010*cross,minimumFloorHeight:.018};
+}
+function baseYFor(d){return Math.max(.1,d.baseHeight/.4);}
+function updatePilotServices(root,rig){
+  if(!rig.serviceCables||!rig.serviceCables.length)return;
+  const values=rig.pose&&rig.pose.joints||[];
+  if(rig.serviceLastJoints&&values.slice(0,3).every((value,index)=>Math.abs(value-rig.serviceLastJoints[index])<1e-7))return;
+  rig.serviceLastJoints=values.slice(0,3);
+  const inverse=new THREE.Matrix4().getInverse(rig.visual.matrixWorld),zaxis=new THREE.Vector3(0,0,-1);
+  for(const line of rig.serviceCables){
+    const a=line.a.point.clone().applyMatrix4(line.a.object.matrixWorld).applyMatrix4(inverse),z=line.z.point.clone().applyMatrix4(line.z.object.matrixWorld).applyMatrix4(inverse);
+    // Both sockets' outward normals define the rear service plane, even when
+    // the whole actor is placed/rotated in a saved scene. No world-axis cable.
+    const qa=line.a.object.getWorldQuaternion(new THREE.Quaternion()),qz=line.z.object.getWorldQuaternion(new THREE.Quaternion()),qroot=rig.visual.getWorldQuaternion(new THREE.Quaternion()).inverse();
+    const na=zaxis.clone().applyQuaternion(qa).applyQuaternion(qroot),nz=zaxis.clone().applyQuaternion(qz).applyQuaternion(qroot);
+    const away=na.clone().add(nz);if(away.lengthSq()<.1)away.copy(na);away.normalize();
+    const slack=Math.max(line.clearance*2.2,a.distanceTo(z)*.40),points=[a,a.clone().addScaledVector(na,line.clearance),a.clone().lerp(z,.5).addScaledVector(away,slack),z.clone().addScaledVector(nz,line.clearance),z];
+    const curve=new THREE.CatmullRomCurve3(points),frames=curve.computeFrenetFrames(line.segments,false),p=line.mesh.geometry.attributes.position,n=line.mesh.geometry.attributes.normal;
+    for(let i=0;i<=line.segments;i++){const center=curve.getPointAt(i/line.segments);for(let j=0;j<=line.around;j++){const angle=j/line.around*Math.PI*2,normal=frames.normals[i].clone().multiplyScalar(-Math.cos(angle)).addScaledVector(frames.binormals[i],Math.sin(angle)),at=i*(line.around+1)+j;p.setXYZ(at,center.x+line.radius*normal.x,center.y+line.radius*normal.y,center.z+line.radius*normal.z);n.setXYZ(at,normal.x,normal.y,normal.z);}}
+    p.needsUpdate=n.needsUpdate=true;line.points=Array.from({length:line.segments+1},(_,i)=>curve.getPointAt(i/line.segments));
+    line.mesh.geometry.computeBoundingSphere();line.mesh.userData.robotCableEndpoints=[a.toArray(),z.toArray()];
+  }
+}
+
 function referenceArticulated(b, rig, d) {
   // Apache-2.0 visual derivative, revision pinned in the asset and NOTICE.
   // Native joints/limits/TCP stay authoritative. This is not an OEM controller
   // or calibrated replica: skin offsets and link proportions are adapted.
   const source=robotSchema.referencePilotGeometry(),parts=source.lods[b.config.detail];
-  const payload=Math.max(.86,Math.min(1.18,Math.pow(b.config.payloadKg/16,.09))),t=Math.max(.085,Math.min(.30,d.reach*.112*payload));
-  const cross=t/.10,baseY=d.baseHeight/.4;
+  // Capacity is a runtime constraint, not a casting diameter. Scaling an 80 kg
+  // teaching cell by payload used to triple the KR10-derived skin thickness.
+  // Preserve its bearing circles; stretch only the clear link between them.
+  const cross=Math.min(1.5,Math.sqrt(d.reach/1.1),d.upperArm/.26,d.forearm/.27)*b.config.housingScale,t=.10*cross,baseY=d.baseHeight/.4;
   const base=group(rig.visual,'Base anclada al piso'),yaw=joint(rig.visual,'J1',[0,d.baseHeight,0],rig);
   const shoulder=joint(yaw,'J2',[0,0,0],rig),elbow=joint(shoulder,'J3',[d.upperArm,0,0],rig);
   const roll=joint(elbow,'J4',[d.forearm,0,0],rig),bend=joint(roll,'J5',[0,0,0],rig),spin=joint(bend,'J6',[0,0,0],rig);
   const parents={base_link:base,link_1:yaw,link_2:shoulder,link_3:elbow,link_4:roll,link_5:bend,link_6:spin};
   const names={base_link:'Base · fundición, conectores y cableado de potencia',link_1:'Hombro · columna giratoria y alojamiento de servomotor',link_2:'Brazo superior · fundición y tapa del reductor J2',link_3:'Reductor J3 · codo asimétrico y servomotor',link_4:'Antebrazo · transmisión hueca y alojamiento J4',link_5:'Muñeca · horquilla y mecanismo de cabeceo J5',link_6:'Brida ISO de herramienta · eje J6'};
   const decode=(value,Type)=>{const text=atob(value),bytes=new Uint8Array(text.length);for(let i=0;i<text.length;i++)bytes[i]=text.charCodeAt(i);return new Type(bytes.buffer);};
-  rig.castingShells=[];rig.shoulderCheeks=[];
+  rig.castingShells=[];rig.shoulderCheeks=[];const skins={};
   parts.forEach(part=>{
+    // The source visual includes two short, cut cable tails at its base.
+    // Replace those disconnected OEM fragments with the native floor socket
+    // and the actor-owned connection to its actual side console.
+    if(part.link==='base_link'&&/^base_link \/ Mesh[78]$/.test(part.name))return;
     const q=decode(part.position,Int16Array),encoded=decode(part.normal,Int8Array),positions=new Float32Array(q.length),normals=new Float32Array(q.length),uv=new Float32Array(q.length/3*2);
     let scale=[cross,cross,cross],shift=[0,0,0];
     if(part.link==='base_link')scale=[cross,Math.max(.1,baseY),cross];
@@ -462,12 +589,20 @@ function referenceArticulated(b, rig, d) {
       const v=[0,1,2].map(axis=>part.center[axis]+q[i+axis]*part.scale[axis]);
       if(part.link==='base_link'){v[0]+=.025;v[1]+=.4;v[2]-=.0907;}
       for(let axis=0;axis<3;axis++)positions[i+axis]=v[axis]*scale[axis]+shift[axis];
-      const normal=new THREE.Vector3(encoded[i]/scale[0],encoded[i+1]/scale[1],encoded[i+2]/scale[2]).normalize();normals.set([normal.x,normal.y,normal.z],i);
+      let dx=scale[0];
+      if(part.link==='link_2'||part.link==='link_3'||part.link==='link_4'){
+        const upper=part.link==='link_2',length=upper?d.upperArm:d.forearm,reference=upper?.455:.42,left=upper?.105:.12,right=upper?.375:.33;
+        const middle=(length-(reference-right)*cross-left*cross)/(right-left);
+        positions[i]=(v[0]<=left?v[0]*cross:v[0]>=right?length+(v[0]-reference)*cross:left*cross+(v[0]-left)*middle)+shift[0];
+        dx=v[0]<=left||v[0]>=right?cross:middle;
+      }
+      const normal=new THREE.Vector3(encoded[i]/dx,encoded[i+1]/scale[1],encoded[i+2]/scale[2]).normalize();normals.set([normal.x,normal.y,normal.z],i);
       uv[i/3*2]=positions[i]*3;uv[i/3*2+1]=(Math.abs(normal.y)>.7?positions[i+2]:positions[i+1])*3;
     }
     const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));geometry.setAttribute('normal',new THREE.BufferAttribute(normals,3));geometry.setAttribute('uv',new THREE.BufferAttribute(uv,2));geometry.setIndex(new THREE.BufferAttribute(decode(part.index,part.indexType==='H'?Uint16Array:Uint32Array),1));
-    geometry.computeBoundingBox();geometry.computeBoundingSphere();geometry.userData={robotReferenceCAD:true,sourceLink:part.link,sourceRevision:source.revision,sourceLOD:b.config.detail};
+    geometry.computeBoundingBox();geometry.computeBoundingSphere();geometry.userData={robotReferenceCAD:true,sourceLink:part.link,sourcePart:part.name,sourceRevision:source.revision,sourceLOD:b.config.detail};
     const mesh=b.mesh(names[part.link],geometry,part.role,parents[part.link]);mesh.userData.robotReferenceCAD=true;mesh.userData.robotContouredHousing=true;
+    if(!skins[part.link])skins[part.link]=[];skins[part.link].push(mesh);
     mesh.userData.industrialSourceLicense='Apache-2.0';mesh.userData.industrialSourceRevision=source.revision;
     if(part.link==='link_3')mesh.userData.robotComponentId='robot.elbow';
     if(part.link==='link_4')mesh.userData.robotComponentId='robot.forearm';
@@ -476,13 +611,15 @@ function referenceArticulated(b, rig, d) {
   // The native contact-critical end effector remains identical; the source
   // CAD flange is only its visual mounting face, never a substitute TCP.
   tool(b,spin,rig);
+  pilotAccessories(b,rig,d,skins,{base,yaw,shoulder,elbow,roll,bend,spin},cross);
   const radius=Math.max(.10,Math.min(.34,d.reach*.13)),pedestalTop=Math.max(.11,d.baseHeight-t*1.4);
-  const upperStart=t*.6,upperEnd=Math.max(t*.61,d.upperArm-t*1.55),upperCenterZ=x=>(.0907-.0042*x/d.upperArm)*cross;
-  rig.design={style:'reference-industrial-pilot',visualModel:'reference-pilot',revision:2,section:t,manufacturerReplica:false,source:source.source,sourceRevision:source.revision,sourceLicense:source.license,
+  const upperStart=t*1.08,upperEnd=Math.max(t*1.09,d.upperArm-t*1.55),upperCenterZ=x=>(.0907-.0042*x/d.upperArm)*cross;
+  rig.design={style:'reference-industrial-pilot',visualModel:'reference-pilot',revision:3,section:t,sectionScale:cross,capacityAffectsAppearance:false,manufacturerReplica:false,source:source.source,sourceRevision:source.revision,sourceLicense:source.license,
     adaptation:'CAD visual skins rebased and proportioned to native J1–J6; original OEM offsets removed; native motion and tool are retained.',
-    upperStructuralCenterline:{startZ:upperCenterZ(upperStart),endZ:upperCenterZ(upperEnd),radius:t*.24,reference:'CAD cantilever casting; verified against native local surface rays. The narrow web has a minimum sampled half-width of 0.275t.'}};
+    accessories:{harness:b.config.serviceHarness,covers:b.config.jointCovers,labels:b.config.identificationLabels,toolSupply:['vacuum','gripper','process'].includes(b.config.tool)?b.config.servicePackage:'none'},
+    upperStructuralCenterline:{startZ:upperCenterZ(upperStart),endZ:upperCenterZ(upperEnd),centerY:.008*cross,radius:t*.24,reference:'Offset CAD cantilever casting; verified by native local Y/Z surface rays at five sections in every LOD.'}};
   rig.selfCollisionCores={
-    upper:{object:shoulder,start:[upperStart,0,upperCenterZ(upperStart)],end:[upperEnd,0,upperCenterZ(upperEnd)],radius:t*.24},
+    upper:{object:shoulder,start:[upperStart,.008*cross,upperCenterZ(upperStart)],end:[upperEnd,.008*cross,upperCenterZ(upperEnd)],radius:t*.24},
     forearm:{object:elbow,start:[t*1.55,0,0],end:[Math.max(t*1.56,d.forearm-t*.8),0,0],radius:t*.3},
     pedestal:{object:rig.visual,start:[0,.06,0],end:[0,Math.max(.07,pedestalTop-.035),0],radius:radius*.65}
   };
@@ -848,7 +985,7 @@ export function updateRobotPose(root, pose = {}) {
   const jawOffset = gripSpan / 2 + .021 + opening * .06;
   rig.fingers.forEach(finger => { finger.position.z = finger.userData.robotFingerSign * jawOffset; });
   if (rig.gripperRail) rig.gripperRail.scale.z = Math.max(.23, jawOffset * 2 + .07);
-  rig.pose = solved; root.updateMatrixWorld(true); return solved;
+  rig.pose = solved; root.updateMatrixWorld(true); updatePilotServices(root,rig); return solved;
 }
 
 export function getRobotToolTransform(root) {

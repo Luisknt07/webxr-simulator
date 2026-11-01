@@ -525,6 +525,7 @@ export default class IndustrialVisuals {
 
   sync(roomId, delta = 0, editing = false) {
     const root = this.document.getRoot(roomId);
+    this.records.forEach(record => {if (record.configurations.robot && typeof record.object.userData.robotPanelCableSync === 'function') record.object.userData.robotPanelCableSync();});
     const objectCount = this.document.objects && this.document.objects.size;
     // Authoring tools may replace a material independently. Rebuild only the
     // affected visual, and never restore an old material over the new choice.

@@ -37,11 +37,11 @@ its full machine exceeds that Quest triangle profile.
 
 | Native mechanism, without side console | Low | Balanced | High |
 | --- | ---: | ---: | ---: |
-| Triangles, standard gripper | 12,702 | 25,067 | 35,667 |
-| Native mesh draws | 32 | 32 | 32 |
+| Triangles, standard gripper and accessories | 14,198 | 27,623 | 40,139 |
+| Native mesh draws | 62 | 68 | 68 |
 
 The native authored dispatch mechanism (3.2 m reach, vacuum tooling), isolated
-for study, exports at 26,371 triangles and 37 draws. Three LODs occupy about
+for study, exports at 29,503 triangles including its vacuum tooling and native service connections. Three LODs occupy about
 1.58 MB of quantized source data. The editable Blender and GLB study exports
 retain semantic components and joint IDs; the JSON packet route transfers PBR
 factors and geometry, with browser GLB preferred for image maps.
@@ -49,7 +49,7 @@ factors and geometry, with browser GLB preferred for image maps.
 The CAD casting's local fillets, holes and mechanical seams are baked source
 features; legacy fillet/chamfer controls do not retopologize those CAD surfaces.
 Select `legacy` for those parametric casting controls. Native reach, base height,
-payload-based section scaling, color/finish/wear and end-effector configuration
+capacity-independent housing section, color/finish/wear and end-effector configuration
 continue to affect the operational pilot. No standalone duplicate design library
 is needed to use or study it.
 
@@ -73,3 +73,49 @@ legacy zero-Z bearing line. Five sampled sections in each LOD are checked in
 both directions on Y and Z. The measured narrow web admits a conservative
 `0.24t` capsule radius; this is an inscribed structural teaching guard, not a
 complete CAD swept volume. Base and tool/load obstruction checks remain active.
+
+## Proportions and attached services
+
+The previous adaptation multiplied every CAD cross section by reach and payload.
+In the 3.2 m / 80 kg demonstration this reached three times the source diameter;
+it also stretched circular bearing ends into ovals. The current adaptation caps
+the nominal section at 1.5 times the visual reference and uses piecewise length
+adaptation: bearing ends keep uniform scale, while the straight link span gains
+length. Changing the simulated payload no longer changes these vertices. The
+six joint frames, 200 mm flange-to-TCP offset and contact geometry stay native.
+The underlying manufacturer's reference is a compact 901 mm robot, not a real
+3.2 m / 80 kg machine. No manufacturer capacity is inferred from this adaptation.
+
+The pilot controls are scoped to `articulated-general`: `housingScale` (0.85–1.15),
+`serviceHarness`, `jointCovers`, `servicePackage` and `identificationLabels`.
+Other robot variants retain their existing geometry. `legacy` restores the
+previous parametric casting controls. Fork/platform tooling deliberately omits
+the exterior pneumatic tool hose; vacuum, parallel gripper and process tools
+use their own collector/actuator connection. This is a configurable visual
+service package, not pressure, conductor or pin-level electrical simulation.
+
+The J2/J3 harness has real measured attachment surfaces, gland fittings, saddle
+clamps and articulated service loops. It updates its existing tube buffers when
+the relevant joint angles change. The wrist's internal service passage is
+documented; the visible short tool supply terminates at the actuator or vacuum
+manifold, behind the load contact region. Two cut cable fragments in the source
+base visual are omitted. `rig.panelServiceSocket` exposes an actual base gland
+and its local endpoint for the side-console connection owned by the parent
+machine prefab. The console and robot must be present to show that complete run.
+
+Semantic accessories have their own IDs: `robot.harness`, `robot.bearings`,
+`robot.tool-services` and `robot.base-services`. The sealed CAD reducer/servo
+housing remains part of `robot.elbow`; internal rotors, windings, encoders and
+PCB geometry are not modeled. The study viewer must describe that distinction.
+Identification/warning anchors are ray-projected onto their own real skins by
+the existing industrial sticker system. Paint, dark service covers, steel
+fittings and rubber retain distinct native PBR roles. The wear control adds
+subtle exposed-edge tint without a duplicate painted shell.
+
+Regression coverage includes 363 native joint/TCP comparisons over three LODs,
+the original tool contact vertices, 902 tube-center-to-CAD distance samples in a
+41-pose folded sweep (minimum 22.05 mm for a 12 mm tube radius), rigid actor
+relocation and buffer reuse. The three compact VR cells and six-load handling/
+SCARA examples retain physical custody and complete delivery. Those samples do
+not certify every arbitrary joint configuration, accessory combination, full
+machine safety or headset frame rate.

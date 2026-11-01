@@ -155,7 +155,7 @@ function compactVrStudy(document, roomId, definition, scene, options) {
     const robot = add('robot', 'RV · robot de expedición', 'articulated-general', {
       running: true, mode: 'automatic', withPanel: true, sourceId: source.userData.editorId, reach: 3.2, payloadKg: 80,
       tool: 'vacuum', acceptedTypes: 'pallets', requireKnownMass: true, maxProductWidth: 1.3, maxProductDepth: 1.1, maxProductHeight: 1,
-      baseHeight: .45, speed: .8, cycleTime: 4, processTime: 0, setupTime: .4, approachHeight: .18}, [0, 0, 0]);
+      baseHeight: .45, speed: .8, cycleTime: 4, processTime: 0, setupTime: .4, approachHeight: .18, wear: .34}, [0, 0, 0]);
     // The catalogue home scales its horizontal offset with arm reach. At 3.2m
     // that puts the wrist inside a loaded pallet at the adjoining chain input.
     // Author a metric folded waiting pose beside the base, retaining the full
