@@ -391,7 +391,7 @@ function mezzanine(THREE, b, parent, cells, config, rig) {
   });
   rig.mezzanine = Object.assign({levels, flights}, flights[0]);
   // Low pick dividers on top do not enclose a warehouse-sized solid block.
-  cells.forEach(cell => {const p = position(cell); b.box(parent, 'steel', [p[0], p[1] + .015, p[2] - cell.depth / 2], [cell.width, .03, .035]);b.label(parent,cell.code||'M'+(cell.bay+1)+'-N'+(cell.level+1),[p[0],p[1]-.065,a.maxZ+.178],Math.min(1.3,cell.width*.9),.075);b.detail.slotsLabeled++;});
+  cells.forEach(cell => {const p = position(cell); if(cell.depthIndex===(config.rackDepthSlots||1)-1)b.box(parent, 'steel', [p[0], p[1] + .015, p[2] - cell.depth / 2], [cell.width, .03, .035]);b.label(parent,cell.code||'M'+(cell.bay+1)+'-N'+(cell.level+1),[p[0],p[1]-.065,a.maxZ+.178],Math.min(1.3,cell.width*.9),.075);b.detail.slotsLabeled++;});
 }
 
 function automatic(THREE, b, parent, cells, config, layout, rig, system) {
@@ -427,6 +427,7 @@ function automatic(THREE, b, parent, cells, config, layout, rig, system) {
 
 function createVisual(THREE, value, suppliedLayout) {
   const config = racks.normalize ? racks.normalize(value) : value, layout = suppliedLayout || racks.layout(config), cells = layout.cells || layout.pallets || [];
+  if (['cube','carousel'].includes(layout.definition.mechanism)) return require('../../equipamiento/runtime/EquipmentGeometry.cjs').createCatalogueStorageVisual(THREE, config, layout);
   const root = new THREE.Group(); root.name = 'Estantería · ' + (config.rackSystem || 'selective');
   const system = config.rackSystem, b = createBuilder(THREE, config), rig = {system, pallets: [], banks: [], supports: [], carriage: null, lift: null, shuttle: null};
   Object.defineProperty(root.userData, 'warehouseRackRig', {value: rig, writable: true, configurable: true, enumerable: false});
@@ -444,7 +445,7 @@ function createVisual(THREE, value, suppliedLayout) {
     for (const x of [a.minX, a.maxX]) b.box(root, 'steel', [x, FLOOR + .008, (back + front) / 2], [.07, .016, front - back]);
   } else if (system === 'cantilever') cantilever(THREE, b, root, cells, config);
   else if (system === 'mezzanine') mezzanine(THREE, b, root, cells, config, rig);
-  else if (system === 'vertical-lift' || system === 'miniload') automatic(THREE, b, root, cells, config, layout, rig, system);
+  else if (layout.definition.mechanism === 'lift' || layout.definition.mechanism === 'miniload') automatic(THREE, b, root, cells, config, layout, rig, system);
   else {
     const mode = system === 'light-duty' || system === 'medium-duty' ? 'shelf' : system === 'pallet-flow' || system === 'carton-flow' ? 'roller' : system === 'drive-in' || system === 'drive-through' ? 'rail' : 'beam';
     frame(THREE, b, root, cells, config, {support: mode, light: system === 'light-duty' || system === 'carton-flow', drive: system === 'drive-in' || system === 'drive-through'});
@@ -479,6 +480,11 @@ function createLocationLabel(THREE, text, options = {}) {
   root.name='Identificación de ubicación · '+String(text);root.userData.warehouseLocationLabel=String(text);root.userData.warehouseLocationRenderedText=String(text||'').replace(/[^\x20-\x7e]/g,'?');root.userData.editorNonCollidable=true;
   b.label(root,text,[0,0,0],width,height);b.finish();root.userData.warehouseRackVisualStats=b.detail;return root;
 }
+function createLocationLabels(THREE, rows) {
+  if(!Array.isArray(rows)||rows.length>128)throw new Error('Invalid location label collection.');
+  const root=new THREE.Group(),b=createBuilder(THREE,{});root.name='Identificación de ubicaciones';root.userData.editorNonCollidable=true;
+  rows.forEach(row=>{if(!row||typeof row.text!=='string'||row.text.length>160||!Array.isArray(row.position)||row.position.length!==3||!row.position.every(Number.isFinite))throw new Error('Invalid location label.');b.label(root,row.text,row.position,row.width||.65,row.height||.075);b.detail.slotsLabeled++;});b.finish();root.userData.warehouseRackVisualStats=b.detail;return root;
+}
 
 function disposeVisual(root) {
   if (!root||root.userData&&root.userData.warehouseRackVisualDisposed) return;
@@ -491,4 +497,4 @@ function stats(root) {
   return Object.assign({meshes, draws: meshes, triangles, vertices, materials: materials.size},root.userData.warehouseRackVisualStats||{});
 }
 
-module.exports = {createVisual, createLocationLabel, disposeVisual, stats};
+module.exports = {createVisual, createLocationLabel, createLocationLabels, disposeVisual, stats};

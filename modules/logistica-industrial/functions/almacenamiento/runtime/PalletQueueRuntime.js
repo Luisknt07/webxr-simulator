@@ -30,12 +30,12 @@ export default class PalletQueueRuntime {
   dimensions(config) { return behaviorSchema.productSources.pallets.dimensions(config,true); }
 
   attachRack(record, component, layout) {
-    const config = component.config, banks = [], carts=[]; let carriage = null;
-    record.object.traverse(node => {if (Number.isInteger(node.userData.warehouseRackBank)) banks[node.userData.warehouseRackBank] = node; if (['vertical-lift','miniload'].includes(config.rackSystem)&&node.userData.warehouseRackMovingGeometry === config.rackSystem) carriage = node;if(node.userData.warehouseRackMovingGeometry==='push-back'&&Number.isInteger(node.userData.warehouseRackCell))carts[node.userData.warehouseRackCell]=node;});
+    const config = component.config, banks = [], carts=[], carouselTrays=[]; let carriage = null;
+    record.object.traverse(node => {if (Number.isInteger(node.userData.warehouseRackBank)) banks[node.userData.warehouseRackBank] = node; if (node.userData.warehouseRackMovingGeometry === config.rackSystem) carriage = node;if(node.userData.warehouseRackMovingGeometry==='push-back'&&Number.isInteger(node.userData.warehouseRackCell))carts[node.userData.warehouseRackCell]=node;if(Number.isInteger(node.userData.warehouseRackCarouselSlot))carouselTrays[node.userData.warehouseRackCarouselSlot]=node;});
     component.rackSelectedSlot = config.rackSelectedSlot || 0; component.rackOpenAisle = config.rackOpenAisle || 0; component.rackMechanismSpeed = config.rackMechanismSpeed || .25;
     component.rack = {system: config.rackSystem, layout, definition: layout.definition, banks, carriage,
       homes: banks.map(node => node.position.clone()), carriageHome: carriage && carriage.position.clone(), openAisle: component.rackOpenAisle,
-      jobs: [], mobile: null, presentedSlot: null, preparedLane:null, carts, cartHomes:carts.map(cart=>cart.position.clone()), cartMotion:null,
+      jobs: [], mobile: null, presentedSlot: null, preparedLane:null, carts, cartHomes:carts.map(cart=>cart.position.clone()), cartMotion:null, carouselTrays,carouselHomes:carouselTrays.map(tray=>tray.position.clone()),carouselPhase:0,carouselMotion:null,
       assignments: behaviorSchema.warehouseRacks.assignments(config).map(row=>Object.assign({},row)), status: 'Disponible', blocked: false};
     record.writable.push({key:'rackSelectedSlot',type:'number',label:'Posición solicitada',min:0,max:layout.cells.length-1},
       {key:'rackOpenAisle',type:'number',label:'Pasillo solicitado',min:0,max:Math.max(0, config.rackBanks-1)},
@@ -43,9 +43,9 @@ export default class PalletQueueRuntime {
   }
 
   rackCell(component, index) { return component.rack.layout.cells[index]; }
-  rackBusy(component) { return !!(component.rack && (component.rack.jobs.length || component.rack.mobile || component.rack.cartMotion)); }
+  rackBusy(component) { return !!(component.rack && (component.rack.jobs.length || component.rack.mobile || component.rack.cartMotion || component.rack.carouselMotion)); }
   rackLocked(component) { return component.items.some(item => {const p=item.product;return p.heldBy||p.robotOwnerId||p.robotReservedBy||p.vehicleOwnerId||p.vehicleReservedBy;}); }
-  rackAutomatic(component) { return component.rack && ['lift','miniload'].includes(component.rack.definition.mechanism); }
+  rackAutomatic(component) { return component.rack && ['lift','miniload','cube','carousel'].includes(component.rack.definition.mechanism); }
   rackMass(item) { return Math.max(0, Number(this.runtime.productMetadata(item.product).mass) || 0); }
 
   /** A load ID is independent of its SKU and of every storage address. */
@@ -200,6 +200,12 @@ export default class PalletQueueRuntime {
 
   rackPoint(component, cell) {
     const point=cell.position.slice();
+    if(component.rack.definition.mechanism==='carousel')return behaviorSchema.warehouseRacks.catalogueStorage.carouselPoint(component.rack.layout,cell.index,component.rack.carouselPhase);
+    if(component.rack.definition.mechanism==='cube'){
+      point[1]=-1+component.config.rackBaseHeight;
+      component.items.forEach(item=>{const lower=this.rackCell(component,item.palletIndex);if(lower&&lower.bay===cell.bay&&lower.column===cell.column&&lower.level<cell.level)point[1]+=Math.abs((item.bounds.max.y-item.bounds.min.y)*item.scale.y);});
+      return point;
+    }
     if(component.rack.definition.mechanism==='mobile') {
       const base=cell.closedPosition, bank=component.rack.banks[cell.bank];
       if(bank)return [base[0]+bank.position.x,base[1]+bank.position.y,base[2]+bank.position.z];
@@ -242,6 +248,7 @@ export default class PalletQueueRuntime {
     const occupied=new Set(component.items.map(value=>value.palletIndex));reservations.forEach(value=>occupied.add(value.palletIndex));
     const palletId=this.palletIdentity(product),plan=this.plannedLocation(palletId),assigned=new Map((state.assignments||[]).map(row=>[row.locationCode,row.palletId]));
     let cells=state.layout.cells.filter(cell=>!occupied.has(cell.index)&&(!plan||plan.record===record&&plan.locationCode===cell.code)&&(!assigned.has(cell.code)||assigned.get(cell.code)===palletId));
+    if(definition.mechanism==='cube')cells=cells.filter(cell=>behaviorSchema.warehouseRacks.catalogueStorage.cubeSupported(state.layout.cells,component.items,cell));
     if(connectionOnly&&!this.rackAutomatic(component))cells=cells.filter(cell=>this.rackAtPort(component,cell,false));
     if(definition.mechanism==='mobile')cells=cells.filter(cell=>cell.bank===state.openAisle);
     if(['lifo','fifo'].includes(definition.policy))cells=cells.filter(cell=>{
@@ -258,6 +265,10 @@ export default class PalletQueueRuntime {
       const reservedMass=reservations.filter(value=>{const other=this.rackCell(component,value.palletIndex);return other&&other.bank===cell.bank&&other.bay===cell.bay&&other.level===cell.level;}).reduce((sum,value)=>sum+(value.mass||0),0);
       if(levelMass+reservedMass+mass>cell.levelCapacityKg+.001)continue;
       if(component.config.rackSkuPolicy==='lane'&&component.items.some(value=>this.rackCell(component,value.palletIndex).lane===cell.lane&&this.runtime.productMetadata(value.product).sku!==metadata.sku))continue;
+      if(definition.mechanism==='carousel'){
+        const target=behaviorSchema.warehouseRacks.catalogueStorage.targetPhase(state.layout,cell.index,state.carouselPhase);
+        if(Math.abs(target-state.carouselPhase)>1e-7){this.rackStartCarousel(component,cell.index,'store');return null;}
+      }
       const point=this.rackAutomatic(component)?state.layout.accessPosition:this.rackPoint(component,cell),matrix=this.rackMatrix(record,product,point),box=product.bounds.clone().applyMatrix4(matrix),world=this.runtime.ctx.collisionWorld;
       const options=this.collisionOptions(record,item,reservations);if(typeof receivingIgnore==='function')options.ignore.push(...receivingIgnore(matrix));
       if(world&&world.testBox(box,options))continue;
@@ -270,6 +281,7 @@ export default class PalletQueueRuntime {
 
   rackPath(record,item,cell,retrieve) {
     const state=record.components.palletQueue.rack,access=state.layout.accessPosition,shaft=state.layout.shaftPosition,storage=this.rackPoint(record.components.palletQueue,cell);
+    if(state.definition.mechanism==='cube')return behaviorSchema.warehouseRacks.catalogueStorage.cubePath(state.layout,cell,storage,retrieve,Math.abs((item.bounds.max.y-item.bounds.min.y)*item.scale.y)).map(point=>this.rackMatrix(record,item.product,point));
     const route=retrieve?[storage,[storage[0],storage[1],shaft[1]],[0,storage[1],shaft[1]],[0,access[1],shaft[1]],access]:
       [access,[0,access[1],shaft[1]],[0,storage[1],shaft[1]],[storage[0],storage[1],shaft[1]],storage];
     return route.map(point=>this.rackMatrix(record,item.product,point));
@@ -289,7 +301,7 @@ export default class PalletQueueRuntime {
     state.assignments=(state.assignments||[]).filter(row=>row.palletId!==palletId);
     this.identifyStored(record,item);this.syncIdentification(true);
     if(state.definition.mechanism==='push-back'&&state.carts.length){item.rackCartIndex=this.rackAvailableCart(component,cell,item);this.rackSyncVisual(record);}
-    if(this.rackAutomatic(component))this.rackQueueMove(record,item,this.rackCell(component,item.palletIndex),'store',this.rackPath(record,item,this.rackCell(component,item.palletIndex),false));
+    if(this.rackAutomatic(component)&&state.definition.mechanism!=='carousel')this.rackQueueMove(record,item,this.rackCell(component,item.palletIndex),'store',this.rackPath(record,item,this.rackCell(component,item.palletIndex),false));
   }
 
   rackRetarget(component,item,index) {
@@ -304,6 +316,9 @@ export default class PalletQueueRuntime {
     if(!state||!this.rackAutomatic(component)||this.rackBusy(component)||this.rackLocked(component)||!this.operational(component))return false;
     const selected=Number.isInteger(index)&&index>=0?index:component.rackSelectedSlot,item=component.items.find(value=>value.palletIndex===selected);
     if(!item||state.presentedSlot!==null)return state.presentedSlot===selected;
+    if(state.definition.mechanism==='cube'&&!behaviorSchema.warehouseRacks.catalogueStorage.cubeAccessible(state.layout.cells,component.items,this.rackCell(component,selected))){state.status='Retira primero el contenedor superior de esta columna';return false;}
+    if(state.definition.catalogue&&state.definition.policy==='lifo'){const cell=this.rackCell(component,selected);if(component.items.some(other=>{const front=this.rackCell(component,other.palletIndex);return front.lane===cell.lane&&front.depthIndex<cell.depthIndex;})){state.status='Retira primero el pallet frontal de esta calle';return false;}}
+    if(state.definition.mechanism==='carousel')return this.rackStartCarousel(component,selected,'retrieve');
     return this.rackQueueMove(record,item,this.rackCell(component,selected),'retrieve',this.rackPath(record,item,this.rackCell(component,selected),true));
   }
 
@@ -356,7 +371,7 @@ export default class PalletQueueRuntime {
 
   captureRackPose(record) {
     const component=record.components.palletQueue,state=component&&component.rack;if(!state)return;
-    state.visualPose={banks:state.banks.map(node=>node.position.toArray()),carriage:state.carriage?state.carriage.position.toArray():null,carts:state.carts.map(node=>node.position.toArray())};
+    state.visualPose={banks:state.banks.map(node=>node.position.toArray()),carriage:state.carriage?state.carriage.position.toArray():null,carts:state.carts.map(node=>node.position.toArray()),carouselPhase:state.carouselPhase||0};
   }
 
   restoreRackPose(record) {
@@ -364,6 +379,7 @@ export default class PalletQueueRuntime {
     const valid=value=>Array.isArray(value)&&value.length===3&&value.every(n=>Number.isFinite(n)&&Math.abs(n)<=10000);
     if(!Array.isArray(pose.banks)||pose.banks.length!==state.banks.length||!Array.isArray(pose.carts)||pose.carts.length!==state.carts.length||pose.banks.some(p=>!valid(p))||pose.carts.some(p=>!valid(p))||pose.carriage!==null&&!valid(pose.carriage))throw new Error('La posición del mecanismo de estantería no es válida.');
     state.banks.forEach((node,index)=>node.position.fromArray(pose.banks[index]));state.carts.forEach((node,index)=>node.position.fromArray(pose.carts[index]));if(state.carriage&&pose.carriage)state.carriage.position.fromArray(pose.carriage);
+    if(pose.carouselPhase!==undefined){if(!Number.isFinite(pose.carouselPhase)||Math.abs(pose.carouselPhase)>Math.PI*2+1e-6)throw new Error('La fase del carrusel no es válida.');state.carouselPhase=pose.carouselPhase;state.carouselTrays.forEach((tray,index)=>tray.position.fromArray(behaviorSchema.warehouseRacks.catalogueStorage.carouselPoint(state.layout,index,state.carouselPhase)));}
     const assignments=behaviorSchema.warehouseRacks.assignmentRows(JSON.stringify(state.assignments||behaviorSchema.warehouseRacks.assignments(component.config)));
     if(assignments.some(row=>!state.layout.cells.some(cell=>cell.code===row.locationCode)))throw new Error('Una reserva de estantería apunta a una ubicación inexistente.');
     state.assignments=assignments;assignments.forEach(row=>this.plannedLocation(row.palletId));
@@ -390,6 +406,7 @@ export default class PalletQueueRuntime {
   rackAdvanceJobs(record,delta) {
     const component=record.components.palletQueue,state=component.rack;if(!state.jobs.length)return false;
     if(this.rackLocked(component)){state.blocked=true;state.status='Mecanismo retenido por carga agarrada o reservada';return true;}
+    if(state.carriage&&this.rackAutomatic(component)&&!state.jobs[0].carriageReady){this.rackApproachLoad(record,state.jobs[0],delta);return true;}
     const distance=Math.max(.05,Math.min(1,component.rackMechanismSpeed))*delta,proposals=[];
     state.jobs.forEach(job=>{
       const p=job.item.product;p.object.updateWorldMatrix(true,true);const current=p.object.matrixWorld.clone(),position=new THREE.Vector3().setFromMatrixPosition(current),target=new THREE.Vector3().setFromMatrixPosition(job.path[0]),offset=target.clone().sub(position),remaining=offset.length();
@@ -406,13 +423,31 @@ export default class PalletQueueRuntime {
     proposals.forEach(proposal=>{
       const {job,product,matrix,box}=proposal,item=job.item;item.previous.copy(item.box);this.runtime.setProductMatrix(product,matrix);item.box.copy(box);item.swept.copy(item.previous).union(box);this.runtime.invalidateCollision(product.object);
       if(state.carriage&&this.rackAutomatic(component)) {
-        const point=box.getCenter(new THREE.Vector3());point.y=box.min.y-.005;state.carriage.parent.updateWorldMatrix(true,false);state.carriage.position.copy(state.carriage.parent.worldToLocal(point));state.carriage.updateWorldMatrix(true,true);this.runtime.invalidateCollision(state.carriage);
+        const point=box.getCenter(new THREE.Vector3());point.y=state.definition.mechanism==='cube'?box.max.y+.04:box.min.y-.005;state.carriage.parent.updateWorldMatrix(true,false);state.carriage.position.copy(state.carriage.parent.worldToLocal(point));state.carriage.updateWorldMatrix(true,true);this.runtime.invalidateCollision(state.carriage);
       }
       if(state.carts[item.rackCartIndex]){const point=box.getCenter(new THREE.Vector3());point.y=box.min.y-.005;state.carts[item.rackCartIndex].parent.updateWorldMatrix(true,false);state.carts[item.rackCartIndex].position.copy(state.carts[item.rackCartIndex].parent.worldToLocal(point));}
       if(proposal.arrived){job.path.shift();if(!job.path.length){this.rackRetarget(component,item,job.targetIndex);if(job.kind==='retrieve')state.presentedSlot=job.targetIndex;job.done=true;}}
     });
     this.rackSyncVisual(record);state.jobs=state.jobs.filter(job=>!job.done);state.blocked=false;if(!state.jobs.length){state.status=state.presentedSlot===null?'Disponible':'Carga disponible en ventanilla';this.order(component);}
     return true;
+  }
+
+  rackApproachLoad(record,job,delta) {
+    const component=record.components.palletQueue,state=component.rack,carrier=state.carriage;
+    carrier.updateWorldMatrix(true,true);job.item.product.object.updateWorldMatrix(true,true);
+    if(!job.carriageApproach){
+      const current=record.object.worldToLocal(carrier.getWorldPosition(new THREE.Vector3())),box=job.item.bounds.clone().applyMatrix4(job.item.product.object.matrixWorld),goal=box.getCenter(new THREE.Vector3());
+      goal.y=state.definition.mechanism==='cube'?box.max.y+.04:box.min.y-.005;record.object.worldToLocal(goal);
+      const points=state.definition.mechanism==='cube'?[new THREE.Vector3(current.x,state.layout.motion.topY-.16,current.z),new THREE.Vector3(goal.x,state.layout.motion.topY-.16,goal.z),goal]:[new THREE.Vector3(current.x,current.y,state.layout.shaftPosition[1]),new THREE.Vector3(goal.x,current.y,state.layout.shaftPosition[1]),new THREE.Vector3(goal.x,goal.y,state.layout.shaftPosition[1]),goal];
+      job.carriageApproach=points.map(point=>record.object.localToWorld(point));
+    }
+    const target=job.carriageApproach[0],position=carrier.getWorldPosition(new THREE.Vector3()),offset=target.clone().sub(position),limit=component.rackMechanismSpeed*delta;
+    if(offset.length()>limit)offset.setLength(limit);
+    const box=new THREE.Box3().setFromObject(carrier),next=box.clone().translate(offset),user=this.rackUserBox(),world=this.runtime.ctx.collisionWorld,options=this.runtime.packageCollisionOptions(record,job.item);
+    options.ignore.push(record.object,job.item.product.object);options.extraBoxes=[];
+    if(user&&next.intersectsBox(user)||world&&(world.sweepBox(box,offset,options).blocked||world.testBox(next,options))){state.blocked=true;state.status='Cabezal detenido por obstáculo antes de tomar la carga';return;}
+    carrier.position.copy(carrier.parent.worldToLocal(position.add(offset)));carrier.updateWorldMatrix(true,true);this.rackSyncVisual(record);this.runtime.invalidateCollision(carrier);state.blocked=false;state.status='Aproximando el mecanismo a la carga';
+    if(carrier.getWorldPosition(new THREE.Vector3()).distanceTo(target)<1e-7){job.carriageApproach.shift();if(!job.carriageApproach.length){job.carriageReady=true;delete job.carriageApproach;}}
   }
 
   rackRequestAisle(record,index) {
@@ -444,6 +479,7 @@ export default class PalletQueueRuntime {
 
   rackStep(record,delta) {
     const component=record.components.palletQueue,state=component.rack;if(!state)return;
+    if(this.rackAdvanceCarousel(record,delta))return;
     if(this.rackAdvanceAisle(record,delta)||this.rackAdvanceJobs(record,delta)||this.rackAdvanceCart(record,delta))return;
     if(state.definition.mechanism==='mobile'&&component.rackOpenAisle!==state.openAisle){this.rackRequestAisle(record,component.rackOpenAisle);return;}
     if(!['gravity','push-back'].includes(state.definition.mechanism))return;
@@ -451,6 +487,29 @@ export default class PalletQueueRuntime {
     const occupied=new Set(component.items.map(item=>item.palletIndex));
     const ordered=component.items.slice().sort((a,b)=>this.rackCell(component,a.palletIndex).depthIndex-this.rackCell(component,b.palletIndex).depthIndex),lanes=new Set();
     ordered.forEach(item=>{const cell=this.rackCell(component,item.palletIndex);if(cell.depthIndex===0||lanes.has(cell.lane)||state.preparedLane===cell.lane)return;const target=state.layout.cells.find(other=>other.lane===cell.lane&&other.depthIndex===cell.depthIndex-1);if(target&&!occupied.has(target.index)){this.rackQueueMove(record,item,target,'move');lanes.add(cell.lane);}});
+  }
+
+  rackStartCarousel(component,index,purpose) {
+    const state=component.rack;if(!state||state.definition.mechanism!=='carousel'||this.rackBusy(component)||this.rackLocked(component)||!this.operational(component)||component.emergency||component.powered===false)return false;
+    const target=behaviorSchema.warehouseRacks.catalogueStorage.targetPhase(state.layout,index,state.carouselPhase);
+    if(Math.abs(target-state.carouselPhase)<1e-7){if(purpose==='retrieve'){state.presentedSlot=index;state.status='Carga disponible en ventanilla';}return true;}
+    state.carouselMotion={target,index,purpose};state.status=purpose==='retrieve'?'Girando bandejas hasta la ventanilla':'Preparando bandeja vacía';return true;
+  }
+
+  rackAdvanceCarousel(record,delta) {
+    const component=record.components.palletQueue,state=component.rack,motion=state.carouselMotion;if(!motion)return false;
+    if(component.emergency||component.powered===false||this.rackLocked(component)){state.blocked=true;state.status='Carrusel detenido por enclavamiento';return true;}
+    const change=motion.target-state.carouselPhase,angle=Math.sign(change)*Math.min(Math.abs(change),component.rackMechanismSpeed*delta/state.layout.carousel.radius),phase=state.carouselPhase+angle;
+    const proposed=component.items.map(item=>{const point=behaviorSchema.warehouseRacks.catalogueStorage.carouselPoint(state.layout,item.palletIndex,phase),matrix=this.rackMatrix(record,item.product,point),box=item.bounds.clone().applyMatrix4(matrix),movement=box.getCenter(new THREE.Vector3()).sub(item.box.getCenter(new THREE.Vector3()));return{item,matrix,box,movement};});
+    const user=this.rackUserBox(),world=this.runtime.ctx.collisionWorld;
+    for(const row of proposed){const options=this.collisionOptions(record,row.item);options.ignore.push(record.object,...component.items.map(item=>item.product.object));options.extraBoxes=(options.extraBoxes||[]).filter(box=>!component.items.some(item=>item.box===box));if(user&&row.box.intersectsBox(user)||world&&(world.sweepBox(row.item.box,row.movement,options).blocked||world.testBox(row.box,options))){state.blocked=true;state.status='Carrusel detenido por obstáculo';return true;}}
+    for(let i=0;i<proposed.length;i++)for(let j=i+1;j<proposed.length;j++)if(proposed[i].box.clone().expandByScalar(-.002).intersectsBox(proposed[j].box.clone().expandByScalar(-.002))){state.blocked=true;state.status='Separación insuficiente entre bandejas';return true;}
+    state.carouselPhase=phase;
+    proposed.forEach(({item,matrix,box})=>{item.previous.copy(item.box);this.runtime.setProductMatrix(item.product,matrix);item.box.copy(box);item.swept.copy(item.previous).union(box);this.runtime.invalidateCollision(item.product.object);});
+    state.carouselTrays.forEach((node,index)=>{if(node)node.position.fromArray(behaviorSchema.warehouseRacks.catalogueStorage.carouselPoint(state.layout,index,phase));});
+    record.object.updateWorldMatrix(true,true);this.rackSyncVisual(record);state.blocked=false;
+    if(Math.abs(motion.target-phase)<1e-7){state.carouselPhase%=Math.PI*2;state.carouselMotion=null;if(motion.purpose==='retrieve')state.presentedSlot=motion.index;state.status=motion.purpose==='retrieve'?'Carga disponible en ventanilla':'Bandeja vacía preparada';this.order(component);}
+    return true;
   }
 
   operational(component) { return component.enabled && component.running && !component.paused; }
@@ -791,7 +850,7 @@ export default class PalletQueueRuntime {
       const component = record.components.palletQueue;
       if (!component) return;
       behaviorSchema.palletQueues.physical.stop(this,record);
-      if(component.rack){component.rack.banks.forEach((bank,index)=>bank.position.copy(component.rack.homes[index]));component.rack.carts.forEach((cart,index)=>cart.position.copy(component.rack.cartHomes[index]));if(component.rack.carriage&&component.rack.carriageHome)component.rack.carriage.position.copy(component.rack.carriageHome);this.rackSyncVisual(record);record.object.updateWorldMatrix(true,true);this.runtime.invalidateCollision(record.object);}
+      if(component.rack){component.rack.banks.forEach((bank,index)=>bank.position.copy(component.rack.homes[index]));component.rack.carts.forEach((cart,index)=>cart.position.copy(component.rack.cartHomes[index]));component.rack.carouselTrays.forEach((tray,index)=>tray.position.copy(component.rack.carouselHomes[index]));component.rack.carouselPhase=0;component.rack.carouselMotion=null;if(component.rack.carriage&&component.rack.carriageHome)component.rack.carriage.position.copy(component.rack.carriageHome);this.rackSyncVisual(record);record.object.updateWorldMatrix(true,true);this.runtime.invalidateCollision(record.object);}
       if (component.helper.parent) component.helper.parent.remove(component.helper);
       component.pallets.forEach(pallet => { pallet.items.length = 0; });
       component.items.length = 0; component.queue.length = 0;

@@ -14,7 +14,11 @@ const index=require('../../modules/logistica-industrial/documentation/index.cjs'
 const bindings=require('../../modules/logistica-industrial/contracts/knowledgeBindings.json');
 const resources=require('../../modules/logistica-industrial/contracts/resourceCatalog.js');
 const taxonomy=require('../../modules/logistica-industrial/contracts/libraryTaxonomy.js');
+const equipment=require('../../modules/logistica-industrial/functions/equipamiento/schema/equipmentCatalog.cjs');
+const illustratedProof=require('../fixtures/nexus-independent-source-proof.json').sources.find(source=>source.kind==='equipment');
 const articles=new Map(book.ARTICLES.map(article=>[article.id,article]));
+const sourceArticles=new Map(proof.equipment.map(article=>['nexus-conceptual-198:'+article.id,{...article,namespace:'nexus-conceptual-198'}]).concat(illustratedProof.records.map(article=>[illustratedProof.namespace+':'+article.id,{...article,namespace:illustratedProof.namespace}])));
+const sourceKey=id=>String(id).includes(':')?id:'nexus-conceptual-198:'+id;
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const normalize=text=>String(text).replace(/\s+/g,' ').trim();
 const blocks=book.ARTICLES.flatMap(article=>article.sections.flatMap(section=>section.blocks.map(block=>({article,section,block}))));
@@ -101,14 +105,43 @@ test('all native resources stay real; related-only conceptual equipment never ga
  for(const expected of proof.equipment){
   const links=bindings.links[expected.id]||[],exact=links.filter(link=>link.relation==='exact');
   for(const link of links){assert(['exact','family'].includes(link.relation));assert(byId.has(link.resourceId),'Documentation references a missing native resource: '+link.resourceId);}
-  const ready=exact.some(link=>{const resource=byId.get(link.resourceId);return resource.status==='functional'&&resource.action;});
+  const ready=exact.some(link=>{const resource=byId.get(link.resourceId);return resource.status==='functional'&&resource.action;})||native.some(resource=>resource.status==='functional'&&resource.action&&(resource.documentationLinks||[]).some(link=>link.relation==='exact'&&sourceKey(link.articleId)==='nexus-conceptual-198:'+expected.id));
   assert.equal(pendingById.has(expected.id),!ready,'A family reference cannot masquerade as this native machine: '+expected.id);
   if(!ready){const resource=pendingById.get(expected.id);assert.equal(resource.status,'development');assert.equal(resource.action,null);assert(resource.reason);}
   for(const link of exact){const resource=byId.get(link.resourceId);assert.equal(resource.status,'functional');assert(resource.action,'Exact represented type must have a real action.');}
  }
- for(let i=0;i<native.length;i++){assert.equal(decorated[i].action,native[i].action,'Decoration must reuse the existing action.');assert(decorated[i].documentationLinks.every(link=>articles.has(link.articleId)));assert(taxonomy.memberships(decorated[i]).length);}
+ for(let i=0;i<native.length;i++){assert.equal(decorated[i].action,native[i].action,'Decoration must reuse the existing action.');assert(decorated[i].documentationLinks.every(link=>sourceArticles.has(sourceKey(link.articleId))));assert(taxonomy.memberships(decorated[i]).length);}
+ const relatedOnly=proof.equipment.find(article=>(bindings.links[article.id]||[]).length&&(bindings.links[article.id]||[]).every(link=>link.relation==='family'));
+ assert(relatedOnly,'The fixture must exercise a real family-only source binding.');
+ const relatedResources=(bindings.links[relatedOnly.id]||[]).map(link=>({...byId.get(link.resourceId),documentationLinks:[{articleId:relatedOnly.id,relation:'family'}]}));
+ const conceptual=taxonomy.pendingResources(relatedResources).find(resource=>resource.articleId===relatedOnly.id);
+ assert(conceptual,'A functioning related machine alone must not make this source type insertable.');assert.equal(conceptual.action,null);assert.equal(conceptual.status,'development');
  const assets=require('../../packages/tools/editor/assets/catalog.json');assert.equal(assets.length,188);
  for(const asset of assets){const resource=resources.assetResource(asset);assert.equal(resource.asset,asset,'Library browsing retains the original asset; it does not synthesize a replacement model.');}
+});
+
+test('explicit native documentation metadata resolves the independent 198 + 189 source union without code collisions',()=>{
+ assert.equal(sourceArticles.size,387);assert.equal(illustratedProof.records.length,189);
+ const definitions=new Map(equipment.DEFINITIONS.map(definition=>[definition.id,definition]));
+ const registered=new Map(resources.RESOURCES.map(resource=>[resource.id,resource]));
+ const represented=new Set();
+ for(const definition of definitions.values())for(const reference of definition.sourceRefs){
+  const original=sourceArticles.get(reference.key);assert(original,'Unknown source reference: '+reference.key);
+  assert.equal(reference.key,reference.namespace+':'+reference.id);assert.equal(reference.namespace,original.namespace);assert.equal(reference.id,original.id);assert.equal(reference.title,original.title,'A short code must not inherit a different edition\'s title.');represented.add(reference.key);
+ }
+ assert.deepEqual(represented,new Set(sourceArticles.keys()),'Every source concept must retain an explicit, edition-qualified canonical reference.');
+ for(const resource of resources.RESOURCES){
+  const references=resource.sourceRefs||[];
+  for(const link of resource.documentationLinks||[]){
+   const key=sourceKey(link.articleId);assert(sourceArticles.has(key),'Documentation points outside the two supplied equipment editions: '+link.articleId);
+   assert(['exact','family','concept'].includes(link.relation));
+   if(link.relation==='exact'&&references.length)assert(references.some(reference=>reference.key===key),'An exact metadata link requires this edition-qualified source reference: '+resource.id+' -> '+key);
+  }
+  if(resource.aliasOf){
+   const target=registered.get(resource.aliasOf);assert(target&&target.status==='functional'&&target.action,'An upgraded legacy identity must resolve to an actual functional registered capability.');assert.equal(resource.catalogueEquipmentId,target.catalogueEquipmentId);assert.deepEqual(resource.action,target.action);assert.deepEqual(resource.sourceRefs,target.sourceRefs);assert.deepEqual(resource.documentationLinks,target.documentationLinks);
+  }
+ }
+ assert.notEqual(sourceArticles.get('nexus-conceptual-198:TR-03').title,sourceArticles.get('nexus-illustrated-2026:TR-03').title,'The real TR-03 collision remains separate.');
 });
 
 test('lightweight taxonomy can load without the full document body or its illustrations',()=>{

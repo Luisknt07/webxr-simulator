@@ -129,6 +129,7 @@ export default class EditorShell {
     const guide = button('Guía', () => editor.sceneGuide ? editor.sceneGuide.open() : editor.toast('La guía se está preparando.'));
     guide.title = 'Construir un escenario a partir de instrucciones'; toolbar.appendChild(guide);
     toolbar.appendChild(button('▤ Documentación', () => this.openDocumentation(), 'ed-documentation-open'));
+    toolbar.appendChild(button('◈ Prácticas', () => this.openWorkspace('practices'), 'ed-practices-open'));
     toolbar.appendChild(editor.undoButton); toolbar.appendChild(editor.redoButton);
     const tools = node('div', 'ed-toolbar-group'); tools.setAttribute('role', 'group'); tools.setAttribute('aria-label', 'Herramienta de transformación');
     this.selectButton = button('↖ Seleccionar', () => editor.setTool('select'));
@@ -212,6 +213,7 @@ export default class EditorShell {
         ['Caja manipulable', mutate(() => e.createPlacedObject(() => e.document.addPrefab(e.roomId, 'product')))]
       ]],
       ['Escenario', [
+        ['Prácticas · Logística y manufactura', () => this.openWorkspace('practices')],
         ['Catálogo de escenas…', () => this.openSceneCatalog()],
         ['Construir con instrucciones…', () => e.sceneGuide && e.sceneGuide.open()],
         ['Ver niveles del proyecto', () => this.openScenes()],
@@ -319,8 +321,8 @@ export default class EditorShell {
     this.worktabs = node('div', 'ed-workspace-tabs'); this.worktabs.setAttribute('role', 'tablist');
     this.worktabs.appendChild(button('◇ Escenario 3D', () => this.closeWorkspace()));
     this.workspaceTabs = new Map();
-    [['documentation', 'Documentación'], ['interface', 'Interfaz'], ['logic', 'Lógica y misiones'], ['signals', 'Señales'], ['results', 'Resultados'], ['console', 'Consola'], ['cameras', 'Cámaras']].forEach(([id, label]) => {
-      const tab = button(label, () => this.openWorkspace(id)); tab.setAttribute('role', 'tab'); tab.hidden = id !== 'documentation';
+    [['documentation', 'Documentación'], ['practices', 'Prácticas'], ['interface', 'Interfaz'], ['logic', 'Lógica y misiones'], ['signals', 'Señales'], ['results', 'Resultados'], ['console', 'Consola'], ['cameras', 'Cámaras']].forEach(([id, label]) => {
+      const tab = button(label, () => this.openWorkspace(id)); tab.setAttribute('role', 'tab'); tab.hidden = !['documentation','practices'].includes(id);
       this.workspaceTabs.set(id, tab); this.worktabs.appendChild(tab);
     });
     this.worktabs.appendChild(button('×', () => this.closeWorkspace(), 'ed-workspace-close'));
@@ -352,11 +354,19 @@ export default class EditorShell {
     this.closeMenus(); this.editor.clearNavigation(); this.workspace = id; this.workarea.hidden = false;
     this.workarea.classList.toggle('ed-workspace-side', ['connections', 'environment'].includes(id));
     this.workarea.classList.toggle('ed-workspace-documentation', id === 'documentation');
+    this.workarea.classList.toggle('ed-workspace-practices', id === 'practices');
     this.workspaceTabs.forEach((tab, key) => { if (key === id) tab.hidden = false; tab.classList.toggle('active', key === id); tab.setAttribute('aria-selected', String(key === id)); });
     if (this.editor.simulationPanel && this.editor.simulationPanel.panel.parentNode === this.workcontent) this.editor.simulationPanel.toggle(false);
     if (this.workcontent.dispatchEvent) this.workcontent.dispatchEvent(new Event('studio-workspace-close'));
     this.workcontent.textContent = '';
-    if (id === 'documentation') {
+    if (id === 'practices') {
+      this.workcontent.appendChild(node('p','','Cargando las prácticas…'));const host=this.workcontent,token={};this.practiceLoad=token;
+      host.addEventListener('studio-workspace-close',()=>{if(this.practiceLoad===token)this.practiceLoad=null;if(token.browser)token.browser.dispose();},{once:true});
+      import('../../../../modules/logistica-industrial/practices/ui/PracticeBrowser.js').then(value=>{
+        if(this.practiceLoad!==token||this.workspace!=='practices')return;host.textContent='';token.browser=new value.default(host,{onClose:()=>{if(this.practiceLoad===token)this.closeWorkspace();},isAvailable:()=>!this.editor.projectModules||this.editor.projectModules.canShowLevel('sector.logistics-industrial'),
+          onDocumentation:target=>this.openDocumentation(target),onCreate:async(id,options)=>{const result=await this.studio('createPracticeProject',id,options);if(this.practiceLoad===token&&this.workspace==='practices')this.closeWorkspace();return result;}});
+      }).catch(error=>{if(this.practiceLoad===token){host.textContent='';host.appendChild(node('p','',error.message));}});
+    } else if (id === 'documentation') {
       const editor = this.editor;
       this.documentation = new DocumentationBrowser(this.workcontent, {
         initialTarget: this.documentationTarget,

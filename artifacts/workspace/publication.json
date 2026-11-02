@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "870c783cef719e74fd4c73a0e23ff9bac233d6e3",
-  "bundleSha256": "9946a000628a10eee9401eb4c9b3ca2017cb18440f83e1f437183f4f13edcc0b",
+  "revision": "cd4f6df8c0f7d9158177e62b3afde320da153feb",
+  "bundleSha256": "ed9f567e1181255f2a9d213d97d513c9da63841e2e2e9626b67c80928602daf3",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -44,27 +44,51 @@
   "files": [
     {
       "path": "0.bundle.js",
-      "sha256": "0854a1060fa99987daf036732eb985803d7dad557d952209e798b5d9ca562948"
+      "sha256": "ba2e1adf6bb4be8c32dfa109a87c9656d82f7c540e3d56f014d5af75299bef69"
     },
     {
       "path": "1.bundle.js",
-      "sha256": "c33909d8e77f1aa1791684a809841439b6ce1f827f6dab41897b61f4513fd6f7"
+      "sha256": "e44ab363120aa3051533543cec65ec37b358a202afc43fa92dff6b6b841db521"
+    },
+    {
+      "path": "10.bundle.js",
+      "sha256": "4a822d1e3fc05178097c870b815796be5b685afd8db7ae16ef42efc7f8abcb45"
+    },
+    {
+      "path": "11.bundle.js",
+      "sha256": "08c3da8277eb936bc3d2f3a75136082ead2e36c5b030f2b756234651b6157d7a"
+    },
+    {
+      "path": "12.bundle.js",
+      "sha256": "2518687e41f1630d0f0ffd83ecc6bf0477b64f5b8008e8b6601335c654dbc029"
+    },
+    {
+      "path": "2.bundle.js",
+      "sha256": "2617b57b34f51f14a74c930162cffe15f2336abb83e315e83695abe0fa59c5ba"
     },
     {
       "path": "3.bundle.js",
-      "sha256": "19f4fe9ff6497886aff49e7b3a0214e4dda3f103014af7856695a27779496e38"
-    },
-    {
-      "path": "4.bundle.js",
-      "sha256": "7357bf33c60358a5e8e0f62e845efa46e6bd24791cc4b0f5fad3a7248f9eaa9e"
+      "sha256": "88d80947671cac4cf36570ba2c3430ea9e4db07a45322e27ab1610e32aef6203"
     },
     {
       "path": "5.bundle.js",
-      "sha256": "335d22a6b67e0255bf6c8d2582b43ee50c12f8766ac75785b5162e34c05f3db5"
+      "sha256": "c4926357e30cde36d427c95df0041de287805efcf0e6f948ef1288b37d7f88b6"
     },
     {
       "path": "6.bundle.js",
-      "sha256": "912b13e824b99816f0164f90f0a2ad5e99af30d9b996518079765fdb96ea7088"
+      "sha256": "0cd05a5b7081b572c36a181db1099da5b9b4d872ded2245e082806612f499811"
+    },
+    {
+      "path": "7.bundle.js",
+      "sha256": "7206b4bdd732f479d85925830b40fb55cf6190fce0e18d55f707f32ec36a8c91"
+    },
+    {
+      "path": "8.bundle.js",
+      "sha256": "741939307612e36801e29d9a4f4298650549c62ce09b3ab835c1f1a6dee5f82a"
+    },
+    {
+      "path": "9.bundle.js",
+      "sha256": "e88c247d6e7745359c4d049d9e38574c8ca01bde87a5c81878f9268f61feda24"
     },
     {
       "path": "apps/workspace/studio/admin-workspace.css",
@@ -76,7 +100,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "9946a000628a10eee9401eb4c9b3ca2017cb18440f83e1f437183f4f13edcc0b"
+      "sha256": "ed9f567e1181255f2a9d213d97d513c9da63841e2e2e9626b67c80928602daf3"
     },
     {
       "path": "cad-worker.js",
@@ -92,7 +116,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "0cf060e733f01c6ba7c3d193258dcb801994ec4f7e0612c8b22b37fd9bfbcdda"
+      "sha256": "2d91f8c34016c7a2aa6448ca1b242c18254e865ff8353f72b9451e9e34222d1c"
     },
     {
       "path": "mesh-optimizer-worker.js",
@@ -1347,6 +1371,1342 @@
       "sha256": "6415b7c1e4b18c8a15bbd6d7fd0b41d768304e6cfd1a0d2f4c1a129261de4217"
     },
     {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image1.jpg",
+      "sha256": "9ab24ca2935caac2652595be308bec1512736e179e99bc75956b4722af819a30"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image10.png",
+      "sha256": "56db99998f06a8eb67f20406ce049dacbd1207c8f8bf8d7a4a95f3e36b1b2b6f"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image100.png",
+      "sha256": "4b34c19f833cdfc601ec7874b7ffc999774252363ec84e4033123b1a66ffb0bd"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image101.png",
+      "sha256": "bc709b76e4d90c9ffb30d2c3ba2d569cc099381d8e4d9e73262270d0ad4f3ec3"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image102.png",
+      "sha256": "76b3d25c4bd6cba03dabaeefd37a63927f15620ccb9d4d09ac8342b273c9e90c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image103.png",
+      "sha256": "0e955c9d88b3d08fe5fb4bb9498b3516d1de572b01d486433f8fb0fbe9d5a701"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image104.png",
+      "sha256": "66e2f509ccedb4b1082f00f05bc724cf6b5b85cda5cfd74d77ae7936d9f2ca2b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image105.png",
+      "sha256": "71f621298be938859b476590d36d74f7c0fc29dfa95a83c0b77ee48165e4297c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image106.png",
+      "sha256": "62e1c2f4fed2cb7b73616fe78824a70386aa4d32e8663c4a3234ea665f7a7b65"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image107.png",
+      "sha256": "643a1296773b34de59ab24182eab3789ddae49ed9daa920bb098672efbc72389"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image108.png",
+      "sha256": "0fcb7b464daa4b5e8e0ed46faa75952763caba0d9497d310198628a170563fd8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image109.png",
+      "sha256": "8df5ff1adb98a65cda4d937bb46221025d0f7d4d7b4001d33fc32cf798771657"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image11.png",
+      "sha256": "f1d6bfd3e44ee28ef061dafcc9649eb03d1fe6b70dabeb0e662d20f924316658"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image110.png",
+      "sha256": "7788e794bba660769b4d0b1c6755b4c83400b044ce31b837b2e745b358481ae1"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image111.png",
+      "sha256": "f0393c03e8f7b12f9df888a56a7563300a8935d31d79112911e08a8f741c688b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image112.png",
+      "sha256": "2f48abd2a97716a2bc437b86fb174f16d2d9110093e377a7c1d603ecad65d8b0"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image113.png",
+      "sha256": "33a88fe3f4a860d494b5b4120c5a2e2790e15df0c590d4a3a782e291c83ea6b3"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image114.png",
+      "sha256": "7a60fae324a2590da3a2dacd78e2cce9006fd15162ed3f1a9e22b94f70553c1e"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image115.png",
+      "sha256": "132f410d6d44466a349c3eb0684b18e83139d616bf6490d59747575d3f012744"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image116.png",
+      "sha256": "1e7b56302f11da8aa45a70f71a545775007b305f6ab654710734302c88c10e04"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image117.png",
+      "sha256": "7115c84089fa6905fe8187865f3298b165a9ed01195452d7ad14d5c9e1c6c7e8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image118.png",
+      "sha256": "906c79544075635aec71a8ddb4d850892b9e4312b7f87faf2d362d10b4480fb5"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image119.png",
+      "sha256": "b3a3cb5643dc9f8f597d966577904690d5275bd2e763b8f722e03a88f570c741"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image12.png",
+      "sha256": "a0bf6c6143218f7b8f58ec7db4371aeb606d3df90dde29121a031629282bedc2"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image120.png",
+      "sha256": "6a22dee749f905eb4cd2ffe3c47169d83369c36bdc1504f2f1ad62fccf0f329e"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image121.png",
+      "sha256": "1b0ba006c606f2badd63325fe89d6c77431377c92e1dad22a58b4193cf017b62"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image122.png",
+      "sha256": "d12faffd0430f48a3edb3709e867f2be363314ee14a60aea6b2cef2fe6ef9826"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image123.png",
+      "sha256": "bd2ce1c6a8601fc98c6e6c7dd2b71bc2a6d495389b7f060ec72ebf22f9ecfbb5"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image124.png",
+      "sha256": "ace36a528c9fcbf45b3347c42f908e428c5dd1632a5daf68a87a668d6225bacb"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image125.png",
+      "sha256": "25da03e23014cf77e4d8f10166725ea16720b64f067ef085883d2ea99440c1b7"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image126.png",
+      "sha256": "e6d43391170b1107d53e1488cadd0b39a8241745b9e4165d22b6615f2c9a0071"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image127.png",
+      "sha256": "2e901d6505975bacb759fb7f0beecaa7a8d636a00f3a75220cf72fcf1e0b29fb"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image128.png",
+      "sha256": "4cba78438807f6d95323677b54d689b793a22892493c50ddeeb603dec9409544"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image129.png",
+      "sha256": "c18aec114cab18585b865587a9b1029fb47b6faa1e3bdc50ca2db6c4360d012e"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image13.png",
+      "sha256": "201c35e22f1c8586d25821c5811fb0e8b7a061736b99f67a8168c0cc1a681174"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image130.png",
+      "sha256": "d0a4f73bbe2c947c59776c56f480acdfff62f85e107870e858b079e70652c8c8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image131.png",
+      "sha256": "cb29cce9cb34d9b9138559e13b74807e908bb3a12ad438cf63aea0f7d2f2fae8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image132.png",
+      "sha256": "9c8af430ebe17c5f382e8ab504215322f6726c1f69ce7b51d564273b7505a66a"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image133.png",
+      "sha256": "1bcbbae9281b64d1a8cc07aabcfb180e1a3456d9430fb7d244c10110de6f261a"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image134.png",
+      "sha256": "f738408713b55c62329457cdee25f11db17f08660d633ab08872730d5906891f"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image135.png",
+      "sha256": "b4102eb19ca46695dee5c4992e6ef450739c6def47f231a5298222e3b02245f0"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image136.png",
+      "sha256": "f17400e7e76f8f9e2d5a2a4a784b0d2436dfbdd503980d782330b0ad2d4b31fb"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image137.png",
+      "sha256": "9c925eda7dd36a8bd0e9fe11c56a268ef2851304a551b45b0451572a92053b58"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image138.png",
+      "sha256": "6f21eac6daf4b3dbc1ef10adb518588fb82ef6ea1575e1ea42fb9bf456669655"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image139.png",
+      "sha256": "e54bd03c46d4552c03c13e8950f610ed1ecad227df6411804c45cce7dba72283"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image14.png",
+      "sha256": "d8951ee266b75771ebb2665fe9d349cea6168d5d990e381457fa76b2afe179af"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image140.png",
+      "sha256": "d5912619e52c0b90a86b70539d0bb91627cf84dd6620482fc061a7146bc83c22"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image141.png",
+      "sha256": "9034ccb7c86523a28f6b1897d9bce576edb71dbdbe67804466eccfa492f684d0"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image142.png",
+      "sha256": "151d174f592a17e7e5b226e2309bd5f2ea915fb8346a826815c5bbb516634160"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image143.png",
+      "sha256": "0a412fdf7621193fb405e87fd81f1d239acd227c5107d7fbd4f2e7c5632f5533"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image144.png",
+      "sha256": "27d41f2c9f7e42be9bf043c1dbbc707a2401c74f9a48f73dceb2c1f6e0ee6d52"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image145.png",
+      "sha256": "14ef97a80664f2b1f3314f0a74c7c3eadd64a97c440539b0fd2316c22fbc7f98"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image146.png",
+      "sha256": "9ada692c252271e591dacbb4ad936c900e06653dd526511900283f55bead42a3"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image147.png",
+      "sha256": "373f31a71030164a0b03c04e600cb2c440c86345637bbaa21d3c67193230e67c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image148.png",
+      "sha256": "5927bec1555cad72a712b12206e00344a2cb3ccc74f117c1189199461328fee6"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image149.png",
+      "sha256": "2c36cb2efa71a3dc6ed8ecf3947d4317c8cd9a924fba3d685b299da6157ec20a"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image15.png",
+      "sha256": "ee24b4c0739ba8c859246f9cdcf6f339c8d76fb7a1d341106048b6b4f83c36cb"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image150.png",
+      "sha256": "fd35cbca8dbaff3e640a8a7c643c4da0d4bfdb86192571bf2b75ece863d7d746"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image151.png",
+      "sha256": "9758ed36ee075cdce8877a91d79cc0d2c94ef07174f3a1ff6f9d801960b0ee86"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image152.png",
+      "sha256": "08602e37cddc13564556ff14062dcc512a25fd4e7ef5220e7b367f562ebe90ad"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image153.png",
+      "sha256": "b0e0101ab4cce43fc8a5e0e693a517087cbbec86e1ab8f6269e319e3b33fbc66"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image154.png",
+      "sha256": "47dd8165ca138178fc6985f50b3fd6b87d99d83149b83308c7fea252114a85b9"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image155.png",
+      "sha256": "a78e14e74b9e1ffc114a596d6810c3eeffe51f7abda7f5a8ae148397600c48f7"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image156.png",
+      "sha256": "456b8ae4522833cd031659ff04be99d04bedd5044bec6dea18acaf5cd5c291f5"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image157.png",
+      "sha256": "fe229848f216b75ffe07285deea5ce28cf3bb349092f645b0eb76ae7b96f8c25"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image158.png",
+      "sha256": "430f2c1aa8752dbafdd95ee38e94363329101bc5b17ae2ec3f38b394ccc62f8f"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image159.png",
+      "sha256": "413eff8b17f98a4001e7370251781accd0050a5c5c8515178ef34b54105415a0"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image16.png",
+      "sha256": "ad5eec0f5ba8a7ce74ad50f94b328eac8bc65dc46d632eab1813606bedd23f45"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image160.png",
+      "sha256": "a91697868fc9a22810ee36334909249c5a307c29a75d120d08423171743296b5"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image161.png",
+      "sha256": "a3af19b76a52676f1f9709faa970ad50bedfe63c1f83d3950b24b446c6b1edab"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image162.png",
+      "sha256": "f63d29b1c49056746bdffe7382479434b3ad048e3827ca56254bccf8bbb41d34"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image163.png",
+      "sha256": "a67c8aa087d6323db3bed05b1c3257b362bff9692d799bc5b7cb9e42bfd29a56"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image164.png",
+      "sha256": "6ed665f524ed00baa2ee8ae2adde4a416087f0baadea2b72155efa94d84d5c28"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image165.png",
+      "sha256": "401bc846f4aa738ca8c12df83e1534c912b37548ceed899aed39f63597ef896a"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image166.png",
+      "sha256": "58b384f667f7274170b9677f76203d28cbecbe3fa43adaf106ced2fbcd5cfd49"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image167.png",
+      "sha256": "c5d21c7e134c99c8e9ea155ceedd462b735db0165f80c336d7af2998fb67a346"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image168.png",
+      "sha256": "42436b081db14c9a69a234ff988d23c9dc7117faff836fba6563d7330265ed5a"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image169.png",
+      "sha256": "bb9bd8843677e0ad36a4eca8464e044254c76fe2412c3643d0f8147c03551004"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image17.png",
+      "sha256": "d1c0add0b0ef46480a6aa0613daaa6d14d4d09dc94fd7569f62fb79103dbb08f"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image170.png",
+      "sha256": "12cb81c850433c03b023b41821829b79a270aef60dc9bcbba1819adfc6a249fc"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image171.png",
+      "sha256": "cf444f898ae11dd8ab37dce4b0807601c8ab2faa13d23814b2600fd5a552ba0c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image172.png",
+      "sha256": "d4769f49818af1e731d0160593292ca174cb9e9e6eecc693835e2d0e488a86e5"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image173.png",
+      "sha256": "dcb88dbaf1580bbd70b4a493dd1929b317b247d32cfddb953fbeab71fd8a07a4"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image174.png",
+      "sha256": "abb25e9a093f89df786e11b50000d118d564d9741ad4b3e3178bd585e4988f3a"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image175.png",
+      "sha256": "933fc8802870bb8acd1f34bf47f205d7fd59f2b3981c3ad572825e36d64d5b56"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image176.png",
+      "sha256": "7c579a7d24c4e14e4970f0cc02a5b09bcbd67db3ab5890b3f64425a799716dc7"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image177.png",
+      "sha256": "2c489aee73d295c2db76dd6f66157d0bbb791856cd524e65d834a8eb01062829"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image178.png",
+      "sha256": "b58a6a8537e94dd251bf37766d914f7c9ad9f10a8b21f188eb6209ff047b2eea"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image179.png",
+      "sha256": "e64fe7e76c8d896bd8204427599f6eeb73971ec448aa90b358a9fa4af410293d"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image18.png",
+      "sha256": "e60fee72130848589771cf37e3174ed8703374975b3f8eb32754ca82e4d4abe9"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image180.png",
+      "sha256": "6daa7a2c2d278ada36a9b7dcd0be8182e787cf2f27e64860c115b9f52028280b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image181.png",
+      "sha256": "c385ff7ceabb39a9aff6516b09831168fdbeb614b55db9b1317cfe8b410f2cea"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image182.png",
+      "sha256": "b7b9a630f770c955b0c3ee86c8ef010149f35fa53fa0b5efcf92198351324518"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image183.png",
+      "sha256": "1b0367753747e189d56a33f3a90d7f1b6c294272b66a0df816c94865e423bb71"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image184.png",
+      "sha256": "96f4f621456811cf2ae67538341f5da2f7c099ab5c7bbbd164450248e65eade5"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image185.png",
+      "sha256": "05d0be4969de3087f02b3a727aaa25f7f400ef1b21a21011c809567f8daed31a"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image186.png",
+      "sha256": "895bea5e3bb04648bf862e6eb17ffb6d455c95e3aa9ed0f98028a7d440b8a7bc"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image187.png",
+      "sha256": "e2070fdec2150bd8aad5061d7d88c79a02c30f80ff09e080d362279616add7f7"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image188.png",
+      "sha256": "ef9e14322f1e13022344933de482e28b22a4c94f80e69e3c4d26ef222000d716"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image189.png",
+      "sha256": "649da7149ae134dff8ebb3a39dac8b7a1b8979a3fcfdd9bd41798a485df3d449"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image19.png",
+      "sha256": "f4bb3e06b322088d9ae0d54b821f995751e24dab9330c59de3d1e9a2307c503b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image190.png",
+      "sha256": "406002d7952cee555bbf4ad3ee9bdea43a8da721de3a39747810a7310170baf3"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image191.png",
+      "sha256": "ddc61daefba9bc65b05fdbe1635e308fedf07a9bebfb1904a7ac0efaf37fa850"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image192.jpg",
+      "sha256": "b6ab18c5d8c6bb8cd2886227e6a3d154ba94e328f873b1f80d2d2695374e814b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image193.png",
+      "sha256": "0063f86fb6eed9649c0cafc2cb7c5ba71a44f5bf86dc951e2c587b5b38541cc4"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image194.png",
+      "sha256": "c7c7f76b08ba33ecb986c843c9f9880aa04e48eef5366cd8c36aa07f703f13db"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image195.png",
+      "sha256": "26ef8f5aa6124256297ee823390ada947079edc35062c9ef2534ea303b684ae0"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image2.jpg",
+      "sha256": "35b6007d6fe0b00b481bb4bc7ecd3267529b080b1deba6d4415a7e606098ff65"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image20.png",
+      "sha256": "b724dd80df34669d5f7c4f54fcc45d045ea97f714378c5f4d1cc6504b7bda311"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image21.png",
+      "sha256": "b0621b58354513a0f58611ca41a94e79012a80b5e8c0e83deb7c5ea04ef4119d"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image22.png",
+      "sha256": "7c54ab520a9b644bb2f754b5ed1c9f392df8eb90fa0257750140b63325e305bc"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image23.png",
+      "sha256": "82f639cd8cd0314a6c07fe3a3cbff38d8b02b453cfd210b85ac4fd39d162aadb"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image24.png",
+      "sha256": "abf89d4cf495c7a84a19056a5b5c15fc6c79a86e98415ca6a8980eb32a374b00"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image25.png",
+      "sha256": "b6970bdb6cc442988ed00a3057ace27ab450bfc6c8e00450db29794180c2ec02"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image26.png",
+      "sha256": "3a6a7d053474ca88b1ff2d2ac3e94e6498520ae63d5906d25815348191a2a8c0"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image27.png",
+      "sha256": "10aa60710ec44567cf8fa0682e08325e58524b9d2e3a5666b608467024ed8b18"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image28.png",
+      "sha256": "8e806a172b8e37319f332550ca24b8494e564536759c493a797aafa84fc80452"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image29.png",
+      "sha256": "1cfbd501b6c7a8a093579d05e2b3edf0dd3f0e074bf79e84a624a43779cfb380"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image3.png",
+      "sha256": "6415538a5d86f1e1ab872e64591c89a3232cc714b56a66915b7f0aadd5bd5db9"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image30.png",
+      "sha256": "f9699e47ea5cf3516711ce2c6b011ff8be69fa1cdf7cb8ec23482819b0b0f30c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image31.png",
+      "sha256": "a7a4248eaa8b6f037b0d652c4129f73925ead4909891234f689bab2c575b968d"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image32.png",
+      "sha256": "6c6bc270031cb0c8f73356bdf8aa4dce80765ebb2a5721065f8162109a76c5dd"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image33.png",
+      "sha256": "3efd597ba63e9aa41d6176f90252d7169fc8c24ca2c811cb6a9685f6f954db06"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image34.png",
+      "sha256": "78a9480a3c9d5ab101dadf7a61ecdc9f118d80f2795571b01428fa86d9733694"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image35.png",
+      "sha256": "3642fde47070e32f429d95c524c0f4cae330480a1a0cb09f88af4132ac950d3c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image36.png",
+      "sha256": "3e911e773f0ae8806e47c9a781d3d0443e4d8075dfe28ed380cca9f10a9954e4"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image37.png",
+      "sha256": "db82ebf94734c87d7e543cbf75205e47b2e99ad88c66585c14cca9a97a85acf1"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image38.png",
+      "sha256": "a16f4dfbed689edd31ca16a3618174db4a95000c8ec3d45f7ebbb0f5924cdf48"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image39.png",
+      "sha256": "b9bf55d522ebd5ccfead03639c85ec11cbb4e9ea3f79bdc43fc324e15ca702bd"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image4.png",
+      "sha256": "c4a188b41442a75075f35d29b59ad83d039673522809701af7b97d6fd559681d"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image40.png",
+      "sha256": "baca1241d9bebd13c90b27443b8dcdbeef5897c8cd0f8e7008938d08cab5c1d1"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image41.png",
+      "sha256": "99d718d2b328079d0547c61ef43506b008c706b632d11d72d2ae5dfc6b749db8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image42.png",
+      "sha256": "640877d6f09821632c26ca6d825138d0480364c0934c103fc58a1013ac980d8c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image43.png",
+      "sha256": "5d8539b8a2fc5fb70c98cbfdf5f368e117957a81c3f5b9bbacbc5b5a53050e1f"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image44.png",
+      "sha256": "b2bf944b5b6c401ac0fd60657f3cd546301737e77c2164dc33b0d3389a8fa006"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image45.png",
+      "sha256": "2a968fae6156eef93adbfff3898d81f2b001e049ca2f2111194005e44bd5ec78"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image46.png",
+      "sha256": "ae7251ceb326b57fee6e8e2403a3d4fe9e9403028f14689994a51e992fd10459"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image47.png",
+      "sha256": "102f6c3c20d55438e1a4cf77c6dfb5f7ca4f2e4b8278591f1e95c8eb733cc631"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image48.png",
+      "sha256": "e8ee349f24993fc58db371ddbd265d1c70f3b893dbde27d0f1af40d66de9374e"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image49.png",
+      "sha256": "a555c72ddc82eb5e1852f78e3df62eaa7b394187285c8d37645c4fc6f4572e11"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image5.png",
+      "sha256": "1c62de40e3bff856c38ea94034e74e8e6a72f4b66472bee5f1b6b61199d315f2"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image50.png",
+      "sha256": "383050b0f4fb6bd1a849202bdce12a3ad02eb497065578268e20afc531f315e8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image51.png",
+      "sha256": "143fddc36a1ecd0a3a9d063d53fc855f03f7042ad4c38ae382eb676ee8d4c4ce"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image52.png",
+      "sha256": "490d62d676c4f92d546121ba01a2d069abd56717ab27fc84b44f7f089ffa7333"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image53.png",
+      "sha256": "c13c3fa937444af51d745a78e07476c3f3354ec7a9332e615e76efe061f8232f"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image54.png",
+      "sha256": "9e77da20a516b08eb836fcf0a25c5bf00f4d42137c6ee114c6cacb43e31a1b6d"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image55.png",
+      "sha256": "22c362f8a38d45c8b1e5c0bac0ab9e24da6b2ef090780ca2484a1629ea3afd3b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image56.png",
+      "sha256": "a4bba4c3999d863703c378ff1ec33db349cc88ed8628dc43d250db34e3918950"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image57.png",
+      "sha256": "b1acb1e61450fc500d5fae78a41c5c9a9b8f242283a29bb1a584a00668f7e762"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image58.png",
+      "sha256": "304d457d1dc2cd11ae77c1c2c7575df0bb7a21fb0883a1bcf2aee9ba70bb14c8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image59.png",
+      "sha256": "fa820ec9c2bd4cc40795dd0b6d66cf1360feda86faa79c5dd2d154daa2cba04f"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image6.png",
+      "sha256": "6a9251b9b1aee7872ca699ffa12e8b8b883d1c75a009533e8df969c6909dad8e"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image60.png",
+      "sha256": "3822cb286f2f87602c7c31fa0bb6300458e343b4c701840e746d0a2f463dbdbe"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image61.png",
+      "sha256": "07c8f037408c2e3ffd28738a9cecfc2949a7f963f9fac0091351353018ea35be"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image62.png",
+      "sha256": "b2a3658f13589abf2150629df9e1a287f62bf4a09789b0728e7ab9b571720c26"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image63.png",
+      "sha256": "ce77cf32e32c0928012d9a4d26fb07be6ee5fd26890e0c1713022d145ea13739"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image64.png",
+      "sha256": "a6fcb053a05a7fceb4ebb4dd9fa7a28d3fcad8459ac04b10124ed7bfb4cc014b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image65.png",
+      "sha256": "bab1ceb9c80eab66aa59e836d3e88afa480bcbad409b487def115b1c721b7990"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image66.png",
+      "sha256": "0b3fdc1446b9724101d0107c00ff2e4cbde7577a6188c2de6b5fd069adf9f6c7"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image67.png",
+      "sha256": "a8cd108c3618bbcd771909cae9988a5b4a6d498c0659292be11393a99c87d1b3"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image68.png",
+      "sha256": "bee87bc611b072a27a47a33bece94bd6b8c4d53f8ae81f3c68174abb3a0c290c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image69.png",
+      "sha256": "f1c35df1334e9070716e97e8b613d637b5b42137ef4c4c431196b532649a4bc0"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image7.png",
+      "sha256": "da52c3ed565578f493cbc4a38e0e48dbf493df405cbb8cd36ba217774e5155ed"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image70.png",
+      "sha256": "1d20355789b3428ff1fa7a228d5e81cd66ca5741a747a66a21ec4f0782e979d4"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image71.png",
+      "sha256": "fdd69e21affa11cddbb5f120396bd6f252bf1129fbdd094a2c79137e79875431"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image72.png",
+      "sha256": "28fead830af38ed7b08603e89f7e21f0a1b470e9076bf90e03628c1d2099b4ad"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image73.png",
+      "sha256": "1dce61b0754a4d037e0298e541623ccc1cf644a7c3b439b4dda1c6362bdbaf58"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image74.png",
+      "sha256": "78a7b2e8dd3e73f5c51f30a363e0a90d6b33e41629a0c34f386ccc3497a9a707"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image75.png",
+      "sha256": "db5893cf44408ce73816421d236eb89ce45310986eb4ade66fcae9f2ec5cd329"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image76.png",
+      "sha256": "8e20d452f63d20a323f1fde47cd1fa8765a3e7874ffe55c88d5cd7a3b706726e"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image77.png",
+      "sha256": "11ad1b6b1ee20ea57832ddee9d74ebd060e47c511bdb1de65db5911afd461858"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image78.png",
+      "sha256": "e40ad3c5738fa655f5c7d742d175012b8a54598a525f86d03fed2a9bd5e19724"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image79.png",
+      "sha256": "a9e8f56fda7c58979cbee4d3a12c241420dbc578ae09344842091f58161bb673"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image8.png",
+      "sha256": "fc5e363ed8ab3f2e48d6a8180866f7469e5b30b852f4f1bc74c5c45fad239d17"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image80.png",
+      "sha256": "bcadc9cb7a2c20eae4703c17dbfa2d542ea44173fb07ac652ec493f17b4cf17b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image81.png",
+      "sha256": "32917920bc13d87a50895364a62d605e12c53191f69c7e6decab54d5c72663f0"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image82.png",
+      "sha256": "994ac1b0f00e20ae3c2b11086bc42ee73a057371eb9242e8eb2aae9b168e29b2"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image83.png",
+      "sha256": "4d56a0d868e2bb9576ecdb329ec78dbe8b7c25c4574a216fa2ab1c18de2663e4"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image84.png",
+      "sha256": "194578eaf2f74133b14bf45fe8917bc9ab78adda7812a3bc539f132b0628904c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image85.png",
+      "sha256": "afe579d875b6a048b564dcb8425a6e9aae3666bcfb19588d685ef5a3a6bb7888"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image86.png",
+      "sha256": "7933944c6eb27d421ed66ebdf7231f4252f3a1f1085ac18bc9e0d02fa5634afe"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image87.png",
+      "sha256": "2b652d18ef9335b89be9ca5baa16d70b72a9e8880de1fa0f7079c383d25fe34e"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image88.png",
+      "sha256": "457c7b1388f2c907aeacc4917c6f87e57536286cb8a7ce73e6884f52bd8dabbf"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image89.png",
+      "sha256": "adcc6f64a5be4fb54d7d87e3814a69bd159b0d0f9cf4b542586c6755157e8a3d"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image9.png",
+      "sha256": "39407502371b530d6537f97bed88dbe351b4ef5f546bd9885c7d7807d60caf9e"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image90.png",
+      "sha256": "72c593071e3faa9827a40976c604ca7fdcf6942d8a87d0eda48761474c3ec934"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image91.png",
+      "sha256": "710ad1d433699b30490b6301e57f5f83c1e4ff4faebfeed459d5458231ea2be8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image92.png",
+      "sha256": "650ab4fee6708208026d961a1a025311d981a002db96192d3546d104d62e6a26"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image93.png",
+      "sha256": "743965f601ae66dc423220164b1eac9ef06ab1e248b31572696cce43e34a512e"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image94.png",
+      "sha256": "6d72b80641acadef856e95a405078cc361c140f83f03276eadc2d69fe702d283"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image95.png",
+      "sha256": "dc49b98a260c27c8c6a89c884396c9a78e3a21cb04fed03d2c85ebada771d81f"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image96.png",
+      "sha256": "db2c3ed1cfbc73227b8c9b2531ef2c074436caf1cc63216a74fbc197f590199d"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image97.png",
+      "sha256": "54bf5568323f1f47ec22f580e3ff550d389e448b3524f2c9a8fb42b1b44ae7b7"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image98.png",
+      "sha256": "0475ead7e58014639357fe3e21b484fbf98fa0caebf80b68a98c9d8d8587e415"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-illustrated-2026/image99.png",
+      "sha256": "6b498a74f7757372e5248018ce5cea1131e560a8dfb02df302c7a73c9a435f49"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image1.jpg",
+      "sha256": "6a5656d2d738df97c854d41d2a61dff4b9bcc08ca1effcefd116ddebe9dd04c1"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image10.png",
+      "sha256": "e3f8dd2ed783dc739615f82d1462e2ba65a917bc2dea6b123d72844aa95d6dfb"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image100.png",
+      "sha256": "fe6d1564b022f97fc53aa1d29b7cfc11112e3f483c7734b2be5f01f6acbd90ec"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image101.png",
+      "sha256": "f05c3b4cdc976ff590eb2651b9e4ab3f34e09062d4795fb2d3185b85618b2e94"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image102.png",
+      "sha256": "43ff138c58e206e3dbc854aba7fa5411944921b677c3476a4450e0efd14f0455"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image103.png",
+      "sha256": "bb72bba4763751c0749937b2620ff3a4e9c01594e3e9a474db55f33ec49f80b9"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image104.png",
+      "sha256": "fd98841821b00c84d9e3d3524b9857dba7b74cd8af0cd125068e6925cc798486"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image105.png",
+      "sha256": "26ef8f5aa6124256297ee823390ada947079edc35062c9ef2534ea303b684ae0"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image106.png",
+      "sha256": "2244b5c9fdb3867f2660d34919b427f12a1acf934c793a35505a7fb0a7f31439"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image107.png",
+      "sha256": "38a24e494c47cd3001c2c3ae8a674313810e45e4930a9bdf32b294b23ea356f7"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image108.png",
+      "sha256": "90961527f564490c9a83125e5150db59b74eac917d267dbef4a609917f74018c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image109.png",
+      "sha256": "cacf2eef1df77814451fa2a64c4258ebf04d718ee3f88613b92d28729658c249"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image11.png",
+      "sha256": "0063f86fb6eed9649c0cafc2cb7c5ba71a44f5bf86dc951e2c587b5b38541cc4"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image110.png",
+      "sha256": "851701c0ab293fb3ea9d9d673b3d742a147b04ac38b5937354741fc55dffd07b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image111.png",
+      "sha256": "c7c7f76b08ba33ecb986c843c9f9880aa04e48eef5366cd8c36aa07f703f13db"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image112.png",
+      "sha256": "6f2b140fd13cea55ccdbb553cf0ad0fa659b9eddc2337f15cc98b5470c299966"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image113.png",
+      "sha256": "93099754706524df0ecb8f458713301178f5b7750741da16d0152fc994aa7297"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image114.png",
+      "sha256": "bdb8af1b744696d6f81a25ee3c6bba308a21f3b64c246cae913b703da036090b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image115.png",
+      "sha256": "55f6a212548a5a8893745a4d792dbf6180d4c5bbcf3ac952df48d8a0f65be5e8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image116.png",
+      "sha256": "2203e67de838701d3fef2d5bde22100b60232bf52c3d906f077fc2f42f0e59fc"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image117.png",
+      "sha256": "b651d7cc76e6c5919015c9a78c45169eadff09a1bf24a23574899c2dd319cc10"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image118.png",
+      "sha256": "8fd6d958c0b34d02a196e6927986d56b169db573f986edc3e1f6f474739e65bc"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image119.png",
+      "sha256": "68991e4ad9b6f95646fde5d0c5031b00eb5a632651bb570481461d33d39107dd"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image12.png",
+      "sha256": "17d8013877f71866a8a7ee152736200e411ac632b348b6badf31da0713cf6b36"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image120.png",
+      "sha256": "4cbc3259021996f614c70c417121e91a40b690993de3099a35be6a42142fd7fa"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image121.png",
+      "sha256": "d1c2f412a97eefd0302d082a2b8c3ba86daf2990e19fd3aeef424fbf5a92af37"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image122.png",
+      "sha256": "f32ba667a81a983fd56da0d54022d5790044ac6741b0c1ab5acdfe7f44b14468"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image123.png",
+      "sha256": "8ed0de6199102399cb8ecacac46a04c33f437a479a3a0c098f6ac5c4430b16c8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image124.png",
+      "sha256": "a27ade6d2dc381bddef10f33aa304952f1872d082ea341d389b5b0320f343e83"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image125.png",
+      "sha256": "450faa9f0cd97e7989caf08da1e94880f3894c4c11c13ee656f8a769fd97e208"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image126.png",
+      "sha256": "4432d32abf7147d3a6ce054a7d0852e546fbc96edbce1f4f47a19d5ecf864d1c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image127.png",
+      "sha256": "df345f536f7a28cc4d64129f137a88f5169d2019865c6d32c9a3215fba374d71"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image128.png",
+      "sha256": "302ebc9ce111ed14cca2cd5f6cb7c86d735ce0c9ba00c06f24c90bfd3c92f74a"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image129.png",
+      "sha256": "a9a8d2518d8d272a9b0471f8c355947a7874c1ca8fa58a4ba53d927e06e29c24"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image13.png",
+      "sha256": "109bb5601456512f09b7562c493e0a2f6ae644726663db0c5e374dc5ef61be30"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image130.jpg",
+      "sha256": "44ab65afe34d13d46ed49b700e9aa8d565e8de26e78da893257f63f1181d565a"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image131.jpg",
+      "sha256": "012361f73d05e0e3342130bc4f630a6c22ab9741dde397792135b2e7ef9ee517"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image132.jpg",
+      "sha256": "a01df0bcea23b89e98e0ddd0d631d91223c8d9a3ad2a3a7756529440d364d665"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image133.jpg",
+      "sha256": "5224b03c8ea5b815b19f252e9e0242024d00f79193c6bacf8b2ea42bf1d0c20b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image134.jpg",
+      "sha256": "2dc4ecfc0efbdcdd2193dfded37f833021877b636d0607d54ad6a6a3a3d568e2"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image135.jpg",
+      "sha256": "17bd5a7070d3eb6a0551a28c5b2cff0815cd63764aae608dcea87d9d1a709390"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image136.jpg",
+      "sha256": "e164fef8135e42f08fc6022819e682d0a7f75f7e701d1eb9ca6523adbc123573"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image137.jpg",
+      "sha256": "6508cb05f7af19169760d7f4acec2937a78854d4541419ea82d95bfee9e3bb93"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image138.jpg",
+      "sha256": "9ab24ca2935caac2652595be308bec1512736e179e99bc75956b4722af819a30"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image14.png",
+      "sha256": "2ec14a337aa96993820fcd1f0a40e00e51475cfbdbf7c14117a694785aec2b00"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image15.png",
+      "sha256": "6f6389b939d0f991486f92242bea16b89e34640e39dcd016442b2c2c04d49691"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image16.png",
+      "sha256": "56c4a7cce23df3105b847ce3140c8bb007e85fc8f5ce7450a4b59612df002a65"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image17.png",
+      "sha256": "83137f9982f75d2f81ad72f778020d338b8c52a5e98c1c1ca565a0d8f27efbda"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image18.png",
+      "sha256": "0e4a42303da6d516fc6842ff3e8d50afc54b6b85933bb0722ef0560f92ee37c4"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image19.png",
+      "sha256": "5afca63adff89c9b4a2481fa4938af2fed6ec2faa699cdf7de669ff2bf1ce9a7"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image2.png",
+      "sha256": "cce29f82439d0600a51110151cd9b4da7dd5937ccc9c6d16f464ef6a8431d6b8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image20.png",
+      "sha256": "48728d3351cc27424ebde51764f28c15b9120b68339f8a62d1fb0a1833929849"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image21.png",
+      "sha256": "9218ebff85f802f55297e5eaf70f4dcb95867115c3cdf51fda9a220fbbfa8b4e"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image22.png",
+      "sha256": "7462b62b453e61d73dee0e7d4abc2e2eeb712f052a372a7ea47b464fec44e8d0"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image23.png",
+      "sha256": "6a494791905e1e44343eb11ac2ed36b9c6ea41c8c4abb3230d43d7f84e0feb90"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image24.png",
+      "sha256": "caf25bb876044788b072fb91e1553f13ea2eae3bcfa0e5fb8f46e2fa4216187d"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image25.png",
+      "sha256": "26926eadf3f2667ee10b7093efe19e68f00950f3dc7f229b0438ffecd604d678"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image26.png",
+      "sha256": "6b77d0a708d2dfb4c9d7408eae1ba41b839d70adeeebda4716f24a4d942c1fba"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image27.png",
+      "sha256": "15f6105961e1f051e7c6f50564f170a2e1bae861b8363f32e84058610893e900"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image28.png",
+      "sha256": "a038af51c7dfa31ccbe472e85cf374000ae9a360307f0a40703f4151013cac0a"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image29.png",
+      "sha256": "0ef57cdcc54a1ab03371286c71e97e890d526ece128da558ff44a7403fe7d5dd"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image3.png",
+      "sha256": "221cca0f06f4e05bcab0360ee824813d57a8db3e94f2bdba7ea26344096b8a76"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image30.png",
+      "sha256": "0eebf9a22050d55e3786bbedab2f6c2be42e71a8760a33fcc3212faa9a68ea0c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image31.png",
+      "sha256": "46bb28981f0da5e366b99aedb479099574a093d26b0cb93344b88c7b982c95e1"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image32.png",
+      "sha256": "690672a0cdd769d6cd0a07c00c320ad68aca34afcfdea12e235e86eca3902462"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image33.png",
+      "sha256": "20425049e5ef5013fae0ca373aa3617ff2add8c272a7aefa9a1c80098cfd56f7"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image34.png",
+      "sha256": "61979033569325b302a63033e4e43c2449f342d11c76285ab21d1313ed02b15b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image35.png",
+      "sha256": "c0b2dd98f8e2fa73f909bdf69eb47c389ec78d5f8136a2a329588b7d91ee629f"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image36.png",
+      "sha256": "85cb3431f2d3cca5bc8a1af08e885357fc118747d33db8ffcd67aa847f487202"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image37.png",
+      "sha256": "9951086728765cb6ecf03e9bf3860b458f446d58eccd8f0bffd6e733b6ed360d"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image38.png",
+      "sha256": "d8cc42c5faac9d12c0a776c4f145578678f9ecd3c7bc6863013924e90a732a79"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image39.png",
+      "sha256": "bdf535f363b9e819d3da3351ad4f2539554cf9e6260456f28dd049c97190eaf7"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image4.png",
+      "sha256": "c6daddbe6cbed94cb29a33536d63eb166e58f28c5170b51ce825fd49f1822611"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image40.png",
+      "sha256": "98bb6c1a5c0bfd45c1dc704fbd01dbc2d4810d24f02792daba37030834ec3689"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image41.png",
+      "sha256": "5cc91a8f2ee195e5cf10eefb1b58c2778e6ce4d530624985f883153346e19d42"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image42.png",
+      "sha256": "37b6a683b968743f5cebbd3656322a1d4a4a02b712479cf0f9a57ffbfd0c5275"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image43.png",
+      "sha256": "5d5a8302f0154d88a8134782db0adca5ca18e3ff97abc3e0b3ea1c3c4dea5eae"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image44.png",
+      "sha256": "570b1e38ad75dcc42b19134c981a7ddb9ab5efcae3d00d0481431338d8f6e617"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image45.png",
+      "sha256": "f0a1d2311c72b3aba5706a4da637bf8a406316e9a65b3da9be7f148a2531f860"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image46.png",
+      "sha256": "aea893a494d0cd21552a6bf4cbd5362227b2072ef2795d439d86b7fcb9ac0f61"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image47.png",
+      "sha256": "7bfe6530eb540ca132260c89d311523b9bf6515c8c10698d8c5dc52b484858b5"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image48.png",
+      "sha256": "8cffb33e877163e5e95d7c10fd8a083bec1950967258e68f29cc92b99d6e3e6d"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image49.png",
+      "sha256": "efaab5ce6103e10ceb9f228ef694287ae2c86d32fb20fcd258cc71a053ff3d8f"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image5.png",
+      "sha256": "a8acc6247173cf6638114c3e2a10bf54e01b4a7bfc081c87b269c47ac024966d"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image50.png",
+      "sha256": "93654f34800051d54ac7d141ce4e67cd9207e41cdeee7d7a570fa544b706ef2b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image51.png",
+      "sha256": "db6592f51cb6a0d4b5059e63a3cbdc0e3f8f67746ff124d069255190ff6e339b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image52.png",
+      "sha256": "6816597220f61962067af1ef65c2927b9d24da9e48d55e51519b1b12bd745b2e"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image53.png",
+      "sha256": "4230382fe6506b49b6576983d3497957867cc1c1341c91baf5e8fe2a531a6ae8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image54.png",
+      "sha256": "1bac71c0473f356084d03b7a631bfebd93f4820ebe674be928c51b1929d3f9c3"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image55.png",
+      "sha256": "b152dd7ec49772d17be8c19b169327a4c5d57c445df2f93b2cf3e73b2fb495d1"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image56.png",
+      "sha256": "ee776f81643a8cd643b0195e563d005c19f0423b4f7080cb7fb254399b3bb270"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image57.png",
+      "sha256": "42324cb7d70085e2d59909a9bee1c13d6479854a756e4a88526e36dcc6f1f427"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image58.png",
+      "sha256": "349c5a4bbe55088902cb1a7bb4a4f2fdf01a3f7f21ac1f8f89d17dcccc71c9b1"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image59.png",
+      "sha256": "13a2d11f11ee8298bf8f4e4dc87edce1d4eebc5a65573b9c58efb27fd7b7a6b7"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image6.png",
+      "sha256": "9866a7f0d184d5f38063ca0fa9e87ad01ad3b19a67f2cd7953d3520f3cac46cd"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image60.png",
+      "sha256": "cb2669ff8d4e1e19edc88ad3ec5613b98f80f3521b5db8409d67b7a459a84f84"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image61.png",
+      "sha256": "58e5c607f39e48e4f5bce3b6f91e1df6a8deb11c139fec95cbe408bae7f7dee2"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image62.png",
+      "sha256": "6638f9f5f68c4672883fda313096d8ef62a6692f7448de28c3c1281751a1a39c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image63.png",
+      "sha256": "655771d13cb855e0758434419a2e73ddfe7d07b1614d89c28e43293b1cd18c71"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image64.png",
+      "sha256": "60745b84b6cde82104df4ffba62521672507581390afc3fe20fd304401816b57"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image65.png",
+      "sha256": "f95b45eba32c1711d011fd1822f2ef560e9d3607ac510d81d62cf757339f794f"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image66.png",
+      "sha256": "122ba7d5170c521dc5e0882f23eb2746bc4ceb55f422124b5edc87ec6ea514c7"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image67.png",
+      "sha256": "2ba2ffd3a540d3c77460f95d363f4147dff214252fd8a1505ab2543d84ba3627"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image68.png",
+      "sha256": "1b008f0287924e28f1fec36cddd75772f7df0fc1e5ef34b103a432dc50ef67fc"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image69.png",
+      "sha256": "3b555afd038d7b63ffe0baf68f6d677a05385da961e054474a19956e6eca61f9"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image7.png",
+      "sha256": "737b00e2f09599a18843c04b17217af1b20fe8074643f430ab03b505770abbca"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image70.png",
+      "sha256": "6bb7bb39c9dc8c8d8ed4ba94a22ae76650af2517ef02b6ded93aa58e20410f85"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image71.png",
+      "sha256": "85a539d60c4bd0709ee785d5fbb5082a5f898092e1ec092579d2e082e5ba6c0c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image72.png",
+      "sha256": "94f995fe662cae5190b0c0aee43df4a3d1f02cbaee24948cbfe0e4483a467d80"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image73.png",
+      "sha256": "eb3e5600c831ab68aa07929bdd601cc55bb881c410b3acc14117cdc76f9b062b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image74.png",
+      "sha256": "3f54fac155c20336587c085325b510fe8e6be3edcddea0043495a09ae9f83ac3"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image75.png",
+      "sha256": "3b3deab699a29ecd7d3becef2210005b089259b1242e77eb2b6dfc4d8261eb62"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image76.png",
+      "sha256": "6664fc521f8e20ac646e484b3ead43d882476f4dbd75e2c30b7ca58b887bd40e"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image77.png",
+      "sha256": "d71cd44d221dbec6164c8a7488cbc4a15f164f5a2753dcf5dd09a4d74e41c118"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image78.png",
+      "sha256": "a93f14dcf02b727b2c7fbef67d0ed01f6b9c650633ab0e76f05d0de8854341f9"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image79.png",
+      "sha256": "73bd965f290c9930323a44382b5cc146ddfa4fbbd910f0df0e7575f9dfd3795e"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image8.png",
+      "sha256": "4540f9d15b1d43ce4788a28500862ae04757649b268cbe48f4203a9de8446875"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image80.png",
+      "sha256": "b7a8f1414153ec2b7853a6891e61630a74fbc7804f3410c4f1c0d14531072ae6"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image81.png",
+      "sha256": "03a8cf6acb9c2d6633ce7226f6d695abd0eb98065c0e0bbeafc964097ff7cb9b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image82.png",
+      "sha256": "0a734fd86eb2d2ff8a6cbc60641596b30a758e050b698faa1798900231bed61c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image83.png",
+      "sha256": "b40e28ce8f9ee9a42de8458007364ab4230a2e846ef6da57fafd2fcb8e71a189"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image84.png",
+      "sha256": "5dd36dde88a35a7ad8e6b244ccfb1c32f3c5c907b6e565a84585e4da9c8324ac"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image85.png",
+      "sha256": "d1fda616d01ed1e1bac9889dd4f779139eebb07a923b18809d7c25c142888121"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image86.png",
+      "sha256": "50913643a7f5f01477b885bf8c6d6516b7d760d705dcfccdd37b3d7253b1d958"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image87.png",
+      "sha256": "33789fc6d8c7020412e8265001a852eaa6a28a00f152fd78fed79c0fc46475f6"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image88.png",
+      "sha256": "c6df65ddbd6c3d9f7a89b96cea90e0aa0e555f02d0abd734a8f9e8d7e924f1dd"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image89.png",
+      "sha256": "47bbbb19704374056b1636d778c0794b9a65c742778e7f4b15df0121217cbc6d"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image9.png",
+      "sha256": "3c312adadb1d38e52c78961100ed1df8cb69f6f25030b1de7f7ac659f15edd03"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image90.png",
+      "sha256": "3b5ca76c8ae2e97ee3635db65e9e54fc7c3b55f60414f9bf11ea8b1bad7f1ecd"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image91.png",
+      "sha256": "56beeb54c1efd72a80c19c8cd695868cde7270788f6cc779eadb24848c907286"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image92.png",
+      "sha256": "7032482fbae0396288db9989181b5b7acee62ad0371e7c8487913ca80a923a1b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image93.png",
+      "sha256": "81d18d9bfddb0f9fc0f143c9f503e226f7f78845154a1e73e6eb5b7047530c92"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image94.png",
+      "sha256": "8a64118a77405888d1a4fb67974c39f11daa9c69f54c35dd1c002d61efe1d72c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image95.png",
+      "sha256": "79aa17013d10d9f90efa78a143faf9af763a5e30a73589ea7985ea7651c15491"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image96.png",
+      "sha256": "c41a89a92912c8604075251b97db9d5a6bfc84765097fc2ef3b1a863be007217"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image97.png",
+      "sha256": "0415740800e934eb95e7ed4eac7c0928c2b5603cfa215de4e75b7b135abf2f67"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image98.png",
+      "sha256": "f545366f823e01aac709d45e3d0e0dedc51374b4ed6f1e19dd9e96b55e9569e8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/nexus-practices-2026/image99.png",
+      "sha256": "3245464c96b41ffb23473cbc498abf5278c3b57334741ca6be92398f8061a71c"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/ui/practice.css",
+      "sha256": "359116a8e697d15bcf67f43f5b2cb5300009b8e7ae530b66b43eb9b91f53891c"
+    },
+    {
       "path": "modules/turismo/assets/angel.basis",
       "sha256": "a619e654ea8c8e3adb4e5f8d228457922dfba8c3860a4397d58a62629616d931"
     },
@@ -2285,36 +3645,60 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "b2087735eac16c296138",
-    "statsSha256": "4b76e6b48edb1a7be1cfd09ff57cac4b0c28ae275698df49594b5d25aa1b0dca",
+    "hash": "e368d8db1b6e6acfb3d6",
+    "statsSha256": "f7d6ca116af75822e271ca017662b7447c90a35f9afd89543a38a94c6d1347fb",
     "assets": [
       {
         "path": "0.bundle.js",
-        "size": 7713
+        "size": 7714
       },
       {
         "path": "1.bundle.js",
-        "size": 999575
+        "size": 999578
+      },
+      {
+        "path": "10.bundle.js",
+        "size": 3390
+      },
+      {
+        "path": "11.bundle.js",
+        "size": 9362
+      },
+      {
+        "path": "12.bundle.js",
+        "size": 3313
+      },
+      {
+        "path": "2.bundle.js",
+        "size": 4037
       },
       {
         "path": "3.bundle.js",
-        "size": 2045
-      },
-      {
-        "path": "4.bundle.js",
-        "size": 2048
+        "size": 591267
       },
       {
         "path": "5.bundle.js",
-        "size": 3388
+        "size": 1298374
       },
       {
         "path": "6.bundle.js",
-        "size": 3311
+        "size": 4014891
+      },
+      {
+        "path": "7.bundle.js",
+        "size": 572050
+      },
+      {
+        "path": "8.bundle.js",
+        "size": 2046
+      },
+      {
+        "path": "9.bundle.js",
+        "size": 2049
       },
       {
         "path": "bundle.js",
-        "size": 5800535
+        "size": 6131773
       }
     ]
   }

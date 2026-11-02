@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import behaviorSchema from '../../../contracts/behaviors.js';
-import {createSourceProductVisual} from '../../presentacion/runtime/IndustrialPrefabs.js';
+import {createSourceProductVisual, createIndustrialPrefab} from '../../presentacion/runtime/IndustrialPrefabs.js';
 
 const sources = behaviorSchema.productSources;
 const MAX_LOADS = 500;
@@ -9,6 +9,7 @@ function visible(object) {
   for (let node = object; node; node = node.parent) if (!node.visible) return false;
   return true;
 }
+function visualSignature(entry){return JSON.stringify([entry.spec.type,entry.spec.variant,entry.spec.catalogueEquipmentId,entry.spec.width,entry.spec.height,entry.spec.depth,entry.spec.color,entry.spec.materialClass,entry.load&&entry.load.loadMode]);}
 
 /** FIFO inventory keeps waiting loads as data and only exposes its first load. */
 export default class ProductSourceRuntime {
@@ -16,6 +17,7 @@ export default class ProductSourceRuntime {
     this.runtime = runtime;
     this.entries = new Set();
     this.sequence = 0;
+    this.visualArchive = new Map();
   }
 
   attach(record, component) {
@@ -69,7 +71,43 @@ export default class ProductSourceRuntime {
     return new THREE.Box3(new THREE.Vector3(-size.width / 2, 0, -size.depth / 2), new THREE.Vector3(size.width / 2, size.height, size.depth / 2));
   }
 
-  createVisual(spec, load) { return createSourceProductVisual(spec, load); }
+  createVisual(spec, load) {
+    if(spec.catalogueEquipmentId&&(!load||load.loadMode!=='pallet')){
+      const definition=require('../../equipamiento/schema/equipmentCatalog.cjs').definition(spec.catalogueEquipmentId);
+      if(!definition||definition.role!=='product')throw new Error('La carga de catálogo no es un producto registrado.');
+      // A declared complete pallet is already one physical packet. Classify
+      // that native product without asking the source to assemble another
+      // pallet underneath it or to add another tare mass.
+      const loadMode=spec.type==='pallet'&&/^pallet-/.test(definition.nativeVariant)?'pallet':'individual';
+      const config=Object.assign({},spec,load||{},{catalogueEquipmentId:definition.id,productType:spec.type,sku:spec.id,units:spec.units||1,loadMode});
+      const object=createIndustrialPrefab('product','catalogue:'+definition.id,config);
+      object.userData.sourceProduct=Object.assign({},object.userData.sourceProduct||{},spec,{sku:spec.id,catalogueEquipmentId:definition.id,materialClass:spec.materialClass||'',loadMode});
+      return object;
+    }
+    return createSourceProductVisual(spec, load);
+  }
+
+  refreshVisual(entry) {
+    const product=entry&&entry.product;if(!product||product.heldBy||product.robotOwnerId||product.vehicleOwnerId)return false;
+    const signature=visualSignature(entry);
+    if(entry.visualSignature===signature)return false;
+    const object=product.object,next=this.createVisual(entry.spec,entry.load),bounds=new THREE.Box3(),inverse=new THREE.Matrix4().getInverse(next.matrixWorld);
+    next.updateMatrixWorld(true);next.traverse(node=>{if(!node.geometry||!visible(node)||node.userData.editorGeometryReplaced)return;if(!node.geometry.boundingBox)node.geometry.computeBoundingBox();bounds.union(node.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse,node.matrixWorld)));});
+    if(bounds.isEmpty()||![...bounds.min.toArray(),...bounds.max.toArray()].every(Number.isFinite))throw new Error('La transformación produjo un modelo vacío o inválido.');
+    const old=object.children.slice();
+    if(product.record&&!this.visualArchive.has(object))this.visualArchive.set(object,{children:old,sourceProduct:object.userData.sourceProduct,catalogueEquipmentId:object.userData.catalogueEquipmentId,bounds:product.bounds.clone()});
+    old.forEach(child=>object.remove(child));next.children.slice().forEach(child=>object.add(child));
+    object.userData.sourceProduct=Object.assign({},next.userData.sourceProduct||{},entry.spec,{sku:entry.spec.id,units:entry.units,loadMode:next.userData.sourceProduct&&next.userData.sourceProduct.loadMode||entry.load&&entry.load.loadMode||'individual'});
+    if(entry.spec.catalogueEquipmentId)object.userData.catalogueEquipmentId=entry.spec.catalogueEquipmentId;
+    product.bounds.copy(bounds);if(product.item){product.item.bounds=product.bounds;product.item.box.copy(bounds).applyMatrix4(object.matrixWorld);product.item.previous.copy(product.item.box);product.item.swept.copy(product.item.box);}
+    entry.visualSignature=signature;this.runtime.invalidateCollision(object);
+    const retained=this.visualArchive.get(object);old.forEach(child=>{if(!retained||!retained.children.includes(child))this.disposeVisualBody(child);});
+    return true;
+  }
+
+  disposeVisualBody(root) {
+    const resources=new Set();root.traverse(node=>{if(node.geometry)resources.add(node.geometry);for(const material of Array.isArray(node.material)?node.material:node.material?[node.material]:[]){resources.add(material);Object.values(material).forEach(texture=>{if(texture&&texture.isTexture&&!texture.warehouseRackSharedAtlas)resources.add(texture);});}});resources.forEach(resource=>resource.dispose());
+  }
 
   frontMatrix(record, bounds, worldScale, positionOverride) {
     record.object.updateWorldMatrix(true, true);
@@ -136,7 +174,7 @@ export default class ProductSourceRuntime {
     if (entry.product) return this.present(record, source, entry);
     const bounds = this.loadBounds(entry), scale = entry.scale && new THREE.Vector3().fromArray(entry.scale), matrix = this.frontMatrix(record, bounds, scale, source.position);
     if (!this.canPlace(record, bounds, matrix)) { source.blocked = true; return null; }
-    const object = createSourceProductVisual(entry.spec, entry.load);
+    const object = this.createVisual(entry.spec, entry.load);
     object.name = entry.spec.name + ' · ' + entry.id;
     object.userData.editorRuntimeHelper = true; object.userData.editorCollisionBody = true;
     Object.assign(object.userData, {sourceProductId: entry.id, sourceOriginId: entry.originId, sourceSku: entry.spec.id,
@@ -146,7 +184,7 @@ export default class ProductSourceRuntime {
     const item = {mesh: object, sourceEntry: entry, beltId: null, box: new THREE.Box3(), previous: new THREE.Box3(), swept: new THREE.Box3()};
     const product = this.runtime.registerProduct(object, null, item);
     item.product = product; item.bounds = product.bounds; item.scale = product.scale;
-    product.sourceId = ''; product.sourceEntry = entry; entry.product = product;
+    product.sourceId = ''; product.sourceEntry = entry; entry.product = product;entry.visualSignature=visualSignature(entry);
     this.runtime.setProductMatrix(product, this.frontMatrix(record, product.bounds, scale, source.position));
     product.scale.copy(object.getWorldScale(new THREE.Vector3()));
     entry.scale = product.scale.toArray();
@@ -316,6 +354,9 @@ export default class ProductSourceRuntime {
           quality: classification.quality, defect: classification.defect},
         load, units: totalUnits,
         lineage: [record.id], scale: product.scale.toArray(), product};
+      if(classification.catalogueEquipmentId)entry.spec.catalogueEquipmentId=classification.catalogueEquipmentId;
+      if(classification.materialClass)entry.spec.materialClass=classification.materialClass;
+      entry.visualSignature=visualSignature(entry);
       product.sourceEntry = entry; if (item) item.sourceEntry = entry; this.entries.add(entry);
       Object.assign(product.object.userData, {sourceProductId: entry.id, sourceOriginId: entry.originId, sourceSku: entry.spec.id, sourceUnits: entry.units});
     }
@@ -427,6 +468,7 @@ export default class ProductSourceRuntime {
   }
 
   stop() {
+    this.visualArchive.forEach((original,object)=>{object.children.slice().forEach(child=>{object.remove(child);this.disposeVisualBody(child);});original.children.forEach(child=>object.add(child));if(original.sourceProduct===undefined)delete object.userData.sourceProduct;else object.userData.sourceProduct=original.sourceProduct;if(original.catalogueEquipmentId===undefined)delete object.userData.catalogueEquipmentId;else object.userData.catalogueEquipmentId=original.catalogueEquipmentId;const product=this.runtime.products.get(object);if(product)product.bounds.copy(original.bounds);object.updateMatrixWorld(true);this.runtime.invalidateCollision(object);});this.visualArchive.clear();
     this.entries.forEach(entry => { entry.ownerId = ''; if (entry.product && this.runtime.products.has(entry.product.object)) this.dematerialize(entry); });
     this.runtime.records.forEach(record => {
       const source = record.components.source;

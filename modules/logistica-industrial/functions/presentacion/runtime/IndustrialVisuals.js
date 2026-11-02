@@ -557,6 +557,13 @@ export default class IndustrialVisuals {
       if (!cache.has(record)) cache.set(record, this.variables(record, editing));
       return cache.get(record);
     };
+    this.records.forEach(record => {
+      const config=record.configurations.processor;
+      if(!config||!config.catalogueEquipmentId||!visible(record.object))return;
+      // The machine's real job state/progress drives only its named actuators.
+      // No RAF timer creates a second process or moves custody/support frames.
+      require('../../equipamiento/runtime/EquipmentGeometry.cjs').animateEquipment(record.object,Object.assign({},values(record),{editing}));
+    });
     this.frame = (this.frame || 0) + 1;
     this.mechanisms.forEach(entry => {
       if (!visible(entry.object)) return;

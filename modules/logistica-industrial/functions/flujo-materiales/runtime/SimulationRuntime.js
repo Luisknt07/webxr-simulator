@@ -746,6 +746,7 @@ export default class SimulationRuntime {
     const size = product ? product.bounds.getSize(new THREE.Vector3()).multiply(product.scale) : new THREE.Vector3(PACKAGE_SIZE, PACKAGE_SIZE, PACKAGE_SIZE);
     const defects = leaves.map(spec => spec.defect || 'none').filter(value => value !== 'none');
     return {sku: uniform('sku', 'product'), productType: uniform('productType', 'box'), color: uniform('color', '#b78b53'),
+      catalogueEquipmentId:uniform('catalogueEquipmentId',''),materialClass:uniform('materialClass',''),
       quality: leaves.length ? leaves.some(spec => spec.quality === 'defective') ? 'defective' : leaves.every(spec => spec.quality === 'good') ? 'good' : 'mixed' : metadata.quality,
       defect: leaves.length ? !defects.length ? 'none' : defects.every(value => value === defects[0]) ? defects[0] : 'mixed' : metadata.defect,
       width: Math.abs(size.x), height: Math.abs(size.y), depth: Math.abs(size.z), units: entry ? entry.units : metadata.units || 1,
@@ -906,7 +907,8 @@ export default class SimulationRuntime {
     const config = record && record.components.product && record.components.product.config || {}, source = object.userData.sourceProduct || {};
     product.classification = Object.freeze({sku: config.sku || source.sku || 'product', productType: config.productType || source.type || 'box',
       color: (config.color || source.color || '#b78b53').toLowerCase(), quality: config.quality || source.quality || 'good', defect: config.defect || source.defect || 'none',
-      mass: config.mass || source.mass || 1, units: config.units || source.units || 1, loadMode: config.loadMode || source.loadMode || 'individual', base: config.base || source.base || 'flat', initialVelocity: config.initialVelocity || 0});
+      mass: config.mass || source.mass || 1, units: config.units || source.units || 1, loadMode: config.loadMode || source.loadMode || 'individual', base: config.base || source.base || 'flat', initialVelocity: config.initialVelocity || 0,
+      catalogueEquipmentId:config.catalogueEquipmentId||source.catalogueEquipmentId||object.userData.catalogueEquipmentId||'',materialClass:config.materialClass||source.materialClass||''});
     this.products.set(object, product);
     if (!this.ctx.raycontrol) return product;
     const name = this.statePrefix + 'product-' + (++this.productSequence);
@@ -1238,7 +1240,7 @@ export default class SimulationRuntime {
       }
       const routes = conveyorLayout ? conveyorLayout.pathBranches(belt.config) : ['main'];
       routes.forEach(route => {
-        const projection = conveyorLayout ? conveyorLayout.closestPath(belt.config, local.x, local.z, route) :
+        const projection = conveyorLayout ? conveyorLayout.closestPath(belt.config, local.x, local.z, route, local.y) :
           {distance: local[belt.config.axis] + belt.config.length / 2, lateral: local[belt.config.axis === 'x' ? 'z' : 'x']};
         const length = this.pathLength(belt.config, route);
         const nearest = this.pathPoint(belt.config, projection.distance, route);
@@ -1597,7 +1599,7 @@ export default class SimulationRuntime {
         this.scopeGroups.forEach(group => {
           if (group.memberIds.some(id => this.records.get(id).components.conveyor.actualSpeed !== 0)) group.runSeconds += step;
         });
-        this.records.forEach(record => this.detect(record));
+        this.records.forEach(record => this.detect(record, step));
         this.refreshVariables();
         this.automate();
         this.observeProduction(step); this.productionAnalytics.sample(this.time);
@@ -2133,7 +2135,7 @@ export default class SimulationRuntime {
     return belt.enabled && belt.powered && belt.running && !belt.paused && !belt.emergency && !belt.palletFull && (!belt.transferBlocked || belt.config.mechanism === 'zones') && visible(record.object) ? belt.speed : 0;
   }
 
-  detect(record) {
+  detect(record, delta = 0) {
     const sensor = record.components.sensor;
     if (!sensor) return;
     const bounds = sensorBounds(record.object);
@@ -2142,13 +2144,17 @@ export default class SimulationRuntime {
     if (sensor.enabled && visible(record.object)) {
       const candidates = sensor.config.sourceId ? [this.records.get(sensor.config.sourceId)] : [];
       candidates.forEach(source => {
-        if (!source || !source.components.conveyor) return;
+        if (!source) return;
+        if(!source.components.conveyor){
+          if(sensor.config.catalogueEquipmentId){const inventory=source.components.source||source.components.processor&&source.components.processor.output||source.components.palletQueue,products=source.components.product?[this.products.get(source.object)]:inventory&&inventory.queue?inventory.queue.map(entry=>entry.product):[];products.filter(Boolean).forEach(product=>{if(visible(product.object)&&product.bounds.clone().applyMatrix4(product.object.matrixWorld).intersectsBox(bounds)){occupied=true;touching.add(product.object);}});}
+          return;
+        }
         source.components.conveyor.packages.forEach(item => {
           const swept = item.sweepSegments ? item.sweepSegments.some(segment => segment.intersectsBox(bounds)) : item.swept.intersectsBox(bounds);
           if (swept) { occupied = true; touching.add(item.mesh); }
         });
       });
-      if (sensor.config.sourceId && (!candidates[0] || !candidates[0].components.conveyor)) this.warn(record, 'source', 'El sensor ' + record.object.name + ' necesita una banda de origen válida.');
+      if (!sensor.config.catalogueEquipmentId && sensor.config.sourceId && (!candidates[0] || !candidates[0].components.conveyor)) this.warn(record, 'source', 'El sensor ' + record.object.name + ' necesita una banda de origen válida.');
     }
     // Count products, rather than only a clear-to-obstructed beam edge. Two
     // queued cartons can cover the optical volume without a full empty step.
@@ -2159,6 +2165,22 @@ export default class SimulationRuntime {
     sensor.occupied = occupied;
     const active = sensor.enabled && visible(record.object) && (sensor.config.normallyClosed ? !occupied : occupied);
     if (active !== sensor.active) { sensor.active = active; this.event(record.id, 'sensor-edge', 'active = ' + active); }
+    if(sensor.config.catalogueEquipmentId&&typeof behaviorSchema.catalogueCapabilities==='function'){
+      const source=this.records.get(sensor.config.sourceId),components=source&&source.components||{},machine=components.conveyor||components.robot||components.vehicle||components.processor||components.palletQueue||components.source;
+      const inventory=components.source||components.processor&&components.processor.output||components.palletQueue,entry=inventory&&inventory.queue&&inventory.queue[0];
+      const detected=Array.from(touching).map(mesh=>this.products.get(mesh)).find(Boolean)||source&&this.products.get(source.object)||entry&&entry.product;
+      const metadata=detected?this.productMetadata(detected):entry&&entry.spec;
+      const context={presence:occupied,target:metadata};
+      if(machine){if(typeof machine.powered==='boolean')context.powered=machine.powered;if(typeof machine.emergency==='boolean')context.emergency=machine.emergency;}
+      if(components.conveyor){sensor.encoderDistanceM=(sensor.encoderDistanceM||0)+(Number.isFinite(components.conveyor.actualSpeed)?components.conveyor.actualSpeed:0)*Math.max(0,delta);context.positionM=sensor.encoderDistanceM;}
+      if(components.vehicle&&components.vehicle.pose)context.positionM=components.vehicle.pose.lift;
+      if(components.robot&&components.robot.pose){const joint=behaviorSchema.robots.getJointDefinitions(components.robot.config)[0],position=components.robot.pose.joints&&components.robot.pose.joints[0];if(joint&&Number.isFinite(position)){if(joint.type==='prismatic')context.positionM=position;else context.angleRad=position;}}
+      if(detected){const center=detected.bounds.getCenter(new THREE.Vector3()).applyMatrix4(detected.object.matrixWorld);context.distanceM=center.distanceTo(record.object.getWorldPosition(new THREE.Vector3()));}
+      if(components.processor&&components.processor.config.operationParametersJson){const parameters=JSON.parse(components.processor.config.operationParametersJson);if(typeof parameters.guardClosed==='boolean')context.guardClosed=parameters.guardClosed;}
+      // A commanded oven temperature is deliberately not reported as a measured
+      // process temperature. Missing hardware/process data remains unknown.
+      sensor.catalogueReadout=behaviorSchema.catalogueCapabilities().sampleSensor(sensor.config.catalogueEquipmentId,context);
+    }
   }
 
   refreshVariables() {
@@ -2191,6 +2213,7 @@ export default class SimulationRuntime {
       const inventory = record.components.source || record.components.palletQueue;
       if (inventory) Object.assign(variables, {powered: inventory.powered !== false, emergency: !!inventory.emergency});
       if (sensor) Object.assign(variables, {enabled: sensor.enabled, active: sensor.active, occupied: sensor.occupied, count: sensor.count});
+      if(sensor&&sensor.catalogueReadout)Object.assign(variables,{measurementKnown:sensor.catalogueReadout.known,measurementValue:sensor.catalogueReadout.value,measurementUnit:sensor.catalogueReadout.unit,measurementSource:sensor.catalogueReadout.source});
       const product = this.products.get(record.object);
       if (product) Object.assign(variables, {held: !!product.heldBy, onConveyor: !!(product.item && product.item.beltId), onPallet: !!(product.item && product.item.palletOwnerId)});
       if (record.components.automation) variables.enabled = record.components.automation.enabled;

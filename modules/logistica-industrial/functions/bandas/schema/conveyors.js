@@ -1,5 +1,6 @@
 /* Geometry-independent conveyor paths. Shared by authoring, rendering and simulation. */
 'use strict';
+const cataloguePath = require('../../equipamiento/schema/cataloguePath.cjs');
 
 const presetVariants = ['roller-start', 'roller-middle', 'roller-end', 'belt-start', 'belt-middle', 'belt-end',
   'roller-curve-left', 'roller-curve-right', 'belt-curve-left', 'belt-curve-right', 'roller-tee-split', 'roller-tee-merge', 'belt-tee-split', 'belt-tee-merge'];
@@ -28,9 +29,10 @@ function settings(value = {}) {
   return Object.assign({}, value, geometry);
 }
 
-function pathBranches(config) { return config && config.layout === 'tee' ? ['main', 'branch'] : ['main']; }
+function pathBranches(config) { return config && (config.layout === 'tee' || cataloguePath.SORTERS.has(cataloguePath.handles(config) && config.catalogueEquipmentId.slice('equipment.transport.'.length))) ? ['main', 'branch'] : ['main']; }
 function teeRadius(config) { return Math.max(0.05, Math.min(config.width * 0.75, config.length / 2 - 0.05)); }
 function pathLength(value, route = 'main') {
+  if (cataloguePath.handles(value)) return cataloguePath.path(value, route).length;
   return rawLength(pathSettings(value), route);
 }
 function rawLength(config, route = 'main') {
@@ -83,8 +85,9 @@ function rawPoint(config, distance, route) {
   return {x, y, z, tx, ty, tz};
 }
 
-function pathPoint(value, distance, route = 'main') { return rawPoint(pathSettings(value), Number.isFinite(distance) ? distance : 0, route); }
+function pathPoint(value, distance, route = 'main') { if (cataloguePath.handles(value)) return cataloguePath.point(value, Number.isFinite(distance) ? distance : 0, route); return rawPoint(pathSettings(value), Number.isFinite(distance) ? distance : 0, route); }
 function ports(value) {
+  if (cataloguePath.handles(value)) return cataloguePath.ports(value);
   const config = settings(value), result = {
     input: Object.assign(rawPoint(config, 0, 'main'), {incoming: true, route: 'main'}),
     output: Object.assign(rawPoint(config, rawLength(config), 'main'), {incoming: false, route: 'main'})
@@ -104,6 +107,7 @@ function ports(value) {
 // commercial load rating. Old scenes without a declared equipment identity keep
 // their historical geometric envelope until the user adopts a catalogue model.
 function productCompatibility(value = {}, product = {}) {
+  if (cataloguePath.handles(value)) return cataloguePath.compatibility(value, product);
   const config = settings(value), reasons = [], add = (code, message) => reasons.push({code, message});
   const width = Math.abs(product.depth || product.width || 0), length = Math.abs(product.width || 0), height = Math.abs(product.height || 0);
   if (width > config.width + 0.00001) add('width', 'La carga supera el ancho útil del transportador.');
@@ -124,7 +128,8 @@ function productCompatibility(value = {}, product = {}) {
   return {ok: !reasons.length, reasons, simulationLevel: 'kinematic'};
 }
 
-function closestPath(value, x, z, route = 'main') {
+function closestPath(value, x, z, route = 'main', y) {
+  if (cataloguePath.handles(value)) return cataloguePath.closest(value, x, z, route, y);
   const config = pathSettings(value), length = rawLength(config, route);
   const steps = config.layout === 'straight' || route === 'main' && config.layout === 'tee' ? 1 : Math.max(32, Math.min(180, Math.ceil(length / 0.025)));
   let best = null, previous = rawPoint(config, 0, route);

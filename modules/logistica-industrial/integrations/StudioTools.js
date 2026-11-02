@@ -400,6 +400,23 @@ export default class StudioTools {
     return report;
   }
   studyScenes() { return clone(STUDY_SCENES); }
+  async createPracticeProject(id, options = {}) {
+    this.assertStudyReady(); const editor=this.editor,generation=editor.projectGeneration,document=editor.document,identity=editor.accessView&&editor.accessView.identityGeneration;
+    const assertContext=()=>{if(generation!==editor.projectGeneration||editor.document!==document||!editor.active||!editor.canEditDocument()||identity!==(editor.accessView&&editor.accessView.identityGeneration)||editor.projectModules&&!editor.projectModules.canShowLevel('sector.logistics-industrial'))throw Error('El proyecto, permiso o módulo cambió durante la preparación de la práctica.');};assertContext();
+    if(editor.projectModules&&!editor.projectModules.canShowLevel('sector.logistics-industrial'))throw new Error('Activa Logística industrial para crear esta práctica.');
+    editor.creatingStudy=true;
+    try{
+      const compiler=await import(/* webpackChunkName: "logistics-practice-scenes" */ '../practices/runtime/PracticeSceneBuilder.js');
+      const prepared=await compiler.compilePracticeProject(id,Object.assign({},options,{cycleSeconds:options.cycleSeconds||options.cycleTime,nativeDocument:editor.document}));
+      if(generation!==editor.projectGeneration)throw new Error('El proyecto cambió durante la preparación.');
+      assertContext();await editor.keepCurrentProject();if(generation!==editor.projectGeneration)throw new Error('El proyecto cambió antes del guardado.');
+      assertContext();const saved=await editor.projectClient.createProject(prepared.name,prepared.document);
+      try{assertContext();}catch(error){throw Error('La práctica quedó guardada en Otros proyectos; el contexto activo cambió. '+error.message);}
+      try{await editor.applyServerProject(saved,{roomId:'hall',expectedProjectGeneration:generation,accessGeneration:identity});}catch(error){error.message='La práctica quedó guardada en Otros proyectos. No se pudo abrir. '+error.message;throw error;}
+      if(editor.entities)editor.entities.sync();editor.home();this.refreshLabels();
+      editor.lastPracticeReport={projectId:saved.id,revision:saved.revision,reports:prepared.reports};editor.toast('Práctica creada con materiales finitos. Pulsa Probar para iniciar un intento.');return editor.lastPracticeReport;
+    }finally{editor.creatingStudy=false;}
+  }
   availableStudyRoom() {
     const editor = this.editor, document = editor.document, used = new Set((document.studio && document.studio.scenes || []).map(scene => scene.id)); used.add(editor.roomId);
     return schema.studio.ROOM_IDS.find(id => !used.has(id) && !schema.studio.hasSceneContent(document, id)) || null;
@@ -653,15 +670,25 @@ export default class StudioTools {
   connect() { if (this.editor.shell) this.editor.shell.openWorkspace('connections'); }
   documentationProviders() {
     const editor = this.editor;
-    return [{id: 'sector.logistics-industrial', title: 'Logística industrial',
+    const enrich=value=>{const book=value.default||value,resources=editor.resourceBrowser&&editor.resourceBrowser.resources||[];const copy=Object.assign({},book);copy.ARTICLES=(book.ARTICLES||book.articles).map(article=>Object.assign({},article,{resourceLinks:resources.filter(resource=>(resource.sourceRefs||[]).some(ref=>ref.key===article.id||ref.namespace==='nexus-conceptual-198'&&(ref.id||ref.sourceId)===article.id)).map(resource=>({resourceId:resource.id,relation:'exact'})).concat(article.resourceLinks||[])}));return copy;};
+    return [{id: 'sector.logistics-industrial', moduleId:'sector.logistics-industrial', title: 'Catálogo conceptual original', accepts:id=>!id.includes('nexus-'),
       available: () => !editor.projectModules || editor.projectModules.canShowLevel('sector.logistics-industrial'),
-      load: () => import(/* webpackChunkName: "logistics-documentation" */ '../documentation/catalog.cjs').then(value => value.default || value)}];
+      load: () => import(/* webpackChunkName: "logistics-documentation" */ '../documentation/catalog.cjs').then(enrich)},
+      {id:'sector.logistics-industrial:illustrated',moduleId:'sector.logistics-industrial',title:'Equipos · base ilustrada',accepts:id=>id.startsWith('nexus-illustrated-2026:'),available:()=>!editor.projectModules||editor.projectModules.canShowLevel('sector.logistics-industrial'),load:()=>import(/* webpackChunkName: "nexus-equipment-reference" */ '../practices/documentation/equipment-book.cjs').then(enrich)},
+      {id:'sector.logistics-industrial:practices',moduleId:'sector.logistics-industrial',title:'Prácticas · procesos y escenarios',accepts:id=>id.startsWith('nexus-practices-2026:'),available:()=>!editor.projectModules||editor.projectModules.canShowLevel('sector.logistics-industrial'),load:()=>import(/* webpackChunkName: "nexus-practices-reference" */ '../practices/documentation/practice-book.cjs').then(enrich)}];
   }
   openWorkspace(id, container) {
     if (!container) return;
     if (this.graphicsSettings) { this.graphicsSettings.dispose(); this.graphicsSettings = null; }
     container.textContent = ''; const editor = this.editor, document = editor.document;
     const studio = document.studio || {version: 1};
+    if(['projects','assistant','inventory','analytics','monitor','fleet'].includes(id)){
+      if(editor.projectModules&&!editor.projectModules.canShowLevel('sector.logistics-industrial'))return;
+      if(id==='projects'){editor.projectLibrary.open();return;}
+      if(id==='assistant'){if(editor.ctx.assistantWorkspace)editor.ctx.assistantWorkspace.open();else node('p','Activa el asistente del framework para utilizar esta capacidad.',container);return;}
+      const generation=editor.projectGeneration,roomId=editor.roomId,token={closed:false};container.addEventListener('studio-workspace-close',()=>{token.closed=true;if(token.view)token.view.dispose();},{once:true});
+      import(/* webpackChunkName: "logistics-equipment-workspace" */ '../functions/equipamiento/ui/EquipmentWorkspace.js').then(value=>{if(token.closed||editor.projectGeneration!==generation||editor.roomId!==roomId)return;token.view=new value.default(editor,container,id);}).catch(error=>{if(!token.closed)node('p',error.message,container);});return;
+    }
     if (['interface', 'ui', 'interfaz'].includes(id)) {
       node('h2', 'Interfaz · widgets', container); node('p', 'Los widgets del mundo 3D funcionan en escritorio y WebXR. Vincula un objeto y una variable real.', container); button(container, '+ Widget', () => this.addWidget());
       (studio.widgets || []).filter(item => item.roomId === editor.roomId).forEach(widget => {

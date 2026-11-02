@@ -8,6 +8,13 @@ const MAX_CATALOG_JSON = 16000;
 const palletPlanCache = new Map();
 const qualities = ['good', 'defective'];
 const defects = ['none', 'damaged', 'surface', 'dimension', 'incomplete'];
+const materialClasses = ['solid','bulk','fluid','steel','ferromagnetic','non-ferrous','textile','porous-textile','fragile','conditioned','hazardous'];
+function catalogueMetadata(value={}) {
+  const out={};
+  if(value.catalogueEquipmentId!==undefined){const d=require('../../equipamiento/schema/equipmentCatalog.cjs').definition(value.catalogueEquipmentId);if(!d||d.role!=='product')throw new Error('El producto necesita una identidad de catálogo de carga registrada.');out.catalogueEquipmentId=d.id;}
+  if(value.materialClass!==undefined){if(!materialClasses.includes(value.materialClass))throw new Error('Clase de material no compatible.');out.materialClass=value.materialClass;}
+  return out;
+}
 function plain(value) { return value && typeof value === 'object' && !Array.isArray(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null); }
 function normalizeQuality(quality = 'good', defect = 'none') {
   if (!qualities.includes(quality) || !defects.includes(defect)) throw new Error('Calidad o defecto del producto inválido.');
@@ -21,15 +28,17 @@ function normalizeCatalog(value) {
     try { rows = JSON.parse(rows); } catch (_) { throw new Error('El catálogo debe contener una lista válida de productos.'); }
   }
   if (!Array.isArray(rows) || rows.length > MAX_CATALOG) throw new Error('El catálogo admite hasta 8 tipos de producto.');
-  const ids = new Set(), keys = ['id', 'name', 'type', 'width', 'height', 'depth', 'color', 'quality', 'defect', 'mass', 'base', 'variant', 'units'];
+  const ids = new Set(), keys = ['id', 'name', 'type', 'width', 'height', 'depth', 'color', 'quality', 'defect', 'mass', 'base', 'variant', 'units', 'catalogueEquipmentId', 'materialClass'];
   return rows.map(row => {
     if (!plain(row) || Object.keys(row).some(key => !keys.includes(key))) throw new Error('El producto contiene campos no compatibles.');
     if (typeof row.id !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(row.id) || ids.has(row.id)) throw new Error('Cada producto necesita un código único de hasta 64 caracteres.');
     ids.add(row.id);
     if (typeof row.name !== 'string' || !row.name.trim() || row.name.length > 160 || /[\x00-\x1f]/.test(row.name)) throw new Error('Escribe un nombre válido para el producto.');
     if (!types.includes(row.type)) throw new Error('Tipo de producto no compatible.');
+    const catalogue=catalogueMetadata(row);
     ['width', 'height', 'depth'].forEach(key => {
-      if (typeof row[key] !== 'number' || !Number.isFinite(row[key]) || row[key] < 0.05 || row[key] > 2) throw new Error('Las dimensiones del producto deben estar entre 0,05 y 2 metros.');
+      const minimum=key==='height'&&catalogue.catalogueEquipmentId==='equipment.product.slip-sheet'?.001:.05,maximum=catalogue.catalogueEquipmentId?4:2;
+      if (typeof row[key] !== 'number' || !Number.isFinite(row[key]) || row[key] < minimum || row[key] > maximum) throw new Error('Las dimensiones del producto están fuera de su intervalo compatible.');
     });
     if (typeof row.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(row.color)) throw new Error('El color del producto debe ser #RRGGBB.');
     if (row.mass !== undefined && (typeof row.mass !== 'number' || !Number.isFinite(row.mass) || row.mass < .01 || row.mass > 3000)) throw new Error('La masa del producto debe estar entre 0,01 y 3000 kg.');
@@ -38,7 +47,7 @@ function normalizeCatalog(value) {
     if (row.variant && productEquipment.getDefinition(row.variant).preset.productType !== row.type) throw new Error('El modelo visual no coincide con el tipo del producto.');
     if (row.units !== undefined && (!Number.isInteger(row.units) || row.units < 1 || row.units > 64)) throw new Error('Las unidades del producto deben estar entre 1 y 64.');
     const physical = Object.assign({}, row.mass === undefined ? {} : {mass: row.mass}, row.base === undefined ? {} : {base: row.base}, row.variant === undefined ? {} : {variant: row.variant}, row.units === undefined ? {} : {units: row.units});
-    return Object.assign({id: row.id, name: row.name.trim(), type: row.type, width: row.width, height: row.height, depth: row.depth, color: row.color.toLowerCase()}, normalizeQuality(row.quality, row.defect), physical);
+    return Object.assign({id: row.id, name: row.name.trim(), type: row.type, width: row.width, height: row.height, depth: row.depth, color: row.color.toLowerCase()}, normalizeQuality(row.quality, row.defect), physical, catalogue);
   });
 }
 function normalizeCatalogJSON(value) { return JSON.stringify(normalizeCatalog(value)); }

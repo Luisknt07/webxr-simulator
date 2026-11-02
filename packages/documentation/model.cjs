@@ -7,7 +7,7 @@ function safeLink(value){
  try{const url=new URL(value);return ['http:','https:'].includes(url.protocol)&&!url.username&&!url.password?url.href:null;}catch(_){return null;}
 }
 function safeImage(value){
- if(typeof value!=='string'||value.length>500||!/^modules\/[a-z0-9-]+\/(?:documentation\/assets|assets)\/[a-zA-Z0-9/_.-]+\.(?:png|jpe?g|webp)$/i.test(value))return null;
+ if(typeof value!=='string'||value.length>500||!/^modules\/[a-z0-9-]+\/(?:documentation\/assets|practices\/assets|assets)\/[a-zA-Z0-9/_.-]+\.(?:png|jpe?g|webp)$/i.test(value))return null;
  return value.split('/').some(part=>!part||part==='.'||part==='..')?null:value;
 }
 function blockText(block){

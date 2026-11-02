@@ -158,7 +158,10 @@ function descriptorValue(value) {
     const descriptor = {prefab: value.prefab};
     if (value.variant !== undefined) {
 const variants = value.prefab === 'vehicle' ? behaviorSchema.vehicles.variants : value.prefab === 'product' ? behaviorSchema.productEquipment.variants : value.prefab === 'robot' ? behaviorSchema.robots.variants : value.prefab === 'conveyor' ? behaviorSchema.conveyorLayout.presetVariants : value.prefab === 'palletQueue' ? behaviorSchema.warehouseRacks.SYSTEMS.map(system => system.id) : value.prefab === 'source' ? ['queue'] : value.prefab === 'processor' ? ['combiner', 'separator'] : value.prefab === 'control' ? ['start', 'stop', 'emergency', 'pause', 'powerOn', 'powerOff', 'speedUp', 'speedDown', 'insertBox', 'resetEmergency', 'generate', 'dispatch', 'clearQueue', 'operator'] : [];
-      if (!variants.includes(value.variant)) throw new Error('Variante de equipo no compatible.');
+      if (typeof value.variant === 'string' && value.variant.startsWith('catalogue:')) {
+        const equipment = require('../../../modules/logistica-industrial/functions/equipamiento/schema/equipmentCatalog.cjs').definition(value.variant.slice(10));
+        if (equipment.nativeKind !== value.prefab || ['workspace', 'attachment'].includes(equipment.operationLevel)) throw new Error('La definición de catálogo no corresponde a esta plantilla.');
+      } else if (!variants.includes(value.variant)) throw new Error('Variante de equipo no compatible.');
       descriptor.variant = value.variant;
     }
     return descriptor;
@@ -437,11 +440,17 @@ export default class SceneDocument {
         object.userData.editorPrefabVariant = content.userData.editorPrefabVariant = definition.variant;
       }
     }
+    if(entry&&config.catalogueEquipmentId){
+      entry.descriptor.variant='catalogue:'+config.catalogueEquipmentId;object.userData.editorDescriptor=clone(entry.descriptor);
+      object.userData.catalogueEquipmentId=content.userData.catalogueEquipmentId=config.catalogueEquipmentId;
+      object.userData.editorPrefabVariant=content.userData.editorPrefabVariant=entry.descriptor.variant;
+    }
     if (!this.conveyorSignatures) this.conveyorSignatures = new WeakMap();
     const keys = ['robot', 'vehicle', 'product'].includes(config.type) ? behaviorSchema.definitionFor(config.type).fields.map(field => field.key) : config.type === 'palletQueue' ? ['width', 'depth', 'columns', 'rows', 'layers', 'capacity', 'palletCapacity', 'acceptsPallets', 'palletType', 'palletMaterial', 'layoutMode', 'withPanel'] :
       config.type === 'processor' ? ['mode', 'length', 'width', 'withPanel'] :
       config.type === 'source' ? ['generationMode', 'productType', 'width', 'height', 'depth', 'color', 'catalog', 'loadMode', 'palletColumns', 'palletRows', 'palletLayers', 'palletType', 'palletMaterial', 'palletPacking', 'palletWidth', 'palletDepth', 'withPanel'] :
       ['layout', 'surface', 'length', 'width', 'radius', 'curveAngle', 'axis', 'junctionMode', 'branchSide', 'role', 'withSensors', 'withPanel', 'withPallet', 'outputId', 'branchId', 'equipmentId', 'equipmentVersion', 'drive', 'mechanism', 'rise', 'rollerPitch', 'zoneLength', 'cleats', 'mergeAngle'];
+    keys.push('catalogueEquipmentId','catalogueToolId','operationParametersJson','wear','detail','frameColor','accentColor');
     if (config.type === 'conveyor') keys.push('supportHeight', 'panelDesign');
     if (config.type === 'palletQueue') keys.push(...behaviorSchema.warehouseRacks.FIELDS.map(field => field.key));
     const signature = JSON.stringify(keys.map(key => config[key]));
@@ -1374,7 +1383,7 @@ export default class SceneDocument {
         object.userData.editorMaterial = true;
       }
       const materials = Array.isArray(object.material) ? object.material : [object.material];
-      materials.forEach(material => material.color.set(color));
+      materials.forEach(material => {material.color.set(color);if(material.userData.studioColorSpace==='linear')material.color.convertSRGBToLinear();});
     } else {
       // Clone once before tinting imported resources so other instances stay independent.
       object.traverse(child => {
@@ -1388,7 +1397,7 @@ export default class SceneDocument {
         const materials = Array.isArray(child.material) ? child.material : [child.material];
         materials.forEach((material, index) => {
           if (material.color) {
-            if (color) material.color.set(color);
+            if (color) {material.color.set(color);if(material.userData.studioColorSpace==='linear')material.color.convertSRGBToLinear();}
             else material.color.copy(child.userData.editorOriginalMaterials[index].color);
           }
         });

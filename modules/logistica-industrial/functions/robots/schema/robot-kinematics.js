@@ -30,10 +30,10 @@ function configuration(value) {
   if (!value || typeof value !== 'object') return robots.normalize({});
   // Geometry/runtime hold stable config objects during a cycle. Invalidate on
   // every mechanical field edit while avoiding full schema parsing per frame.
-  const signature = [value.variant, value.family, value.visualModel, value.tool, value.reach, value.length, value.width, value.height, value.baseHeight, value.maxProductWidth, value.maxProductHeight, value.maxProductDepth, value.jointLimitsJson].join('|');
+  const signature = [value.variant, value.family, value.visualModel, value.tool, value.catalogueToolId, value.reach, value.length, value.width, value.height, value.baseHeight, value.maxProductWidth, value.maxProductHeight, value.maxProductDepth, value.jointLimitsJson].join('|');
   const cached = prepared.get(value); if (cached && cached.signature === signature) return cached.config;
   const config = robots.normalize(value); prepared.set(value, {signature, config});
-  prepared.set(config, {signature: [config.variant, config.family, config.visualModel, config.tool, config.reach, config.length, config.width, config.height, config.baseHeight, config.maxProductWidth, config.maxProductHeight, config.maxProductDepth, config.jointLimitsJson].join('|'), config});
+  prepared.set(config, {signature: [config.variant, config.family, config.visualModel, config.tool, config.catalogueToolId, config.reach, config.length, config.width, config.height, config.baseHeight, config.maxProductWidth, config.maxProductHeight, config.maxProductDepth, config.jointLimitsJson].join('|'), config});
   return config;
 }
 
@@ -74,6 +74,8 @@ function jointDefinitions(value) {
 // flange reach, vacuum contact or bottom-support tools.
 function getToolContactDepth(value, height) {
   const c = configuration(value), size = Number(height);
+  if(c.catalogueToolId==='equipment.tool.magnet')return 0;
+  if(c.catalogueToolId==='equipment.tool.needle')return Number.isFinite(size)&&size>0?Math.min(.008,size*.15):0;
   return c.tool === 'gripper' && Number.isFinite(size) && size > 0 ? Math.min(.04, size * .5) : 0;
 }
 function clampJoints(value, joints) {

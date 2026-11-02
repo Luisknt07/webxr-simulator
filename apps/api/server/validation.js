@@ -103,7 +103,10 @@ if (!['conveyor', 'sensor', 'plc', 'control', 'product', 'source', 'processor', 
     const descriptor = {prefab: value.prefab};
     if (value.variant !== undefined) {
 const variants = value.prefab === 'vehicle' ? require('../../../modules/logistica-industrial/functions/montacargas/schema/vehicles.js').variants : value.prefab === 'product' ? require('../../../modules/logistica-industrial/functions/flujo-materiales/schema/product-equipment.js').variants : value.prefab === 'robot' ? require('../../../modules/logistica-industrial/functions/robots/schema/robots.js').variants : value.prefab === 'conveyor' ? require('../../../modules/logistica-industrial/functions/bandas/schema/conveyors.js').presetVariants : value.prefab === 'palletQueue' ? require('../../../modules/logistica-industrial/functions/almacenamiento/schema/warehouseRacks.js').SYSTEMS.map(system => system.id) : value.prefab === 'source' ? ['queue'] : value.prefab === 'processor' ? ['combiner', 'separator'] : value.prefab === 'control' ? ['start', 'stop', 'emergency', 'pause', 'powerOn', 'powerOff', 'speedUp', 'speedDown', 'insertBox', 'resetEmergency', 'generate', 'dispatch', 'clearQueue', 'operator'] : [];
-      if (!variants.includes(value.variant)) invalid('La variante del equipo no es compatible.');
+      if(typeof value.variant==='string'&&value.variant.startsWith('catalogue:')){
+        let equipment;try{equipment=require('../../../modules/logistica-industrial/functions/equipamiento/schema/equipmentCatalog.cjs').definition(value.variant.slice(10));}catch(_){invalid('Identidad de catálogo desconocida.');}
+        if(equipment.nativeKind!==value.prefab||['workspace','attachment'].includes(equipment.operationLevel))invalid('El equipo de catálogo no corresponde a esta plantilla.');
+      }else if (!variants.includes(value.variant)) invalid('La variante del equipo no es compatible.');
       descriptor.variant = value.variant;
     }
     return descriptor;

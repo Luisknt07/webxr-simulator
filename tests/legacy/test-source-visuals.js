@@ -68,7 +68,7 @@ async function run() {
   close(tableHits[0].point.y, 0, 'The handling height and product placement remain unchanged.');
   assert(tableHits.filter(hit => Math.abs(hit.point.y) < 0.00001).every(hit => hit.object.material.metalness === 0 && hit.object.material.roughness >= 0.9),
     'Only the matte antislip surface can occupy the deck plane; metal must not flicker through it.');
-  assert(tableHits.some(hit => hit.object.material.color.getHexString() === 'aab8c2' && hit.point.y < -0.003));
+  assert(tableHits.some(hit => hit.object.material.color.equals(new THREE.Color('#aab8c2').convertSRGBToLinear()) && hit.point.y < -0.003));
   const resized = Object.assign(behaviorSchema.defaultBehavior('source'), {loadMode: 'pallet', width: 1.2, depth: 0.7});
   assert(prefab.createIndustrialPrefab.refresh(source, resized));
   assert.equal(source.children[2], panel, 'Resizing the deck must retain authored panel and control paths.');

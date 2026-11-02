@@ -105,6 +105,10 @@ function normalize(value) {
   safe(value);
   if (!plain(value) || value.version !== 1 || JSON.stringify(value).length > 8 * 1024 * 1024) throw new Error('Extensión de Studio incompatible o demasiado grande.');
   const result = {version: 1};
+  if(value.moduleData!==undefined){
+    if(!plain(value.moduleData)||Object.keys(value.moduleData).length>32)throw new Error('Datos de módulo inválidos.');
+    const data={};Object.keys(value.moduleData).forEach(key=>{if(!/^sector\.[a-z][a-z0-9-]{0,119}$/.test(key)||!plain(value.moduleData[key])||value.moduleData[key].version!==1||JSON.stringify(value.moduleData[key]).length>512*1024)throw new Error('Estado de módulo incompatible.');data[key]=JSON.parse(JSON.stringify(value.moduleData[key]));});result.moduleData=data;
+  }
   if(value.moduleProfile!==undefined)result.moduleProfile=require('./project-module-profile.js').normalizeModuleProfile(value.moduleProfile);
   if (value.startRoomId !== undefined) result.startRoomId = choice(value.startRoomId, ROOM_IDS);
   if (value.scenes !== undefined) result.scenes = unique(list(value.scenes, 10, item => {

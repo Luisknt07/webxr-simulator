@@ -47,7 +47,8 @@ function normalize(value = {}, id) {
   const result = Object.assign({}, defaults(id || value.variant), value);
   fields().forEach(field => {
     const item = result[field.key];
-    if (field.input === 'number' && (typeof item !== 'number' || !Number.isFinite(item) || item < field.min || item > field.max || field.key === 'units' && !Number.isInteger(item))) throw new Error('Valor de producto fuera de rango: ' + field.label + '.');
+    const minimum = field.key === 'height' && value.catalogueEquipmentId === 'equipment.product.slip-sheet' ? .001 : field.min;
+    if (field.input === 'number' && (typeof item !== 'number' || !Number.isFinite(item) || item < minimum || item > field.max || field.key === 'units' && !Number.isInteger(item))) throw new Error('Valor de producto fuera de rango: ' + field.label + '.');
     if (field.input === 'select' && !field.options.some(option => option.value === item)) throw new Error('Opción de producto no compatible: ' + field.label + '.');
     if (field.input === 'color' && (typeof item !== 'string' || !/^#[a-f0-9]{6}$/i.test(item))) throw new Error('El color del producto debe tener formato #RRGGBB.');
   });

@@ -386,6 +386,38 @@ function link(b, parent, length, thickness, name, distal = false) {
   return shell;
 }
 
+function attachCatalogueTool(b,assembly,rig,dimensions){
+  if(!b.config.catalogueToolId)return false;
+  const catalog=require('../../equipamiento/schema/equipmentCatalog.cjs'),definition=catalog.definition(b.config.catalogueToolId);
+  if(!definition||definition.operationLevel!=='attachment')throw new Error('La seleccion no es una herramienta acoplable.');
+  rig.catalogueTool={id:definition.id,mechanism:definition.mechanism,style:b.config.tool==='fork'?'support':b.config.tool};
+  // Native fork geometry already matches its actual support plane, pallet
+  // depth/rear clearance and structural adapter. A tiny generic EOAT fork
+  // cannot replace this operational support just to change its silhouette.
+  if(b.config.tool==='fork')return false;
+  const cfg=catalog.normalize(definition.id,{frameColor:b.config.accentColor,accentColor:b.config.frameColor,wear:b.config.wear,detail:b.config.detail}),layout=catalog.layout(definition.id,cfg);
+  const visual=require('../../equipamiento/runtime/EquipmentGeometry.cjs').createEquipmentGeometry(definition,cfg,{THREE,layout}),frame=visual&&visual.userData.robotCatalogueToolFrame;
+  if(!visual||!frame||!frame.contact||frame.contact[1]>=-.001)throw new Error('La herramienta necesita marcos reales de brida y contacto.');
+  const flangeX=(rig.pilotFlangeEnd||.015)-dimensions.toolLength,depth=-frame.contact[1],approachLength=-flangeX;
+  // Catalogue coordinates: -Y approaches the load, X spans the jaws. Native
+  // coordinates: +X approaches the load and Z spans the jaws. This rigid frame
+  // conversion leaves the robot's real TCP and every joint transform intact.
+  visual.quaternion.setFromAxisAngle(new THREE.Vector3(1,0,0),Math.PI/2).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),Math.PI/2));
+  visual.scale.set(1,approachLength/depth,1);visual.position.set(flangeX,frame.contact[2],-frame.contact[0]);
+  visual.name='Herramienta nativa de catalogo · '+definition.title;visual.userData.robotCatalogueAttachment=true;assembly.add(visual);
+  const fingers=[],guides=[];visual.traverse(node=>{
+    if(node.userData.catalogueFinger)fingers.push(node);
+    if(node.userData.catalogueJawGuide)guides.push(node);
+    if(!node.isMesh)return;node.userData.catalogueToolComponentId=node.userData.equipmentComponentId;
+    if(node.userData.equipmentPartRole==='surface'||node.parent&&['surface','contact-pad'].includes(node.parent.userData.equipmentPartRole)){
+      node.userData.robotContactSurface=b.config.tool==='vacuum'?'vacuum':b.config.tool==='process'?'process':'jaw';rig.toolContactSurfaces.push(node);
+    }
+  });
+  rig.fingers=fingers;rig.catalogueTool.geometry=visual;rig.catalogueTool.mount=[flangeX,0,0];rig.catalogueTool.contact=[0,0,0];rig.catalogueTool.style=frame.style;
+  rig.catalogueToolSync=(span,opening)=>{const radius=span/2+.014+opening*.055;fingers.forEach(finger=>{const data=finger.userData.catalogueFinger,delta=radius-(data.radius*.86-data.padHalf);finger.position.set(data.direction[0]*delta,0,data.direction[1]*delta);});guides.forEach(guide=>{guide.scale.x=guide.userData.catalogueJawGuide==='radial'?radius+.11:radius*2+.15;});};
+  return true;
+}
+
 function tool(b, parent, rig) {
   // The local +X axis is the tool approach axis. Vacuum lips and finger tips
   // end at TCP x=0; the parallel gripper grips with side pads behind its tips.
@@ -394,6 +426,7 @@ function tool(b, parent, rig) {
   assembly.userData.robotToolMount={offset:dimensions.toolOffset||[dimensions.toolLength,0,0],support:dimensions.toolSupport};
   const contact = (mesh, kind) => {mesh.userData.robotContactSurface = kind; rig.toolContactSurfaces.push(mesh); return mesh;};
   rig.tool = group(assembly, 'TCP · punto de contacto'); rig.tool.userData.robotToolAnchor = true;
+  if(attachCatalogueTool(b,assembly,rig,dimensions))return assembly;
   if (b.config.tool === 'platform') {
     const supported=dimensions.toolSupport,long = supported?supported.depth+.10:Math.min(b.config.length * .78, 1.3), wide = supported?supported.width+.10:Math.min(b.config.width * .82, 1.1);
     contact(b.box('Cubierta antideslizante de transferencia', [.045, long, wide], 'rubber', assembly, [.026, 0, 0], true), 'support');
@@ -1074,7 +1107,8 @@ export function updateRobotPose(root, pose = {}) {
   const maximumSpan = Math.hypot(c.maxProductWidth, c.maxProductDepth, c.maxProductHeight);
   const gripSpan = Math.max(.02, Math.min(maximumSpan, Number.isFinite(pose.gripSpan) ? pose.gripSpan : .12));
   const jawOffset = gripSpan / 2 + .021 + opening * .06;
-  rig.fingers.forEach(finger => { finger.position.z = finger.userData.robotFingerSign * jawOffset; });
+  if(rig.catalogueToolSync)rig.catalogueToolSync(gripSpan,opening);
+  else rig.fingers.forEach(finger => { finger.position.z = finger.userData.robotFingerSign * jawOffset; });
   if (rig.gripperRail) rig.gripperRail.scale.z = Math.max(.23, jawOffset * 2 + .07);
   rig.pose = solved; root.updateMatrixWorld(true); updatePilotServices(root,rig); return solved;
 }

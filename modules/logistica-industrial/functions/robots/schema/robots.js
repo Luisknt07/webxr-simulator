@@ -196,6 +196,8 @@ function normalize(value = {}) {
   result.destinationRulesJson = JSON.stringify(parseDestinationRules(result));
   result.waypointsJson = JSON.stringify(waypoints);
   result.taskProgramJson = require('./robot-task-program.js').normalizeConfig(result);
+  if(value.catalogueToolId){const tool=require('../../equipamiento/schema/equipmentCatalog.cjs').definition(value.catalogueToolId);if(!tool||tool.role!=='tool'||tool.operationLevel!=='attachment'||tool.toolType!==result.tool||['amr','agv','shuttle','mobileSorter'].includes(result.family))throw new Error('El acoplamiento de catálogo necesita una muñeca compatible y el tipo de herramienta correcto.');result.catalogueToolId=tool.id;}
+  if(value.catalogueEquipmentId){const machine=require('../../equipamiento/schema/equipmentCatalog.cjs').definition(value.catalogueEquipmentId);if(!machine||machine.nativeKind!=='robot')throw new Error('Identidad de catálogo robótico no compatible.');result.catalogueEquipmentId=machine.id;}
   getJointDefinitions(result);
   result.jointLimitsJson = JSON.stringify(jsonList(result.jointLimitsJson, MAX_JOINT_JSON, 6, 'Límites articulares'));
   return result;
@@ -213,6 +215,7 @@ function productCompatibility(value = {}, metadata = {}) {
   if (mass !== undefined && !massKnown) return {accepted: false, reason: 'Masa de producto inválida.', massKnown: false};
   if (!massKnown && config.requireKnownMass) return {accepted: false, reason: 'La carga necesita una masa declarada.', massKnown};
   const assessed=loadPolicy.assess(config,metadata);if(!assessed.accepted)return assessed;
+  if(config.catalogueToolId&&config.tool!=='process'){const tool=require('../../equipamiento/schema/equipmentCapabilities.cjs').assessTool(config.catalogueToolId,config,metadata);if(!tool.accepted)return tool;}
   if (massKnown && mass > config.payloadKg + 1e-8) return {accepted: false, reason: 'La carga supera la capacidad simulada del robot.', massKnown};
   const size = metadata.size || {}, dimensions = {width: metadata.width === undefined ? size.x : metadata.width, height: metadata.height === undefined ? size.y : metadata.height, depth: metadata.depth === undefined ? size.z : metadata.depth};
   for (const key of ['width', 'height', 'depth']) {

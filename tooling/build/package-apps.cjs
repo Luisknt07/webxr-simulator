@@ -77,6 +77,19 @@ function documentationAssets(root) {
     return name;
   });
 }
+function practiceAssets(root) {
+  const folder='modules/logistica-industrial/practices/assets',manifest=folder+'/manifest.json';
+  if(!safePath(root,manifest,false))return[];
+  const bytes=read(root,manifest);if(bytes.length>1024*1024)error('practice_assets','Practice illustration receipt is too large.');
+  const data=JSON.parse(bytes);if(data.format!=='smarttwin.nexus-source-assets'||data.version!==1||data.moduleId!=='sector.logistics-industrial'||!Array.isArray(data.files)||data.files.length>512||!Array.isArray(data.sources)||data.sources.length!==2)error('practice_assets','Invalid practice illustration receipt.');
+  const namespaces=new Set();for(const source of data.sources){if(!['nexus-illustrated-2026','nexus-practices-2026'].includes(source.namespace)||namespaces.has(source.namespace)||!/^[a-f0-9]{64}$/.test(source.sha256||''))error('practice_assets','Invalid practice source identity.');namespaces.add(source.namespace);}
+  const seen=new Set();let total=0;return data.files.map(file=>{
+    if(!file||!/^(?:nexus-illustrated-2026|nexus-practices-2026)\/image\d+\.(?:png|jpe?g)$/.test(file.path||'')||seen.has(file.path)||!Number.isSafeInteger(file.bytes)||file.bytes<8||file.bytes>2*1024*1024||!/^[a-f0-9]{64}$/.test(file.sha256||''))error('practice_assets','Invalid practice illustration.');
+    seen.add(file.path);total+=file.bytes;if(total>24*1024*1024)error('practice_assets','Practice illustrations exceed the private publication budget.');
+    const name=folder+'/'+file.path,image=read(root,name),png=image.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])),jpg=image[0]===255&&image[1]===216&&image[2]===255;
+    if(image.length!==file.bytes||digest(image)!==file.sha256||(/\.png$/.test(name)?!png:!jpg))error('practice_assets','Practice illustration differs from its source receipt.');return name;
+  });
+}
 function makePlan(root, application, compilation) {
   const files = new Map(), add = (output, source, bytes) => {
     relative(output); if (files.has(output)) { if (files.get(output).source !== source) error('duplicate_output', 'Conflicting publication output: ' + output); return; }
@@ -123,6 +136,7 @@ function makePlan(root, application, compilation) {
   } else if (application === 'core-empty') add('core.css', 'apps/core-empty/core.css');
   else {
     documentationAssets(root).forEach(name => add(name, name));
+    practiceAssets(root).forEach(name=>add(name,name));
     ASSET_ROOTS.forEach(folder => walk(root, folder, name => { if (allowedAsset(name)) add(name, name); }, {skipPrivate: true}));
     const moduleMetadata=safePath(root,'data/build/workspace-catalog.json',false);
     if(fs.existsSync(moduleMetadata)){
@@ -240,5 +254,5 @@ function packageApps(options = {}) {
   for (const entry of committed) if (entry.backup) removeGenerated(root, entry.backup);
   return plans.map(plan => ({application: plan.application, directory: path.join(artifacts, plan.application), manifest: plan.manifest}));
 }
-module.exports = {packageApps, FORMAT, PUBLIC_SCENE, verifyStartup, documentationAssets};
+module.exports = {packageApps, FORMAT, PUBLIC_SCENE, verifyStartup, documentationAssets, practiceAssets};
 if (require.main === module) { try { const values = packageApps(); for (const value of values) console.log(value.application + ': ' + value.manifest.files.length + ' verified files, ' + value.manifest.bundleSha256); } catch (failure) { console.error(failure.message); process.exitCode = 1; } }

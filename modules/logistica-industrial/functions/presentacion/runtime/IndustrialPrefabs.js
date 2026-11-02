@@ -51,8 +51,24 @@ const kinds = ['conveyor', 'sensor', 'plc', 'control', 'product', 'source', 'pro
 const COSMETIC_HARDWARE = /^(?:Tornillo|Tuerca|Arandela|Perno|Pasador|Fijación del resguardo|Aleta longitudinal de refrigeración|Nervio de la rejilla|Tapón de aceite)(?:\b|$)/u;
 
 function material(color, extra = {}) {
-  const surface = new THREE.MeshStandardMaterial(Object.assign({color, roughness: 0.46, metalness: 0.65}, extra));
+  const text = String(extra.name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const role = /lente|optica|emisor|reflector|laser|display|pantalla|piloto|baliza/.test(text) ? 'optical' : /vidrio|glass|transparente/.test(text) ? 'glass' : /carton|cardboard|kraft/.test(text) ? 'cardboard' : /madera|tablas|tablon|taco de estiba/.test(text) ? 'wood' : /cable|manguera|junta|reten|antideslizante|antivibr|cojinete sellado|pie nivelador|retorno.*cinta|superficie de la cinta|neumatic|caucho/.test(text) ? 'rubber' : /polimero|modular|poliuretano|plastico|botella|tote/.test(text) ? 'plastic' : /aluminio|aluminum/.test(text) ? 'aluminum' : /tornillo|tuerca|perno|arandela|pasador|husillo|vastago|crom|acero|inoxidable|mesa de|brida|eje |rodill|rodamiento|guia lineal|casquillo|nervio de la rejilla|transmision/.test(text) || extra.metalness >= .75 ? 'steel' : 'paint';
+  const metalness = ['steel','aluminum'].includes(role) ? .86 : role === 'optical' ? .03 : .06;
+  const options = Object.assign({color, roughness: role === 'rubber' ? .88 : role === 'cardboard' ? .91 : .46, metalness}, extra);
+  if (['paint','rubber','plastic','wood','cardboard'].includes(role)) options.metalness = role === 'paint' ? .06 : 0;
+  if (['steel','aluminum'].includes(role)) options.metalness = Math.max(.78,options.metalness);
+  const surface = new THREE.MeshStandardMaterial(options);
+  surface.color.convertSRGBToLinear();
+  if (surface.emissive && surface.emissive.getHex()) surface.emissive.convertSRGBToLinear();
   surface.userData.industrialManufacturedFinish = true;
+  surface.userData.industrialMaterialRole = role === 'paint' ? 'frame' : role;
+  surface.userData.studioColorSpace = 'linear';
+  if (!extra.map && !extra.transparent && !extra.emissiveIntensity && !['glass','optical'].includes(role)) {
+    const edge = 32, pixels = new Uint8Array(edge * edge * 4);
+    for (let y=0;y<edge;y++) for(let x=0;x<edge;x++) { const at=(y*edge+x)*4, n=((x*73856093)^(y*19349663))>>>0, value=247-n%7-(role==='steel'||role==='aluminum'?Math.round(Math.sin(x*1.7)*3):0); pixels[at]=pixels[at+1]=pixels[at+2]=value;pixels[at+3]=255; }
+    const texture = new THREE.DataTexture(pixels,edge,edge,THREE.RGBAFormat); texture.name='Microacabado fabricado / '+role;texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.magFilter=THREE.LinearFilter;texture.minFilter=THREE.LinearMipMapLinearFilter;texture.generateMipmaps=true;texture.needsUpdate=true;
+    surface.map=texture;surface.bumpMap=texture;surface.bumpScale=role==='steel'||role==='aluminum'?.00010:.00022;
+  }
   if (extra.name) surface.userData.industrialSurfaceName = extra.name;
   return surface;
 }
@@ -101,12 +117,12 @@ function fabricatedBox(w, h, d, hollow = false) {
 function builder() {
   const geometries = new Map(), materials = new Map();
   const mesh = (name, kind, args, color, position, extra = {}) => {
-    const section = kind === 'box' && /^(Tubo exterior de pata|Tubo telescópico|Pata de |Perfil vertical|Perfil superior|Pedestal |Larguero de aluminio|Travesaño de soporte|Travesaño inferior)/.test(name);
-    const sheet = kind === 'box' && /^(Armario|Puerta |Tapa de mantenimiento|Bancada|Cabezal fijo|Caja de conexiones|Carcasa|Reductor)/.test(name);
+    const section = kind === 'box' && /^(Tubo exterior de pata|Tubo telescópico|Pata de |Perfil vertical|Perfil superior|Perfil de soporte|Pedestal |Larguero de aluminio|Travesaño de soporte|Travesaño inferior|Refuerzo inferior)/.test(name);
+    const sheet = kind === 'box' && /^(Armario|Puerta |Tapa de mantenimiento|Bancada|Cabezal fijo|Caja de conexiones|Carcasa|Reductor|Placa de herramienta|Ménsula|Anclaje al bastidor|Tapa de conexiones|Perfil de resguardo)/.test(name);
     const key = kind + (section ? 'tube' : sheet ? 'sheet' : '') + JSON.stringify(args), materialKey = color + JSON.stringify(extra);
     if (!geometries.has(key)) geometries.set(key, kind === 'box' ? section || sheet ? fabricatedBox(...args, section) : new THREE.BoxBufferGeometry(...args) : compactFabricated(new THREE.CylinderBufferGeometry(...args)));
     if (!materials.has(materialKey)) {
-      const surface = material(color, extra);
+      const surface = material(color, Object.assign({name}, extra));
       // Surface names survive geometry refreshes and describe the editable
       // material rather than the generic name of the merged draw below.
       surface.name = extra.name || name;
@@ -2023,7 +2039,33 @@ function robotEquipment(variant = 'articulated-general', value) {
   require('./RobotPanelCable.js').attachRobotPanelCable(root, panel, config); return root;
 }
 
+/** Metadata only. Does not reorder the path-addressed actors of saved models. */
+export function decorateIndustrialEquipment(root, kind) {
+  if (!root || ['robot', 'vehicle'].includes(kind)) return root;
+  const set = (node, component) => {if(node && !node.userData.equipmentComponentId)node.userData.equipmentComponentId=kind+'.'+component;};
+  const slots = kind==='conveyor' ? {0:'frame',1:'frame',2:'surface',3:'drive',4:'sensors',5:'sensors',6:'control',10:'sensors'} : kind==='processor' ? {0:'frame',1:'frame',2:'control',3:'actuator'} : kind==='source' ? {0:'frame',1:'frame',2:'control'} : kind==='sensor' ? {0:'support',1:'support',2:'detection',3:'indicator',4:'sensing'} : kind==='plc' ? {} : null;
+  if(slots)Object.keys(slots).forEach(index=>set(root.children[index],slots[index]));
+  root.traverse(node=>{
+    const text=String(node.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    if(kind==='palletQueue' && node.isMesh){const role=node.userData.industrialMaterialPart;set(node,role==='frame'?'uprights':role==='beam'||role==='deck'?'beams':role==='ink'||role==='label'?'addresses':role==='steel'||role==='dark'?'lanes':'braces');}
+    if(kind==='product' && node.isMesh)set(node,/etiqueta|shipping|barcode/.test(text)?'identification':/pallet|estiba|taco|patin/.test(text)?'support':'body');
+    if(kind==='plc')set(node,/pantalla|display/.test(text)?'display':node.userData.industrialAction?'controls':'enclosure');
+    if(kind==='conveyor' && /motor electrico/.test(text))set(node,'motor');
+    if(kind==='conveyor' && /reductor angular/.test(text))set(node,'gearbox');
+    if(node.isMesh&&node.material){const materials=Array.isArray(node.material)?node.material:[node.material];materials.forEach(surface=>{if(surface.userData.industrialMaterialRole)node.userData.industrialMaterialRole=node.userData.industrialMaterialRole||surface.userData.industrialMaterialRole;});}
+  });
+  root.userData.industrialGeometryPresentationVersion=2;return root;
+}
+
 export function createIndustrialPrefab(kind, variant, value) {
+  if (typeof variant === 'string' && variant.startsWith('catalogue:')) {
+    const adapter = require('../../equipamiento/runtime/CatalogueEquipmentFactory.js');
+    const geometry = require('../../equipamiento/runtime/EquipmentGeometry.js');
+    return adapter.createCatalogueEquipment(variant.slice(10), value || {}, {THREE, nativeFactory: createIndustrialPrefab, applyEquipmentGeometry: geometry.applyEquipmentGeometry});
+  }
+  return decorateIndustrialEquipment(createNativeIndustrialPrefab(kind, variant, value), kind);
+}
+function createNativeIndustrialPrefab(kind, variant, value) {
   if (kind === 'robot') return robotEquipment(variant, value);
   if (kind === 'vehicle') {
     const config = behaviorSchema.vehicles.normalize(Object.assign({}, behaviorSchema.vehicles.defaults(variant), value || {}));
@@ -2065,7 +2107,7 @@ export function createIndustrialPrefab(kind, variant, value) {
 
 // SceneDocument already receives this factory in headless tests and production.
 // Keeping refresh on the factory avoids another module/import injection layer.
-createIndustrialPrefab.refresh = (object, config) => {
+const refreshNativeIndustrialPrefab = (object, config) => {
   if (object && object.userData.editorPrefabKey === 'vehicle') return require('../../montacargas/runtime/VehiclePrefabs.js').refreshVehicleGeometry(object, config);
   if (object && object.userData.editorPrefabKey === 'product' && config.variant) {
     const next = require('../../flujo-materiales/runtime/ProductPrefabs.js').createProduct(config.variant, config);
@@ -2093,6 +2135,12 @@ createIndustrialPrefab.refresh = (object, config) => {
   if (object && object.userData.editorPrefabKey === 'processor') return refreshProcessorGeometry(object, config);
   if (object && object.userData.editorPrefabKey === 'palletQueue') return refreshPalletQueueGeometry(object, config);
   return refreshConveyorGeometry(object, config);
+};
+createIndustrialPrefab.refresh = (object, config) => {
+  if (object && object.userData.catalogueEquipmentId) return require('../../equipamiento/runtime/CatalogueEquipmentFactory.js').refreshCatalogueEquipment(object, config, {THREE, refreshNative: refreshNativeIndustrialPrefab, applyEquipmentGeometry: require('../../equipamiento/runtime/EquipmentGeometry.js').applyEquipmentGeometry});
+  const changed = refreshNativeIndustrialPrefab(object, config);
+  if (object) decorateIndustrialEquipment(object, object.userData.editorPrefabKey);
+  return changed;
 };
 createIndustrialPrefab.enforceOptions = enforceConveyorOptions;
 

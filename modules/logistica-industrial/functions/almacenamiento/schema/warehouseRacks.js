@@ -5,6 +5,8 @@
 'use strict';
 
 const LIMIT = 128;
+const catalogueStorage = require('../../equipamiento/schema/catalogueStorage.cjs');
+const CATALOGUE_SYSTEMS = catalogueStorage.SYSTEMS;
 const SYSTEMS = [
   ['selective','Selectiva convencional','palletized','direct','static','pallet','Acceso individual a cada pallet desde el pasillo.',{}],
   ['double-deep','Doble profundidad','palletized','lifo','static','pallet','Dos pallets a fondo; la posición delantera bloquea la trasera.',{rackDepthSlots:2}],
@@ -25,7 +27,7 @@ const SYSTEMS = [
 
 const num = (key,label,def,min,max,step=1) => ({key,label,input:'number',default:def,min,max,step});
 const FIELDS = [
-  {key:'rackSystem',label:'Sistema de estantería',input:'select',default:'floor',options:[{value:'floor',label:'Estibas a piso (original)'}].concat(SYSTEMS.map(s=>({value:s.id,label:s.label})))},
+  {key:'rackSystem',label:'Sistema de estantería',input:'select',default:'floor',options:[{value:'floor',label:'Estibas a piso (original)'}].concat(SYSTEMS.concat(CATALOGUE_SYSTEMS).map(s=>({value:s.id,label:s.label})))},
   {key:'rackAisleCode',label:'Código de pasillo',input:'text',default:'A01',maxLength:16},
   {key:'rackRowCode',label:'Código de fila',input:'text',default:'R01',maxLength:16},
   {key:'rackBayWidths',label:'Ancho de cada módulo (m; separados por coma)',input:'text',default:'',maxLength:160},
@@ -76,7 +78,7 @@ function assignments(config) {
   if (rows.some(row => !codes.has(row.locationCode))) throw new Error('Una asignación apunta a una ubicación que no existe; libera o reasigna antes de cambiar la fila.');
   return rows;
 }
-function definition(value) {const id=typeof value==='string'?value:value&&value.rackSystem;return SYSTEMS.find(s=>s.id===id)||null;}
+function definition(value) {const id=typeof value==='string'?value:value&&value.rackSystem;return SYSTEMS.find(s=>s.id===id)||CATALOGUE_SYSTEMS.find(s=>s.id===id)||null;}
 function isRack(value) {return !!(value&&value.rackSystem&&value.rackSystem!=='floor');}
 function defaults(id='selective') {
   if(id==='floor')return {rackSystem:'floor'};
@@ -98,6 +100,8 @@ function normalize(value={}) {
     }else if(!field.options.some(option=>option.value===item))throw new Error('Opción inválida en '+field.label+'.');
   });
   if(system.id==='double-deep')result.rackDepthSlots=2;
+  if(system.mechanism==='cube')result.rackDepthSlots=1;
+  if(system.mechanism==='carousel'){result.rackBays=1;result.rackColumns=1;result.rackDepthSlots=1;}
   if(['selective','mobile','cantilever','light-duty','medium-duty','mezzanine','vertical-lift','miniload'].includes(system.id))result.rackDepthSlots=1;
   if(system.id==='vertical-lift'){result.rackBays=1;result.rackColumns=1;}
   if(system.id!=='mobile')result.rackBanks=1;
@@ -125,6 +129,7 @@ function mobileOffset(value,bank,openAisle) {
 }
 function layout(value={}) {
   const c=normalize(value),system=definition(c);if(!system)throw new Error('Selecciona un sistema de estantería.');
+  const specialized = catalogueStorage.layout(c, system, locationCode); if(specialized)return specialized;
   const frame=.12,widths=bayWidths(c),storageLength=widths.reduce((sum,width)=>sum+width,0),bankDepth=c.rackDepthSlots*c.rackSlotDepth+.16,bankPitch=bankDepth+.12;
   let edge=-storageLength/2;const bayCenters=widths.map(width=>{const center=edge+width/2;edge+=width;return center;});
   const frontZ=bankDepth/2,backZ=frontZ-c.rackBanks*bankPitch+.12;
@@ -170,4 +175,4 @@ function layout(value={}) {
     motion:{mechanism:system.mechanism,speed:c.rackMechanismSpeed,shaftPosition:[0,shaftZ],accessPosition:accessPosition.slice()}};
 }
 
-module.exports={LIMIT,SYSTEMS,FIELDS,isRack,definition,defaults,normalize,settings:normalize,layout,mobileOffset,bayWidths,addressPrefix,locationCode,assignments,assignmentRows,palletIdentifier:value=>typeof value==='string'&&PALLET_IDENTIFIER.test(value)};
+module.exports={LIMIT,SYSTEMS,CATALOGUE_SYSTEMS,catalogueStorage,FIELDS,isRack,definition,defaults,normalize,settings:normalize,layout,mobileOffset,bayWidths,addressPrefix,locationCode,assignments,assignmentRows,palletIdentifier:value=>typeof value==='string'&&PALLET_IDENTIFIER.test(value)};

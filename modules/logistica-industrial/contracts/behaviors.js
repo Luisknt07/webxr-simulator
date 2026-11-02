@@ -171,6 +171,8 @@ const definitions = [
     number('outputInterval', 'Despachar cada (s)', 1, 0.1, 120, 0.1)
   ]},
   {type: 'processor', label: 'Máquina de procesamiento / Combiner / Separator', fields: [
+    text('catalogueEquipmentId', 'Equipo del catálogo industrial', '', 120),
+    text('operationParametersJson', 'Parámetros de la operación (JSON)', '{}', 8000),
     checkbox('withPanel', 'Panel de control local', true),
     {key: 'mode', label: 'Tipo de procesamiento', input: 'select', default: 'process', options: [['process', 'Procesar una carga'], ['combiner', 'Combiner · agrupar cargas'], ['separator', 'Separator · dividir lotes / pallets']].map(([value, label]) => ({value, label}))},
     checkbox('powered', 'Alimentación inicial', false), checkbox('running', 'Arranque inicial', false), checkbox('paused', 'Pausa inicial', false), checkbox('emergency', 'Emergencia inicial', false),
@@ -289,6 +291,24 @@ function defaultBehavior(type) {
   return result;
 }
 
+function preserveCatalogueIdentity(result, value) {
+  if (value.catalogueEquipmentId) {
+    if (typeof value.catalogueEquipmentId !== 'string' || value.catalogueEquipmentId.length > 120) throw new Error('Identidad de catálogo inválida.');
+    const definition = require('../functions/equipamiento/schema/equipmentCatalog.cjs').definition(value.catalogueEquipmentId);
+    if (!definition) throw new Error('Equipo de catálogo no registrado.');
+    if (definition.behaviorType && definition.behaviorType !== result.type) throw new Error('El equipo no corresponde a esta función.');
+    result.catalogueEquipmentId = definition.id;
+    const presentation=require('../functions/equipamiento/schema/equipmentCatalog.cjs').normalize(definition.id,value);
+    for(const key of ['height','wear','detail','frameColor','accentColor'])result[key]=presentation[key];
+    if(!['low','balanced','high'].includes(result.detail))throw new Error('Nivel de detalle de catálogo no compatible.');
+  }
+  if (value.catalogueToolId) {
+    const tool = require('../functions/equipamiento/schema/equipmentCatalog.cjs').definition(value.catalogueToolId);
+    if (result.type !== 'robot' || !tool || tool.role !== 'tool') throw new Error('Acople de herramienta incompatible.');
+    result.catalogueToolId = tool.id;
+  }
+  return result;
+}
 function normalizeBehaviors(list) {
   if (list === undefined || list === null) return [];
   if (!Array.isArray(list) || list.length > 16) throw new Error('El objeto admite hasta 16 funciones.');
@@ -300,10 +320,10 @@ function normalizeBehaviors(list) {
     if (types.has(value.type)) throw new Error('Una función no puede repetirse en el mismo objeto.');
     types.add(value.type);
     if (value.type === 'surfaceMaterial') return materialSchema.normalizeMaterial(value);
-    if (value.type === 'robot') return robots.normalize(value);
-    if (value.type === 'vehicle') return vehicles.normalize(value);
+    if (value.type === 'robot') return preserveCatalogueIdentity(robots.normalize(value), value);
+    if (value.type === 'vehicle') return preserveCatalogueIdentity(vehicles.normalize(value), value);
     if (value.type === 'machineAudio' || value.type === 'audioZone') return machineAudio.normalize(value.type, value);
-    const result = defaultBehavior(value.type);
+    const result = preserveCatalogueIdentity(defaultBehavior(value.type), value);
     // Presentation is opt-in. Validating an old saved project must not add
     // authoring defaults to its existing info/billboard records.
     if (value.type === 'info') {
@@ -320,7 +340,8 @@ function normalizeBehaviors(list) {
       const item = value[field.key];
       const label = definition.label + ': ' + field.label;
       if (field.input === 'number' || field.input === 'room') {
-        if (typeof item !== 'number' || !Number.isFinite(item) || item < field.min || item > field.max ||
+        const minimum = value.type === 'product' && field.key === 'height' && value.catalogueEquipmentId === 'equipment.product.slip-sheet' ? .001 : field.min;
+        if (typeof item !== 'number' || !Number.isFinite(item) || item < minimum || item > field.max ||
           (field.input === 'room' && !Number.isInteger(item))) throw new Error('Valor fuera de rango en ' + label + '.');
       } else if (field.input === 'checkbox') {
         if (typeof item !== 'boolean') throw new Error('Valor inválido en ' + label + '.');
@@ -361,6 +382,7 @@ function normalizeBehaviors(list) {
       }
     }
     if (value.type === 'processor') {
+      if (result.catalogueEquipmentId) result.operationParametersJson = require('../functions/equipamiento/schema/operationSpec.cjs').normalizeParameters(result.catalogueEquipmentId, result.operationParametersJson);
       objectReference(result.outputId, true);
       ['capacity', 'parallelism', 'outputCapacity', 'combineCount', 'splitCount'].forEach(key => { if (!Number.isInteger(result[key])) throw new Error('El valor de ' + key + ' debe ser un entero.'); });
       if (result.mode === 'combiner' && result.combineCount > result.capacity) throw new Error('La capacidad de entrada debe admitir todas las cargas de una combinación.');
@@ -429,5 +451,6 @@ function normalizeBehaviors(list) {
   });
 }
 
+function fieldsFor(config){const definition=definitionFor(config.type),fields=definition?definition.fields.slice():[];if(!config.catalogueEquipmentId)return fields;for(const item of [number('height','Altura del modelo · m',1.5,.001,20,.01),number('wear','Desgaste del equipo',.12,0,1,.01),text('frameColor','Color de estructura','#466574',7,'color'),text('accentColor','Color de componentes','#e9b849',7,'color'),{key:'detail',label:'Detalle geométrico',input:'select',default:'balanced',options:[{value:'low',label:'Ligero'},{value:'balanced',label:'Equilibrado'},{value:'high',label:'Alto'}]}]){if(!fields.some(row=>row.key===item.key))fields.push(item);}return fields;}
 const simulationTypes = ['motion', 'conveyor', 'source', 'processor', 'palletQueue', 'robot', 'vehicle', 'sensor', 'product', 'automation', 'analytics', 'control'];
-module.exports = {controlPanels, definitions, definitionFor, defaultBehavior, normalizeBehaviors, assetReference, simulationTypes, conveyorLayout, conveyorEquipment: conveyorLayout.equipment, productSources, processors, palletQueues, warehouseRacks, warehouseRackVisual: require('../functions/almacenamiento/schema/warehouseRackVisual.js'), conveyorRouting, robots, vehicles, productEquipment, vehicleEquipment: require('../functions/montacargas/schema/vehicle-equipment.js'), robotEquipment: require('../functions/robots/schema/robot-equipment.js'), robotKinematics: require('../functions/robots/schema/robot-kinematics.js'), machineAudio, industrialFloor: require('../functions/presentacion/schema/industrialFloor.js'), productionAnalytics: require('../functions/flujo-materiales/schema/productionAnalytics.js'), studio: require('../../../packages/project-model/shared/studio-document.js')};
+module.exports = {catalogueCapabilities:()=>require('../functions/equipamiento/schema/equipmentCapabilities.cjs'),controlPanels, definitions, definitionFor, fieldsFor, defaultBehavior, normalizeBehaviors, assetReference, simulationTypes, conveyorLayout, conveyorEquipment: conveyorLayout.equipment, productSources, processors, palletQueues, warehouseRacks, warehouseRackVisual: require('../functions/almacenamiento/schema/warehouseRackVisual.js'), conveyorRouting, robots, vehicles, productEquipment, vehicleEquipment: require('../functions/montacargas/schema/vehicle-equipment.js'), robotEquipment: require('../functions/robots/schema/robot-equipment.js'), robotKinematics: require('../functions/robots/schema/robot-kinematics.js'), machineAudio, industrialFloor: require('../functions/presentacion/schema/industrialFloor.js'), productionAnalytics: require('../functions/flujo-materiales/schema/productionAnalytics.js'), studio: require('../../../packages/project-model/shared/studio-document.js')};

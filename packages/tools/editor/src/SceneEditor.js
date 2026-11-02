@@ -22,6 +22,7 @@ import IndustrialFinishSystem from '../../../../modules/logistica-industrial/fun
 import IndustrialAudioSystem from '../../../../modules/logistica-industrial/functions/presentacion/runtime/IndustrialAudioSystem.js';
 import LineMonitorSystem from '../../../../modules/logistica-industrial/functions/almacenamiento/runtime/LineMonitorSystem.js';
 import SimulationRuntime from '../../../../modules/logistica-industrial/functions/flujo-materiales/runtime/SimulationRuntime.js';
+import PracticeController from '../../../../modules/logistica-industrial/practices/runtime/PracticeController.js';
 import VehicleDriving from '../../../../modules/logistica-industrial/functions/montacargas/runtime/VehicleDriving.js';
 import CADWorkbench from '../../cad/src/CADWorkbench.js';
 import DesignToolHost from './DesignToolHost.js';
@@ -874,6 +875,7 @@ export default class SceneEditor {
   }
 
   stopRuntime() {
+    if(this.practiceController){this.practiceController.dispose();this.practiceController=null;}
     if (this.equipmentStudy) this.equipmentStudy.close();
     if (this.performance && this.performance.clearPresentation) this.performance.clearPresentation();
     if (this.simulationPanel) this.simulationPanel.endSession();
@@ -910,6 +912,9 @@ export default class SceneEditor {
   startRuntime() {
     this.simulationPaused = false;
     this.interactions.start(this.roomId); this.behaviors.start(this.roomId); this.simulation.start(this.roomId);
+    const practiceData=this.document.studio&&this.document.studio.moduleData&&this.document.studio.moduleData['sector.logistics-industrial'];
+    const practice=practiceData&&(practiceData.levels||[]).find(row=>row.roomId===this.roomId);
+    if(practice&&(!this.projectModules||this.projectModules.canShowLevel('sector.logistics-industrial')))try{this.practiceController=new PracticeController(this,practice);}catch(error){this.toast('No se pudo iniciar la práctica: '+error.message);}
     this.industrialAudio.start(this.roomId);
     this.syncSurfaceVisuals();
     this.decals.sync(this.roomId);
@@ -936,6 +941,7 @@ export default class SceneEditor {
     this.decals.sync(this.roomId);
     this.wearPaint.sync(this.roomId);
     this.simulationPanel.tick();
+    if(this.practiceController)this.practiceController.update();
     if (this.performance.syncPresentation) this.performance.syncPresentation(false);
   }
 
@@ -2205,7 +2211,7 @@ export default class SceneEditor {
     const definition = behaviorSchema.definitionFor(config.type);
     const equipmentRegistry = behaviorSchema.conveyorLayout.equipment;
     const equipmentDefinition = config.type === 'conveyor' && equipmentRegistry && equipmentRegistry.resolveVariant(config);
-    definition.fields.forEach(schemaField => {
+    (behaviorSchema.fieldsFor?behaviorSchema.fieldsFor(config):definition.fields).forEach(schemaField => {
       let field = schemaField;
       if (config.type === 'robot') {
         if (field.key === 'jointLimitsJson') return;
@@ -2626,6 +2632,12 @@ export default class SceneEditor {
     if (action.type === 'template') return this.studioTools && this.studioTools.placeTemplate(action.template);
     if (action.type === 'widget') return this.studioTools && this.studioTools.addWidget(action.kind);
     if (action.type === 'workspace') return this.shell && this.shell.openWorkspace(action.workspace);
+    if (action.type === 'applyEquipmentTool') return this.perform(()=>{
+      const robot=this.selected&&this.document.getBehaviors(this.selected).find(config=>config.type==='robot');
+      if(!robot)throw new Error('Selecciona un robot para acoplar esta herramienta.');
+      const next=require('../../../../modules/logistica-industrial/functions/equipamiento/runtime/CatalogueEquipmentFactory.js').toolConfiguration(resource.catalogueEquipmentId,robot);
+      this.document.setBehaviors(this.selected,this.document.getBehaviors(this.selected).map(config=>config.type==='robot'?next:config));this.renderInspector();
+    });
     if (action.type === 'studio') return this.studioTools && typeof this.studioTools[action.method] === 'function' && this.studioTools[action.method]();
     return this.perform(() => {
       if (generation !== this.projectGeneration || roomId !== this.roomId || !this.active || !this.canEditDocument() || current.moduleId && this.projectModules && !this.projectModules.canShowLevel(current.moduleId)) return;

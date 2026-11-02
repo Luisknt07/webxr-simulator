@@ -55,7 +55,7 @@ export default class ProcessorRuntime {
     const bounds = entry.product ? entry.product.bounds : this.runtime.sourceRuntime.loadBounds(entry);
     const scale = entry.product ? entry.product.scale : entry.scale ? new THREE.Vector3().fromArray(entry.scale) : machineScale;
     const size = bounds.getSize(new THREE.Vector3()).multiply(scale);
-    return Math.abs(size.z) <= layout.width * Math.abs(machineScale.z) - .08 && Math.abs(size.x) <= layout.length * Math.abs(machineScale.x) - .1;
+    return Math.abs(size.z) <= (layout.loadWidth || layout.width) * Math.abs(machineScale.z) - .08 && Math.abs(size.x) <= (layout.loadLength || layout.length) * Math.abs(machineScale.x) - .1;
   }
 
   canReceive(record, entry, manual = false, reserved = 0) {
@@ -289,6 +289,10 @@ export default class ProcessorRuntime {
     const processor = record.components.processor;
     if (processor.config.mode === 'combiner') job.results = this.combine(record, job.inputs);
     else if (processor.config.mode === 'separator') job.results = this.split(record, job.inputs[0], this.expectedOutputs(processor, job.inputs));
+    else if (processor.config.catalogueEquipmentId) {
+      job.results = require('../../equipamiento/schema/operationSpec.cjs').applyOperation(processor.config, job.inputs, {recordId: record.id, runSequence: this.runtime.runSequence}).entries;
+      job.results.forEach(entry=>this.runtime.sourceRuntime.refreshVisual(entry));
+    }
     else job.results = job.inputs;
     processor.completed++; processor.completedUnits += total(job.inputs); job.phase = 'complete'; job.elapsed = job.processTime;
     job.results.forEach(entry => { entry.ownerId = record.id; if (entry.product) entry.product.processorLocked = false; });
