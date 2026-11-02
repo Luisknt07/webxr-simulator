@@ -1,5 +1,6 @@
 import {buildStudyScene} from '../../scenarios/IndustrialStudyScenes.js';
 import catalogue from '../../functions/equipamiento/schema/equipmentCatalog.cjs';
+import schema from '../../contracts/behaviors.js';
 
 const id=object=>object.userData.editorId;
 function set(doc,object,type,changes){doc.setBehaviors(object,doc.getBehaviors(object).map(config=>config.type===type?Object.assign({},config,changes):config));}
@@ -9,12 +10,20 @@ function set(doc,object,type,changes){doc.setBehaviors(object,doc.getBehaviors(o
 export function buildVehiclePractice(doc,roomId,plan,{scene}={}){
  const built=buildStudyScene(doc,roomId,'vr-warehouse-missions',{scene,preview:true}),putaway=['L12','I04','I31'].includes(plan.id),task=Object.assign({},built.tasks[putaway?1:0]);
  task.id=plan.id+'-pallet-task';task.name=plan.title;
- if(!putaway&&['L04','L27','L28','I01','I32'].includes(plan.id)){
+ if(!putaway&&['L04','L20','L27','L28','L32','I01','I32'].includes(plan.id)){
   task.productId=id(built.products[1]);task.sourceId=id(built.incoming);delete task.sourceLocationCode;task.destinationId=id(built.outgoing);task.destinationSlot=0;delete task.locationCode;
  }
  for(const seeded of built.products)set(doc,seeded,'product',{units:plan.units,mass:25+plan.units*plan.mass});
  const product=doc.getObject(task.productId);set(doc,product,'product',{sku:plan.sku});doc.setProperty(product,'name',plan.sku+' · pallet identificado de '+plan.units+' cajas');
  const vehicle=built.vehicle,source=doc.getObject(task.sourceId),destination=doc.getObject(task.destinationId),floorTransfer=source===built.incoming&&destination===built.outgoing;
+ const main=catalogue.definition(plan.mainEquipmentId);
+ if(main&&main.nativeKind==='vehicle')set(doc,vehicle,'vehicle',Object.assign({},schema.vehicles.defaults(main.nativeVariant),{catalogueEquipmentId:main.id}));
+ // A single exercise has one selected load/mission. Remove unrelated pallets,
+ // return bays and the unused demonstration rack instead of loading all three
+ // warehouse lessons behind every dock/fleet variant.
+ const retained=new Set([product,vehicle,source,destination]);
+ built.objects.slice().forEach(object=>{if(!retained.has(object)){doc.remove(object);built.objects.splice(built.objects.indexOf(object),1);}});
+ built.products=[product];
  const relocate=(store,position)=>{const delta=store.position.clone().multiplyScalar(-1).add(store.position.clone().fromArray(position));doc.setTransform(store,{position});for(const seeded of built.products){const spec=doc.getBehaviors(seeded).find(value=>value.type==='product');if(spec&&spec.sourceId===id(store))doc.setTransform(seeded,{position:seeded.position.clone().add(delta).toArray()});}};
  // These are independent practice copies. A straight, clear operating aisle
  // avoids inventing a turn radius or making a truck rotate on the spot. The
@@ -32,14 +41,15 @@ export function buildVehiclePractice(doc,roomId,plan,{scene}={}){
  // side so a finite-length fork can reach it without driving into the chassis.
  // The queue declares the seat; the separate truck mesh supplies its support
  // and remains part of all normal body/fork/payload collision tests.
- if(['L28','I32'].includes(plan.id)){
+ if(['L04','I01','L28','I32'].includes(plan.id)){
   const definition=catalogue.definition('equipment.vehicle.freight-truck'),cfg=definition.defaults,truck=doc.addPrefab(roomId,definition.nativeKind,'catalogue:'+definition.id);
   set(doc,truck,'robot',{mode:'manual',running:false,withPanel:false});doc.setProperty(truck,'name','Camión de expedición · estacionado y calzado');
-  const bedTop=cfg.height*.37,truckZ=-2,seatZ=truckZ+cfg.width*.47-.8/2-.05;
-  doc.setTransform(truck,{position:[-cfg.length*.17,0,truckZ]});built.objects.push(truck);relocate(built.outgoing,[0,bedTop+1,seatZ]);doc.setProperty(built.outgoing,'name','CAMIÓN · posición de pallet sobre la plataforma');
+  const inbound=['L04','I01'].includes(plan.id),bedTop=cfg.height*.37,truckZ=inbound?-5:-2,seatZ=truckZ+cfg.width*.47-.8/2-.05;
+  doc.setTransform(truck,{position:[-cfg.length*.17,0,truckZ]});built.objects.push(truck);relocate(inbound?built.incoming:built.outgoing,[0,bedTop+1,seatZ]);doc.setProperty(inbound?built.incoming:built.outgoing,'name','CAMIÓN · posición de pallet sobre la plataforma');
+  if(inbound)relocate(built.outgoing,[0,1,4]);
   set(doc,vehicle,'vehicle',{forkLength:1.2,loadCenter:.6});
  }
- const sourceZ=source===built.incoming?source.position.z+3:-2,destinationZ=destination===built.outgoing?destination.position.z+3:-2;
+ const sourceZ=source===built.incoming?source.position.z+(['L04','I01'].includes(plan.id)?4.5:3):-2,destinationZ=destination===built.outgoing?destination.position.z+3:-2;
  doc.setTransform(vehicle,{position:[0,0,sourceZ],rotation:[0,Math.PI,0]});doc.getRoot(roomId).updateWorldMatrix(true,true);
  const home=vehicle.matrixWorld.clone(),inverse=home.clone().getInverse(home),forward=vehicle.position.clone().set(0,0,1).transformDirection(home),homeYaw=Math.atan2(forward.x,forward.z),localPoint=(x,z,values)=>{const point=vehicle.position.clone().set(x,0,z).applyMatrix4(inverse);return Object.assign({x:point.x,z:point.z,yaw:Math.PI-homeYaw},values);};
  const points=[localPoint(0,sourceZ,{action:'pickup',targetId:task.sourceId}),localPoint(0,destinationZ,{action:'drop',targetId:task.destinationId,reverse:destinationZ>sourceZ,lift:.25})];

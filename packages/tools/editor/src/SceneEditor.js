@@ -421,7 +421,7 @@ export default class SceneEditor {
     if(levels.length){await this.hooks.gotoRoom(levels[0].index);if(this.projectGeneration!==generation)return;}
     else{this.simulation.stop();if(this.root){this.moduleHiddenRoot=this.root;this.root.visible=false;}this.toast('No hay niveles disponibles para este módulo. Selecciona otro desde Módulos.');}
   }
-  canEditDocument() { return !this.accessView || this.accessView.canEdit(); }
+  canEditDocument() { return !this.transientPractice && (!this.accessView || this.accessView.canEdit()); }
   scopedStorageKey(key) { const user = this.ctx.studio && this.ctx.studio.client.user || this.accessView && this.accessView.user; return this.accessView && this.accessView.enabled ? key + ':' + (user ? user.id : 'guest') : key; }
 
   buildUI() {
@@ -914,7 +914,7 @@ export default class SceneEditor {
     this.interactions.start(this.roomId); this.behaviors.start(this.roomId); this.simulation.start(this.roomId);
     const practiceData=this.document.studio&&this.document.studio.moduleData&&this.document.studio.moduleData['sector.logistics-industrial'];
     const practice=practiceData&&(practiceData.levels||[]).find(row=>row.roomId===this.roomId);
-    if(practice&&(!this.projectModules||this.projectModules.canShowLevel('sector.logistics-industrial')))try{this.practiceController=new PracticeController(this,practice);}catch(error){this.toast('No se pudo iniciar la práctica: '+error.message);}
+    if(practice&&(!practice.availability||practice.availability.ready!==false)&&(!this.projectModules||this.projectModules.canShowLevel('sector.logistics-industrial')))try{const host=this.ctx.studio&&this.ctx.studio.practiceCampaign;this.practiceController=new PracticeController(this,practice,host?host.controllerOptions(practice):{});}catch(error){this.toast('No se pudo iniciar la práctica: '+error.message);}
     this.industrialAudio.start(this.roomId);
     this.syncSurfaceVisuals();
     this.decals.sync(this.roomId);
@@ -946,12 +946,16 @@ export default class SceneEditor {
   }
 
   resize() {
-    const width = this.active ? Math.max(1, this.viewport.clientWidth) : window.innerWidth;
-    const height = this.active ? Math.max(1, this.viewport.clientHeight) : window.innerHeight;
+    // A canvas left at the previous desktop width can inflate innerWidth on
+    // mobile. Measure the document viewport to avoid preserving that overflow.
+    const screenWidth = Math.max(1, document.documentElement.clientWidth || window.innerWidth);
+    const screenHeight = Math.max(1, document.documentElement.clientHeight || window.innerHeight);
+    const width = this.active ? Math.max(1, this.viewport.clientWidth) : screenWidth;
+    const height = this.active ? Math.max(1, this.viewport.clientHeight) : screenHeight;
     if (this.ctx.graphics && this.ctx.graphics.setViewport) this.ctx.graphics.setViewport(width, height, window.devicePixelRatio || 1);
     this.ctx.renderer.setSize(width, height);
     this.camera.aspect = width / height; this.camera.updateProjectionMatrix();
-    this.ctx.camera.aspect = window.innerWidth / window.innerHeight; this.ctx.camera.updateProjectionMatrix();
+    this.ctx.camera.aspect = screenWidth / screenHeight; this.ctx.camera.updateProjectionMatrix();
   }
 
   home() {
@@ -1347,9 +1351,8 @@ export default class SceneEditor {
     if (!object) {
       const empty = el('div', 'ed-empty');
       empty.appendChild(el('div', 'ed-empty-icon', '◇'));
-      empty.appendChild(el('strong', '', 'Tu escenario, a tu manera'));
-      empty.appendChild(el('p', '', 'Selecciona un objeto para editar sus propiedades. Añade figuras o arrastra modelos desde la biblioteca.'));
-      empty.appendChild(el('p', 'ed-hint', 'Las puertas, panoramas, pintura y sonido originales conservan sus comportamientos.'));
+      empty.appendChild(el('strong', '', 'Selecciona un equipo'));
+      empty.appendChild(el('p', '', 'Haz clic en un objeto del escenario para consultar y editar sus propiedades. También puedes añadir equipos desde la biblioteca.'));
       if (this.objectClipboard) {
         const paste = button('Pegar objeto', 'Pegar modelo, propiedades y funciones · Ctrl V', () => this.perform(() => this.pasteObject()));
         paste.disabled = this.pastingObject; empty.appendChild(paste);
@@ -2900,7 +2903,7 @@ export default class SceneEditor {
           identity: this.accessView && this.accessView.identityGeneration,
           undo: this.document.undoStack.slice(), redo: this.document.redoStack.slice(),
           visible: Array.from(this.document.rooms.values()).map(entry => [entry.root, entry.root.visible]),
-          metadata: {currentProject: this.currentProject, publicView: this.publicView, projectName: this.projectName,
+          metadata: {currentProject: this.currentProject, publicView: this.publicView, transientPractice:this.transientPractice, projectName: this.projectName,
             historicalRevision: this.historicalRevision, dirty: this.dirty, storageAvailable: this.storageAvailable, remoteProject: this.remoteProject},
           camera: this.ctx.camera && {position: this.ctx.camera.position.clone(), quaternion: this.ctx.camera.quaternion.clone()},
           rig: this.ctx.cameraRig && {position: this.ctx.cameraRig.position.clone(), quaternion: this.ctx.cameraRig.quaternion.clone()}};
@@ -2945,7 +2948,8 @@ export default class SceneEditor {
       assertCurrent();
       if (this.accessView && this.accessView.enabled && options.accessGeneration !== this.accessView.identityGeneration) throw new Error('La cuenta cambió durante la preparación.');
       if(this.contentBrowser)this.contentBrowser.close(true);
-      this.currentProject = project.localImport?null:{id: project.id, name: project.name, revision: project.revision, access: project.access, storage:project.storage, allowedRoomIds: project.allowedRoomIds, publicSceneId: project.publicSceneId, librarySceneId: project.librarySceneId};
+      this.transientPractice=project.transientPractice===true;
+      this.currentProject = project.localImport||this.transientPractice?null:{id: project.id, name: project.name, revision: project.revision, access: project.access, storage:project.storage, allowedRoomIds: project.allowedRoomIds, publicSceneId: project.publicSceneId, librarySceneId: project.librarySceneId};
       this.publicView = Boolean(project.access && project.access.canEdit === false);
       this.clearObjectClipboard();
       this.projectName = project.name;
@@ -2963,7 +2967,7 @@ export default class SceneEditor {
       if (this.ctx.roomAssets && this.ctx.roomAssets.setActiveRoom) this.ctx.roomAssets.setActiveRoom(targetRoomId, this.document.getRoot(targetRoomId));
       this.dirty = Boolean(project.historicalRevision||project.localImport);
       this.storageAvailable = true;
-      this.rememberProject(project.localImport?null:project);
+      this.rememberProject(project.localImport||this.transientPractice?null:project);
       this.markRemoteProject(null);
       this.updateStatus();
       projectReady = true;

@@ -3,11 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#10252b">
+  <meta name="theme-color" content="#003b40">
   <meta name="description" content="SMART-TWIN Simulator: diseña, simula y explora tu industria en PC, móvil y realidad virtual.">
   <title>SMART-TWIN Simulator</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="viewer.css">
+  <link rel="stylesheet" href="welcome.css">
   <link rel="stylesheet" href="packages/voice-assistant/voice-assistant.css">
   <link rel="stylesheet" href="packages/input-devices/input-device.css">
   <script src="config.js"></script>
@@ -16,20 +17,20 @@
 <body class="welcome-open">
   <main id="viewer" aria-label="Simulación 3D de robot, banda y montacargas"></main>
   <header class="viewer-header">
-    <a class="viewer-brand" href="./" aria-label="SMART-TWIN, inicio"><svg class="brand-mark" aria-hidden="true" viewBox="0 0 48 48" fill="none"><path d="m24 2 22 22-22 22L2 24Z" stroke="currentColor" stroke-width="2"/><path d="m24 10 14 14-14 14-14-14Z" stroke="currentColor" stroke-width="1.5"/><path d="m24 16 8 8-8 8-8-8Z" fill="currentColor" fill-opacity=".18"/><path d="M24 2v8m14 14h8M24 38v8M2 24h8" stroke="currentColor" stroke-width="2"/></svg><span>SMART-TWIN<small>Simulator</small></span></a>
+    <a class="viewer-brand" href="./" aria-label="SMART-TWIN, inicio"><svg class="brand-mark" aria-hidden="true" viewBox="0 0 48 48" fill="none"><path d="m24 3 19 11v22L24 47 5 36V14Z" fill="#008d82"/><path d="m24 3 19 11-19 11L5 14Z" fill="#bdfcf0"/><path d="m24 25 19-11v22L24 47Z" fill="#00bba7"/><path d="m24 3 19 11v22L24 47 5 36V14Zm0 22v22M5 14l19 11 19-11M24 3v22" stroke="#3aecd2" stroke-width="1.5"/></svg><span>SMART-TWIN Simulator<small>Simulación Industrial y Logística</small></span></a>
     <nav class="header-actions" aria-label="Navegación"><button id="home-link" type="button">Inicio</button><button id="back-scenes" type="button">← Escenarios</button><a id="workspace-link" class="workspace-link" href="#workspace-access">Acceder al espacio <span aria-hidden="true">↗</span></a><button id="overview" class="scene-navigation-action" type="button">Vista general</button><span id="xr-action" class="scene-navigation-action"></span><button id="viewer-menu-toggle" type="button" aria-haspopup="dialog" aria-controls="viewer-menu" aria-expanded="false">Menú ☰</button></nav>
   </header>
   <section id="welcome" class="welcome-screen" aria-labelledby="welcome-title">
     <div class="welcome-content"><div class="welcome-panel">
       <p class="eyebrow"><span></span> SIMULACIÓN INDUSTRIAL INMERSIVA</p>
       <h1 id="welcome-title" tabindex="-1">SMART-TWIN<span>Simulator</span></h1>
-      <p class="welcome-tagline">Diseña, simula y explora tu industria.</p>
-      <p class="welcome-description">Entra a una instalación virtual e interactúa con robots, bandas y montacargas. Elige un escenario y empieza a explorar.</p>
-      <div class="welcome-actions"><button id="explore-scenes" class="welcome-primary" type="button">Explorar escenarios <span aria-hidden="true">→</span></button><a id="welcome-access" class="welcome-secondary" href="#workspace-access">Iniciar sesión</a></div>
-      <p class="welcome-access-hint">Prueba una demostración abierta o accede a tu biblioteca con tu cuenta.</p>
-      <p class="welcome-devices"><span aria-hidden="true">◈</span> PC <span aria-hidden="true">·</span> Móvil <span aria-hidden="true">·</span> Realidad virtual</p>
+      <p class="welcome-tagline">Diseña, simula y explora entornos logísticos e industriales de forma interactiva.</p>
+      <p class="welcome-description">Aprende en una instalación conectada. Configura los equipos, sigue el proceso y prueba tus decisiones.</p>
+      <div class="welcome-actions"><button id="explore-scenes" class="welcome-primary" type="button"><span aria-hidden="true">▶</span> Explorar escenarios</button><a id="editor-access" class="welcome-secondary" href="#workspace-access"><span aria-hidden="true">✎</span> Ir al editor</a></div>
+      <p class="welcome-access-hint">Una demostración abierta. Tus prácticas y proyectos, en tu cuenta.</p>
+      <div class="welcome-domains"><span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m12 2 9 5v10l-9 5-9-5V7Zm0 10 9-5M3 7l9 5v10"/></svg>Logística<small>CEDI</small></span><span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 21V9l6 4V9l6 4V3h4v18ZM7 17v1m4-1v1m6-1v1"/></svg>Manufactura<small>Smart Factory</small></span><span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16l2 9-3 2-4-4H9l-4 4-3-2Zm3 3v4m-2-2h4m7-1h1m1 2h1"/></svg>PC · Móvil<small>Realidad virtual</small></span></div>
     </div></div>
-    <div class="welcome-guide"><ol class="welcome-steps" aria-label="Cómo empezar"><li><span aria-hidden="true">01</span><div><h2>Elige un escenario</h2><p>Encuentra la práctica que quieres explorar.</p></div></li><li><span aria-hidden="true">02</span><div><h2>Entra a la instalación</h2><p>Recorre el espacio en PC, móvil o con un visor.</p></div></li><li><span aria-hidden="true">03</span><div><h2>Interactúa y aprende</h2><p>Prueba los equipos y observa el proceso.</p></div></li></ol></div>
+    <div class="welcome-guide"><ol class="welcome-steps" aria-label="Cómo empezar"><li><span aria-hidden="true">◇</span><div><h2>Elige tu práctica</h2><p>Cinco procesos de CEDI y cinco de Smart Factory.</p></div></li><li><span aria-hidden="true">▣</span><div><h2>Configura la instalación</h2><p>Elige caso, equipos, dificultad y automatización.</p></div></li><li><span aria-hidden="true">⌘</span><div><h2>Interactúa y aprende</h2><p>Completa las misiones y compara tus resultados.</p></div></li></ol></div>
   </section>
   <section id="gallery" class="scenario-gallery" aria-labelledby="gallery-title" hidden>
     <div class="gallery-heading"><div><p class="eyebrow"><span></span> BIBLIOTECA SMARTTWIN</p><h1 id="gallery-title" tabindex="-1">Elige un escenario</h1><p class="gallery-description">Explora procesos y practica con sistemas conectados. <br>Selecciona una instalación para empezar.</p></div><div class="gallery-account"><p id="gallery-session">Explora una demostración abierta</p><a id="gallery-access" class="gallery-access" href="#workspace-access">Iniciar sesión</a><p id="gallery-access-note">Accede a tu cuenta para ver más escenarios.</p></div></div>

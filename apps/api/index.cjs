@@ -30,7 +30,7 @@ function realFile(build,relative){
  return {absolute,size:stat.size,sha256:build.files.get(relative)};
 }
 function json(res,status,value){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));}
-function nextPath(raw){try{if(typeof raw!=='string'||!raw.startsWith('/')||raw.startsWith('//'))return '/workspace';const url=new URL(raw,'http://local.invalid');return ['/','/workspace','/workspace/','/editor'].includes(url.pathname)?url.pathname+url.search:'/workspace';}catch(_){return '/workspace';}}
+function nextPath(raw){try{if(typeof raw!=='string'||!raw.startsWith('/')||raw.startsWith('//'))return '/workspace';const url=new URL(raw,'http://local.invalid');return ['/','/workspace','/workspace/','/editor','/play'].includes(url.pathname)?url.pathname+url.search:'/workspace';}catch(_){return '/workspace';}}
 function login(res,next){
  const nonce=randomBytes(18).toString('base64'),destination=JSON.stringify(nextPath(next)).replace(/</g,'\\u003c');
  res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"});
@@ -59,10 +59,10 @@ function createApplication(options={}){
    if(pathname==='/api'||pathname.startsWith('/api/')){if(!allowLocal&&!req.studioSecure)return json(res,426,{error:'La API requiere HTTPS.',code:'https_required'});return api(req,res);}
    if(!['GET','HEAD'].includes(req.method))return json(res,405,{error:'Método no permitido.'});
    if(pathname==='/login'){if(!allowLocal&&!req.studioSecure)return json(res,426,{error:'El acceso requiere HTTPS.'});if(req.method==='HEAD'){res.writeHead(200,{'Cache-Control':'no-store'});return res.end();}return login(res,url.searchParams.get('next'));}
-   const privateRoute=pathname==='/editor'||pathname==='/editor/'||pathname==='/workspace'||pathname.startsWith('/workspace/');
-   if(privateRoute){if(!allowLocal&&!req.studioSecure)return json(res,426,{error:'El espacio privado requiere HTTPS.'});const user=api.studio.user(req,false);if(!user){if(pathname==='/editor'||pathname==='/editor/'||pathname==='/workspace'||pathname==='/workspace/'){res.writeHead(302,{'Location':'/login?next='+encodeURIComponent('/editor'+url.search),'Cache-Control':'no-store'});return res.end();}return json(res,401,{error:'Inicia sesión.',code:'authentication_required'});}api.studio._expectedUser(req,user);}
+   const privateEntry=pathname==='/editor'||pathname==='/play';const privateRoute=privateEntry||pathname==='/editor/'||pathname==='/workspace'||pathname.startsWith('/workspace/');
+   if(privateRoute){if(!allowLocal&&!req.studioSecure)return json(res,426,{error:'El espacio privado requiere HTTPS.'});const user=api.studio.user(req,false);if(!user){if(privateEntry||pathname==='/editor/'||pathname==='/workspace'||pathname==='/workspace/'){res.writeHead(302,{'Location':'/login?next='+encodeURIComponent((pathname==='/play'?'/play':'/editor')+url.search),'Cache-Control':'no-store'});return res.end();}return json(res,401,{error:'Inicia sesión.',code:'authentication_required'});}api.studio._expectedUser(req,user);}
    if(pathname==='/workspace'||pathname==='/workspace/'||pathname==='/editor/'){res.writeHead(302,{'Location':'/editor'+url.search,'Cache-Control':'no-store'});return res.end();}
-   const build=privateRoute?workspaceBuild:publicBuild,relative=privateRoute?(pathname==='/editor'?'index.html':pathname.slice('/workspace/'.length)):(pathname==='/'?'index.html':pathname.slice(1));
+   const build=privateRoute?workspaceBuild:publicBuild,relative=privateRoute?(privateEntry?'index.html':pathname.slice('/workspace/'.length)):(pathname==='/'?'index.html':pathname.slice(1));
    if(!relativePath(relative))return json(res,404,{error:'Recurso no disponible.'});
    if(relative==='publication.json'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});return res.end(req.method==='HEAD'?undefined:JSON.stringify(build.manifest));}
    const file=realFile(build,relative);if(!file)return json(res,404,{error:'Recurso no disponible.'});
@@ -74,7 +74,7 @@ function createApplication(options={}){
    if(!privateRoute&&relative==='config.js'){
     // The static configuration is integrity-checked above. This capability is
     // server-owned and identical for every visitor; no session data is emitted.
-    const capability='\nwindow.SMARTTWIN_PUBLIC_VIEWER_CONFIG=Object.freeze(Object.assign({},window.SMARTTWIN_PUBLIC_VIEWER_CONFIG||{},{backendAvailable:true,apiOrigin:window.location.origin,workspaceURL:new URL("/login?next=%2F",window.location.origin).href}));\n';
+    const capability='\nwindow.SMARTTWIN_PUBLIC_VIEWER_CONFIG=Object.freeze(Object.assign({},window.SMARTTWIN_PUBLIC_VIEWER_CONFIG||{},{backendAvailable:true,apiOrigin:window.location.origin,workspaceURL:new URL("/login?next=%2Fplay",window.location.origin).href}));\n';
     const bytes=Buffer.concat([fs.readFileSync(file.absolute),Buffer.from(capability)]);
     res.writeHead(200,{'Content-Type':TYPES['.js'],'Content-Length':bytes.length,'Cache-Control':'no-store','ETag':'"'+digest(bytes)+'"'});
     return res.end(req.method==='HEAD'?undefined:bytes);

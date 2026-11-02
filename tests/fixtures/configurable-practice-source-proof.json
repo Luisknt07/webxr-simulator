@@ -1,0 +1,2428 @@
+{
+  "format": "smarttwin.configurable-source-independent-proof",
+  "version": 1,
+  "sourceHashes": {
+    "SMART_TWIN_Prompt_Escenarios_Configurables.txt": "8663d4203c0b1b5cb6fa8e7b0c291d24d06b435f2006925dce995a9f1fc0ad5f",
+    "SMART_TWIN_Guia_Practicas_Layouts_y_Procesos.docx": "476c91fcf6a080a23741805c4841458b96907e967e8267087b73e9b053de15f8"
+  },
+  "ids": [
+    "CEDI-01",
+    "CEDI-02",
+    "CEDI-03",
+    "CEDI-04",
+    "CEDI-05",
+    "SF-01",
+    "SF-02",
+    "SF-03",
+    "SF-04",
+    "SF-05"
+  ],
+  "promptNonemptyLinesDigest": "0709df691f950558d58f3e15a7e3c848fe79909014a2d4901aad495a28f38604",
+  "guideParagraphs": {
+    "count": 1968,
+    "digest": "2153cbb480ef7003c7a8ab25da5d5e37711749bfab864c3e7ba73a6ba21c6a5e"
+  },
+  "guideTables": {
+    "count": 36,
+    "digest": "7f2e9d5937c0c82850a51e364d66a48ba31a363b8c700af623ca076b64467737"
+  },
+  "modeTables": [
+    {
+      "practiceId": "CEDI-01",
+      "mode": "M",
+      "tableId": "t0005",
+      "rows": [
+        [
+          "E01",
+          "Camión con carga · 1",
+          "(-5; 9)",
+          "8 × 3",
+          "6 pallets cargados dentro del vehículo; no volver a crearlos en recepción."
+        ],
+        [
+          "E02",
+          "Muelle y nivelador · 1",
+          "(0,7; 9)",
+          "1,4 × 3",
+          "Incluye retención/calzos, borde protegido y señal de habilitación."
+        ],
+        [
+          "E03",
+          "Montacargas conducido · 1",
+          "(3,7; 14)",
+          "2,8 × 1,5",
+          "1 operario; maniobras desde el muelle hacia inspección."
+        ],
+        [
+          "E04",
+          "Puesto de inspección · 1",
+          "(6; 4)",
+          "3 × 2",
+          "Mesa, lector portátil y báscula; revisar el pallet sin llevarlo encima de la mesa."
+        ],
+        [
+          "E05",
+          "Cuarentena · 1",
+          "(11; 14)",
+          "4 × 3",
+          "2 posiciones de pallet segregadas; mercancía bloqueada."
+        ],
+        [
+          "E07",
+          "Salida liberada · 1",
+          "(19,5; 4)",
+          "4 × 3",
+          "2 posiciones de pallet; punto de entrega a CEDI-02."
+        ],
+        [
+          "E08",
+          "Puesto de control · 1",
+          "(20; 14)",
+          "1,3 × 1,1",
+          "Terminal WMS; en S/A incorpora HMI, PLC y parada local."
+        ]
+      ]
+    },
+    {
+      "practiceId": "CEDI-01",
+      "mode": "S",
+      "tableId": "t0006",
+      "rows": [
+        [
+          "E01",
+          "Camión con carga · 1",
+          "(-5; 9)",
+          "8 × 3",
+          "6 pallets cargados dentro del vehículo; no volver a crearlos en recepción."
+        ],
+        [
+          "E02",
+          "Muelle y nivelador · 1",
+          "(0,7; 9)",
+          "1,4 × 3",
+          "Incluye retención/calzos, borde protegido y señal de habilitación."
+        ],
+        [
+          "E03",
+          "Montacargas conducido · 1",
+          "(3,7; 14)",
+          "2,8 × 1,5",
+          "1 operario; maniobras desde el muelle hacia inspección."
+        ],
+        [
+          "E04",
+          "Inspección y pesaje conectado · 1",
+          "(6; 4)",
+          "3 × 2",
+          "Mesa, lector portátil y báscula; revisar el pallet sin llevarlo encima de la mesa."
+        ],
+        [
+          "E05",
+          "Cuarentena · 1",
+          "(11; 14)",
+          "4 × 3",
+          "2 posiciones de pallet segregadas; mercancía bloqueada."
+        ],
+        [
+          "E06",
+          "Ingreso a línea · 1",
+          "(12; 4)",
+          "4 × 1,4",
+          "Rodillos para pallets, tope y dos sensores; estación apta para retirada de horquillas."
+        ],
+        [
+          "E07",
+          "Salida liberada · 1",
+          "(19,5; 4)",
+          "4 × 3",
+          "2 posiciones de pallet; punto de entrega a CEDI-02."
+        ],
+        [
+          "E08",
+          "Puesto de control · 1",
+          "(20; 14)",
+          "1,3 × 1,1",
+          "Terminal WMS; en S/A incorpora HMI, PLC y parada local."
+        ]
+      ]
+    },
+    {
+      "practiceId": "CEDI-01",
+      "mode": "A",
+      "tableId": "t0007",
+      "rows": [
+        [
+          "E01",
+          "Camión con carga · 1",
+          "(-5; 9)",
+          "8 × 3",
+          "6 pallets cargados dentro del vehículo; no volver a crearlos en recepción."
+        ],
+        [
+          "E02",
+          "Muelle y nivelador · 1",
+          "(0,7; 9)",
+          "1,4 × 3",
+          "Incluye retención/calzos, borde protegido y señal de habilitación."
+        ],
+        [
+          "E03",
+          "Montacargas conducido · 1",
+          "(3,7; 14)",
+          "2,8 × 1,5",
+          "1 operario; maniobras desde el muelle hacia inspección."
+        ],
+        [
+          "E04",
+          "Inspección de excepciones · 1",
+          "(6; 4)",
+          "3 × 2",
+          "Mesa, lector portátil y báscula; revisar el pallet sin llevarlo encima de la mesa."
+        ],
+        [
+          "E05",
+          "Cuarentena · 1",
+          "(11; 14)",
+          "4 × 3",
+          "2 posiciones de pallet segregadas; mercancía bloqueada."
+        ],
+        [
+          "E06",
+          "Ingreso y escaneo automático · 1",
+          "(12; 4)",
+          "4 × 1,4",
+          "Rodillos de pallets, báscula de línea, lector, tope y sensores con PLC."
+        ],
+        [
+          "E07",
+          "Salida liberada · 1",
+          "(19,5; 4)",
+          "4 × 3",
+          "2 posiciones de pallet; punto de entrega a CEDI-02."
+        ],
+        [
+          "E08",
+          "Puesto de control · 1",
+          "(20; 14)",
+          "1,3 × 1,1",
+          "Terminal WMS; en S/A incorpora HMI, PLC y parada local."
+        ],
+        [
+          "E09",
+          "AGV de horquillas · 1",
+          "(15,8; 14)",
+          "2,8 × 1,5",
+          "Ruta interior desde transferencia; no se presume entrada autónoma al camión."
+        ]
+      ]
+    },
+    {
+      "practiceId": "CEDI-02",
+      "mode": "M",
+      "tableId": "t0008",
+      "rows": [
+        [
+          "E01",
+          "Buffer de entrada · 1",
+          "(3,5; 5)",
+          "4 × 3",
+          "2 posiciones; recibe pallets identificados de CEDI-01."
+        ],
+        [
+          "E02",
+          "Rack selectivo A · 1",
+          "(7; 18)",
+          "5 × 2",
+          "2 módulos; 3 niveles didácticos; capacidades se leen del activo."
+        ],
+        [
+          "E03",
+          "Rack selectivo B · 1",
+          "(15; 18)",
+          "5 × 2",
+          "2 módulos; la clase ABC no obliga a cambiar el tipo de rack."
+        ],
+        [
+          "E04",
+          "Estantería de picking · 1",
+          "(24; 18)",
+          "4 × 2",
+          "6 ubicaciones activas y punto de reposición."
+        ],
+        [
+          "E05",
+          "Montacargas retráctil · 1",
+          "(12; 5)",
+          "2,6 × 1,4",
+          "Conducido; utilizar solo en superficies y accesos compatibles."
+        ],
+        [
+          "E06",
+          "Puesto de inventario · 1",
+          "(25; 5)",
+          "1,3 × 1",
+          "WMS, lector y etiquetas de ubicación; ajuste sujeto a autorización."
+        ],
+        [
+          "E07",
+          "Área de discrepancias · 1",
+          "(4; 10)",
+          "3 × 2",
+          "Carga retenida o ubicación aislada para conciliación."
+        ],
+        [
+          "E08",
+          "Transpaleta de reposición · 1",
+          "(19; 5)",
+          "1,8 × 1",
+          "Traslado a punto de consumo; no eleva a estantes altos."
+        ]
+      ]
+    },
+    {
+      "practiceId": "CEDI-02",
+      "mode": "S",
+      "tableId": "t0009",
+      "rows": [
+        [
+          "E01",
+          "Buffer de entrada · 1",
+          "(3,5; 5)",
+          "4 × 3",
+          "2 posiciones; recibe pallets identificados de CEDI-01."
+        ],
+        [
+          "E02",
+          "Rack selectivo A · 1",
+          "(7; 18)",
+          "5 × 2",
+          "2 módulos; 3 niveles didácticos; capacidades se leen del activo."
+        ],
+        [
+          "E03",
+          "Rack selectivo B · 1",
+          "(15; 18)",
+          "5 × 2",
+          "2 módulos; la clase ABC no obliga a cambiar el tipo de rack."
+        ],
+        [
+          "E04",
+          "Estantería de picking · 1",
+          "(24; 18)",
+          "4 × 2",
+          "6 ubicaciones activas y punto de reposición."
+        ],
+        [
+          "E05",
+          "Montacargas retráctil · 1",
+          "(12; 5)",
+          "2,6 × 1,4",
+          "Conducido; utilizar solo en superficies y accesos compatibles."
+        ],
+        [
+          "E06",
+          "WMS y terminal RF · 1",
+          "(25; 5)",
+          "1,3 × 1",
+          "WMS, lector y etiquetas de ubicación; ajuste sujeto a autorización."
+        ],
+        [
+          "E07",
+          "Área de discrepancias · 1",
+          "(4; 10)",
+          "3 × 2",
+          "Carga retenida o ubicación aislada para conciliación."
+        ],
+        [
+          "E08",
+          "Transpaleta de reposición · 1",
+          "(19; 5)",
+          "1,8 × 1",
+          "Traslado a punto de consumo; no eleva a estantes altos."
+        ]
+      ]
+    },
+    {
+      "practiceId": "CEDI-02",
+      "mode": "A",
+      "tableId": "t0010",
+      "rows": [
+        [
+          "E01",
+          "Buffer de entrada · 1",
+          "(3,5; 5)",
+          "4 × 3",
+          "2 posiciones; recibe pallets identificados de CEDI-01."
+        ],
+        [
+          "E02",
+          "Rack selectivo A · 1",
+          "(7; 18)",
+          "5 × 2",
+          "2 módulos; 3 niveles didácticos; capacidades se leen del activo."
+        ],
+        [
+          "E03",
+          "Rack selectivo B · 1",
+          "(15; 18)",
+          "5 × 2",
+          "2 módulos; la clase ABC no obliga a cambiar el tipo de rack."
+        ],
+        [
+          "E04",
+          "Estantería + entrega controlada · 1",
+          "(24; 18)",
+          "4 × 2",
+          "6 ubicaciones activas y punto de reposición."
+        ],
+        [
+          "E05",
+          "Montacargas automatizado · 1",
+          "(12; 5)",
+          "2,6 × 1,4",
+          "Ruta, toma y depósito automatizados solo con activos compatibles."
+        ],
+        [
+          "E06",
+          "Puesto de inventario · 1",
+          "(25; 5)",
+          "1,3 × 1",
+          "WMS, lector y etiquetas de ubicación; ajuste sujeto a autorización."
+        ],
+        [
+          "E07",
+          "Área de discrepancias · 1",
+          "(4; 10)",
+          "3 × 2",
+          "Carga retenida o ubicación aislada para conciliación."
+        ]
+      ]
+    },
+    {
+      "practiceId": "CEDI-03",
+      "mode": "M",
+      "tableId": "t0011",
+      "rows": [
+        [
+          "E01",
+          "Liberación de pedidos · 1",
+          "(2,7; 4)",
+          "1,4 × 1",
+          "1 terminal WMS; órdenes y asignaciones."
+        ],
+        [
+          "E02",
+          "Estantería de unidades · 1",
+          "(5; 14)",
+          "4 × 2",
+          "6 ubicaciones de referencia."
+        ],
+        [
+          "E03",
+          "Estantería de cajas · 1",
+          "(12; 14)",
+          "4 × 2",
+          "Reserva accesible y 6 ubicaciones."
+        ],
+        [
+          "E04",
+          "Carro de picking · 1",
+          "(7,5; 4)",
+          "2 × 1,2",
+          "3 contenedores, uno por pedido."
+        ],
+        [
+          "E05",
+          "Consolidación · 1",
+          "(18; 14)",
+          "3 × 2",
+          "Mesa y 3 huecos identificados por pedido."
+        ],
+        [
+          "E06",
+          "Verificación y salida · 1",
+          "(19; 4)",
+          "3 × 2",
+          "Lector y buffer hacia packing."
+        ],
+        [
+          "E07",
+          "Incidencias de pedido · 1",
+          "(12; 4)",
+          "2,8 × 2",
+          "Faltantes y artículos retenidos; no se mezclan con pedidos completos."
+        ]
+      ]
+    },
+    {
+      "practiceId": "CEDI-03",
+      "mode": "S",
+      "tableId": "t0012",
+      "rows": [
+        [
+          "E01",
+          "Liberación de pedidos · 1",
+          "(2,7; 4)",
+          "1,4 × 1",
+          "1 terminal WMS; órdenes y asignaciones."
+        ],
+        [
+          "E02",
+          "Estantería + pick-to-light · 1",
+          "(5; 14)",
+          "4 × 2",
+          "Misma estantería; indicadores por ubicación y terminal RF."
+        ],
+        [
+          "E03",
+          "Estantería de cajas · 1",
+          "(12; 14)",
+          "4 × 2",
+          "Reserva accesible y 6 ubicaciones."
+        ],
+        [
+          "E04",
+          "Carro de picking · 1",
+          "(7,5; 4)",
+          "2 × 1,2",
+          "3 contenedores, uno por pedido."
+        ],
+        [
+          "E05",
+          "Put-wall asistido · 1",
+          "(18; 14)",
+          "3 × 2",
+          "Mesa y 3 huecos identificados por pedido."
+        ],
+        [
+          "E06",
+          "Verificación y salida · 1",
+          "(19; 4)",
+          "3 × 2",
+          "Lector y buffer hacia packing."
+        ],
+        [
+          "E07",
+          "Incidencias de pedido · 1",
+          "(12; 4)",
+          "2,8 × 2",
+          "Faltantes y artículos retenidos; no se mezclan con pedidos completos."
+        ]
+      ]
+    },
+    {
+      "practiceId": "CEDI-03",
+      "mode": "A",
+      "tableId": "t0013",
+      "rows": [
+        [
+          "E01",
+          "Liberación de pedidos · 1",
+          "(2,7; 4)",
+          "1,4 × 1",
+          "1 terminal WMS; órdenes y asignaciones."
+        ],
+        [
+          "E02",
+          "Estantería de unidades · 1",
+          "(5; 14)",
+          "4 × 2",
+          "6 ubicaciones de referencia."
+        ],
+        [
+          "E03",
+          "Módulo automático de totes · 1",
+          "(12; 14)",
+          "4 × 2",
+          "Módulo de almacenamiento con extracción; habilitar solo si el activo existe."
+        ],
+        [
+          "E04",
+          "AMR portacontenedores · 1",
+          "(7,5; 4)",
+          "2 × 1,2",
+          "3 totes; interfaz de entrega definida."
+        ],
+        [
+          "E05",
+          "Puesto goods-to-robot · 1",
+          "(18; 14)",
+          "3 × 2",
+          "Estación de contenedores con tope, sensores y rechazo; suministra al robot E08."
+        ],
+        [
+          "E06",
+          "Verificación y salida · 1",
+          "(19; 4)",
+          "3 × 2",
+          "Lector y buffer hacia packing."
+        ],
+        [
+          "E07",
+          "Incidencias de pedido · 1",
+          "(12; 4)",
+          "2,8 × 2",
+          "Faltantes y artículos retenidos; no se mezclan con pedidos completos."
+        ],
+        [
+          "E08",
+          "Robot de picking · 1",
+          "(21,5; 14)",
+          "1,2 × 1,2",
+          "Pinza de vacío compatible con caja cerrada; visión, suministro, control y envolvente protegida."
+        ]
+      ]
+    },
+    {
+      "practiceId": "CEDI-04",
+      "mode": "M",
+      "tableId": "t0014",
+      "rows": [
+        [
+          "E01",
+          "Buffer de pedidos · 1",
+          "(3; 4)",
+          "3 × 2",
+          "3 pedidos de 4 cajas, separados e identificados."
+        ],
+        [
+          "E02",
+          "Mesa de empaque · 1",
+          "(8; 4)",
+          "3 × 2",
+          "Cajas/embalajes, protección, cinta y útiles."
+        ],
+        [
+          "E03",
+          "Sellado/etiqueta manual · 1",
+          "(14; 4)",
+          "3 × 2",
+          "Dispensador manual de cinta e impresora; no hay ciclo automático."
+        ],
+        [
+          "E04",
+          "Puesto de paletizado · 1",
+          "(19; 14)",
+          "3 × 3",
+          "2 pallets vacíos y patrón de 6 cajas por pallet; sostén inferior de la carga."
+        ],
+        [
+          "E05",
+          "Enfardado manual · 1",
+          "(12; 14)",
+          "3 × 3",
+          "Pallet apoyado y film; acción humana."
+        ],
+        [
+          "E06",
+          "Salida acondicionada · 1",
+          "(5; 14)",
+          "3 × 3",
+          "2 posiciones de carga completa para CEDI-05."
+        ],
+        [
+          "E07",
+          "Transpaleta · 1",
+          "(20; 4)",
+          "1,8 × 1",
+          "Mueve el pallet desde abajo; no levantarlo sujetando cajas."
+        ],
+        [
+          "E08",
+          "Control y verificación · 1",
+          "(2; 14)",
+          "1,3 × 1",
+          "Báscula, terminal y registro del agrupamiento."
+        ]
+      ]
+    },
+    {
+      "practiceId": "CEDI-04",
+      "mode": "S",
+      "tableId": "t0015",
+      "rows": [
+        [
+          "E01",
+          "Buffer de pedidos · 1",
+          "(3; 4)",
+          "3 × 2",
+          "3 pedidos de 4 cajas, separados e identificados."
+        ],
+        [
+          "E02",
+          "Mesa de empaque · 1",
+          "(8; 4)",
+          "3 × 2",
+          "Cajas/embalajes, protección, cinta y útiles."
+        ],
+        [
+          "E03",
+          "Sellado y etiqueta · 1",
+          "(14; 4)",
+          "3 × 2",
+          "Selladora, impresora y lector; 12 etiquetas de caja."
+        ],
+        [
+          "E04",
+          "Puesto de paletizado · 1",
+          "(19; 14)",
+          "3 × 3",
+          "2 pallets vacíos y patrón de 6 cajas por pallet; sostén inferior de la carga."
+        ],
+        [
+          "E05",
+          "Envolvedora · 1",
+          "(12; 14)",
+          "3 × 3",
+          "Film y receta de envoltura; alimentación humana en S."
+        ],
+        [
+          "E06",
+          "Salida acondicionada · 1",
+          "(5; 14)",
+          "3 × 3",
+          "2 posiciones de carga completa para CEDI-05."
+        ],
+        [
+          "E07",
+          "Transpaleta · 1",
+          "(20; 4)",
+          "1,8 × 1",
+          "Mueve el pallet desde abajo; no levantarlo sujetando cajas."
+        ],
+        [
+          "E08",
+          "Control y verificación · 1",
+          "(2; 14)",
+          "1,3 × 1",
+          "Báscula, terminal y registro del agrupamiento."
+        ]
+      ]
+    },
+    {
+      "practiceId": "CEDI-04",
+      "mode": "A",
+      "tableId": "t0016",
+      "rows": [
+        [
+          "E01",
+          "Buffer de pedidos · 1",
+          "(3; 4)",
+          "3 × 2",
+          "3 pedidos de 4 cajas, separados e identificados."
+        ],
+        [
+          "E02",
+          "Estación automática de empaque · 1",
+          "(8; 4)",
+          "3 × 2",
+          "Cajas/embalajes, protección, cinta y útiles."
+        ],
+        [
+          "E03",
+          "Sellado y print-and-apply · 1",
+          "(11; 4)",
+          "3 × 2",
+          "Selladora, impresora y lector; 12 etiquetas de caja."
+        ],
+        [
+          "E04",
+          "Puesto de paletizado · 1",
+          "(16; 4)",
+          "3 × 3",
+          "2 pallets vacíos y patrón de 6 cajas por pallet; sostén inferior de la carga."
+        ],
+        [
+          "E05",
+          "Envolvedora automática · 1",
+          "(12; 14)",
+          "3 × 3",
+          "Film y receta de envoltura; alimentación humana en S."
+        ],
+        [
+          "E06",
+          "Salida acondicionada · 1",
+          "(5; 14)",
+          "3 × 3",
+          "2 posiciones de carga completa para CEDI-05."
+        ],
+        [
+          "E07",
+          "AGV de pallets · 1",
+          "(20; 4)",
+          "2,4 × 1,4",
+          "Mueve el pallet desde abajo; no levantarlo sujetando cajas."
+        ],
+        [
+          "E08",
+          "Control y verificación · 1",
+          "(2; 14)",
+          "1,3 × 1",
+          "Báscula, terminal y registro del agrupamiento."
+        ],
+        [
+          "E09",
+          "Robot paletizador · 1",
+          "(14,7; 6,3)",
+          "1,2 × 1,2",
+          "Cabezal de vacío para cajas, sensores, resguardo y controlador."
+        ],
+        [
+          "E12",
+          "Banda de cajas · 1",
+          "(13,5; 4)",
+          "2 × 1",
+          "Enlace E03 → toma del robot; topes, sensores y soporte de caja. No lleva pallets."
+        ]
+      ]
+    },
+    {
+      "practiceId": "CEDI-05",
+      "mode": "M",
+      "tableId": "t0017",
+      "rows": [
+        [
+          "E01",
+          "Staging por destino · 1",
+          "(4; 14)",
+          "4 × 3",
+          "2 pallets preparados, cada uno con destino y reserva."
+        ],
+        [
+          "E02",
+          "Control de carga · 1",
+          "(10; 14)",
+          "3 × 2",
+          "Lector y verificación documental; báscula si el caso la requiere."
+        ],
+        [
+          "E03",
+          "Secuenciación · 1",
+          "(17; 14)",
+          "4 × 3",
+          "2 posiciones en el orden de carga previsto."
+        ],
+        [
+          "E04",
+          "Montacargas · 1",
+          "(15; 4)",
+          "2,8 × 1,5",
+          "Conducción para depositar pallets en el vehículo."
+        ],
+        [
+          "E05",
+          "Muelle y nivelador · 1",
+          "(23,2; 9)",
+          "1,6 × 3",
+          "Retención/calzos y habilitación del muelle."
+        ],
+        [
+          "E06",
+          "Camión de salida · 1",
+          "(29; 9)",
+          "8 × 3",
+          "Vehículo inicialmente vacío; parámetros de carga del activo real."
+        ],
+        [
+          "E07",
+          "Puesto de expedición · 1",
+          "(4; 4)",
+          "1,3 × 1",
+          "Documentos, destino, pedido y autorización de salida."
+        ],
+        [
+          "E08",
+          "Retenciones de salida · 1",
+          "(10; 4)",
+          "3 × 2",
+          "No conformes separados antes de la carga."
+        ]
+      ]
+    },
+    {
+      "practiceId": "CEDI-05",
+      "mode": "S",
+      "tableId": "t0018",
+      "rows": [
+        [
+          "E01",
+          "Staging por destino · 1",
+          "(4; 14)",
+          "4 × 3",
+          "2 pallets preparados, cada uno con destino y reserva."
+        ],
+        [
+          "E02",
+          "Control de carga · 1",
+          "(10; 14)",
+          "3 × 2",
+          "Lector y verificación documental; báscula si el caso la requiere."
+        ],
+        [
+          "E03",
+          "Secuenciación · 1",
+          "(17; 14)",
+          "4 × 3",
+          "2 posiciones en el orden de carga previsto."
+        ],
+        [
+          "E04",
+          "Montacargas · 1",
+          "(15; 4)",
+          "2,8 × 1,5",
+          "Conducción para depositar pallets en el vehículo."
+        ],
+        [
+          "E05",
+          "Muelle y nivelador · 1",
+          "(23,2; 9)",
+          "1,6 × 3",
+          "Retención/calzos y habilitación del muelle."
+        ],
+        [
+          "E06",
+          "Camión de salida · 1",
+          "(29; 9)",
+          "8 × 3",
+          "Vehículo inicialmente vacío; parámetros de carga del activo real."
+        ],
+        [
+          "E07",
+          "Puesto de expedición · 1",
+          "(4; 4)",
+          "1,3 × 1",
+          "Documentos, destino, pedido y autorización de salida."
+        ],
+        [
+          "E08",
+          "Retenciones de salida · 1",
+          "(10; 4)",
+          "3 × 2",
+          "No conformes separados antes de la carga."
+        ],
+        [
+          "E09",
+          "Transferencia interior · 1",
+          "(20; 4)",
+          "3 × 1,5",
+          "Rodillos de pallets, sensores y lector; entrega al muelle, no dentro del camión."
+        ]
+      ]
+    },
+    {
+      "practiceId": "CEDI-05",
+      "mode": "A",
+      "tableId": "t0019",
+      "rows": [
+        [
+          "E01",
+          "Staging por destino · 1",
+          "(4; 14)",
+          "4 × 3",
+          "2 pallets preparados, cada uno con destino y reserva."
+        ],
+        [
+          "E02",
+          "Control de carga · 1",
+          "(10; 14)",
+          "3 × 2",
+          "Lector y verificación documental; báscula si el caso la requiere."
+        ],
+        [
+          "E03",
+          "Secuenciación · 1",
+          "(17; 14)",
+          "4 × 3",
+          "2 posiciones en el orden de carga previsto."
+        ],
+        [
+          "E04",
+          "Montacargas · 1",
+          "(15; 4)",
+          "2,8 × 1,5",
+          "Conducción para depositar pallets en el vehículo."
+        ],
+        [
+          "E05",
+          "Muelle y nivelador · 1",
+          "(23,2; 9)",
+          "1,6 × 3",
+          "Retención/calzos y habilitación del muelle."
+        ],
+        [
+          "E06",
+          "Camión de salida · 1",
+          "(29; 9)",
+          "8 × 3",
+          "Vehículo inicialmente vacío; parámetros de carga del activo real."
+        ],
+        [
+          "E07",
+          "Puesto de expedición · 1",
+          "(4; 4)",
+          "1,3 × 1",
+          "Documentos, destino, pedido y autorización de salida."
+        ],
+        [
+          "E08",
+          "Retenciones de salida · 1",
+          "(10; 4)",
+          "3 × 2",
+          "No conformes separados antes de la carga."
+        ],
+        [
+          "E09",
+          "Transferencia interior · 1",
+          "(20; 4)",
+          "3 × 1,5",
+          "Rodillos de pallets, sensores y lector; entrega al muelle, no dentro del camión."
+        ],
+        [
+          "E10",
+          "AGV de alimentación · 1",
+          "(21,6; 14)",
+          "2,4 × 1,4",
+          "Sirve staging y transferencia interior; no descarga autónoma implícita."
+        ]
+      ]
+    },
+    {
+      "practiceId": "SF-01",
+      "mode": "M",
+      "tableId": "t0020",
+      "rows": [
+        [
+          "E01",
+          "Camión de materias primas · 1",
+          "(-5; 9)",
+          "8 × 3",
+          "2 unidades de carga con componentes y lotes del caso."
+        ],
+        [
+          "E02",
+          "Muelle y nivelador · 1",
+          "(0,7; 9)",
+          "1,4 × 3",
+          "Retención/calzos y control de acceso."
+        ],
+        [
+          "E03",
+          "Montacargas · 1",
+          "(4; 14)",
+          "2,8 × 1,5",
+          "Descarga y entrega al punto de inspección."
+        ],
+        [
+          "E04",
+          "Inspección de materias · 1",
+          "(6; 4)",
+          "3 × 2",
+          "Báscula, lector y plantilla de conformidad."
+        ],
+        [
+          "E05",
+          "Cuarentena de lote · 1",
+          "(11; 14)",
+          "3 × 3",
+          "2 posiciones segregadas; material no liberado."
+        ],
+        [
+          "E06",
+          "Rack de componentes · 1",
+          "(18; 14)",
+          "5 × 2",
+          "2 módulos de 3 niveles; dimensiones/capacidades del activo."
+        ],
+        [
+          "E07",
+          "Disponibles a línea · 1",
+          "(19; 4)",
+          "3 × 2",
+          "Buffer de 2 posiciones para SF-02."
+        ],
+        [
+          "E08",
+          "Registro MP · 1",
+          "(14; 4)",
+          "1,3 × 1",
+          "WMS/MES, etiquetas y registro por lote."
+        ]
+      ]
+    },
+    {
+      "practiceId": "SF-01",
+      "mode": "S",
+      "tableId": "t0021",
+      "rows": [
+        [
+          "E01",
+          "Camión de materias primas · 1",
+          "(-5; 9)",
+          "8 × 3",
+          "2 unidades de carga con componentes y lotes del caso."
+        ],
+        [
+          "E02",
+          "Muelle y nivelador · 1",
+          "(0,7; 9)",
+          "1,4 × 3",
+          "Retención/calzos y control de acceso."
+        ],
+        [
+          "E03",
+          "Montacargas · 1",
+          "(4; 14)",
+          "2,8 × 1,5",
+          "Descarga y entrega al punto de inspección."
+        ],
+        [
+          "E04",
+          "Inspección de materias · 1",
+          "(6; 4)",
+          "3 × 2",
+          "Báscula, lector y plantilla de conformidad."
+        ],
+        [
+          "E05",
+          "Cuarentena de lote · 1",
+          "(11; 14)",
+          "3 × 3",
+          "2 posiciones segregadas; material no liberado."
+        ],
+        [
+          "E06",
+          "Rack de componentes · 1",
+          "(18; 14)",
+          "5 × 2",
+          "2 módulos de 3 niveles; dimensiones/capacidades del activo."
+        ],
+        [
+          "E07",
+          "Disponibles a línea · 1",
+          "(19; 4)",
+          "3 × 2",
+          "Buffer de 2 posiciones para SF-02."
+        ],
+        [
+          "E08",
+          "Registro MP · 1",
+          "(14; 4)",
+          "1,3 × 1",
+          "WMS/MES, etiquetas y registro por lote."
+        ],
+        [
+          "E09",
+          "Transferencia y lectura · 1",
+          "(9,8; 4)",
+          "2,8 × 1,3",
+          "Rodillos para carga compatible y sensores; control activo en A."
+        ]
+      ]
+    },
+    {
+      "practiceId": "SF-01",
+      "mode": "A",
+      "tableId": "t0022",
+      "rows": [
+        [
+          "E01",
+          "Camión de materias primas · 1",
+          "(-5; 9)",
+          "8 × 3",
+          "2 unidades de carga con componentes y lotes del caso."
+        ],
+        [
+          "E02",
+          "Muelle y nivelador · 1",
+          "(0,7; 9)",
+          "1,4 × 3",
+          "Retención/calzos y control de acceso."
+        ],
+        [
+          "E03",
+          "Montacargas · 1",
+          "(4; 14)",
+          "2,8 × 1,5",
+          "Descarga y entrega al punto de inspección."
+        ],
+        [
+          "E04",
+          "Inspección de materias · 1",
+          "(6; 4)",
+          "3 × 2",
+          "Báscula, lector y plantilla de conformidad."
+        ],
+        [
+          "E05",
+          "Cuarentena de lote · 1",
+          "(11; 14)",
+          "3 × 3",
+          "2 posiciones segregadas; material no liberado."
+        ],
+        [
+          "E06",
+          "Rack de componentes · 1",
+          "(18; 14)",
+          "5 × 2",
+          "2 módulos de 3 niveles; dimensiones/capacidades del activo."
+        ],
+        [
+          "E07",
+          "Disponibles a línea · 1",
+          "(19; 4)",
+          "3 × 2",
+          "Buffer de 2 posiciones para SF-02."
+        ],
+        [
+          "E08",
+          "Registro MP · 1",
+          "(14; 4)",
+          "1,3 × 1",
+          "WMS/MES, etiquetas y registro por lote."
+        ],
+        [
+          "E09",
+          "Transferencia y lectura · 1",
+          "(9,8; 4)",
+          "2,8 × 1,3",
+          "Rodillos para carga compatible y sensores; control activo en A."
+        ],
+        [
+          "E10",
+          "AGV interno · 1",
+          "(15; 6,5)",
+          "2,4 × 1,4",
+          "Entre transferencia, rack compatible y buffer."
+        ]
+      ]
+    },
+    {
+      "practiceId": "SF-02",
+      "mode": "M",
+      "tableId": "t0023",
+      "rows": [
+        [
+          "E01",
+          "Planificación ERP/MES · 1",
+          "(3; 4)",
+          "1,5 × 1",
+          "Orden de 12 conjuntos, BOM y ruta aprobable."
+        ],
+        [
+          "E02",
+          "Supermercado de línea · 1",
+          "(4; 14)",
+          "4 × 2",
+          "3 familias de componentes; lotes de SF-01."
+        ],
+        [
+          "E03",
+          "Mesa de kitting · 1",
+          "(10; 14)",
+          "3 × 2",
+          "3 kits, cada uno para 4 conjuntos."
+        ],
+        [
+          "E04",
+          "Carro de suministro · 1",
+          "(10; 4)",
+          "2 × 1,2",
+          "Capacidad para un kit; recorrido a punto de consumo."
+        ],
+        [
+          "E05",
+          "Punto de consumo · 1",
+          "(18; 14)",
+          "3 × 2",
+          "1 kit activo y 1 posición de espera; entrega a SF-03."
+        ],
+        [
+          "E06",
+          "Retornables vacíos · 1",
+          "(18; 4)",
+          "3 × 2",
+          "3 contenedores retornables; retorno por ruta declarada."
+        ],
+        [
+          "E07",
+          "Preparación de útiles · 1",
+          "(4; 8)",
+          "2,5 × 1,4",
+          "Fixture, lector, herramienta y ficha de receta."
+        ],
+        [
+          "E08",
+          "Control de suministro · 1",
+          "(22; 14)",
+          "1,2 × 1",
+          "Confirmación del kit y del destino; en S/A señales de solicitud."
+        ]
+      ]
+    },
+    {
+      "practiceId": "SF-02",
+      "mode": "S",
+      "tableId": "t0024",
+      "rows": [
+        [
+          "E01",
+          "Planificación ERP/MES · 1",
+          "(3; 4)",
+          "1,5 × 1",
+          "Orden de 12 conjuntos, BOM y ruta aprobable."
+        ],
+        [
+          "E02",
+          "Supermercado con Kanban · 1",
+          "(4; 14)",
+          "4 × 2",
+          "3 familias de componentes; lotes de SF-01."
+        ],
+        [
+          "E03",
+          "Mesa de kitting · 1",
+          "(10; 14)",
+          "3 × 2",
+          "3 kits, cada uno para 4 conjuntos."
+        ],
+        [
+          "E04",
+          "Tractor y carro logístico · 1",
+          "(10; 4)",
+          "3,4 × 1,2",
+          "Tren de un carro; ruta y maniobras compatibles."
+        ],
+        [
+          "E05",
+          "Punto de consumo · 1",
+          "(18; 14)",
+          "3 × 2",
+          "1 kit activo y 1 posición de espera; entrega a SF-03."
+        ],
+        [
+          "E06",
+          "Retornables vacíos · 1",
+          "(18; 4)",
+          "3 × 2",
+          "3 contenedores retornables; retorno por ruta declarada."
+        ],
+        [
+          "E07",
+          "Preparación de útiles · 1",
+          "(4; 8)",
+          "2,5 × 1,4",
+          "Fixture, lector, herramienta y ficha de receta."
+        ],
+        [
+          "E08",
+          "Control de suministro · 1",
+          "(22; 14)",
+          "1,2 × 1",
+          "Confirmación del kit y del destino; en S/A señales de solicitud."
+        ]
+      ]
+    },
+    {
+      "practiceId": "SF-02",
+      "mode": "A",
+      "tableId": "t0025",
+      "rows": [
+        [
+          "E01",
+          "Planificación ERP/MES · 1",
+          "(3; 4)",
+          "1,5 × 1",
+          "Orden de 12 conjuntos, BOM y ruta aprobable."
+        ],
+        [
+          "E02",
+          "Supermercado con e-Kanban · 1",
+          "(4; 14)",
+          "4 × 2",
+          "3 familias de componentes; lotes de SF-01."
+        ],
+        [
+          "E03",
+          "Kitting asistido por luz · 1",
+          "(10; 14)",
+          "3 × 2",
+          "Usuario completa y verifica cada kit; la automatización aquí es de suministro."
+        ],
+        [
+          "E04",
+          "AMR portakits · 1",
+          "(10; 4)",
+          "2 × 1,2",
+          "Acoplamiento al carro/estación; no basta una bandeja sin interfaz de entrega."
+        ],
+        [
+          "E05",
+          "Punto de consumo · 1",
+          "(18; 14)",
+          "3 × 2",
+          "1 kit activo y 1 posición de espera; entrega a SF-03."
+        ],
+        [
+          "E06",
+          "Retornables vacíos · 1",
+          "(18; 4)",
+          "3 × 2",
+          "3 contenedores retornables; retorno por ruta declarada."
+        ],
+        [
+          "E07",
+          "Preparación de útiles · 1",
+          "(4; 8)",
+          "2,5 × 1,4",
+          "Fixture, lector, herramienta y ficha de receta."
+        ],
+        [
+          "E08",
+          "Control de suministro · 1",
+          "(22; 14)",
+          "1,2 × 1",
+          "Confirmación del kit y del destino; en S/A señales de solicitud."
+        ]
+      ]
+    },
+    {
+      "practiceId": "SF-03",
+      "mode": "M",
+      "tableId": "t0026",
+      "rows": [
+        [
+          "E01",
+          "Entrada de cuerpos · 1",
+          "(3; 14)",
+          "3 × 2",
+          "12 cuerpos en bruto del kit; tapas/tornillos siguen reservados."
+        ],
+        [
+          "E02",
+          "Preparación y sujeción · 1",
+          "(8; 14)",
+          "3 × 2",
+          "Fixture y herramientas; identificación y orientación."
+        ],
+        [
+          "E03",
+          "Fresadora operada · 1",
+          "(11; 4)",
+          "4,5 × 3",
+          "Máquina convencional del catálogo; operaciones guiadas y tiempos sintéticos, sin instrucciones de mecanizado real."
+        ],
+        [
+          "E04",
+          "Medición local · 1",
+          "(16; 14)",
+          "3 × 2",
+          "Calibrador/sonda y criterio dimensional del caso."
+        ],
+        [
+          "E05",
+          "WIP conforme · 1",
+          "(21; 14)",
+          "3 × 2",
+          "Contenedor de salida hacia ensamble."
+        ],
+        [
+          "E06",
+          "Herramientas y útiles · 1",
+          "(4; 4)",
+          "2,5 × 1,6",
+          "Herramienta inicial, recambio y acoplador si se utiliza robot."
+        ],
+        [
+          "E07",
+          "HMI y control de celda · 1",
+          "(18; 7,5)",
+          "1,2 × 1",
+          "Control fuera del resguardo; habilitación, estados, alarmas y parada."
+        ],
+        [
+          "E08",
+          "Carro de piezas · 1",
+          "(21; 4)",
+          "1,6 × 1",
+          "Transferencia de contenedores con identificación."
+        ]
+      ]
+    },
+    {
+      "practiceId": "SF-03",
+      "mode": "S",
+      "tableId": "t0027",
+      "rows": [
+        [
+          "E01",
+          "Entrada de cuerpos · 1",
+          "(3; 14)",
+          "3 × 2",
+          "12 cuerpos en bruto del kit; tapas/tornillos siguen reservados."
+        ],
+        [
+          "E02",
+          "Preparación y sujeción · 1",
+          "(8; 14)",
+          "3 × 2",
+          "Fixture y herramientas; identificación y orientación."
+        ],
+        [
+          "E03",
+          "Centro de mecanizado CNC · 1",
+          "(11; 4)",
+          "4,5 × 3",
+          "Receta de mecanizado didáctica, herramienta y sujeción; gabinete cerrado."
+        ],
+        [
+          "E04",
+          "Medición local · 1",
+          "(16; 14)",
+          "3 × 2",
+          "Calibrador/sonda y criterio dimensional del caso."
+        ],
+        [
+          "E05",
+          "WIP conforme · 1",
+          "(21; 14)",
+          "3 × 2",
+          "Contenedor de salida hacia ensamble."
+        ],
+        [
+          "E06",
+          "Herramientas y útiles · 1",
+          "(4; 4)",
+          "2,5 × 1,6",
+          "Herramienta inicial, recambio y acoplador si se utiliza robot."
+        ],
+        [
+          "E07",
+          "HMI y control de celda · 1",
+          "(18; 7,5)",
+          "1,2 × 1",
+          "Control fuera del resguardo; habilitación, estados, alarmas y parada."
+        ],
+        [
+          "E08",
+          "Carro de piezas · 1",
+          "(21; 4)",
+          "1,6 × 1",
+          "Transferencia de contenedores con identificación."
+        ]
+      ]
+    },
+    {
+      "practiceId": "SF-03",
+      "mode": "A",
+      "tableId": "t0028",
+      "rows": [
+        [
+          "E01",
+          "Entrada de cuerpos · 1",
+          "(3; 14)",
+          "3 × 2",
+          "12 cuerpos en bruto del kit; tapas/tornillos siguen reservados."
+        ],
+        [
+          "E02",
+          "Preparación y sujeción · 1",
+          "(8; 14)",
+          "3 × 2",
+          "Fixture y herramientas; identificación y orientación."
+        ],
+        [
+          "E03",
+          "Centro de mecanizado CNC · 1",
+          "(11; 4)",
+          "4,5 × 3",
+          "Receta de mecanizado didáctica, herramienta y sujeción; gabinete cerrado."
+        ],
+        [
+          "E04",
+          "Medición local · 1",
+          "(16; 14)",
+          "3 × 2",
+          "Calibrador/sonda y criterio dimensional del caso."
+        ],
+        [
+          "E05",
+          "WIP conforme · 1",
+          "(21; 14)",
+          "3 × 2",
+          "Contenedor de salida hacia ensamble."
+        ],
+        [
+          "E06",
+          "Herramientas y útiles · 1",
+          "(4; 4)",
+          "2,5 × 1,6",
+          "Herramienta inicial, recambio y acoplador si se utiliza robot."
+        ],
+        [
+          "E07",
+          "HMI y control de celda · 1",
+          "(18; 7,5)",
+          "1,2 × 1",
+          "Control fuera del resguardo; habilitación, estados, alarmas y parada."
+        ],
+        [
+          "E08",
+          "AMR portacontenedores · 1",
+          "(21; 4)",
+          "1,6 × 1",
+          "Transferencia de contenedores con identificación."
+        ],
+        [
+          "E09",
+          "Robot de carga CNC · 1",
+          "(15,5; 4)",
+          "1,2 × 1,2",
+          "Pinza mecánica, controlador y resguardo de celda; puerta/amarre coordinados."
+        ]
+      ]
+    },
+    {
+      "practiceId": "SF-04",
+      "mode": "M",
+      "tableId": "t0029",
+      "rows": [
+        [
+          "E01",
+          "Componentes elegibles · 1",
+          "(3; 14)",
+          "3 × 2",
+          "12 cuerpos, 12 tapas, 48 tornillos; trazabilidad por kit."
+        ],
+        [
+          "E02",
+          "Banco de ensamble · 1",
+          "(9; 14)",
+          "3,2 × 2",
+          "Fixture de conjunto y atornillador."
+        ],
+        [
+          "E03",
+          "Banco de pruebas · 1",
+          "(16; 14)",
+          "3 × 2",
+          "Prueba funcional simulada con criterio de aceptación."
+        ],
+        [
+          "E04",
+          "Producto liberado · 1",
+          "(21; 14)",
+          "3 × 2",
+          "12 conjuntos esperados; salida a SF-05."
+        ],
+        [
+          "E05",
+          "Retención y retrabajo · 1",
+          "(16; 4)",
+          "3 × 2",
+          "1 puesto y contenedor segregado; autorización y reinspección."
+        ],
+        [
+          "E06",
+          "Herramientas de montaje · 1",
+          "(9; 4)",
+          "2,6 × 1,6",
+          "Pinza/atornillador/útiles según modalidad, con receta."
+        ],
+        [
+          "E07",
+          "MES y calidad · 1",
+          "(3; 4)",
+          "1,4 × 1",
+          "Genealogía, resultados de prueba y disposición."
+        ]
+      ]
+    },
+    {
+      "practiceId": "SF-04",
+      "mode": "S",
+      "tableId": "t0030",
+      "rows": [
+        [
+          "E01",
+          "Componentes elegibles · 1",
+          "(3; 14)",
+          "3 × 2",
+          "12 cuerpos, 12 tapas, 48 tornillos; trazabilidad por kit."
+        ],
+        [
+          "E02",
+          "Ensamble asistido · 1",
+          "(9; 14)",
+          "3,2 × 2",
+          "Atornillador con control; operario posiciona piezas."
+        ],
+        [
+          "E03",
+          "Prueba semiautomática · 1",
+          "(16; 14)",
+          "3 × 2",
+          "Prueba funcional simulada con criterio de aceptación."
+        ],
+        [
+          "E04",
+          "Producto liberado · 1",
+          "(21; 14)",
+          "3 × 2",
+          "12 conjuntos esperados; salida a SF-05."
+        ],
+        [
+          "E05",
+          "Retención y retrabajo · 1",
+          "(16; 4)",
+          "3 × 2",
+          "1 puesto y contenedor segregado; autorización y reinspección."
+        ],
+        [
+          "E06",
+          "Herramientas de montaje · 1",
+          "(9; 4)",
+          "2,6 × 1,6",
+          "Pinza/atornillador/útiles según modalidad, con receta."
+        ],
+        [
+          "E07",
+          "MES y calidad · 1",
+          "(3; 4)",
+          "1,4 × 1",
+          "Genealogía, resultados de prueba y disposición."
+        ],
+        [
+          "E09",
+          "Transportador de piezas · 1",
+          "(12,55; 14)",
+          "3,9 × 1",
+          "Enlace físico de piezas E02 → E03 con portapiezas, topes y sensores; no transporta pallets."
+        ]
+      ]
+    },
+    {
+      "practiceId": "SF-04",
+      "mode": "A",
+      "tableId": "t0031",
+      "rows": [
+        [
+          "E01",
+          "Componentes elegibles · 1",
+          "(3; 14)",
+          "3 × 2",
+          "12 cuerpos, 12 tapas, 48 tornillos; trazabilidad por kit."
+        ],
+        [
+          "E02",
+          "Estación de ensamble · 1",
+          "(9; 14)",
+          "3,2 × 2",
+          "Fixture, alimentación de tapas/tornillos y estación para el robot."
+        ],
+        [
+          "E03",
+          "Visión y prueba integrada · 1",
+          "(16; 14)",
+          "3 × 2",
+          "Cámara, iluminación y banco funcional; salida según criterio."
+        ],
+        [
+          "E04",
+          "Producto liberado · 1",
+          "(21; 14)",
+          "3 × 2",
+          "12 conjuntos esperados; salida a SF-05."
+        ],
+        [
+          "E05",
+          "Retención y retrabajo · 1",
+          "(16; 4)",
+          "3 × 2",
+          "1 puesto y contenedor segregado; autorización y reinspección."
+        ],
+        [
+          "E06",
+          "Herramientas de montaje · 1",
+          "(9; 4)",
+          "2,6 × 1,6",
+          "Pinza/atornillador/útiles según modalidad, con receta."
+        ],
+        [
+          "E07",
+          "MES y calidad · 1",
+          "(3; 4)",
+          "1,4 × 1",
+          "Genealogía, resultados de prueba y disposición."
+        ],
+        [
+          "E08",
+          "Robot de ensamble · 1",
+          "(10,8; 16,2)",
+          "1,1 × 1,1",
+          "Pinza y atornillador con cambio compatible; controlador y resguardo."
+        ],
+        [
+          "E09",
+          "Transportador de piezas · 1",
+          "(12,55; 14)",
+          "3,9 × 1",
+          "Enlace físico de piezas E02 → E03 con portapiezas, topes y sensores; no transporta pallets."
+        ],
+        [
+          "E10",
+          "Salida de piezas · 1",
+          "(18,5; 14)",
+          "2 × 1",
+          "Enlace de prueba E03 a liberados E04; desvío de no conformes autorizado."
+        ]
+      ]
+    },
+    {
+      "practiceId": "SF-05",
+      "mode": "M",
+      "tableId": "t0032",
+      "rows": [
+        [
+          "E01",
+          "Entrada de terminado · 1",
+          "(3; 5)",
+          "3 × 2",
+          "12 conjuntos liberados de SF-04."
+        ],
+        [
+          "E02",
+          "Empaque y etiquetado · 1",
+          "(9; 5)",
+          "3,5 × 2",
+          "12 cajas individuales, protección y 12 etiquetas."
+        ],
+        [
+          "E03",
+          "Formación de pallet · 1",
+          "(16; 5)",
+          "3 × 3",
+          "1 pallet vacío y patrón para 12 cajas."
+        ],
+        [
+          "E04",
+          "Enfardado manual · 1",
+          "(22; 5)",
+          "3 × 3",
+          "Pallet apoyado y film aplicado por el operario; no hay ciclo automático."
+        ],
+        [
+          "E05",
+          "Rack de terminado · 1",
+          "(22; 16)",
+          "4 × 2",
+          "2 posiciones de reserva; no duplica cantidad del pallet."
+        ],
+        [
+          "E06",
+          "Transferencia a CEDI · 1",
+          "(10; 16)",
+          "3 × 2",
+          "1 posición de entrega interna; mismo inventario global."
+        ],
+        [
+          "E07",
+          "Montacargas · 1",
+          "(16; 16)",
+          "2,8 × 1,5",
+          "Movimientos de terminado y carga final."
+        ],
+        [
+          "E08",
+          "Muelle de salida · 1",
+          "(29,2; 10)",
+          "1,6 × 3",
+          "Nivelador, retención/calzos y acceso controlado."
+        ],
+        [
+          "E09",
+          "Camión de despacho · 1",
+          "(35; 10)",
+          "8 × 3",
+          "Solo se usa si se elige despacho directo; inicialmente vacío."
+        ],
+        [
+          "E10",
+          "MES/WMS fin de línea · 1",
+          "(3; 16)",
+          "1,4 × 1",
+          "Cierre de orden, etiquetas y destino."
+        ]
+      ]
+    },
+    {
+      "practiceId": "SF-05",
+      "mode": "S",
+      "tableId": "t0033",
+      "rows": [
+        [
+          "E01",
+          "Entrada de terminado · 1",
+          "(3; 5)",
+          "3 × 2",
+          "12 conjuntos liberados de SF-04."
+        ],
+        [
+          "E02",
+          "Empaque asistido · 1",
+          "(9; 5)",
+          "3,5 × 2",
+          "Selladora, impresora y verificación del operario."
+        ],
+        [
+          "E03",
+          "Formación de pallet · 1",
+          "(16; 5)",
+          "3 × 3",
+          "1 pallet vacío y patrón para 12 cajas."
+        ],
+        [
+          "E04",
+          "Aseguramiento de carga · 1",
+          "(22; 5)",
+          "3 × 3",
+          "Film y receta; envolvedora de alimentación humana con ciclo local."
+        ],
+        [
+          "E05",
+          "Rack de terminado · 1",
+          "(22; 16)",
+          "4 × 2",
+          "2 posiciones de reserva; no duplica cantidad del pallet."
+        ],
+        [
+          "E06",
+          "Transferencia a CEDI · 1",
+          "(10; 16)",
+          "3 × 2",
+          "1 posición de entrega interna; mismo inventario global."
+        ],
+        [
+          "E07",
+          "Montacargas · 1",
+          "(16; 16)",
+          "2,8 × 1,5",
+          "Movimientos de terminado y carga final."
+        ],
+        [
+          "E08",
+          "Muelle de salida · 1",
+          "(29,2; 10)",
+          "1,6 × 3",
+          "Nivelador, retención/calzos y acceso controlado."
+        ],
+        [
+          "E09",
+          "Camión de despacho · 1",
+          "(35; 10)",
+          "8 × 3",
+          "Solo se usa si se elige despacho directo; inicialmente vacío."
+        ],
+        [
+          "E10",
+          "MES/WMS fin de línea · 1",
+          "(3; 16)",
+          "1,4 × 1",
+          "Cierre de orden, etiquetas y destino."
+        ]
+      ]
+    },
+    {
+      "practiceId": "SF-05",
+      "mode": "A",
+      "tableId": "t0034",
+      "rows": [
+        [
+          "E01",
+          "Entrada de terminado · 1",
+          "(3; 5)",
+          "3 × 2",
+          "12 conjuntos liberados de SF-04."
+        ],
+        [
+          "E02",
+          "Empaque y etiqueta automáticos · 1",
+          "(9; 5)",
+          "3,5 × 2",
+          "12 cajas individuales, protección y 12 etiquetas."
+        ],
+        [
+          "E03",
+          "Formación de pallet · 1",
+          "(16; 5)",
+          "3 × 3",
+          "1 pallet vacío y patrón para 12 cajas."
+        ],
+        [
+          "E04",
+          "Envolvedora automática · 1",
+          "(22; 5)",
+          "3 × 3",
+          "Film, receta y control integrado; alimentación por E07 y confirmación de ciclo."
+        ],
+        [
+          "E05",
+          "Rack de terminado · 1",
+          "(22; 16)",
+          "4 × 2",
+          "2 posiciones de reserva; no duplica cantidad del pallet."
+        ],
+        [
+          "E06",
+          "Transferencia a CEDI · 1",
+          "(10; 16)",
+          "3 × 2",
+          "1 posición de entrega interna; mismo inventario global."
+        ],
+        [
+          "E07",
+          "Montacargas automatizado · 1",
+          "(16; 16)",
+          "2,8 × 1,5",
+          "Movimientos interiores; carga automática al camión solo si la interfaz está verificada."
+        ],
+        [
+          "E08",
+          "Muelle de salida · 1",
+          "(29,2; 10)",
+          "1,6 × 3",
+          "Nivelador, retención/calzos y acceso controlado."
+        ],
+        [
+          "E09",
+          "Camión de despacho · 1",
+          "(35; 10)",
+          "8 × 3",
+          "Solo se usa si se elige despacho directo; inicialmente vacío."
+        ],
+        [
+          "E10",
+          "MES/WMS fin de línea · 1",
+          "(3; 16)",
+          "1,4 × 1",
+          "Cierre de orden, etiquetas y destino."
+        ],
+        [
+          "E11",
+          "Robot paletizador · 1",
+          "(14,5; 7,5)",
+          "1,2 × 1,2",
+          "Ventosas para cajas y resguardo; no levanta pallet a través de las cajas."
+        ],
+        [
+          "E12",
+          "Banda de cajas · 1",
+          "(12,625; 5)",
+          "3,75 × 1",
+          "Enlace E02 → toma del robot/paletizado; sensores y guía para cajas, no pallets."
+        ]
+      ]
+    }
+  ],
+  "figures": [
+    {
+      "practiceId": "CEDI-01",
+      "kind": "process",
+      "mode": null,
+      "relationshipId": "rId11",
+      "sourceMediaPath": "word/media/image1.png",
+      "filename": "image1.png",
+      "bytes": 58967,
+      "sha256": "062a9e073f821475c69ec9457d7acc32699a9e55a783e8ce9e952c020e58c093"
+    },
+    {
+      "practiceId": "CEDI-01",
+      "kind": "layout",
+      "mode": "M",
+      "relationshipId": "rId12",
+      "sourceMediaPath": "word/media/image2.png",
+      "filename": "image2.png",
+      "bytes": 75589,
+      "sha256": "818198c5c46dac09e27c16926596e86d9078ffcffbcb6e8325091ad68d27bfaa"
+    },
+    {
+      "practiceId": "CEDI-01",
+      "kind": "layout",
+      "mode": "S",
+      "relationshipId": "rId13",
+      "sourceMediaPath": "word/media/image3.png",
+      "filename": "image3.png",
+      "bytes": 77893,
+      "sha256": "27a426fa1fc4816019a83abab2e6e7a943345520877150c901ced3012fbe9651"
+    },
+    {
+      "practiceId": "CEDI-01",
+      "kind": "layout",
+      "mode": "A",
+      "relationshipId": "rId14",
+      "sourceMediaPath": "word/media/image4.png",
+      "filename": "image4.png",
+      "bytes": 80961,
+      "sha256": "924595b98d174d59d257cdaf68ca6688c2400a367a609ea24bf8104f13a943ec"
+    },
+    {
+      "practiceId": "CEDI-02",
+      "kind": "process",
+      "mode": null,
+      "relationshipId": "rId15",
+      "sourceMediaPath": "word/media/image5.png",
+      "filename": "image5.png",
+      "bytes": 61461,
+      "sha256": "fbc57df8df2d78d83596f339a750337767bca63913e957eca9e81ffcec435b0d"
+    },
+    {
+      "practiceId": "CEDI-02",
+      "kind": "layout",
+      "mode": "M",
+      "relationshipId": "rId16",
+      "sourceMediaPath": "word/media/image6.png",
+      "filename": "image6.png",
+      "bytes": 81044,
+      "sha256": "257ea4d4970bcdb0f13403e06300a98190d752bfcab4ffa7e53e58e515383618"
+    },
+    {
+      "practiceId": "CEDI-02",
+      "kind": "layout",
+      "mode": "S",
+      "relationshipId": "rId17",
+      "sourceMediaPath": "word/media/image7.png",
+      "filename": "image7.png",
+      "bytes": 81018,
+      "sha256": "277535f32330499c357856f096357f5077129a83e8260efddb3963e5a8f57c93"
+    },
+    {
+      "practiceId": "CEDI-02",
+      "kind": "layout",
+      "mode": "A",
+      "relationshipId": "rId18",
+      "sourceMediaPath": "word/media/image8.png",
+      "filename": "image8.png",
+      "bytes": 80345,
+      "sha256": "30b2f1513b76faad5f63f416c989ab9b448736487117cbdb4f6a6dd4dbfc67e1"
+    },
+    {
+      "practiceId": "CEDI-03",
+      "kind": "process",
+      "mode": null,
+      "relationshipId": "rId19",
+      "sourceMediaPath": "word/media/image9.png",
+      "filename": "image9.png",
+      "bytes": 57592,
+      "sha256": "ac427543d1756ebe94791e8e3704fb74d9b161cd1c0a72d19e8f44abced621b2"
+    },
+    {
+      "practiceId": "CEDI-03",
+      "kind": "layout",
+      "mode": "M",
+      "relationshipId": "rId20",
+      "sourceMediaPath": "word/media/image10.png",
+      "filename": "image10.png",
+      "bytes": 76582,
+      "sha256": "19efb7f3a8fe608255b9998eaf06365a32df718c724c61eed5218b79b5241690"
+    },
+    {
+      "practiceId": "CEDI-03",
+      "kind": "layout",
+      "mode": "S",
+      "relationshipId": "rId21",
+      "sourceMediaPath": "word/media/image11.png",
+      "filename": "image11.png",
+      "bytes": 76780,
+      "sha256": "c7473219e6346c7b09069a9c1e647f57cfdee75bcb0b95c5e942d008881616c1"
+    },
+    {
+      "practiceId": "CEDI-03",
+      "kind": "layout",
+      "mode": "A",
+      "relationshipId": "rId22",
+      "sourceMediaPath": "word/media/image12.png",
+      "filename": "image12.png",
+      "bytes": 81339,
+      "sha256": "32441525ba06361aa0c540c555c96c496e1a5b9085704c31b473fe455a102ca2"
+    },
+    {
+      "practiceId": "CEDI-04",
+      "kind": "process",
+      "mode": null,
+      "relationshipId": "rId23",
+      "sourceMediaPath": "word/media/image13.png",
+      "filename": "image13.png",
+      "bytes": 58152,
+      "sha256": "373c6c15e56122b82b697d9ff85c2c026acd9b2913d11c2f51456cc32ab57b08"
+    },
+    {
+      "practiceId": "CEDI-04",
+      "kind": "layout",
+      "mode": "M",
+      "relationshipId": "rId24",
+      "sourceMediaPath": "word/media/image14.png",
+      "filename": "image14.png",
+      "bytes": 79606,
+      "sha256": "2b4f4396c196cd6284455bbe5ea50928b5fe9e57242d90123f96f3b0e8c91137"
+    },
+    {
+      "practiceId": "CEDI-04",
+      "kind": "layout",
+      "mode": "S",
+      "relationshipId": "rId25",
+      "sourceMediaPath": "word/media/image15.png",
+      "filename": "image15.png",
+      "bytes": 78615,
+      "sha256": "69fa692ffe1944d096e9afe880a2969fb3a62832be9157761ca4c6bcde68c0ed"
+    },
+    {
+      "practiceId": "CEDI-04",
+      "kind": "layout",
+      "mode": "A",
+      "relationshipId": "rId26",
+      "sourceMediaPath": "word/media/image16.png",
+      "filename": "image16.png",
+      "bytes": 83940,
+      "sha256": "6eea59e1ff19f9a5d3e8c21f95ea1d0cdd879d586e3feee71d8ea89aa12be012"
+    },
+    {
+      "practiceId": "CEDI-05",
+      "kind": "process",
+      "mode": null,
+      "relationshipId": "rId27",
+      "sourceMediaPath": "word/media/image17.png",
+      "filename": "image17.png",
+      "bytes": 56749,
+      "sha256": "f579b86a7f1a91d54c9426118f6d511b05c142313991f9df9f749c1aff34cc22"
+    },
+    {
+      "practiceId": "CEDI-05",
+      "kind": "layout",
+      "mode": "M",
+      "relationshipId": "rId28",
+      "sourceMediaPath": "word/media/image18.png",
+      "filename": "image18.png",
+      "bytes": 77314,
+      "sha256": "124587d838b946ba4771530b633f93945a288018224ae2679ddd9f53f176228f"
+    },
+    {
+      "practiceId": "CEDI-05",
+      "kind": "layout",
+      "mode": "S",
+      "relationshipId": "rId29",
+      "sourceMediaPath": "word/media/image19.png",
+      "filename": "image19.png",
+      "bytes": 78743,
+      "sha256": "d453486f1a7ae0df226609a3e8ff8376b7e7b244403f6097b25b911076be50b9"
+    },
+    {
+      "practiceId": "CEDI-05",
+      "kind": "layout",
+      "mode": "A",
+      "relationshipId": "rId30",
+      "sourceMediaPath": "word/media/image20.png",
+      "filename": "image20.png",
+      "bytes": 80499,
+      "sha256": "facba77b674df781b9c7f7cd549df3aa65a553d0a950b9792ae6efd5460f4470"
+    },
+    {
+      "practiceId": "SF-01",
+      "kind": "process",
+      "mode": null,
+      "relationshipId": "rId31",
+      "sourceMediaPath": "word/media/image21.png",
+      "filename": "image21.png",
+      "bytes": 53401,
+      "sha256": "9f73b443666f848bcb105705073bb7533207bf16719b5271a6592802d1abcb55"
+    },
+    {
+      "practiceId": "SF-01",
+      "kind": "layout",
+      "mode": "M",
+      "relationshipId": "rId32",
+      "sourceMediaPath": "word/media/image22.png",
+      "filename": "image22.png",
+      "bytes": 77095,
+      "sha256": "543c519ff9697705ea5b83cfeb35e88feed65bad05004ce8771badb431f42c84"
+    },
+    {
+      "practiceId": "SF-01",
+      "kind": "layout",
+      "mode": "S",
+      "relationshipId": "rId33",
+      "sourceMediaPath": "word/media/image23.png",
+      "filename": "image23.png",
+      "bytes": 78533,
+      "sha256": "b327842523c29b3878b60e08a2a13ce7c7ab8ce58c35599eeef8e1d2ccc61a9a"
+    },
+    {
+      "practiceId": "SF-01",
+      "kind": "layout",
+      "mode": "A",
+      "relationshipId": "rId34",
+      "sourceMediaPath": "word/media/image24.png",
+      "filename": "image24.png",
+      "bytes": 81366,
+      "sha256": "30be544babcd38af47ae843284c82aac3ab27210d60b546ab64a15c8d56ff0d6"
+    },
+    {
+      "practiceId": "SF-02",
+      "kind": "process",
+      "mode": null,
+      "relationshipId": "rId35",
+      "sourceMediaPath": "word/media/image25.png",
+      "filename": "image25.png",
+      "bytes": 56407,
+      "sha256": "0cddfdb97d5353e9a0cbf19f32546ee55b1985912cd2da313a7837d9748cb8b8"
+    },
+    {
+      "practiceId": "SF-02",
+      "kind": "layout",
+      "mode": "M",
+      "relationshipId": "rId36",
+      "sourceMediaPath": "word/media/image26.png",
+      "filename": "image26.png",
+      "bytes": 78899,
+      "sha256": "e79cdd6403c56e61dae3a88caec2401726db37083e21a8a40ddd359ef90d53fd"
+    },
+    {
+      "practiceId": "SF-02",
+      "kind": "layout",
+      "mode": "S",
+      "relationshipId": "rId37",
+      "sourceMediaPath": "word/media/image27.png",
+      "filename": "image27.png",
+      "bytes": 78369,
+      "sha256": "4f5a5facc3ed351837fb8968da9b69f991e5727c439ebc4453876ae1dbee3105"
+    },
+    {
+      "practiceId": "SF-02",
+      "kind": "layout",
+      "mode": "A",
+      "relationshipId": "rId38",
+      "sourceMediaPath": "word/media/image28.png",
+      "filename": "image28.png",
+      "bytes": 80302,
+      "sha256": "d6a479275be714133d75ace9367e2d944cda63337609c94718f9dd6e2aa3bd65"
+    },
+    {
+      "practiceId": "SF-03",
+      "kind": "process",
+      "mode": null,
+      "relationshipId": "rId39",
+      "sourceMediaPath": "word/media/image29.png",
+      "filename": "image29.png",
+      "bytes": 57373,
+      "sha256": "eac398be883d978d9d9501dd5256ce1c98df8887723788cf7600f26c7a869c6a"
+    },
+    {
+      "practiceId": "SF-03",
+      "kind": "layout",
+      "mode": "M",
+      "relationshipId": "rId40",
+      "sourceMediaPath": "word/media/image30.png",
+      "filename": "image30.png",
+      "bytes": 77959,
+      "sha256": "74cbfb3fbda5f465ba5975e4a55a83f7307db64ff618760f3dad86932bf3fbb3"
+    },
+    {
+      "practiceId": "SF-03",
+      "kind": "layout",
+      "mode": "S",
+      "relationshipId": "rId41",
+      "sourceMediaPath": "word/media/image31.png",
+      "filename": "image31.png",
+      "bytes": 77244,
+      "sha256": "8d3a1979cc85665d8fd1da1b02b9b9974bc939f78ae16658328b0fa008993b89"
+    },
+    {
+      "practiceId": "SF-03",
+      "kind": "layout",
+      "mode": "A",
+      "relationshipId": "rId42",
+      "sourceMediaPath": "word/media/image32.png",
+      "filename": "image32.png",
+      "bytes": 82964,
+      "sha256": "ff0055a51c0c2bee5d0ca6d4afc180fc3ad1773fadcb37037c31078b1ef1a18d"
+    },
+    {
+      "practiceId": "SF-04",
+      "kind": "process",
+      "mode": null,
+      "relationshipId": "rId43",
+      "sourceMediaPath": "word/media/image33.png",
+      "filename": "image33.png",
+      "bytes": 56639,
+      "sha256": "86d3f5ebbe6832f3e7e1fc550b93da1368c94f7dc91c3a8f7caf33dc7f04dbf8"
+    },
+    {
+      "practiceId": "SF-04",
+      "kind": "layout",
+      "mode": "M",
+      "relationshipId": "rId44",
+      "sourceMediaPath": "word/media/image34.png",
+      "filename": "image34.png",
+      "bytes": 75990,
+      "sha256": "31711a2841dad5ebaa6fa930f2c53188b494eab2e65f9d09e372da05f773287b"
+    },
+    {
+      "practiceId": "SF-04",
+      "kind": "layout",
+      "mode": "S",
+      "relationshipId": "rId45",
+      "sourceMediaPath": "word/media/image35.png",
+      "filename": "image35.png",
+      "bytes": 77606,
+      "sha256": "f0dfc713de617f82106f3b6e2de2d21ae409e8b465cccc1eb6f7742d347d3927"
+    },
+    {
+      "practiceId": "SF-04",
+      "kind": "layout",
+      "mode": "A",
+      "relationshipId": "rId46",
+      "sourceMediaPath": "word/media/image36.png",
+      "filename": "image36.png",
+      "bytes": 84089,
+      "sha256": "e34193c30528f882994400fa9567a59d4ce62eea7609bf9cb83b7f042d6e79f8"
+    },
+    {
+      "practiceId": "SF-05",
+      "kind": "process",
+      "mode": null,
+      "relationshipId": "rId47",
+      "sourceMediaPath": "word/media/image37.png",
+      "filename": "image37.png",
+      "bytes": 55600,
+      "sha256": "368243b6077e31e3533676a981018dcbd537a0bf508166342aa5b3ed9ce9a867"
+    },
+    {
+      "practiceId": "SF-05",
+      "kind": "layout",
+      "mode": "M",
+      "relationshipId": "rId48",
+      "sourceMediaPath": "word/media/image38.png",
+      "filename": "image38.png",
+      "bytes": 80854,
+      "sha256": "49dc6c24e497f8e7f5f348e67c58592c279d4e6621d46acd1e185afae3661e55"
+    },
+    {
+      "practiceId": "SF-05",
+      "kind": "layout",
+      "mode": "S",
+      "relationshipId": "rId49",
+      "sourceMediaPath": "word/media/image39.png",
+      "filename": "image39.png",
+      "bytes": 80263,
+      "sha256": "9cd5ae8ac9c2623949be025946b1e652d39a9da80fadc279de8651a53ad961f8"
+    },
+    {
+      "practiceId": "SF-05",
+      "kind": "layout",
+      "mode": "A",
+      "relationshipId": "rId50",
+      "sourceMediaPath": "word/media/image40.png",
+      "filename": "image40.png",
+      "bytes": 84954,
+      "sha256": "c7af6a80401685d7e56a0df69e9788cb387b5e3ab7d1d19079c1b09636b25241"
+    }
+  ]
+}

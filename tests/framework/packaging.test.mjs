@@ -15,8 +15,8 @@ function fixture(t) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'smarttwin-packaging-')));
   t.after(() => { const resolved = fs.realpathSync(root), parent = fs.realpathSync(os.tmpdir()); assert.equal(path.dirname(resolved), parent); assert.ok(path.basename(resolved).startsWith('smarttwin-packaging-')); fs.rmSync(resolved, {recursive: true}); });
   for (const [profile, files] of Object.entries(compiled)) for (const filename of files) { write(root, `artifacts/${profile}/${filename}`, 'compiled ' + profile + filename); write(root, `artifacts/${profile}/${filename}.map`, 'DO NOT PUBLISH SOURCEMAPS'); }
-  write(root, 'apps/public-viewer/index.html', '<link rel="stylesheet" href="viewer.css"><script src="config.js"></script><script defer src="viewer.js"></script>');
-  write(root, 'apps/public-viewer/viewer.css', '.viewer{background:#123}'); write(root, 'apps/public-viewer/config.js', 'window.CONFIG={sceneURL:"projects/smarttwin/scenes/vr-robot-dispatch.json"};');
+  write(root, 'apps/public-viewer/index.html', '<link rel="stylesheet" href="viewer.css"><link rel="stylesheet" href="welcome.css"><script src="config.js"></script><script defer src="viewer.js"></script>');
+  write(root, 'apps/public-viewer/viewer.css', '.viewer{background:#123}'); write(root, 'apps/public-viewer/welcome.css', '.welcome-screen{background:#eef4f6;color:#183348}'); write(root, 'apps/public-viewer/config.js', 'window.CONFIG={sceneURL:"projects/smarttwin/scenes/vr-robot-dispatch.json"};');
   write(root, 'modules/turismo/assets/smart-twin-cover.jpg', 'approved public cover');
   write(root, 'packages/voice-assistant/voice-assistant.css', '.voice-assistant{}');
   write(root, 'packages/input-devices/input-device.css', '.input-device{}');
@@ -46,12 +46,13 @@ test('three artifacts contain exact allowlisted files, SHA receipts and only one
     assert.equal(manifest.bundleSha256, manifest.files.find(file => file.path === compiled[output.application][0]).sha256);
   }
   const publicBuild = outputs.find(output => output.application === 'public-viewer'); assert.deepEqual(publicBuild.manifest.scenes, ['vr-robot-dispatch']);
-  assert.deepEqual(publicBuild.manifest.files.map(file => file.path), ['config.js', 'cover.jpg', 'index.html', 'projects/smarttwin/previews/vr-robot-dispatch.png', 'projects/smarttwin/scenes/catalog.json', 'projects/smarttwin/scenes/vr-robot-dispatch.json', 'viewer.css', 'viewer.js','packages/voice-assistant/voice-assistant.css','packages/input-devices/input-device.css',...['welcome','pickup','route','deposit','completed','safety'].map(id=>'packages/voice-assistant/assets/'+id+'.wav')].sort());
+  assert.deepEqual(publicBuild.manifest.files.map(file => file.path), ['config.js', 'cover.jpg', 'index.html', 'projects/smarttwin/previews/vr-robot-dispatch.png', 'projects/smarttwin/scenes/catalog.json', 'projects/smarttwin/scenes/vr-robot-dispatch.json', 'viewer.css', 'welcome.css', 'viewer.js','packages/voice-assistant/voice-assistant.css','packages/input-devices/input-device.css',...['welcome','pickup','route','deposit','completed','safety'].map(id=>'packages/voice-assistant/assets/'+id+'.wav')].sort());
   const catalog = JSON.parse(fs.readFileSync(path.join(publicBuild.directory, 'projects/smarttwin/scenes/catalog.json'))); assert.equal(catalog.scenes.length, 1); assert.equal(catalog.scenes[0].unexpectedSecret, undefined); assert.equal(catalog.privateAdminField, undefined); assert.equal(catalog.maxActive, 1);
   const empty = outputs.find(output => output.application === 'core-empty'); assert.deepEqual(empty.manifest.files.map(file => file.path), ['core-empty.js', 'core.css', 'index.html']); assert.deepEqual(empty.manifest.scenes, []);
   const workspace = outputs.find(output => output.application === 'workspace'); assert.deepEqual(workspace.manifest.scenes, ['private-training', 'vr-robot-dispatch']); const names = workspace.manifest.files.map(file => file.path);
   assert.ok(names.includes('packages/tools/ai/assets/native-texture-ai-worker.js')); assert.ok(names.includes('modules/logistica-industrial/assets/design.blend')); assert.ok(names.includes('packages/render-three/src/StartupStatus.js')); assert.equal(names.includes('packages/tools/ai/assets/unapproved-source.js'), false); assert.equal(names.includes('packages/render-three/src/Secret.js'), false);
   assert.equal(names.includes('apps/public-viewer/viewer.css'), false, 'Workspace must not collect another application and its relative media.');
+  assert.equal(names.includes('apps/public-viewer/welcome.css'), false, 'The public welcome stylesheet belongs only to the public application.');
 });
 
 test('publication manifests are accepted by the actual API artifact reader without opening a server', t => {

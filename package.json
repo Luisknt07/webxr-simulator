@@ -68,6 +68,8 @@
     "model:build": "node tooling/modeling/build.cjs",
     "test:equipment-study": "node tests/legacy/test-equipment-study.js && node tests/legacy/test-equipment-study-ui.js && node tests/legacy/test-equipment-study-stage.js && node tests/legacy/test-robot-study-preview.js && node tests/legacy/test-robot-task-panel.js && node tests/legacy/test-robot-assembly-preview.js",
     "qa:equipment-study": "node tooling/qa/equipment-study-production.cjs",
+    "qa:practices-native": "node --test tests/framework/configurable-practice-budgets.test.mjs tests/native/configurable-practice-receiving-native.test.mjs",
+    "qa:practices-native:legacy": "node tooling/qa/practices-native.cjs",
     "test:native-design": "node --test tests/framework/native-technical-illustration.test.mjs && node tests/legacy/test-native-manufactured-surfaces.js && node tests/legacy/test-robot-native-realism.js && node tests/legacy/test-native-control-panel-designs.js && node tests/legacy/test-vehicle-manufactured-surfaces.js && node tests/legacy/test-robot-bearing-clearance.js && node tests/legacy/test-warehouse-rack-surface-separation.js && node tests/legacy/test-conveyor-manufactured-seams.js && node tests/legacy/test-equipment-study.js && node tests/legacy/test-equipment-study-ui.js && node tests/legacy/test-native-panel-saved-layouts.js && node tests/legacy/test-robot-reference-pilot.js && node tests/legacy/test-vehicle-reference-pilot.js && node tests/legacy/test-cell-console-pilot.js && node tests/legacy/test-equipment-study-stage.js && node tests/legacy/test-robot-study-preview.js && node tests/legacy/test-robot-panel-cable.js",
     "test:native-design-browser": "node tooling/qa/native-design-production.cjs"
   },

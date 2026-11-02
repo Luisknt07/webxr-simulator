@@ -73,6 +73,38 @@
 .studio-resource-preview-docked .studio-resource-actions .primary { flex-basis:100%; }
 .studio-resource-metadata { display:grid; grid-template-columns:76px minmax(0,1fr); gap:5px 7px; margin:9px 0; font-size:10px; line-height:1.45; }
 .studio-resource-metadata dt { color:#8da6b7; }
+
+/* Light library: retain the shared bounded thumbnails and the one inspector
+   preview, presenting real resources rather than a second catalogue of art. */
+.xr-editor.ed-light .studio-resource-header{background:#fff;border-color:#dce6ed;padding:12px;gap:8px}
+.xr-editor.ed-light .studio-resource-tab{background:#f0f5f8;border-color:transparent;color:#607b8d;font-weight:600;border-radius:7px}
+.xr-editor.ed-light .studio-resource-tab.active{background:#e0f4ef;color:#007d70;border-color:#c0e4db}
+.xr-editor.ed-light .studio-resource-domains{display:flex;flex:1 1 100%;min-width:0;gap:4px;order:2;padding:2px 0 4px}
+.xr-editor.ed-light .studio-resource-domain{flex:1;min-width:0;padding:6px 3px;min-height:29px;border-radius:16px;background:#fff;color:#708594;border-color:#e2e9ef;font-size:10px}
+.xr-editor.ed-light .studio-resource-domain.active{color:#006f64;background:#e8f7f3;border-color:#b5ded4;font-weight:650}
+.xr-editor.ed-light .studio-resource-scope{color:#426a7d;border-color:#c9dce4}.xr-editor.ed-light .studio-resource-folders{background:#f6f9fb;border-right:1px solid #e0e8ef;padding:9px 6px}
+.xr-editor.ed-light .studio-resource-folders .studio-resource-folder{color:#5a7487;border-radius:6px;padding:7px;line-height:1.5;font-size:11px;min-height:32px;overflow-wrap:normal}
+.xr-editor.ed-light .studio-resource-folders .studio-resource-folder:hover{background:#eaf2f7;color:#244d64}.xr-editor.ed-light .studio-resource-folders .studio-resource-folder.active{color:#007b6e;background:#e2f3ee;box-shadow:inset 3px 0 #009182}
+.xr-editor.ed-light .studio-resource-folder-count{color:#8ba0ad;font-variant-numeric:tabular-nums;white-space:nowrap}
+.xr-editor.ed-light .studio-resource-grid{background:#f1f6f9;padding:12px;gap:11px}.xr-editor.ed-light .studio-resource-card{border:1px solid #d7e3eb;border-radius:10px;background:#fff;box-shadow:0 2px 5px #183d5006;min-height:180px;display:flex;flex-direction:column}
+.xr-editor.ed-light .studio-resource-card.selected{border-color:#29b5a2;box-shadow:0 0 0 2px #24b69d1c;background:#fff}
+.xr-editor.ed-light .studio-resource-choose{height:auto;flex:1;color:#22475c;padding:0 11px 9px}
+.xr-editor.ed-light .studio-resource-thumbnail{background:linear-gradient(145deg,#edf3f8,#e2ebf2);border-bottom-color:#e4ebf0;margin:0 -11px 10px;width:calc(100% + 22px);height:106px;flex-basis:106px}
+.xr-editor.ed-light .studio-resource-thumbnail .editor-asset-thumbnail-type{color:#638696;font-size:30px}.xr-editor.ed-light .studio-resource-choose .ed-file-name{font-size:12px;font-weight:650;margin-right:0;white-space:normal;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.xr-editor.ed-light .studio-resource-type{color:#78909f;font-size:10px}.xr-editor.ed-light .studio-resource-status{font-size:9px;border-radius:4px;color:#708696;border-color:#d9e4eb;background:#f6f9fb}
+.xr-editor.ed-light .studio-resource-status--functional{color:#21775e;background:#edf8f2;border-color:#c5e5d6}.xr-editor.ed-light .studio-resource-status--visual{color:#497798;background:#f0f7fc;border-color:#d2e4f0}.xr-editor.ed-light .studio-resource-status--development{color:#98772f;background:#fff9eb;border-color:#eaddb9}
+.xr-editor.ed-light .studio-resource-star{top:7px;right:7px;width:25px;height:25px;border-radius:7px;background:#ffffffdf;border:1px solid #dde6ec;color:#8aa0ae;min-height:25px;font-size:18px}.xr-editor.ed-light .studio-resource-star.active{color:#bd8c26;background:#fffbec;border-color:#ecdfbc}
+.xr-editor.ed-light .studio-resource-card-actions{display:flex;gap:6px;padding:7px 10px 9px;border-top:1px solid #edf1f5}
+.xr-editor.ed-light .studio-resource-card-actions .ed-button{flex:1;min-width:0;min-height:28px;margin:0;padding:5px 8px;background:#fff;border-color:#d9e6ec;color:#4f7287;font-size:10px;max-width:none}
+.xr-editor.ed-light .studio-resource-card-actions .studio-resource-sheet-link{color:#008577;border-color:#b8ded5;background:#f0faf6}.xr-editor.ed-light .studio-resource-card-actions .studio-library-doc-link{color:#607f91!important;border-color:#d9e6ec!important}
+.xr-editor.ed-light .studio-resource-caption{background:#f8fbfd;border-top:1px solid #dce7ed;color:#7a919f;font-size:10px;padding:8px 12px;line-height:1.5;max-height:47px;overflow:hidden}
+.xr-editor.ed-light .studio-resource-preview,.xr-editor.ed-light .ed-inspector .studio-resource-preview-docked{background:#fff;color:#23475c;border-color:#dce6ed}
+.xr-editor.ed-light .studio-resource-preview-description{color:#617d8f}.xr-editor.ed-light .studio-resource-preview-content{border-radius:9px;background:#eef4f8;overflow:hidden}
+.xr-editor.ed-light .studio-resource-preview-docked>.studio-resource-actions{background:#f8fbfd;border-top-color:#d8e6ed;box-shadow:0 -5px 16px #24485e08}.xr-editor.ed-light .studio-resource-metadata dt{color:#879aa8}.xr-editor.ed-light .studio-resource-metadata dd{color:#375b71}
+.xr-editor.ed-light .studio-resource-dialog{background:#244c6650;backdrop-filter:blur(3px)}.xr-editor.ed-light .studio-resource-dialog-card{color:#24475b;background:#fff;border-color:#d5e3eb;box-shadow:0 20px 80px #17394e33}
+.xr-editor.ed-light .studio-resource-grid--list .studio-resource-card{display:grid;grid-template-columns:minmax(0,1fr);min-height:100px}.xr-editor.ed-light .studio-resource-grid--list .studio-resource-choose{display:grid;padding:8px 9px;grid-template-columns:46px minmax(0,1fr);gap:2px 8px}.xr-editor.ed-light .studio-resource-grid--list .studio-resource-thumbnail{width:46px;height:46px;margin:0;flex-basis:46px;background:#edf3f7;border:0;border-radius:5px;grid-row:1/4}
+.xr-editor.ed-light .studio-resource-grid--list .studio-resource-card-actions{padding:4px 8px 7px}.xr-editor.ed-light .studio-resource-grid--list .studio-resource-star{top:5px;right:4px;width:21px;height:21px;min-height:21px;font-size:15px}.xr-editor.ed-light .studio-resource-grid--list .ed-file-name{padding-right:18px}
+@media(max-width:950px){.xr-editor.ed-light .studio-resource-header{gap:7px}.xr-editor.ed-light .studio-resource-domain{min-height:34px;font-size:11px}.xr-editor.ed-light .studio-resource-card-actions .ed-button{min-height:34px}}
 .studio-resource-metadata dd { margin:0; overflow-wrap:anywhere; color:#c1d1de; }
 .studio-resource-pending { padding:8px; border:1px solid #6e5a30; border-radius:4px; background:#332b1b; color:#e9ca86; font-size:11px; }
 .studio-resource-caption { min-height:22px; padding:3px 12px; color:#8aa2b4; font-size:10px; border-top:1px solid #273441; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -113,4 +145,17 @@
 @media(max-width:1350px) { .studio-resources .studio-resource-body { grid-template-columns:175px minmax(0,1fr) 225px; } .studio-resource-header select { max-width:105px; } .xr-editor .studio-resource-tab { min-width:78px; padding:7px 11px; } }
 @media(max-width:1350px) { .studio-resources.studio-resource-docked .studio-resource-body { grid-template-columns:175px minmax(0,1fr); } }
 @media(max-width:1050px) { .studio-resource-header { flex-wrap:wrap; } .studio-resource-search { flex:1; } .studio-resource-header .studio-resource-import { margin-left:auto; } .studio-resource-header select { max-width:120px; } .studio-resources .studio-resource-body { grid-template-columns:145px minmax(0,1fr) 205px; } .studio-resource-grid--list .studio-resource-choose { grid-template-columns:45px minmax(70px,1fr) 80px; } .studio-resource-grid--list .studio-resource-status { grid-column:3; grid-row:2; } .studio-resource-grid--list .studio-resource-description { display:none; } }
+/* A thumbnail, description and actions are separate intrinsic rows. Controls
+   cannot overlap the variant count when a narrow library changes row height. */
+.xr-editor.ed-light .studio-resource-grid{grid-auto-rows:max-content;align-items:start}
+.xr-editor.ed-light .studio-resource-card{height:auto;min-height:0;align-items:stretch;justify-content:flex-start}
+.xr-editor.ed-light .studio-resource-choose{position:static!important;inset:auto!important;flex:0 0 auto;height:auto;min-height:0;margin:0;box-sizing:border-box}
+.xr-editor.ed-light .studio-resource-choose .ed-file-name{font-size:14px;line-height:1.4;margin-bottom:5px}
+.xr-editor.ed-light .studio-resource-type{font-size:12px;line-height:1.45;white-space:normal;margin-bottom:3px}.xr-editor.ed-light .studio-resource-status{font-size:11px;line-height:1.5}
+.xr-editor.ed-light .studio-resource-card-actions{position:static!important;inset:auto!important;transform:none!important;flex:0 0 auto;display:flex;align-items:stretch;justify-content:stretch;width:100%;box-sizing:border-box;gap:7px;padding:9px 10px;margin-top:auto}
+.xr-editor.ed-light .studio-resource-card-actions>.ed-button{position:static!important;inset:auto!important;transform:none!important;flex:1 1 0;min-width:0;min-height:34px;max-width:none!important;margin:0!important;padding:7px 8px;font-size:12px!important;white-space:normal;line-height:1.35}
+.xr-editor.ed-light .studio-resource-domain{font-size:12px;min-height:32px}.xr-editor.ed-light .studio-resource-tab{font-size:13px}.xr-editor.ed-light .studio-resource-folders .studio-resource-folder{font-size:12px;line-height:1.45;min-height:34px}.xr-editor.ed-light .studio-resource-caption{font-size:11px;max-height:52px}
+.xr-editor.ed-light .studio-resource-preview-description,.xr-editor.ed-light .studio-resource-metadata,.xr-editor.ed-light .studio-resource-preview-docked .studio-resource-metadata{font-size:13px}.xr-editor.ed-light .studio-resource-preview-docked>.studio-resource-actions .ed-button{font-size:12px;min-height:34px}
+.xr-editor.ed-studio.ed-light>.ed-assets .studio-resource-body{grid-template-columns:minmax(136px,40%) minmax(0,1fr)}
+@media(max-width:950px){.xr-editor.ed-light .studio-resource-domain{font-size:12px;min-height:36px}.xr-editor.ed-light .studio-resource-card-actions>.ed-button{min-height:38px}}
 @media(max-width:1050px) { .studio-resources.studio-resource-docked .studio-resource-body { grid-template-columns:145px minmax(0,1fr); } }

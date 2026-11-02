@@ -12,3 +12,11 @@
 .studio-resource-grid--list .studio-library-group-title{display:block;grid-column:1/-1;width:100%}
 .studio-resource-grid--list .studio-library-doc-link{margin:4px!important;align-self:center}
 @media(max-width:800px){.studio-library-group-title{font-size:11px}.studio-library-category>summary{font-size:11px}.studio-library-doc-link{min-height:36px!important}.studio-library-concept-preview{max-height:250px}}
+.xr-editor.ed-light .studio-library-category>summary{color:#365d73;font-weight:650;font-size:11px;padding:10px 5px;line-height:1.5;overflow-wrap:normal;border-radius:5px}
+.xr-editor.ed-light .studio-library-category[open]>summary{color:#007f72;background:#e9f5f1}.xr-editor.ed-light .studio-library-category>summary .studio-resource-folder-count{color:#758f9d;background:#edf2f5;border:1px solid #dce6ec;font-size:9px;min-width:22px;padding:1px 4px}
+.xr-editor.ed-light .studio-library-subcategory{font-size:10px!important;padding-left:11px!important}.xr-editor.ed-light .studio-library-group-title{color:#365d72;border-color:#d8e4eb;font-size:11px;font-weight:650;background:transparent;margin-top:4px;padding-bottom:9px}.xr-editor.ed-light .studio-library-result-count{color:#8399a6;background:#fff;border-color:#d3e1e8;font-size:9px}
+.xr-editor.ed-light .studio-library-concept-label,.xr-editor.ed-light .studio-library-module-label{color:#9c8448;font-size:9px;line-height:1.45}.xr-editor.ed-light .studio-library-module-disabled{opacity:.6}.xr-editor.ed-light .studio-library-concept-image,.xr-editor.ed-light .studio-library-concept-preview{background:#fff}
+.xr-editor.ed-light .studio-library-category>summary{font-size:12px;line-height:1.5;padding:10px 6px}.xr-editor.ed-light .studio-library-subcategory{font-size:12px!important;padding-left:10px!important;line-height:1.5}
+.xr-editor.ed-light .studio-library-group-title{font-size:14px;line-height:1.4}.xr-editor.ed-light .studio-library-result-count,.xr-editor.ed-light .studio-library-category>summary .studio-resource-folder-count{font-size:10px;white-space:nowrap}
+.xr-editor.ed-light .studio-library-concept-label,.xr-editor.ed-light .studio-library-module-label{font-size:11px}
+.xr-editor.ed-light .studio-resource-card-actions .studio-library-doc-link{margin:0!important;align-self:stretch;max-width:none}

@@ -9,6 +9,7 @@ import RemotePresentation from '../../../packages/tools/collaboration/src/Remote
 import AdminWorkspace from './AdminWorkspace.js';
 import ImmersiveStudioMenu from './ImmersiveStudioMenu.js';
 import VehicleMissionOverlay from '../../../packages/tools/editor/src/VehicleMissionOverlay.js';
+import PracticeCampaignHost from '../../../modules/logistica-industrial/practices/runtime/PracticeCampaignHost.js';
 
 const ROOM_IDS = ['hall', 'sound', 'photogrammetry', 'vertigo', 'panoramastereo', 'panorama1', 'panorama2', 'panorama3', 'panorama4', 'panorama5'];
 function el(tag, text, parent, className) { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; if (parent) parent.appendChild(node); return node; }
@@ -23,6 +24,7 @@ export default class StudioExperience {
     editor.projectClient.identityProvider = () => this.client.user && this.client.user.id;
     editor.projectClient.onSessionChange = error => this.invalidateAccount(error);
     this.tools = new StudioTools(editor); this.education = new EducationRuntime(editor, this.client); this.administration = new AdminWorkspace(this); this.avatars = new Map(); this.roomRevision = 0;
+    this.practiceCampaign=new PracticeCampaignHost(this);
     this.originalEnter = editor.enter.bind(editor);
     editor.enter = () => { if (this.room) { this.message('Sal de la sala compartida para editar el proyecto.'); return; } if (this.client.configured && (!this.client.user || !this.client.user.permissions.editor)) { this.open('account'); return; } this.close(); return this.originalEnter(); };
     this.build(vrButton); this.bindSimulation(); this.sharedGrabs = new SharedGrabs(this); this.presentation = new RemotePresentation();
@@ -57,8 +59,10 @@ export default class StudioExperience {
     this.applySpawn();
     const invitation = new URL(window.location).searchParams.get('room');
     if (invitation && !ROOM_IDS.includes(invitation) && this.client.user) await this.joinRoom(invitation);
+    if(new URL(window.location).pathname==='/play'){await this.editor.ready;const params=new URL(window.location).searchParams;if(params.has('practice')){try{let settings={mode:params.get('mode')||'manual',caseId:params.get('caseId')||'A',difficulty:Number(params.get('difficulty')||1)};if(params.has('settings')){const text=params.get('settings');if(text.length>30000)throw Error('La configuración de la práctica supera el tamaño permitido.');const value=JSON.parse(text);if(!value||typeof value!=='object'||Array.isArray(value))throw Error('La configuración de la práctica no es válida.');settings=value;}await this.practiceCampaign.launch(params.get('practice'),settings);}catch(error){this.message(error.message);this.open('scenes');}}else this.open('scenes');}
   }
   identity() {
+    if(this.practiceCampaign)this.practiceCampaign.identityChanged();
     this.education.accountChanged();
     this.applyPreferences();
     this.identityData = {user: this.client.user}; this.user = this.client.user;
@@ -164,8 +168,12 @@ export default class StudioExperience {
   }
   build(vrButton) {
     this.header = el('nav', undefined, document.body, 'studio-header'); this.header.setAttribute('aria-label', 'SMART-TWIN Simulator');
-    const brand = el('a', undefined, this.header, 'studio-brand'); brand.href = '/'; brand.title = 'Volver al inicio de SmartTwin'; brand.setAttribute('aria-label', 'SmartTwin · Volver al inicio'); el('strong', 'SMART-TWIN', brand); el('span', 'Simulator', brand); el('small', 'Inicio', brand, 'studio-brand-home');
-    const actions = el('div', undefined, this.header, 'studio-header-actions'); this.accountButton = button(actions, 'Iniciar sesión', () => this.open(this.client.user ? 'personal' : 'account'), 'studio-account');
+    const brand = el('a', undefined, this.header, 'studio-brand'); brand.href = '/'; brand.title = 'Volver al inicio de SmartTwin'; brand.setAttribute('aria-label', 'SmartTwin · Volver al inicio'); el('i',undefined,brand,'studio-cube'); const brandText=el('span',undefined,brand,'studio-brand-copy');el('strong', 'SMART-TWIN Simulator', brandText);el('small','Simulación industrial y logística',brandText);
+    const actions = el('div', undefined, this.header, 'studio-header-actions');
+    this.practicesButton=button(actions,'Prácticas',()=>this.open('scenes'),'studio-practices');
+    this.guideButton=button(actions,'Guía',()=>this.editor.practiceController?this.practiceCampaign.openGuide('guide'):this.editor.shell.openDocumentation(),'studio-guide');
+    this.resultsButton=button(actions,'Resultados',()=>this.open('progress'),'studio-results');
+    this.accountButton = button(actions, 'Iniciar sesión', () => this.open(this.client.user ? 'personal' : 'account'), 'studio-account');
     this.flightButton = button(actions, 'Vuelo dron', () => this.setDesktopFlight(!this.ctx.desktopFlight), 'studio-flight');
     this.flightButton.setAttribute('aria-pressed', 'false'); this.flightButton.title = 'Volar en escritorio · WASD · Q subir · E bajar · Ctrl acelerar';
     if (this.editor.appendAudioControls) this.editor.appendAudioControls(actions);
@@ -189,7 +197,7 @@ export default class StudioExperience {
     this.message(this.ctx.desktopFlight ? touch ? 'Vuelo táctil: usa Subir y Bajar. El mando izquierdo avanza en la dirección de la cámara.' : 'Vuelo dron · WASD para avanzar y desplazar · Q subir · E bajar · Ctrl acelerar · clic para mirar · Esc libera el mouse.' : 'Vuelo dron desactivado. Se mantiene tu posición y el modo de desplazamiento elegido en Ajustes.');
   }
   async guard(action) { if (this.busy) return; this.busy = true; try { return await action(); } catch (error) { this.message(error.message); } finally { this.busy = false; } }
-  close() { if (this.graphicsSettings) { this.graphicsSettings.dispose(); this.graphicsSettings = null; } if (this.avatarCleanup) { this.avatarCleanup(); this.avatarCleanup = null; } if (this.editor.accessView && this.editor.accessView.disposeGallery) this.editor.accessView.disposeGallery(); this.drawer.hidden = true; this.drawer.className = 'studio-drawer'; this.shade.hidden = true; this.menuButton.setAttribute('aria-expanded', 'false'); this.menuButton.focus(); }
+  close() { if(this.campaignBrowser){this.campaignBrowser.dispose();this.campaignBrowser=null;} if (this.graphicsSettings) { this.graphicsSettings.dispose(); this.graphicsSettings = null; } if (this.avatarCleanup) { this.avatarCleanup(); this.avatarCleanup = null; } if (this.editor.accessView && this.editor.accessView.disposeGallery) this.editor.accessView.disposeGallery(); this.drawer.hidden = true; this.drawer.className = 'studio-drawer'; this.shade.hidden = true; this.menuButton.setAttribute('aria-expanded', 'false'); this.menuButton.focus(); }
   open(page = 'personal') {
     if (this.ctx.vrMode && this.immersiveMenu) {
       if (this.administration) this.administration.close();
@@ -216,6 +224,9 @@ export default class StudioExperience {
     button(content, '⌂   Inicio   ›', () => this.goHome(), 'studio-action');
     if (user && this.editor.simulationPaused && !this.room) button(content, '▶ Reanudar simulación', () => { this.editor.simulationPaused = false; this.close(); }, 'studio-primary');
     button(content, '▦   Escenarios   ›', () => this.open('scenes'), 'studio-action');
+    if(this.ctx.voicePanel)button(content,'Voz e instrucciones   ›',()=>{this.close();this.ctx.voicePanel.open();},'studio-action');
+    if(this.ctx.assistantWorkspace)button(content,'Asistente   ›',()=>{this.close();this.ctx.assistantWorkspace.open();},'studio-action');
+    if(this.editor.industrialAudio)button(content,this.editor.industrialAudio.muted?'Activar sonido de equipos':'Silenciar sonido de equipos',()=>this.guard(async()=>{if(this.editor.industrialAudio.muted)await this.editor.industrialAudio.activate();else this.editor.industrialAudio.setMuted(true);this.editor.refreshAudioControls();this.open('personal');}),'studio-action');
     if(this.editor.projectModules)button(content,'◇   Módulos del proyecto   ›',()=>{this.close();this.editor.projectModules.open({viewer:!this.editor.active}).catch(error=>this.message(error.message));},'studio-action');
     const entries = user ? [['◎', 'Mi avatar', 'avatar'], ['♧', 'Sesiones multiusuario', 'rooms'], ['▣', 'Sesiones guardadas', 'sessions'], ['▥', 'Mi progreso', 'progress'], ['▤', 'Mis prácticas y evaluaciones', 'classroom']] : [];
     entries.forEach(([icon, label, page]) => button(content, icon + '   ' + label + '   ›', () => this.open(page), 'studio-action'));
@@ -247,6 +258,7 @@ export default class StudioExperience {
   }
   async scenes() {
     const content = this.content, access = this.editor.accessView;
+    if(this.client.user&&this.practiceCampaign){const browser=await this.practiceCampaign.catalogue(content,{onClose:()=>this.close()});if(browser)this.campaignBrowser=browser;return;}
     if (access && access.enabled) return access.gallery(content, this);
     el('p', 'El catálogo público requiere el servidor de proyectos. Puedes explorar el escenario actual.', content, 'studio-muted');
   }
@@ -375,6 +387,7 @@ export default class StudioExperience {
     }
   }
   progress() {
+    if(this.practiceCampaign&&new URL(window.location).pathname==='/play'){this.practiceCampaign.summary(this.content).catch(error=>this.message(error.message));return;}
     const content = this.content; el('p', this.education.progressStatus, content, 'studio-muted');
     this.education.missions().forEach(mission => { const progress = this.education.getProgress(mission), card = el('div', undefined, content, 'studio-card'); el('strong', mission.name, card); el('p', mission.description, card); const step = mission.steps[progress.step]; el('p', progress.status === 'completed' ? '✓ Completada' : progress.status === 'failed' ? '✕ Evaluación fallida' : step ? step.name + ' · ' + progress.count + ' / ' + step.target : progress.status, card); if (mission.help) el('p', mission.help, card, 'studio-muted'); if (this.education.incompatible.has(mission.id)) { el('p', 'La misión cambió: el avance guardado pertenece a otra versión.', card, 'studio-muted'); button(card, 'Reiniciar progreso para esta versión', () => this.guard(async () => { await this.education.resetMissionVersion(mission); this.open('progress'); })); } else if (progress.status !== 'active' && progress.status !== 'completed') button(card, 'Iniciar / reintentar', () => { this.education.startMission(mission); this.open('progress'); }); });
     if (!this.education.missions().length) el('p', 'Este escenario todavía no tiene misiones configuradas.', content);

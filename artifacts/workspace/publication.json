@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "a4a93de4c92a032650043fcc0e4a55149b564c19",
-  "bundleSha256": "57ab4e72e9bb4e565ec0007db14b056fb17962532ea6842a0bd42956731cab1b",
+  "revision": "52cd842c7a2d54b5db96a2b0b6186c571c298888",
+  "bundleSha256": "05cec6b5262772628a9e907c258765667c66bd70ed6b3485f610dc7632457981",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -44,55 +44,63 @@
   "files": [
     {
       "path": "0.bundle.js",
-      "sha256": "ba2e1adf6bb4be8c32dfa109a87c9656d82f7c540e3d56f014d5af75299bef69"
+      "sha256": "42f59dc2f93553751e53c53f57178325c691d71dd77f58177f2b1d412a68e59f"
     },
     {
       "path": "1.bundle.js",
-      "sha256": "e44ab363120aa3051533543cec65ec37b358a202afc43fa92dff6b6b841db521"
+      "sha256": "345d262de8cb13cfd9c126833ec0f0c459e039367ada5cd764f817f69d52e77c"
     },
     {
       "path": "10.bundle.js",
-      "sha256": "4a822d1e3fc05178097c870b815796be5b685afd8db7ae16ef42efc7f8abcb45"
+      "sha256": "7cf8b8b01218d9aa3a950c00142f2363285417b17d731c160cad472fa7027d74"
     },
     {
       "path": "11.bundle.js",
-      "sha256": "08c3da8277eb936bc3d2f3a75136082ead2e36c5b030f2b756234651b6157d7a"
+      "sha256": "42a867c01602575a650186f06edd70a0ec968b750655f623014b043c15848074"
     },
     {
       "path": "12.bundle.js",
-      "sha256": "2518687e41f1630d0f0ffd83ecc6bf0477b64f5b8008e8b6601335c654dbc029"
+      "sha256": "0208c2a9bff7ef95f3e910ec1b6ea189310a05db20a147192dc679df9100c429"
+    },
+    {
+      "path": "13.bundle.js",
+      "sha256": "d3dc83abc309f2a687b9c27c3b4f7ffa89b9b2cb7bace9b2d084addd57746477"
     },
     {
       "path": "2.bundle.js",
-      "sha256": "2617b57b34f51f14a74c930162cffe15f2336abb83e315e83695abe0fa59c5ba"
+      "sha256": "7b3c32835d02a8eb768fc01ab8b5ef7323b2d2e75a837b42539701a2f50d4b50"
     },
     {
       "path": "3.bundle.js",
-      "sha256": "88d80947671cac4cf36570ba2c3430ea9e4db07a45322e27ab1610e32aef6203"
+      "sha256": "5dfa73021b396e01efad02ded5be2d36885cfca3588f24c2b9edd1ceab06a1c5"
+    },
+    {
+      "path": "4.bundle.js",
+      "sha256": "a6d9df2fde81e5f15baecc93d4e607bf47d287ecc23aa8ba5569d6feb34d3bfb"
     },
     {
       "path": "5.bundle.js",
-      "sha256": "c4926357e30cde36d427c95df0041de287805efcf0e6f948ef1288b37d7f88b6"
+      "sha256": "3d269d5e5ecf5ccfe7d7cb0f23cd57d0b4592c7c6a376079bcd1cc0521dfcaf1"
     },
     {
       "path": "6.bundle.js",
-      "sha256": "0cd05a5b7081b572c36a181db1099da5b9b4d872ded2245e082806612f499811"
-    },
-    {
-      "path": "7.bundle.js",
-      "sha256": "7206b4bdd732f479d85925830b40fb55cf6190fce0e18d55f707f32ec36a8c91"
+      "sha256": "2c5083bcb966815a707852912c1e51a56273bd2a530a8e368b00477a42afeefa"
     },
     {
       "path": "8.bundle.js",
-      "sha256": "741939307612e36801e29d9a4f4298650549c62ce09b3ab835c1f1a6dee5f82a"
+      "sha256": "afc003993224d5626f0aa6dd112b4ef71293ef6c4eb823e47f534dae04ceb42d"
     },
     {
       "path": "9.bundle.js",
-      "sha256": "e88c247d6e7745359c4d049d9e38574c8ca01bde87a5c81878f9268f61feda24"
+      "sha256": "3cd4efb546d15ed8884e437261e3c252c2ccc581a81471f2139d53b66d358a52"
     },
     {
       "path": "apps/workspace/studio/admin-workspace.css",
       "sha256": "bfaf5839ce8376c173f060cfa1fb7e76f19418066ebbc01b1ccf6e05dd0bf4d4"
+    },
+    {
+      "path": "apps/workspace/studio/interface.css",
+      "sha256": "36b9c5c11c190380275a020e27213552b7d92f77cced70bc2b12f6dc054f3559"
     },
     {
       "path": "apps/workspace/studio/studio.css",
@@ -100,7 +108,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "57ab4e72e9bb4e565ec0007db14b056fb17962532ea6842a0bd42956731cab1b"
+      "sha256": "05cec6b5262772628a9e907c258765667c66bd70ed6b3485f610dc7632457981"
     },
     {
       "path": "cad-worker.js",
@@ -116,7 +124,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "2d91f8c34016c7a2aa6448ca1b242c18254e865ff8353f72b9451e9e34222d1c"
+      "sha256": "887afd20c88b8ccb24347a539cc2615fe1f9cc980b6c67d467e958daa77f130a"
     },
     {
       "path": "mesh-optimizer-worker.js",
@@ -2703,8 +2711,172 @@
       "sha256": "3245464c96b41ffb23473cbc498abf5278c3b57334741ca6be92398f8061a71c"
     },
     {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image1.png",
+      "sha256": "062a9e073f821475c69ec9457d7acc32699a9e55a783e8ce9e952c020e58c093"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image10.png",
+      "sha256": "19efb7f3a8fe608255b9998eaf06365a32df718c724c61eed5218b79b5241690"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image11.png",
+      "sha256": "c7473219e6346c7b09069a9c1e647f57cfdee75bcb0b95c5e942d008881616c1"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image12.png",
+      "sha256": "32441525ba06361aa0c540c555c96c496e1a5b9085704c31b473fe455a102ca2"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image13.png",
+      "sha256": "373c6c15e56122b82b697d9ff85c2c026acd9b2913d11c2f51456cc32ab57b08"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image14.png",
+      "sha256": "2b4f4396c196cd6284455bbe5ea50928b5fe9e57242d90123f96f3b0e8c91137"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image15.png",
+      "sha256": "69fa692ffe1944d096e9afe880a2969fb3a62832be9157761ca4c6bcde68c0ed"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image16.png",
+      "sha256": "6eea59e1ff19f9a5d3e8c21f95ea1d0cdd879d586e3feee71d8ea89aa12be012"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image17.png",
+      "sha256": "f579b86a7f1a91d54c9426118f6d511b05c142313991f9df9f749c1aff34cc22"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image18.png",
+      "sha256": "124587d838b946ba4771530b633f93945a288018224ae2679ddd9f53f176228f"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image19.png",
+      "sha256": "d453486f1a7ae0df226609a3e8ff8376b7e7b244403f6097b25b911076be50b9"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image2.png",
+      "sha256": "818198c5c46dac09e27c16926596e86d9078ffcffbcb6e8325091ad68d27bfaa"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image20.png",
+      "sha256": "facba77b674df781b9c7f7cd549df3aa65a553d0a950b9792ae6efd5460f4470"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image21.png",
+      "sha256": "9f73b443666f848bcb105705073bb7533207bf16719b5271a6592802d1abcb55"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image22.png",
+      "sha256": "543c519ff9697705ea5b83cfeb35e88feed65bad05004ce8771badb431f42c84"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image23.png",
+      "sha256": "b327842523c29b3878b60e08a2a13ce7c7ab8ce58c35599eeef8e1d2ccc61a9a"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image24.png",
+      "sha256": "30be544babcd38af47ae843284c82aac3ab27210d60b546ab64a15c8d56ff0d6"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image25.png",
+      "sha256": "0cddfdb97d5353e9a0cbf19f32546ee55b1985912cd2da313a7837d9748cb8b8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image26.png",
+      "sha256": "e79cdd6403c56e61dae3a88caec2401726db37083e21a8a40ddd359ef90d53fd"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image27.png",
+      "sha256": "4f5a5facc3ed351837fb8968da9b69f991e5727c439ebc4453876ae1dbee3105"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image28.png",
+      "sha256": "d6a479275be714133d75ace9367e2d944cda63337609c94718f9dd6e2aa3bd65"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image29.png",
+      "sha256": "eac398be883d978d9d9501dd5256ce1c98df8887723788cf7600f26c7a869c6a"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image3.png",
+      "sha256": "27a426fa1fc4816019a83abab2e6e7a943345520877150c901ced3012fbe9651"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image30.png",
+      "sha256": "74cbfb3fbda5f465ba5975e4a55a83f7307db64ff618760f3dad86932bf3fbb3"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image31.png",
+      "sha256": "8d3a1979cc85665d8fd1da1b02b9b9974bc939f78ae16658328b0fa008993b89"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image32.png",
+      "sha256": "ff0055a51c0c2bee5d0ca6d4afc180fc3ad1773fadcb37037c31078b1ef1a18d"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image33.png",
+      "sha256": "86d3f5ebbe6832f3e7e1fc550b93da1368c94f7dc91c3a8f7caf33dc7f04dbf8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image34.png",
+      "sha256": "31711a2841dad5ebaa6fa930f2c53188b494eab2e65f9d09e372da05f773287b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image35.png",
+      "sha256": "f0dfc713de617f82106f3b6e2de2d21ae409e8b465cccc1eb6f7742d347d3927"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image36.png",
+      "sha256": "e34193c30528f882994400fa9567a59d4ce62eea7609bf9cb83b7f042d6e79f8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image37.png",
+      "sha256": "368243b6077e31e3533676a981018dcbd537a0bf508166342aa5b3ed9ce9a867"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image38.png",
+      "sha256": "49dc6c24e497f8e7f5f348e67c58592c279d4e6621d46acd1e185afae3661e55"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image39.png",
+      "sha256": "9cd5ae8ac9c2623949be025946b1e652d39a9da80fadc279de8651a53ad961f8"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image4.png",
+      "sha256": "924595b98d174d59d257cdaf68ca6688c2400a367a609ea24bf8104f13a943ec"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image40.png",
+      "sha256": "c7af6a80401685d7e56a0df69e9788cb387b5e3ab7d1d19079c1b09636b25241"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image5.png",
+      "sha256": "fbc57df8df2d78d83596f339a750337767bca63913e957eca9e81ffcec435b0d"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image6.png",
+      "sha256": "257ea4d4970bcdb0f13403e06300a98190d752bfcab4ffa7e53e58e515383618"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image7.png",
+      "sha256": "277535f32330499c357856f096357f5077129a83e8260efddb3963e5a8f57c93"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image8.png",
+      "sha256": "30b2f1513b76faad5f63f416c989ab9b448736487117cbdb4f6a6dd4dbfc67e1"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/images/image9.png",
+      "sha256": "ac427543d1756ebe94791e8e3704fb74d9b161cd1c0a72d19e8f44abced621b2"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/ui/campaign.css",
+      "sha256": "e737e1a1a1858b53e802a5890a2bab56faba8c84f62c28f35e4d003a9e142208"
+    },
+    {
       "path": "modules/logistica-industrial/practices/ui/practice.css",
-      "sha256": "359116a8e697d15bcf67f43f5b2cb5300009b8e7ae530b66b43eb9b91f53891c"
+      "sha256": "319e522521a5c27e6d31dee01a30267886ed0b87b46002db75bb8552fb00a1d1"
     },
     {
       "path": "modules/turismo/assets/angel.basis",
@@ -3236,7 +3408,7 @@
     },
     {
       "path": "packages/tools/editor/src/editor.css",
-      "sha256": "7a361f8b592a0710fd8cd756fd7b34b349f2ab3dfe1c7ea0226f577920e3fbe5"
+      "sha256": "d65c8421683e9acea778200608a97ee3724e330820e82338e1524c23e5371845"
     },
     {
       "path": "packages/tools/editor/src/floor-plan-editor.css",
@@ -3244,7 +3416,7 @@
     },
     {
       "path": "packages/tools/editor/src/library-navigation.css",
-      "sha256": "dfa44cf3b9c6fe5ec9f61f6b0a654a565f3cbab637371f1bfb1f167eb0ca2036"
+      "sha256": "eaddd65d54bdcafd1dd83e4c057a1ae2cbd367584f91809d28ed62cb1ff1beb6"
     },
     {
       "path": "packages/tools/editor/src/project-content.css",
@@ -3256,7 +3428,7 @@
     },
     {
       "path": "packages/tools/editor/src/resources.css",
-      "sha256": "a1590142f400640235ec8b594d35fb2a4dfae6e641ba1b2e4d4dd97382e8a70a"
+      "sha256": "f57088dad49af3fb42f95f0a7ebd873393061084de1c490d71bff3c0f59f8b1c"
     },
     {
       "path": "packages/tools/editor/src/scene-guide.css",
@@ -3645,60 +3817,64 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "d5a5b16064b26d81245e",
-    "statsSha256": "7ede7e13ec95adf25170838c8d82fa63dbb14d70e362582b750ab468b013a1f8",
+    "hash": "6c68fa48b26f4d7347c8",
+    "statsSha256": "83af3358e5bc9833f0caf4982621535ab479002b1e767ee8b607bef36cd1a5e4",
     "assets": [
       {
         "path": "0.bundle.js",
-        "size": 7714
+        "size": 8823
       },
       {
         "path": "1.bundle.js",
-        "size": 999578
+        "size": 6538
       },
       {
         "path": "10.bundle.js",
-        "size": 3390
+        "size": 2047
       },
       {
         "path": "11.bundle.js",
-        "size": 9362
+        "size": 2050
       },
       {
         "path": "12.bundle.js",
+        "size": 3390
+      },
+      {
+        "path": "13.bundle.js",
         "size": 3313
       },
       {
         "path": "2.bundle.js",
-        "size": 4037
+        "size": 7714
       },
       {
         "path": "3.bundle.js",
-        "size": 591267
+        "size": 3289
+      },
+      {
+        "path": "4.bundle.js",
+        "size": 999578
       },
       {
         "path": "5.bundle.js",
-        "size": 1298374
+        "size": 4037
       },
       {
         "path": "6.bundle.js",
-        "size": 4014891
-      },
-      {
-        "path": "7.bundle.js",
-        "size": 572050
+        "size": 630111
       },
       {
         "path": "8.bundle.js",
-        "size": 2046
+        "size": 1298374
       },
       {
         "path": "9.bundle.js",
-        "size": 2049
+        "size": 4014891
       },
       {
         "path": "bundle.js",
-        "size": 6134308
+        "size": 6761919
       }
     ]
   }

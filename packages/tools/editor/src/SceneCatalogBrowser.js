@@ -23,16 +23,16 @@ export default class SceneCatalogBrowser {
     if (this.dialog) { this.dialog.focus(); return; }
     this.source = source; const editor = this.editor; editor.clearNavigation();
     this.previousFocus = document.activeElement;
-    const dialog = node('dialog', 'ed-scene-catalog'); this.dialog = dialog; dialog.setAttribute('aria-label', 'Catálogo de escenas');
+    const dialog = node('dialog', 'ed-scene-catalog ed-practice-catalog'); this.dialog = dialog; dialog.setAttribute('aria-label', 'Catálogo de escenas');
     const header = node('div', 'ed-scene-catalog-header'); const title = node('div'); title.appendChild(node('h2', '', 'Biblioteca de escenarios')); title.appendChild(node('p', '', 'Organiza tus niveles, explora ejemplos funcionales y crea escenarios desde una plantilla.')); header.appendChild(title);
     this.closeButton = button('Cerrar', () => this.close()); header.appendChild(this.closeButton); dialog.appendChild(header);
     const filters = node('div', 'ed-scene-catalog-filters'); this.sources = new Map();
-    [['project', 'Mis escenarios'], ['included', 'Ejemplos incluidos'], ['templates', 'Mis plantillas']].forEach(([id, label]) => { const control = button(label, () => { this.source = id; this.render(); }); this.sources.set(id, control); filters.appendChild(control); });
+    [['project', 'Mis escenarios'], ['included', 'Prácticas incluidas'], ['templates', 'Mis plantillas']].forEach(([id, label]) => { const control = button(label, () => { this.source = id; this.render(); }); this.sources.set(id, control); filters.appendChild(control); });
     this.search = node('input'); this.search.type = 'search'; this.search.placeholder = 'Buscar escena u objetivo…'; this.search.setAttribute('aria-label', 'Buscar escenas'); this.search.value = this.query; this.search.addEventListener('input', () => { this.query = this.search.value; this.render(); }); filters.appendChild(this.search);
     const select = (label, values, value, change) => { const control = node('select'); control.setAttribute('aria-label', label); [['', label]].concat(values).forEach(([id, text]) => { const option = node('option', '', text); option.value = id; control.appendChild(option); }); control.value = value; control.addEventListener('change', () => { change(control.value); this.render(); }); filters.appendChild(control); return control; };
     this.difficultyFilter = select('Todas las dificultades', Object.entries(DIFFICULTY_LABELS), this.difficulty, value => { this.difficulty = value; });
     this.modeFilter = select('Todos los modos', Object.entries(MODE_LABELS), this.mode, value => { this.mode = value; }); dialog.appendChild(filters);
-    this.familyFilter = select('Todas las categorías', Array.from(new Set(STUDY_SCENES.map(scene => scene.family))).map(value => [value, value]), this.family, value => { this.family = value; }); filters.appendChild(this.familyFilter);
+    this.familyFilter = select('Todas las categorías', [['logistics','CEDI · Logística'],['manufacturing','Smart Factory · Industrial']], this.family, value => { this.family = value; }); filters.appendChild(this.familyFilter);
     const summary = node('div', 'ed-scene-library-summary'); this.summary = summary; dialog.appendChild(summary);
     this.feedback = node('p', 'ed-scene-catalog-feedback'); this.feedback.setAttribute('aria-live', 'polite'); dialog.appendChild(this.feedback);
     this.grid = node('div', 'ed-scene-catalog-grid'); dialog.appendChild(this.grid);
@@ -41,6 +41,7 @@ export default class SceneCatalogBrowser {
     footer.appendChild(button('+ Nuevo escenario', () => { this.close(); editor.studioTools.guard(() => editor.studioTools.newScene()); }, 'primary'));
     footer.appendChild(button('Otros proyectos…', () => { this.close(); editor.projectLibrary.open('levels'); })); dialog.appendChild(footer);
     footer.appendChild(button('Contenido y niveles…',()=>{this.close();if(editor.openProjectContent)editor.openProjectContent();}));
+    const play=document.createElement('a');play.className='ed-button';play.textContent='Jugar prácticas ↗';play.href='/play';play.target='_blank';play.rel='noopener';footer.appendChild(play);
     dialog.addEventListener('cancel', event => { event.preventDefault(); this.close(); });
     dialog.addEventListener('keydown', event => { event.stopPropagation(); if (event.code === 'Escape') { event.preventDefault(); this.close(); } else if (event.code === 'Tab') {
       const fields = Array.from(dialog.querySelectorAll('button,input,select')).filter(control => !control.disabled && !control.hidden); const index = fields.indexOf(document.activeElement);
@@ -51,6 +52,7 @@ export default class SceneCatalogBrowser {
   }
   close() {
     if (this.busy || !this.dialog) return;
+    this.practiceLoad=null;if(this.practiceBrowser){this.practiceBrowser.dispose();this.practiceBrowser=null;}
     this.thumbnails.dispose(); if (this.dialog.open && this.dialog.close) this.dialog.close(); this.dialog.remove(); this.dialog = null;
     if (this.previousFocus && this.previousFocus.focus) this.previousFocus.focus();
   }
@@ -72,11 +74,12 @@ export default class SceneCatalogBrowser {
   }
   render() {
     if (!this.dialog || this.busy) return; this.thumbnails.reset(); this.grid.textContent = '';
+    this.practiceLoad=null;if(this.practiceBrowser){this.practiceBrowser.dispose();this.practiceBrowser=null;}
     this.sources.forEach((control, id) => { control.setAttribute('aria-pressed', String(this.source === id)); control.classList.toggle('primary', this.source === id); });
-    this.difficultyFilter.hidden = this.modeFilter.hidden = this.familyFilter.hidden = this.source !== 'included';
+    this.difficultyFilter.hidden = this.modeFilter.hidden = this.familyFilter.hidden = true;this.search.hidden=this.source==='included';
     const ownScenes = (this.editor.getSceneEntries ? this.editor.getSceneEntries() : schema.studio.sceneEntries(this.editor.document)).filter(scene => scene.custom || schema.studio.hasSceneContent(this.editor.document, scene.id));
     const templates = this.editor.document.studio && this.editor.document.studio.templates || [];
-    this.summary.textContent = this.editor.projectName + ' · ' + ownScenes.length + ' escenarios · ' + templates.length + ' plantillas guardadas · ' + STUDY_SCENES.length + ' ejemplos del sistema';
+    this.summary.textContent = this.editor.projectName + ' · ' + ownScenes.length + ' escenarios · ' + templates.length + ' plantillas guardadas · 10 prácticas configurables';
     const text = this.query.trim().toLocaleLowerCase('es');
     if (this.source === 'project') {
       const scenes = ownScenes.filter(scene => !text || scene.name.toLocaleLowerCase('es').includes(text)).sort((a, b) => Number(b.initial) - Number(a.initial) || a.index - b.index);
@@ -87,12 +90,13 @@ export default class SceneCatalogBrowser {
       shown.forEach(template => this.card({id: 'template:' + template.id, title: template.name, description: template.objects.length + ' objetos con sus propiedades, funciones y conexiones internas.', family: 'Plantillas del proyecto', tasks: [], objective: 'Insertar el conjunto en un escenario nuevo sin modificar la plantilla original.', template}));
       this.feedback.textContent = shown.length ? shown.length + ' plantillas guardadas en este proyecto.' : 'Guarda un conjunto desde Archivo → Guardar como plantilla para reutilizarlo en otros niveles.';
     } else {
-      const scenes = STUDY_SCENES.filter(scene => (!this.family || scene.family === this.family) && (!this.difficulty || scene.difficulty === Number(this.difficulty)) && (!this.mode || scene.mode === this.mode) && (!text || [scene.title, scene.description, scene.objective, scene.family].join(' ').toLocaleLowerCase('es').includes(text)));
-      Array.from(new Set(scenes.map(scene => scene.family))).forEach(family => {
-        this.grid.appendChild(node('h3', 'ed-scene-family-heading', family));
-        scenes.filter(scene => scene.family === family).sort((a, b) => a.difficulty - b.difficulty).forEach(scene => this.card(Object.assign({id: 'included:' + scene.id, presetId: scene.id}, scene, {id: 'included:' + scene.id})));
-      });
-      this.feedback.textContent = scenes.length + ' escenas incluidas · las variantes se crean con equipos y conexiones funcionales.';
+      this.feedback.textContent='CEDI · Logística (5 prácticas) y Smart Factory · Industrial (5 prácticas). Cada práctica reúne seis misiones; elige sus variantes dentro de la misma ficha.';
+      this.grid.appendChild(node('p','ed-hint','Cargando las prácticas del documento…'));const token={};this.practiceLoad=token;
+      import(/* webpackChunkName: "logistics-practice-browser" */ '../../../../modules/logistica-industrial/practices/ui/PracticeBrowser.js').then(value=>{
+        if(!this.dialog||this.source!=='included'||this.practiceLoad!==token)return;this.grid.textContent='';
+        this.practiceBrowser=new value.default(this.grid,{mode:'author',isAvailable:()=>!this.editor.projectModules||this.editor.projectModules.canShowLevel('sector.logistics-industrial'),onClose:()=>this.close(),onDocumentation:target=>{this.close();this.editor.shell.openDocumentation(target);},onCreate:(id,options)=>this.action(()=>this.editor.studioTools.createPracticeProject(id,options))});
+      }).catch(error=>{if(this.dialog&&this.practiceLoad===token)this.grid.textContent=error.message;});
+      return;
     }
     if (!this.grid.children.length) this.grid.appendChild(node('p', 'ed-hint', 'No hay escenas con estos filtros.'));
   }

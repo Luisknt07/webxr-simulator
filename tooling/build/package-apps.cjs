@@ -90,6 +90,18 @@ function practiceAssets(root) {
     if(image.length!==file.bytes||digest(image)!==file.sha256||(/\.png$/.test(name)?!png:!jpg))error('practice_assets','Practice illustration differs from its source receipt.');return name;
   });
 }
+function configurablePracticeAssets(root) {
+  const folder='modules/logistica-industrial/practices/configurable/assets',manifest=folder+'/manifest.json';
+  if(!safePath(root,manifest,false))return[];
+  const bytes=read(root,manifest);if(bytes.length>256*1024)error('practice_assets','Configurable practice receipt is too large.');
+  const data=JSON.parse(bytes),expectedSources=['8663d4203c0b1b5cb6fa8e7b0c291d24d06b435f2006925dce995a9f1fc0ad5f','476c91fcf6a080a23741805c4841458b96907e967e8267087b73e9b053de15f8'];
+  if(data.format!=='smarttwin.configurable-practice-assets'||data.version!==1||data.namespace!=='smarttwin-configurable-2026'||!Array.isArray(data.files)||data.files.length!==40||!Array.isArray(data.sources)||JSON.stringify(data.sources.map(row=>row.sha256))!==JSON.stringify(expectedSources))error('practice_assets','Invalid configurable practice receipt.');
+  const seen=new Set();let total=0;return data.files.map(file=>{
+    if(!file||!/^images\/image\d+\.png$/.test(file.path||'')||seen.has(file.path)||!/^(?:CEDI|SF)-0[1-5]$/.test(file.practiceId||'')||!Number.isSafeInteger(file.bytes)||file.bytes<8||file.bytes>2*1024*1024||!/^[a-f0-9]{64}$/.test(file.sha256||''))error('practice_assets','Invalid configurable practice image.');
+    seen.add(file.path);total+=file.bytes;if(total>8*1024*1024)error('practice_assets','Configurable illustrations exceed the private budget.');
+    const name=folder+'/'+file.path,image=read(root,name);if(image.length!==file.bytes||digest(image)!==file.sha256||!image.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))error('practice_assets','Configurable illustration differs from the source receipt.');return name;
+  });
+}
 function makePlan(root, application, compilation) {
   const files = new Map(), add = (output, source, bytes) => {
     relative(output); if (files.has(output)) { if (files.get(output).source !== source) error('duplicate_output', 'Conflicting publication output: ' + output); return; }
@@ -123,6 +135,7 @@ function makePlan(root, application, compilation) {
     const robotNotes='modules/logistica-industrial/assets/robot-pilot/';
     if(safePath(root,robotNotes+'LICENSE.txt',false))for(const name of ['LICENSE.txt','NOTICE.txt','provenance.json'])add(robotNotes+name,robotNotes+name);
     add('cover.jpg', 'modules/turismo/assets/smart-twin-cover.jpg');
+    add('welcome.css', 'apps/public-viewer/welcome.css');
     const previewPath = 'projects/smarttwin/previews/' + PUBLIC_SCENE + '.png';
     add(previewPath, previewPath);
     const scenePath = 'projects/smarttwin/scenes/' + PUBLIC_SCENE + '.json';
@@ -137,6 +150,7 @@ function makePlan(root, application, compilation) {
   else {
     documentationAssets(root).forEach(name => add(name, name));
     practiceAssets(root).forEach(name=>add(name,name));
+    configurablePracticeAssets(root).forEach(name=>add(name,name));
     ASSET_ROOTS.forEach(folder => walk(root, folder, name => { if (allowedAsset(name)) add(name, name); }, {skipPrivate: true}));
     const moduleMetadata=safePath(root,'data/build/workspace-catalog.json',false);
     if(fs.existsSync(moduleMetadata)){
@@ -254,5 +268,5 @@ function packageApps(options = {}) {
   for (const entry of committed) if (entry.backup) removeGenerated(root, entry.backup);
   return plans.map(plan => ({application: plan.application, directory: path.join(artifacts, plan.application), manifest: plan.manifest}));
 }
-module.exports = {packageApps, FORMAT, PUBLIC_SCENE, verifyStartup, documentationAssets, practiceAssets};
+module.exports = {packageApps, FORMAT, PUBLIC_SCENE, verifyStartup, documentationAssets, practiceAssets, configurablePracticeAssets};
 if (require.main === module) { try { const values = packageApps(); for (const value of values) console.log(value.application + ': ' + value.manifest.files.length + ' verified files, ' + value.manifest.bundleSha256); } catch (failure) { console.error(failure.message); process.exitCode = 1; } }

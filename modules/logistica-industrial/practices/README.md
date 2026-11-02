@@ -1,5 +1,17 @@
 # Fuentes de prácticas y equipos NEXUS
 
+## Rutas de aprendizaje y biblioteca
+
+La biblioteca actual se organiza en **CEDI · Logística** (CEDI-01–05) y **Smart Factory · Industrial** (SF-01–05), con los nombres de `SMART_TWIN_Guia_Practicas_Layouts_y_Procesos.docx`. Cada práctica reúne seis etapas. Los casos, dificultades y modalidades son configuraciones dentro de su ficha y no generan tarjetas adicionales. En el editor se crean copias editables; los proyectos y plantillas del usuario conservan su organización independiente.
+
+El visualizador autenticado está en `/play`. En campaña, superar los seis pasos de un intento evaluado, alcanzar 75 puntos y guardar el resultado válido desbloquea la siguiente práctica de esa ruta. En modo aislado se pueden preparar las configuraciones disponibles sin desbloquear la campaña. El progreso pertenece a la cuenta y se guarda en tablas propias del servicio. Los intentos son documentos transitorios y no consumen plazas de proyectos. Un guardado parcial conserva evidencia, pero no restaura una simulación física a mitad de operación ni desbloquea niveles.
+
+La misión ofrece guía, diagramas originales, layout de ejecución y documentación. Las mismas opciones están en el menú inmersivo, junto con equipos, ayudas, evaluación y dispositivo. La dificultad es independiente de M/S/A y del caso. Cambiar la estructura prepara un ensayo nuevo. Una configuración sin evaluación nativa validada se ofrece como montaje de consulta, con su limitación visible y sin puntuación ni desbloqueo ficticios. El montaje manual no incorpora una flota automática oculta.
+
+`PracticeCampaignHost` enlaza el visualizador con el servicio opcional `PracticeProgressService`. La API exige sesión, CSRF e identidad y vuelve a evaluar el recibo contra la fuente y los pasos del intento. Este control educativo no sustituye una simulación autoritativa de servidor ni acredita una certificación de operación. Si se retira el módulo sectorial, el puente del servidor no impide arrancar los demás módulos.
+
+La implementación actual está en `configurable/` y su contrato se describe en [Prácticas configurables](../../../docs/configurable-practices.md). La edición NEXUS anterior de 64 operaciones permanece como documentación histórica y compatibilidad de niveles guardados; no es el catálogo de prácticas vigente. Las pruebas de navegador usan una base de datos y cuentas desechables, sin alterar proyectos privados.
+
 ## Integración modular
 
 Las prácticas son contenido y adaptadores de `sector.logistics-industrial`.

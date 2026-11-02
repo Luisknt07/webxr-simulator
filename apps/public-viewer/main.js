@@ -13,7 +13,7 @@ const byId = id => document.getElementById(id);
 const configuration = window.SMARTTWIN_PUBLIC_VIEWER_CONFIG || {};
 const SCENE_URL = configuration.sceneURL || 'projects/smarttwin/scenes/vr-robot-dispatch.json';
 const VIEWER_WORLD_ID = 'public-vr-robot-dispatch';
-let activeBrowser = null, gallery = null, accessDialog = null, navigation = null;
+let activeBrowser = null, gallery = null, accessDialog = null, navigation = null, practiceURL = null;
 
 function accountURL() {
   const configured = configuration.workspaceURL || (configuration.apiOrigin ? new URL('login?next=%2Fworkspace', configuration.apiOrigin.replace(/\/?$/, '/')).href : configuration.backendAvailable === true ? new URL('/login?next=%2Fworkspace', document.baseURI).href : '');
@@ -176,13 +176,17 @@ function fail(error) {
 byId('retry').addEventListener('click', () => window.location.reload());
 try {
   const workspaceURL = accountURL();
-  const accessLinks = [byId('workspace-link'), byId('welcome-access')];
+  const accessLinks = [byId('workspace-link')];
   accessLinks.forEach(link => {link.href = workspaceURL || '#workspace-access'; if (!workspaceURL) link.addEventListener('click', event => {event.preventDefault(); openAccess();});});
+  const editorLink = byId('editor-access');
+  if(workspaceURL){const target=new URL(workspaceURL);target.pathname='/login';target.search='?next=%2Feditor';target.hash='';editorLink.href=target.href;}
+  else editorLink.addEventListener('click',event=>{event.preventDefault();openAccess();});
   gallery = mountGallery({document, configuration, baseURI: document.baseURI, fetcher: (url, options) => fetch(url, options), workspaceURL, onAccess: openAccess,
     onStateChange(state) {
-      const target = state.user && state.backend ? new URL('/editor', document.baseURI).href : workspaceURL || '#workspace-access';
+      const target = state.user && state.backend ? new URL('/play', document.baseURI).href : workspaceURL || '#workspace-access';
+      practiceURL=state.user&&state.backend?target:null;
       accessLinks.forEach(link => {link.href = target;});
-      byId('welcome-access').textContent = state.user ? 'Continuar en mi espacio' : workspaceURL ? 'Iniciar sesión' : 'Acceder a mi espacio';
+      if(state.user&&state.backend)editorLink.href=new URL('/editor',document.baseURI).href;
       byId('workspace-link').textContent = state.user ? 'Mi espacio ↗' : workspaceURL ? 'Iniciar sesión ↗' : 'Acceder al espacio ↗';
     },
     async onStart() {return navigation.openDemo();}});
@@ -203,7 +207,7 @@ try {
   });
   window.smartTwinGallery = Object.freeze({getStats: () => ({...gallery.getStats(), screen: navigation.getStats().screen}), ready: gallery.ready});
   const follow = action => Promise.resolve(action()).catch(fail);
-  byId('explore-scenes').addEventListener('click', () => follow(() => navigation.gallery()));
+  byId('explore-scenes').addEventListener('click', () => practiceURL?window.location.assign(practiceURL):follow(() => navigation.gallery()));
   byId('back-scenes').addEventListener('click', () => follow(() => navigation.gallery()));
   byId('home-link').addEventListener('click', () => follow(() => navigation.home()));
   const brand = document.querySelector('.viewer-brand');

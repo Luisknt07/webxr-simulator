@@ -3,6 +3,7 @@
 const {randomBytes, randomUUID, createHash, scrypt, timingSafeEqual} = require('node:crypto');
 const {ApiError, plain, safeTree} = require('./validation');
 const {ProjectAccess} = require('./project-access');
+const {createPracticeService}=require('./practice-service.cjs');
 
 const COOKIE = 'hello_studio_session';
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -97,6 +98,7 @@ class StudioService {
     this.projectionsDir = options.projectionsDir;
     this.frameworkModulesRoot = options.frameworkModulesRoot;
     this.rate = new Map();
+    this.practices=createPracticeService(this);
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS studio_users (
         id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, salt TEXT NOT NULL, password_hash TEXT NOT NULL,
@@ -387,6 +389,7 @@ class StudioService {
     } else {
       const user = this.user(req);
       this._expectedUser(req, user);
+      if(parts[0]==='practices'&&this.practices)return this.practices.handle(req,res,parts,method,body,user,send);
       if (parts.length === 1 && parts[0] === 'users' && method === 'GET') {
         if (!this._owner(user.id)) fail(403, 'Solo la cuenta propietaria administra los permisos.', 'owner_required');
         send(200, {users: this.db.prepare('SELECT * FROM studio_users ORDER BY created_at,rowid').all().map(row => this._profile(row))});

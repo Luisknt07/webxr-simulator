@@ -38,7 +38,7 @@ export default class EditorShell {
     this.menus = []; this.menuIndex = -1; this.workspace = null;this.mobilePanel='scene';
     this.sceneCatalog = null;
     if (editor.resourceBrowser && editor.resourceBrowser.options) editor.resourceBrowser.options.onScenes = () => this.openSceneCatalog();
-    this.ui.classList.add('ed-studio');
+    this.ui.classList.add('ed-studio');this.ui.classList.add('ed-light');
     this.buildToolbar(); this.buildMenus(); this.buildWorkspace(); this.buildSplitters(); this.buildPreviewControls(); this.buildPanelDock();
     this.applyLayout();
     if(window.addEventListener)window.addEventListener('resize',()=>this.applyLayout(false));
@@ -126,28 +126,36 @@ export default class EditorShell {
     old.forEach(child => this.actionBank.appendChild(child));
     this.ui.appendChild(this.actionBank);
     toolbar.appendChild(editor.brand);
-    this.newButton = button('▱ Nuevo escenario', () => this.run(() => this.studio('newScene')));
+    this.newButton = button('Nuevo escenario', () => this.run(() => this.studio('newScene')), 'ed-primary-command');this.newButton.setAttribute('data-ed-icon','new');
     this.newButton.title = 'Crear un escenario en una sala disponible'; toolbar.appendChild(this.newButton);
-    toolbar.appendChild(editor.saveButton);
+    toolbar.appendChild(editor.saveButton);editor.saveButton.setAttribute('data-ed-icon','save');
     const guide = button('Guía', () => editor.sceneGuide ? editor.sceneGuide.open() : editor.toast('La guía se está preparando.'));
-    guide.title = 'Construir un escenario a partir de instrucciones'; toolbar.appendChild(guide);
-    toolbar.appendChild(button('▤ Documentación', () => this.openDocumentation(), 'ed-documentation-open'));
-    toolbar.appendChild(button('◈ Prácticas', () => this.openWorkspace('practices'), 'ed-practices-open'));
-    toolbar.appendChild(editor.undoButton); toolbar.appendChild(editor.redoButton);
+    guide.title = 'Construir un escenario a partir de instrucciones';guide.setAttribute('data-ed-icon','guide');toolbar.appendChild(guide);
+    const documentation=button('Documentación', () => this.openDocumentation(), 'ed-documentation-open');documentation.setAttribute('data-ed-icon','book');toolbar.appendChild(documentation);
+    const practices=button('Prácticas', () => this.openWorkspace('practices'), 'ed-practices-open');practices.setAttribute('data-ed-icon','practice');toolbar.appendChild(practices);
+    this.transformBar=node('div','ed-viewport-commandbar');this.transformBar.setAttribute('role','toolbar');this.transformBar.setAttribute('aria-label','Seleccionar, transformar e historial');this.transformBar.appendChild(editor.undoButton);this.transformBar.appendChild(editor.redoButton);
     const tools = node('div', 'ed-toolbar-group'); tools.setAttribute('role', 'group'); tools.setAttribute('aria-label', 'Herramienta de transformación');
     this.selectButton = button('↖ Seleccionar', () => editor.setTool('select'));
     this.selectButton.title = 'Seleccionar sin transformar el objeto'; editor.toolButtons.select = this.selectButton;
     tools.appendChild(this.selectButton);
     ['translate', 'rotate', 'scale'].forEach(mode => tools.appendChild(editor.toolButtons[mode]));
-    toolbar.appendChild(tools); toolbar.appendChild(editor.snapButton);
+    this.transformBar.appendChild(tools);this.transformBar.appendChild(editor.snapButton);editor.viewport.appendChild(this.transformBar);
     if (typeof editor.appendAudioControls === 'function') this.audioControls = editor.appendAudioControls(toolbar);
     toolbar.appendChild(node('span', 'ed-toolbar-spacer'));
-    this.playButton = editor.playButton; toolbar.appendChild(this.playButton);
+    this.playButton = editor.playButton;this.playButton.textContent='Probar';this.playButton.setAttribute('data-ed-icon','play');toolbar.appendChild(this.playButton);
+    // Optional services own their launchers and event handlers. Reuse those
+    // exact nodes when they mount instead of constructing a second action.
+    this.voiceButton=null;this.microphoneButton=null;this.assistantButton=null;
     this.accountButton = button('◉ Cuenta', () => {
       if (editor.ctx.studio && editor.ctx.studio.open) editor.ctx.studio.open('account');
       else editor.toast('La cuenta se está preparando. Vuelve a intentarlo.');
     }, 'ed-account');
     this.accountButton.setAttribute('aria-label', 'Abrir cuenta y espacio personal'); toolbar.appendChild(this.accountButton);
+    this.syncAssistanceControls();
+    if(typeof MutationObserver!=='undefined'){
+      this.assistanceObserver=new MutationObserver(()=>this.syncAssistanceControls());
+      this.assistanceObserver.observe(toolbar,{childList:true});
+    }
     // Preserve the established creation adapters for existing integrations while
     // placing their user-facing actions in Añadir and the resource browser.
     Array.from(editor.hierarchy.children).forEach(child => {
@@ -160,10 +168,12 @@ export default class EditorShell {
     Array.from(editor.roomSelect.children).forEach(option => { option.setAttribute('data-default-label', option.textContent); });
     this.sceneNavigation = node('div', 'ed-scene-navigation');
     this.sceneNavigation.setAttribute('aria-label', 'Proyecto y nivel activos');
+    this.sceneNavigation.appendChild(node('span','ed-breadcrumb-label','ESPACIO DE TRABAJO'));
     if (!editor.projectButton) editor.projectButton = button('Proyecto: Sin guardar ▾', () => editor.projectLibrary.open('levels'), 'ed-project-current');
     this.sceneNavigation.appendChild(editor.projectButton);
     editor.projectPath=node('button','ed-project-path');editor.projectPath.type='button';editor.projectPath.setAttribute('aria-label','Ver carpeta y contenido del proyecto');editor.projectPath.addEventListener('click',()=>editor.openProjectContent());this.sceneNavigation.appendChild(editor.projectPath);
     const levelRow = node('div', 'ed-scene-navigation-level');
+    levelRow.appendChild(node('span','ed-level-label','Nivel'));
     levelRow.appendChild(editor.roomSelect);
     this.browseProjectsButton = button('Otros proyectos…', () => editor.projectLibrary.open('levels'), 'ed-project-browse');
     this.browseProjectsButton.title = 'Buscar niveles guardados en otros proyectos';
@@ -366,7 +376,7 @@ export default class EditorShell {
       this.workcontent.appendChild(node('p','','Cargando las prácticas…'));const host=this.workcontent,token={};this.practiceLoad=token;
       host.addEventListener('studio-workspace-close',()=>{if(this.practiceLoad===token)this.practiceLoad=null;if(token.browser)token.browser.dispose();},{once:true});
       import('../../../../modules/logistica-industrial/practices/ui/PracticeBrowser.js').then(value=>{
-        if(this.practiceLoad!==token||this.workspace!=='practices')return;host.textContent='';token.browser=new value.default(host,{onClose:()=>{if(this.practiceLoad===token)this.closeWorkspace();},isAvailable:()=>!this.editor.projectModules||this.editor.projectModules.canShowLevel('sector.logistics-industrial'),
+        if(this.practiceLoad!==token||this.workspace!=='practices')return;host.textContent='';token.browser=new value.default(host,{mode:'author',onClose:()=>{if(this.practiceLoad===token)this.closeWorkspace();},isAvailable:()=>!this.editor.projectModules||this.editor.projectModules.canShowLevel('sector.logistics-industrial'),
           onDocumentation:target=>this.openDocumentation(target),onCreate:async(id,options)=>{const result=await this.studio('createPracticeProject',id,options);if(this.practiceLoad===token&&this.workspace==='practices')this.closeWorkspace();return result;}});
       }).catch(error=>{if(this.practiceLoad===token){host.textContent='';host.appendChild(node('p','',error.message));}});
     } else if (id === 'documentation') {
@@ -509,6 +519,30 @@ export default class EditorShell {
     if(this.editor.orbit)this.editor.resize();
   }
 
+  syncAssistanceControls() {
+    const editor=this.editor,toolbar=editor.toolbar,ctx=editor.ctx||{},voice=ctx.voicePanel&&!ctx.voicePanel.disposed?ctx.voicePanel:null,assistant=ctx.assistantWorkspace&&!ctx.assistantWorkspace.disposed?ctx.assistantWorkspace:null;
+    const controls=[['voiceButton',voice&&voice.launcher,'ed-voice-command'],['microphoneButton',voice&&voice.microphoneLauncher,'ed-microphone-command'],['assistantButton',assistant&&assistant.launcher,'ed-assistant-command']];
+    controls.forEach(([key,control,className])=>{
+      const previous=this[key];
+      if(previous&&previous!==control&&previous.parentNode===toolbar)this.actionBank.appendChild(previous);
+      this[key]=control||null;if(!control)return;
+      control.classList.add('ed-button');control.classList.add(className);
+      if(key==='microphoneButton')control.setAttribute('data-ed-icon','voice');
+    });
+    // Voice modules move their own nodes back to the viewer when authoring
+    // closes. Do not pull them into a hidden editor in that transition.
+    if(editor.active===false||!this.accountButton)return;
+    let before=this.accountButton;
+    for(let index=controls.length-1;index>=0;index--){
+      const control=controls[index][1];if(!control)continue;
+      const children=Array.from(toolbar.children),position=children.indexOf(control),target=children.indexOf(before);
+      if(control.parentNode!==toolbar||position!==target-1){
+        if(toolbar.insertBefore)toolbar.insertBefore(control,before);else toolbar.appendChild(control);
+      }
+      before=control;
+    }
+  }
+
   refresh() {
     const e = this.editor, studio = e.document.studio || {};
     const entries = typeof e.getSceneEntries === 'function' ? e.getSceneEntries() : [];
@@ -524,5 +558,6 @@ export default class EditorShell {
     if (current) e.roomLabel.textContent = current.name;
     const user = e.ctx.studio && e.ctx.studio.user;
     this.accountButton.textContent = user ? user.displayName : '◉ Cuenta';
+    this.syncAssistanceControls();
   }
 }

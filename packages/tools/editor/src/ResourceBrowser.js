@@ -8,6 +8,8 @@ const STORAGE_KEY = 'hello-studio-resource-browser-v1:';
 const taxonomy = catalog.libraryTaxonomy;
 const ICONS = {model: '◇', image: '▧', audio: '♫', video: '▶', text: '{ }', source: '◉', template: '▣', scene: '▱'};
 const TYPE_NAMES = {model: 'Modelo 3D', image: 'Imagen', audio: 'Audio', video: 'Vídeo', text: 'Datos', source: 'Blender', template: 'Plantilla', scene: 'Escenario', simulationtool: 'Herramienta de simulación'};
+const DOMAINS=[['all','Todos'],['logistics','Logística'],['industrial','Industrial'],['shared','Compartidos']];
+const DOMAIN_GROUPS={logistics:new Set(['VE','AL','MU','PI','EM']),industrial:new Set(['RO','EO','MA']),shared:new Set(['TR','UC','SE','SI','FLOW','COMMON','FILES'])};
 function node(tag, className, text) {
   const element = document.createElement(tag);
   if (className) element.className = className;
@@ -19,7 +21,7 @@ function button(text, title, action, className = '') {
   result.type = 'button'; result.title = title; result.addEventListener('click', action);
   return result;
 }
-function tabState() { return {query: '', selected: '', folder: '', scroll: 0, navScroll: 0, expanded: {}, view: 'cards', kind: 'all', status: 'all', scope: 'scene'}; }
+function tabState() { return {query: '', selected: '', folder: '', scroll: 0, navScroll: 0, expanded: {}, view: 'cards', kind: 'all', status: 'all', domain:'all', scope: 'scene'}; }
 function allStates() { return {library: tabState(), project: tabState(), favorites: tabState()}; }
 function size(bytes) {
   if (!Number.isFinite(bytes)) return '';
@@ -113,6 +115,7 @@ export default class ResourceBrowser {
       tabs.appendChild(tab); this.tabButtons.set(id, tab);
     });
     header.appendChild(tabs);
+    const domainBar=node('nav','studio-resource-domains');domainBar.setAttribute('aria-label','Ámbito de los recursos');this.domainButtons=new Map();DOMAINS.forEach(([id,label])=>{const control=button(label,'Recursos para '+label.toLowerCase(),()=>{this.state.domain=id;this.state.folder='';this.state.scroll=0;this._stateChanged();},'studio-resource-domain');control.setAttribute('data-resource-domain',id);domainBar.appendChild(control);this.domainButtons.set(id,control);});header.appendChild(domainBar);
     this.scenesButton = button('Escenas', 'Abrir el catálogo de escenarios completos y las escenas del proyecto', () => this._call('onScenes'), 'studio-resource-scenes');
     header.appendChild(this.scenesButton);
     this.scopeFilter = node('select', 'studio-resource-scope'); this.scopeFilter.setAttribute('aria-label', 'Archivos de la escena o de todo el proyecto');
@@ -221,6 +224,7 @@ export default class ResourceBrowser {
         ['query', 'selected', 'folder', 'kind', 'status'].forEach(key => { if (typeof value[key] === 'string') state[key] = value[key].slice(0, 1200); });
         state.view = value.view === 'list' ? 'list' : 'cards'; state.scroll = Number.isFinite(value.scroll) ? Math.max(0, value.scroll) : 0;
         state.scope = value.scope === 'project' ? 'project' : 'scene';
+        state.domain=DOMAINS.some(row=>row[0]===value.domain)?value.domain:'all';
         state.navScroll = Number.isFinite(value.navScroll) ? Math.max(0, value.navScroll) : 0;
         if (value.expanded && typeof value.expanded === 'object') catalog.CATEGORIES.concat(taxonomy.GROUPS).forEach(category => { if (typeof value.expanded[category.id] === 'boolean') state.expanded[category.id] = value.expanded[category.id]; });
       });
@@ -246,7 +250,10 @@ export default class ResourceBrowser {
     const builtins = catalog.RESOURCES.map(resource => replacements.get(resource.id) || resource);
     this.extraResources.forEach(resource => { if (!builtins.some(item => item.id === resource.id)) builtins.push(resource); });
     const native = taxonomy.decorate(builtins);
-    this.resources = catalog.applyOrganization(native.concat(taxonomy.pendingResources(native), this.entries.map(catalog.assetResource), catalog.projectResources(this.templates, this.scenes, this.widgets, this.missions)), this.organization);
+    // Documentation articles remain in the wiki. Only catalogue equipment and
+    // actual project assets are resources; a missing model is never synthesized
+    // into another equipment card from its theoretical illustration.
+    this.resources = catalog.applyOrganization(native.concat(this.entries.map(catalog.assetResource), catalog.projectResources(this.templates, this.scenes, this.widgets, this.missions)), this.organization);
   }
   _moduleAvailable(resource) {try {return !resource.moduleId || !this.options.isModuleAvailable || this.options.isModuleAvailable(resource.moduleId) === true;} catch (_) {return false;}}
   _insertionPermitted() {try {return !!(this.active && (!this.options.canInsert || this.options.canInsert()));} catch (_) {return false;}}
@@ -254,6 +261,7 @@ export default class ResourceBrowser {
   _expandLibrary(expand) {taxonomy.GROUPS.forEach(group => {this.states.library.expanded[group.id] = expand;}); this._stateChanged();}
   _familySummary(resource) {return resource.subcategory === 'conveyors' && resource.family && this.tab === 'library' && !this.state.query.trim() && (this.state.folder === 'group:TR' || !this.state.folder || !this.state.folder.startsWith('group:') && this.state.folder.split('/').length < 3);}
   _documentation(resource) {const link = resource.articleId || resource.documentationLinks && resource.documentationLinks[0] && resource.documentationLinks[0].articleId; if (link) return this._call('onDocumentation', {articleId: link, resourceId: resource.id});}
+  _matchesDomain(resource){const domain=this.state.domain;if(!domain||domain==='all'||!DOMAIN_GROUPS[domain])return true;const group=taxonomy.location(resource).group;if(domain==='shared')return DOMAIN_GROUPS.shared.has(group);return DOMAIN_GROUPS[domain].has(group)||DOMAIN_GROUPS.shared.has(group);}
   render() {
     this._buildResources();
     const insertionAllowed = this._insertionPermitted(); if (insertionAllowed !== this.insertionAllowed) {this.insertionAllowed = insertionAllowed; this.clearPreview();}
@@ -263,7 +271,7 @@ export default class ResourceBrowser {
     }
     this.sceneScope = context ? catalog.sceneResources.index(context.document, context.roomId, this.entries) : null;
     const sceneIds = this.sceneScope && this.resources.filter(resource => resource.origin === 'project' && catalog.sceneResources.includes(this.sceneScope, resource)).map(resource => resource.id);
-    const signature = JSON.stringify([this.active, this.listingVisible, this.tab, this.sceneRoomId, sceneIds, this.state.scope, this.state.query, this.state.selected, this.state.folder, this.state.view, this.state.kind, this.state.status, this.organization, insertionAllowed, this.resources.map(resource => [resource.id, resource.name, resource.status, resource.description, resource.kind, resource.asset && resource.asset.url, this._moduleAvailable(resource)])]);
+    const signature = JSON.stringify([this.active, this.listingVisible, this.tab, this.sceneRoomId, sceneIds, this.state.scope,this.state.domain, this.state.query, this.state.selected, this.state.folder, this.state.view, this.state.kind, this.state.status, this.organization, insertionAllowed, this.resources.map(resource => [resource.id, resource.name, resource.status, resource.description, resource.kind, resource.asset && resource.asset.url, this._moduleAvailable(resource)])]);
     if (signature === this.renderSignature) return true;
     this.renderSignature = signature;
     this.tabButtons.forEach((button, id) => { const selected = this.tab === id; button.classList.toggle('active', selected); button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1; });
@@ -271,6 +279,7 @@ export default class ResourceBrowser {
     this.scopeFilter.hidden = this.tab !== 'project'; this.scopeFilter.value = this.state.scope;
     this.expandGroups.hidden = this.collapseGroups.hidden = this.tab !== 'library';
     this.search.value = this.state.query; this.kindFilter.value = this.state.kind; this.statusFilter.value = this.state.status;
+    this.domainButtons.forEach((control,id)=>{control.setAttribute('aria-pressed',String(this.state.domain===id));control.classList.toggle('active',this.state.domain===id);});
     this.cardView.classList.toggle('active', this.state.view === 'cards'); this.listView.classList.toggle('active', this.state.view === 'list');
     this.cardView.setAttribute('aria-pressed', String(this.state.view === 'cards')); this.listView.setAttribute('aria-pressed', String(this.state.view === 'list'));
     this.grid.classList.toggle('studio-resource-grid--list', this.state.view === 'list');
@@ -278,6 +287,7 @@ export default class ResourceBrowser {
     const folders = catalog.foldersFor(this.organization), favoriteIds = new Set(this.organization.favorites);
     let filtered = this.resources.filter(resource => {
       if (this.tab === 'library' && resource.origin !== 'library' || this.tab === 'project' && resource.origin !== 'project' || this.tab === 'favorites' && !favoriteIds.has(resource.id)) return false;
+      if(!this._matchesDomain(resource))return false;
       if (this.tab === 'project' && this.state.scope === 'scene' && !catalog.sceneResources.includes(this.sceneScope, resource)) return false;
       if (this.state.kind !== 'all' && (this.state.kind === 'equipment' ? resource.kind !== 'equipment' && resource.category !== 'industrial' : resource.kind !== this.state.kind && (!resource.asset || resource.asset.kind !== this.state.kind))) return false;
       if (this.state.status !== 'all' && resource.status !== this.state.status) return false;
@@ -318,7 +328,7 @@ export default class ResourceBrowser {
       this.grid.appendChild(node('p', 'ed-hint studio-resource-empty', family ? family.name + ': todavía no hay variantes completas disponibles. Se habilitan cuando su modelo, mecanismo, conexiones y guardado están validados.' : this.tab === 'favorites' ? 'Marca un recurso con ☆ para conservar su referencia aquí. No se duplican sus archivos.' : this.tab === 'project' && this.state.scope === 'scene' && this.sceneScope ? 'Esta escena no utiliza archivos con estos filtros. Elige «Todo el proyecto» para añadir recursos guardados o importa un archivo.' : 'No hay recursos para estos filtros. Prueba otra categoría o importa archivos al Proyecto.'));
     }
     this.grid.scrollTop = this.state.scroll;
-    this.caption.textContent = filtered.length + ' recursos · ' + (this.tab === 'library' ? taxonomy.title(this.state.folder) || 'Toda la biblioteca · modelos funcionales y fichas conceptuales identificadas' : this.tab === 'project' ? this.state.scope === 'scene' && this.sceneScope ? 'Archivos usados en la escena actual · Escenarios muestra todos los niveles' : 'Todo el proyecto · incluye archivos todavía sin colocar' : 'Referencias a Biblioteca y Proyecto');
+    this.caption.textContent = filtered.length + ' recursos · ' + (this.tab === 'library' ? taxonomy.title(this.state.folder) || 'Toda la biblioteca · equipos y recursos registrados' : this.tab === 'project' ? this.state.scope === 'scene' && this.sceneScope ? 'Archivos usados en la escena actual · Escenarios muestra todos los niveles' : 'Todo el proyecto · incluye archivos todavía sin colocar' : 'Referencias a Biblioteca y Proyecto');
     const selected = eligibleSelection;
     this.previewSelection = selected || null;
     if (selected && this.active && this.previewVisible) {
@@ -342,9 +352,10 @@ export default class ResourceBrowser {
     };
     addFolder(this.folderList, '', this.tab === 'favorites' ? 'Todos los favoritos' : this.tab === 'project' ? this.state.scope === 'scene' && this.sceneScope ? 'Recursos de esta escena' : 'Todo el proyecto' : 'Toda la biblioteca');
     if (this.tab === 'library') {
-      const included = this.resources.filter(resource => resource.origin === 'library');
+      const included = this.resources.filter(resource => resource.origin === 'library'&&this._matchesDomain(resource));
       taxonomy.GROUPS.forEach(category => {
         const path = 'group:' + category.id, rows = included.filter(resource => taxonomy.matchesPath(resource, path));
+        if(!rows.length)return;
         const group = node('details', 'studio-resource-category studio-library-category'); group.dataset.category = category.id;
         group.open = Object.prototype.hasOwnProperty.call(this.state.expanded, category.id) ? this.state.expanded[category.id] : category.id === 'TR' || this.state.folder.startsWith(path);
         group.addEventListener('toggle', () => {this.states.library.expanded[category.id] = group.open; this._saveState();});
@@ -402,7 +413,8 @@ export default class ResourceBrowser {
     const favorite = this.organization.favorites.includes(resource.id);
     const star = button(favorite ? '★' : '☆', favorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos', () => this.toggleFavorite(resource.id), 'studio-resource-star' + (favorite ? ' active' : ''));
     star.setAttribute('aria-label', (favorite ? 'Quitar ' : 'Añadir ') + resource.name + (favorite ? ' de Favoritos' : ' a Favoritos')); star.setAttribute('aria-pressed', String(favorite)); card.appendChild(star);
-    if (this.options.onDocumentation && (resource.articleId || resource.documentationLinks && resource.documentationLinks.length)) {const docs = button('▤ Ficha', 'Abrir la documentación de ' + resource.name, () => this._documentation(resource), 'studio-library-doc-link'); docs.setAttribute('data-resource-documentation', resource.articleId || resource.documentationLinks[0].articleId); card.appendChild(docs);}
+    const actions=node('div','studio-resource-card-actions');const ficha=button('Ficha','Ver modelo, propiedades y opciones de '+resource.name,()=>this.select(resource),'studio-resource-sheet-link');ficha.setAttribute('data-resource-sheet',resource.id);actions.appendChild(ficha);
+    if (this.options.onDocumentation && (resource.articleId || resource.documentationLinks && resource.documentationLinks.length)) {const docs = button('Doc', 'Abrir la documentación de ' + resource.name, () => this._documentation(resource), 'studio-library-doc-link'); docs.setAttribute('data-resource-documentation', resource.articleId || resource.documentationLinks[0].articleId); actions.appendChild(docs);}card.appendChild(actions);
     this.grid.appendChild(card); this.cards.set(resource.id, choose);
     if (resource.thumbnail && resource.thumbnail.type === 'documentation' && /^modules\/logistica-industrial\/documentation\/assets\/[A-Z]{2}-\d{2}\.png$/.test(resource.thumbnail.src || '')) {const image = node('img', 'studio-library-concept-image'); image.src = resource.thumbnail.src; image.alt = resource.thumbnail.alt || 'Esquema conceptual'; image.loading = 'lazy'; thumbnail.appendChild(image);}
     else if (this.active && this.listingVisible && this._moduleAvailable(resource) && this.thumbnails && (resource.asset || resource.thumbnail && resource.thumbnail.type === 'procedural')) this.thumbnails.attach(resource.asset || {path: this._thumbnailKey(resource), name: resource.name, extension: '3d', kind: 'model'}, thumbnail);

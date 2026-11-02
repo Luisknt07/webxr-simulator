@@ -14,6 +14,7 @@ class Element {
     }};
   }
   appendChild(child) { if (child.parentNode) child.parentNode.removeChild(child); this.children.push(child); child.parentNode = this; return child; }
+  insertBefore(child,before) { if(!before)return this.appendChild(child);if(child===before)return child;if(child.parentNode)child.parentNode.removeChild(child);const index=this.children.indexOf(before);assert(index>=0);this.children.splice(index,0,child);child.parentNode=this;return child; }
   removeChild(child) { this.children.splice(this.children.indexOf(child), 1); child.parentNode = null; }
   set textContent(value) { this.text = String(value); this.children.forEach(child => { child.parentNode = null; }); this.children = []; }
   get textContent() { return (this.text || '') + this.children.map(child => child.textContent).join(''); }
@@ -33,7 +34,8 @@ const storage = new Map();
 const localStorage = {getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value)};
 const browserWindow = {innerWidth: 1440, innerHeight: 900};
 const source = fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-editor-shell.js"), '../src/editor/EditorShell.js')), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class EditorShell', 'return class EditorShell');
-const EditorShell = new Function('document', 'window', 'localStorage', source)(dom, browserWindow, localStorage);
+class TestMutationObserver{constructor(callback){this.callback=callback;}observe(target,options){this.target=target;this.options=options;}}
+const EditorShell = new Function('document', 'window', 'localStorage','MutationObserver', source)(dom, browserWindow, localStorage,TestMutationObserver);
 function element(tag = 'div') { return new Element(tag); }
 function find(root, text) { return root.children.flatMap(child => [child, ...all(child)]).find(child => child.tagName === 'BUTTON' && child.textContent === text); }
 function all(root) { return root.children.flatMap(child => [child, ...all(child)]); }
@@ -73,6 +75,19 @@ assert(!all(editor.toolbar).some(child => child.textContent === 'Entrar en VR'))
 shell.newButton.click(); assert(called.some(call => call[0] === 'newScene'));
 shell.selectButton.click(); assert(called.some(call => call[0] === 'tool' && call[1] === 'select'));
 shell.accountButton.click(); assert(called.some(call => call[0] === 'account'));
+assert(editor.ui.classList.contains('ed-light'),'The authoring palette is scoped to the existing editor root.');
+assert(shell.transformBar.children.includes(editor.undoButton));assert(shell.transformBar.children.includes(editor.redoButton));assert(all(shell.transformBar).includes(editor.toolButtons.translate),'Context tools retain the original controls and event owners.');
+assert.equal(shell.voiceButton,null);assert.equal(shell.assistantButton,null,'Unavailable services do not expose inert proxy actions.');
+editor.ctx.voicePanel={open:()=>called.push(['voice-open'])};editor.ctx.assistantWorkspace={open:()=>called.push(['assistant-open'])};shell.refresh();assert.equal(shell.voiceButton,null,'A service can initialize before mounting its real launcher.');
+const nativeVoice=element('button'),nativeMicrophone=element('button'),nativeAssistant=element('button');nativeVoice.textContent='Voz';nativeMicrophone.textContent='Mic';nativeAssistant.textContent='Asistente';
+nativeVoice.addEventListener('click',()=>editor.ctx.voicePanel.open());nativeMicrophone.addEventListener('click',()=>called.push(['microphone-listen']));nativeAssistant.addEventListener('click',()=>editor.ctx.assistantWorkspace.open());
+editor.ctx.voicePanel.launcher=nativeVoice;editor.ctx.voicePanel.microphoneLauncher=nativeMicrophone;editor.ctx.assistantWorkspace.launcher=nativeAssistant;editor.toolbar.appendChild(nativeVoice);editor.toolbar.appendChild(nativeMicrophone);editor.toolbar.appendChild(nativeAssistant);
+assert.equal(shell.assistanceObserver.target,editor.toolbar);assert.deepEqual(shell.assistanceObserver.options,{childList:true});shell.assistanceObserver.callback();
+assert.equal(shell.voiceButton,nativeVoice);assert.equal(shell.microphoneButton,nativeMicrophone);assert.equal(shell.assistantButton,nativeAssistant);assert.deepEqual(editor.toolbar.children.slice(-4),[nativeVoice,nativeMicrophone,nativeAssistant,shell.accountButton],'Actual service controls occupy one deliberate toolbar position.');
+shell.refresh();shell.assistanceObserver.callback();nativeVoice.click();nativeMicrophone.click();nativeAssistant.click();assert.equal(called.filter(call=>call[0]==='voice-open').length,1);assert.equal(called.filter(call=>call[0]==='microphone-listen').length,1);assert.equal(called.filter(call=>call[0]==='assistant-open').length,1);assert.equal(nativeVoice.events.click.length,1,'Reparenting must not add a second event handler.');
+const viewerActions=element();editor.active=false;viewerActions.appendChild(nativeVoice);viewerActions.appendChild(nativeMicrophone);viewerActions.appendChild(nativeAssistant);shell.assistanceObserver.callback();assert.equal(nativeVoice.parentNode,viewerActions,'Leaving the editor lets each service return its launcher to the viewer.');editor.active=true;shell.refresh();assert.equal(nativeVoice.parentNode,editor.toolbar);
+nativeVoice.hidden=true;editor.ctx.vrMode=true;shell.refresh();assert(nativeVoice.hidden,'The service retains its own XR visibility.');editor.ctx.vrMode=false;nativeVoice.hidden=false;
+editor.ctx.voicePanel=null;editor.ctx.assistantWorkspace=null;shell.refresh();assert.equal(shell.voiceButton,null);assert.equal(shell.assistantButton,null);assert(!editor.toolbar.children.includes(nativeVoice)&&!editor.toolbar.children.includes(nativeAssistant),'Unmounted service actions cannot remain active in the toolbar.');
 
 // Menus are real commands, retain disabled state and keyboard focus order.
 const edit = shell.menus[1]; edit.trigger.fire('keydown', {code: 'ArrowDown'});

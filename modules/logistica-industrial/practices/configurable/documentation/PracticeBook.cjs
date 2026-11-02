@@ -1,0 +1,19 @@
+'use strict';
+// A reference book, loaded on request. Source prose is never executable code.
+const source=require('../data/source.json');
+const namespace='smarttwin-configurable-2026';
+const paragraph=text=>({type:'paragraph',text:String(text||'')});
+const table=(columns,rows)=>({type:'table',columns,rows:rows.map(row=>row.map(value=>String(value===undefined?'':value)))});
+const section=(id,title,blocks)=>({id,title,blocks});
+const image=(row,caption)=>({type:'image',src:row.src,alt:row.alt,caption,provenance:{sourceImageId:row.assetId}});
+const families=[['logistics','CEDI · Logística'],['industrial','Smart Factory · Industrial']].map(([domain,title])=>({id:namespace+':'+domain,title,count:5,articleIds:source.records.filter(row=>row.domain===domain).map(row=>row.key)}));
+const chapters=families.map(row=>({id:row.id,title:row.title,articleIds:row.articleIds}));
+const articles=source.records.map(row=>({id:row.key,title:row.id+' · '+row.title,kind:'guide',practiceId:row.id,chapterId:namespace+':'+row.domain,family:namespace+':'+row.domain,summary:row.objective,sections:[
+  section('overview','Propósito y preparación',[paragraph(row.objective),paragraph('Área: '+row.areaText),paragraph(row.fixtureText),paragraph('Una práctica reúne seis misiones. El caso, la dificultad, el layout y el nivel de automatización son configuraciones de la misma práctica, no niveles adicionales.')]),
+  section('workflow','Las seis etapas',[table(['Etapa','Acción'],row.steps.map((step,index)=>[String(index+1)+' · '+step.title,step.action])),paragraph(row.transferText),paragraph('El plano describe la distribución de referencia. La escena y la custodia del motor determinan qué equipos y cargas existen realmente; cambiar de vista no crea inventario.')]),
+  section('configuration','Casos y configuración',[paragraph(row.casesText),paragraph(row.allowedChanges),paragraph('La dificultad (guiada, configurable o diagnóstico y mejora) es independiente de la automatización (manual, asistida o automática por subproceso). Sólo los intentos de campaña evaluados pueden desbloquear la siguiente práctica.'),table(['Modalidad','Responsabilidad de los actores','Cambios del montaje'],Object.values(row.modes).map(mode=>[mode.name,mode.actorsText,mode.changeText])),paragraph('La disponibilidad de ejecución se informa en la ficha actual. Un montaje de consulta conserva su contenido y configuración, pero no se presenta como una operación evaluada ya validada.')]),
+  section('equipment','Equipos y unidades de carga',Object.values(row.modes).flatMap(mode=>[paragraph(mode.name),table(['Alias','Equipo o zona','Cantidad','Centro X, Y (m)','Huella propuesta (m)','Componentes y condiciones'],mode.equipment.map(item=>[item.alias,item.name,item.count,item.center.join(', '),item.footprint.join(' × '),item.componentsText]))])),
+  section('layout','Layout y diagrama',[paragraph('Coordenadas locales en metros. La posición representa el centro de la huella, no su esquina. Las dimensiones de la guía son hipótesis didácticas: se ajusta la distribución al activo existente sin deformar la máquina.'),image(row.diagrams.process,'Secuencia de referencia: seis etapas y decisiones.'),...Object.entries(row.diagrams.layouts).map(([mode,diagram])=>image(diagram,'Configuración '+mode+' · planta y axonometría del mismo montaje.')),paragraph(row.spatialText)]),
+  section('evaluation','Resultados y continuidad',[paragraph(row.result),...(Array.isArray(row.indicators)?row.indicators:[row.indicators]).map(value=>paragraph(value)),paragraph(row.continuity),paragraph(row.minimumTest),paragraph('Procedencia: '+source.sources.map(value=>value.filename+' · SHA-256 '+value.sha256).join(' | '))])
+]}));
+module.exports={id:namespace,moduleId:'sector.logistics-industrial',title:'Prácticas configurables · guía actual',source:{namespace,sources:source.sources},families,chapters,articles,FAMILIES:families,CHAPTERS:chapters,ARTICLES:articles};

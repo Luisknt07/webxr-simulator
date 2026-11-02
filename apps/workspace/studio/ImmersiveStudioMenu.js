@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import PracticeImmersivePages from '../../../modules/logistica-industrial/practices/ui/PracticeImmersivePages.js';
 
 const WIDTH = 1024, HEIGHT = 960, PAGE_SIZE = 6;
 const ROOM_IDS = ['hall', 'sound', 'photogrammetry', 'vertigo', 'panoramastereo', 'panorama1', 'panorama2', 'panorama3', 'panorama4', 'panorama5'];
@@ -16,6 +17,7 @@ export default class ImmersiveStudioMenu {
     this.page = 'home'; this.regions = []; this.presses = new Map(); this.hovers = new Map(); this.padButtons = new WeakMap();
     this.fields = {username: '', password: '', code: ''}; this.keyboardField = ''; this.keyboardMode = 'letters'; this.shift = false;
     this.items = []; this.listPage = 0; this.generation = 0; this.busy = false; this.notice = ''; this.error = ''; this.dirty = true;
+    this.practicePages=new PracticeImmersivePages(this);
     this.position = new THREE.Vector3(); this.headQuaternion = new THREE.Quaternion(); this.rotation = new THREE.Matrix4();
     this.forward = new THREE.Vector3(); this.right = new THREE.Vector3(); this.target = new THREE.Vector3(); this.lastTime = 0;
     this.controllerDisconnected = data => { this.release(data && data.controller); this.hovers.delete(data && data.controller); this.clearCredentials(); this.dirty = true; };
@@ -97,6 +99,7 @@ export default class ImmersiveStudioMenu {
   }
   clearCredentials() { this.fields.username = ''; this.fields.password = ''; this.fields.code = ''; this.keyboardField = ''; this.shift = false; this.keyboardMode = 'letters'; }
   identityChanged() {
+    if(this.practicePages)this.practicePages.dispose();this.practicePages=new PracticeImmersivePages(this);
     this.generation++; this.clearCredentials(); this.items = []; this.privateProject = null; this.listPage = 0;
     if (this.opened) { this.page = 'home'; this.dirty = true; }
   }
@@ -126,14 +129,15 @@ export default class ImmersiveStudioMenu {
     this.generation++; this.page = page; this.error = ''; this.notice = ''; this.listPage = 0; this.items = []; this.privateProject = null;
     if (!['account', 'register', 'rooms'].includes(page)) this.clearCredentials(); this.dirty = true;
     if (['account', 'register'].includes(page) && !this.editor.staticPublic && !this.client.user) this.keyboardField = 'username';
-    if (page === 'scenes' || page === 'projects' || page === 'users' || page === 'progress' || page === 'classroom') this.loadList(page);
+    if (page === 'practiceRoute' || page === 'scenes' || page === 'projects' || page === 'users' || page === 'progress' || page === 'classroom') this.loadList(page);
   }
   async loadList(page) {
     const generation = this.generation, owner = this.client.user && this.client.user.id; this.loading = true; this.dirty = true;
     try {
       if (page !== 'scenes' && !owner) throw new Error('Inicia sesión para consultar esta información.');
       let items = [];
-      if (page === 'scenes') {
+      if ((page==='scenes'||page==='practiceRoute'||page==='progress')&&owner&&this.studio.practiceCampaign) items=await this.practicePages.list(page);
+      else if (page === 'scenes') {
         const access = this.editor.accessView;
         const results = await Promise.all([access && access.publicCatalog ? access.publicCatalog() : this.editor.projectClient.request('GET', '/public/scenes'), owner ? this.editor.projectClient.request('GET', '/library/scenes') : Promise.resolve({scenes: []})]);
         items = (results[0].scenes || []).map(scene => ({key: 'public:' + scene.id, label: scene.name, detail: 'Público', scene, kind: 'public'})).concat((results[1].scenes || []).map(scene => ({key: 'library:' + scene.id, label: scene.name, detail: scene.collection || 'Ejemplo incluido', scene, kind: 'library'})));
@@ -192,6 +196,7 @@ export default class ImmersiveStudioMenu {
     });
   }
   async chooseItem(item) {
+    if(this.practicePages.choose(item))return;
     if (!['public', 'library', 'project', 'room'].includes(item.kind)) return;
     return this.run(async () => {
       if (this.studio.room) throw new Error('Sal de la sala compartida antes de cambiar de escenario.');
@@ -255,7 +260,7 @@ export default class ImmersiveStudioMenu {
     else if (!this.items.length) this.text('No hay elementos disponibles.', 46, 220, 31, C.dim);
     this.items.slice(this.listPage * PAGE_SIZE, (this.listPage + 1) * PAGE_SIZE).forEach((item, index) => {
       const y = 165 + index * 96;
-      this.button('item:' + item.key, item.label, 46, y, 932, 58, () => this.chooseItem(item), {size: 29});
+      this.button('item:' + item.key, item.label, 46, y, 932, 58, () => this.chooseItem(item), {size: 29,disabled:item.locked===true});
       this.text(short(item.detail, 78), 58, y + 83, 23, C.dim);
     });
     this.button('previous', '← Anterior', 46, 785, 260, 59, () => { this.listPage = Math.max(0, this.listPage - 1); this.dirty = true; }, {disabled: this.listPage === 0});
@@ -267,12 +272,13 @@ export default class ImmersiveStudioMenu {
   paintHome() {
     const user = this.client.user; this.text(user ? 'Hola, ' + short(user.displayName, 35) : 'Explora como invitado o inicia sesión.', 46, 180, 32, C.dim);
     const actions = [['scenes', 'Escenarios', () => this.navigate('scenes')]];
+    if(this.editor.practiceController)actions.push(['practice','Misión activa y guía',()=>this.navigate('practice')]);
     if (user) actions.push(['projects', 'Mis proyectos', () => this.navigate('projects')], ['classroom', 'Mis prácticas', () => this.navigate('classroom')], ['progress', 'Mi progreso', () => this.navigate('progress')]);
     else actions.push(['account', 'Iniciar sesión', () => this.navigate('account')]);
     actions.push(['settings', 'Sonido y controles', () => this.navigate('settings')], ['controls', 'Controles del visor', () => this.navigate('controls')]);
     if (user && user.permissions.manageUsers) actions.push(['users', 'Usuarios · resumen', () => this.navigate('users')]);
     if (user) actions.push(['logout', 'Cerrar sesión', () => this.run(async () => { await this.studio.logout(); if (this.active && this.opened) { this.navigate('home'); this.notice = 'Sesión cerrada.'; } })]);
-    actions.forEach(([key, label, action], index) => this.button(key, label, 46, 225 + index * 83, 932, 64, action, {accent: key === 'account'}));
+    actions.forEach(([key, label, action], index) => this.button(key, label, 46, 225 + index * 74, 932, 58, action, {accent: key === 'account'}));
     this.text('X (izquierdo) / A (derecho): abrir o cerrar el menú.', 46, 902, 25, C.dim);
   }
   paintAccount() {
@@ -337,12 +343,12 @@ export default class ImmersiveStudioMenu {
   paint() {
     if (!this.drawing || !this.opened) return; this.regions = [];
     const d = this.drawing; d.fillStyle = C.bg; d.fillRect(0, 0, WIDTH, HEIGHT); d.fillStyle = '#1a3443'; d.fillRect(0, 0, WIDTH, 126);
-    const names = {home: 'SMART-TWIN Simulator', account: 'Iniciar sesión', register: 'Crear cuenta', scenes: 'Escenarios', projects: 'Mis proyectos', projectScenes: 'Escenarios del proyecto', settings: 'Ajustes del visor', controls: 'Controles VR', users: 'Usuarios · resumen', classroom: 'Mis prácticas', progress: 'Mi progreso'};
+    const names = {home: 'SMART-TWIN Simulator', account: 'Iniciar sesión', register: 'Crear cuenta', scenes: 'Rutas de prácticas', practiceRoute:'Prácticas de la ruta', practiceSetup:'Configurar ensayo',practice:'Misión activa',practiceGuide:'Guía y planos', projects: 'Mis proyectos', projectScenes: 'Escenarios del proyecto', settings: 'Ajustes del visor', controls: 'Controles VR', users: 'Usuarios · resumen', classroom: 'Mis prácticas', progress: 'Mi progreso'};
     this.text(names[this.page] || 'SMART-TWIN Simulator', 46, 70, this.page === 'home' ? 32 : 35, C.text, 'bold'); this.text(this.busy ? 'Procesando…' : 'Apunta y pulsa el gatillo', 46, 110, 22, C.dim);
     this.button('exit-vr', this.exiting ? 'Saliendo…' : 'Salir de RV', 500, 28, 184, 64, () => this.exitVR(), {size: 23, danger: true, disabled: this.exiting});
     this.button('close', '×', 886, 24, 92, 72, () => this.close(), {size: 42});
     if (this.page !== 'home') this.button('home', '← Menú', 704, 28, 158, 64, () => this.navigate('home'), {size: 25});
-    if (this.page === 'home') this.paintHome(); else if (this.page === 'account' || this.page === 'register') this.paintAccount(); else if (this.page === 'settings') this.paintSettings(); else if (this.page === 'modules') this.paintModules(); else if (this.page === 'controls') this.paintControls(); else this.paintList();
+    if (this.page === 'home') this.paintHome(); else if (this.page === 'account' || this.page === 'register') this.paintAccount(); else if (this.page === 'settings') this.paintSettings(); else if (this.page === 'modules') this.paintModules(); else if (this.page === 'controls') this.paintControls(); else if(this.practicePages.paint()){} else this.paintList();
     if (this.error || this.notice) { d.fillStyle = '#10212d'; d.fillRect(32, 918, WIDTH - 64, 38); this.text(short(this.error || this.notice, 90), 46, 945, 23, this.error ? C.error : C.accent); }
     this.texture.needsUpdate = true; this.dirty = false;
   }
@@ -364,6 +370,7 @@ export default class ImmersiveStudioMenu {
     });
     if (toggle) this.opened ? this.close() : this.open('home');
     if (this.pressedKey && this.lastTime >= this.pressedUntil && !this.presses.size) { this.pressedKey = ''; this.dirty = true; }
+    if(this.opened&&['practice','practiceGuide'].includes(this.page)&&this.lastTime-(this.practicePaintTime||0)>.35){this.practicePaintTime=this.lastTime;this.dirty=true;}
     if (this.opened && this.dirty) this.paint();
   }
   releaseResources() {
@@ -374,7 +381,7 @@ export default class ImmersiveStudioMenu {
     this.group = this.panel = this.surface = this.canvas = this.drawing = this.texture = this.state = null;
   }
   dispose() {
-    if (this.disposed) return; this.close(); this.active = false; this.releaseResources(); this.padButtons = new WeakMap();
+    if (this.disposed) return; if(this.practicePages)this.practicePages.dispose();this.close(); this.active = false; this.releaseResources(); this.padButtons = new WeakMap();
     if (this.ctx.raycontrol && this.ctx.raycontrol.removeEventListener) this.ctx.raycontrol.removeEventListener('controllerDisconnected', this.controllerDisconnected); this.disposed = true;
   }
 }
