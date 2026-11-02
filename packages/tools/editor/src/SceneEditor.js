@@ -1056,7 +1056,7 @@ export default class SceneEditor {
     object = this.document.getEditableObject(object);
     if (this.wearBrush && object !== this.wearBrush.owner) this.stopWearBrush();
     this.selected = object;
-    if (object || this.loadingProject) this.inspectorTab = 'object';
+    if ((object || this.loadingProject) && !this.selectingHierarchy) this.inspectorTab = 'object';
     if (object && this.active && !this.decalPlacement && !this.wearBrush) {
       if (this.toolMode !== 'select') this.transform.attach(object); else this.transform.detach();
       this.box.setFromObject(object); this.box.visible = visibleInTree(object) && !(object.userData.editorDescriptor && object.userData.editorDescriptor.type === 'audioZone');
@@ -1300,8 +1300,9 @@ export default class SceneEditor {
       let depth = 0;
       for (let parent = object.parent; parent && parent !== this.root; parent = parent.parent) depth++;
       const row = button('', name + ' · clic para seleccionar, Mayús para selección múltiple, doble clic para enfocar', event => {
-        if (this.studioTools && event.shiftKey) this.studioTools.selectObject(object, event);
-        else this.select(object);
+        this.selectingHierarchy = this.inspectorTab === 'hierarchy';
+        try { if (this.studioTools && event.shiftKey) this.studioTools.selectObject(object, event); else this.select(object); }
+        finally { this.selectingHierarchy = false; }
       }, 'ed-tree-row');
       const chosen = this.selected === object || Boolean(this.studioTools && this.studioTools.selection.has(object));
       row.setAttribute('role', 'treeitem');
@@ -1318,7 +1319,7 @@ export default class SceneEditor {
         row.appendChild(badge);
       }
       if (!visibleInTree(object)) row.appendChild(el('span', 'ed-tag', 'oculto'));
-      row.addEventListener('dblclick', () => this.focus());
+      row.addEventListener('dblclick', () => { this.showInspectorTab('object'); this.focus(); });
       this.tree.appendChild(row);
     });
   }
@@ -1422,27 +1423,29 @@ export default class SceneEditor {
     actions.appendChild(button('Duplicar con funciones', 'Duplicar objeto, modelo y funciones · Ctrl D', () => this.perform(() => this.duplicateObject(object))));
     actions.appendChild(button(native ? 'Ocultar objeto' : 'Eliminar objeto', native ? 'Ocultar conservando referencias nativas' : 'Eliminar · Supr', () => this.perform(() => this.document.remove(object)), 'danger'));
     this.organizeInspector(object);
-    this.inspector.scrollTop = this.inspectorTab === 'object' ? previousTab === 'object' ? scrollTop : sameObject ? this.inspectorScroll.object || 0 : 0 : this.inspectorScroll.resource || 0;
+    this.inspector.scrollTop = this.inspectorTab === 'object' ? previousTab === 'object' ? scrollTop : sameObject ? this.inspectorScroll.object || 0 : 0 : this.inspectorScroll[this.inspectorTab] || 0;
   }
 
   showInspectorTab(tab) {
-    if (!['object', 'resource'].includes(tab)) return;
+    if (!['object', 'resource', 'hierarchy'].includes(tab)) return;
     this.inspectorTab = tab;
-    if (this.shell && this.shell.layout && !this.shell.layout.inspector) this.shell.setPanel('inspector', true);
+    if (this.shell && this.shell.layout) { if(tab==='hierarchy')this.shell.layout.hierarchy=true; this.shell.setPanel('inspector', true); }
     this.renderInspector();
   }
 
   renderInspectorTabs() {
     this.inspector.classList.toggle('ed-inspector-resource-active', this.inspectorTab === 'resource');
+    this.inspector.classList.toggle('ed-inspector-hierarchy-active', this.inspectorTab === 'hierarchy');
     const tabs = el('div', 'ed-inspector-tabs'); tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Contenido del inspector');
     this.inspectorTabButtons = new Map();
-    [['object', 'Objeto'], ['resource', 'Recurso']].forEach(([id, title]) => {
-      const control = button(title, title === 'Objeto' ? 'Propiedades del objeto de la escena' : 'Ficha y vista previa del recurso de la biblioteca', () => this.showInspectorTab(id));
+    const definitions=[['object','Objeto'],['resource','Recurso'],['hierarchy','Jerarquía']];
+    definitions.forEach(([id, title], index) => {
+      const control = button(title, id==='hierarchy'?'Árbol de objetos y búsqueda en la escena':id==='object'?'Propiedades del objeto de la escena':'Ficha y vista previa del recurso de la biblioteca', () => this.showInspectorTab(id));
       control.setAttribute('role', 'tab'); control.id = 'ed-inspector-tab-' + id; control.setAttribute('aria-controls', 'ed-inspector-' + id);
       control.setAttribute('aria-selected', String(this.inspectorTab === id)); control.tabIndex = this.inspectorTab === id ? 0 : -1;
       control.addEventListener('keydown', event => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-        event.preventDefault(); const next = event.key === 'Home' ? 'object' : event.key === 'End' ? 'resource' : id === 'object' ? 'resource' : 'object';
+        event.preventDefault(); event.stopPropagation();const next=definitions[event.key==='Home'?0:event.key==='End'?definitions.length-1:(index+(event.key==='ArrowLeft'?-1:1)+definitions.length)%definitions.length][0];
         this.showInspectorTab(next); this.inspectorTabButtons.get(next).focus();
       });
       tabs.appendChild(control); this.inspectorTabButtons.set(id, control);
@@ -1450,6 +1453,7 @@ export default class SceneEditor {
     this.inspector.appendChild(tabs);
     this.inspectorContent = el('div', 'ed-inspector-object'); this.inspectorContent.id = 'ed-inspector-object'; this.inspectorContent.setAttribute('role', 'tabpanel'); this.inspectorContent.setAttribute('aria-labelledby', 'ed-inspector-tab-object'); this.inspectorContent.hidden = this.inspectorTab !== 'object'; this.inspector.appendChild(this.inspectorContent);
     const resource = el('div', 'ed-inspector-resource'); resource.id = 'ed-inspector-resource'; resource.setAttribute('role', 'tabpanel'); resource.setAttribute('aria-labelledby', 'ed-inspector-tab-resource'); resource.hidden = this.inspectorTab !== 'resource'; this.inspector.appendChild(resource);
+    if(this.hierarchy){this.hierarchy.id='ed-inspector-hierarchy';this.hierarchy.setAttribute('role','tabpanel');this.hierarchy.setAttribute('aria-labelledby','ed-inspector-tab-hierarchy');this.hierarchy.hidden=this.inspectorTab!=='hierarchy';this.inspector.appendChild(this.hierarchy);}
     if (this.resourceBrowser && this.resourceBrowser.setPreviewHost) {
       this.resourceBrowser.setPreviewHost(resource);
       this.resourceBrowser.setPreviewVisible(this.inspectorTab === 'resource' && !this.inspector.hidden);

@@ -905,6 +905,7 @@ async function testIndustrialMaterialsDuringProjectLoading() {
   assert(hmi, 'Authoring preview installs the physical HMI before switching projects.');
   assert.notStrictEqual(hmi.object.material, hmi.original);
   const authoredScreenMaterial = hmi.original;
+  const authoredScreenColor = authoredScreenMaterial.color.getHexString();
   const disposedTextures = new Set();
   hmi.texture.addEventListener('dispose', () => disposedTextures.add(hmi.texture));
   editor.industrialVisuals.rollerTextures.forEach(surface => surface.texture.addEventListener('dispose', () => disposedTextures.add(surface.texture)));
@@ -936,7 +937,7 @@ async function testIndustrialMaterialsDuringProjectLoading() {
   assert.strictEqual(editor.document.getObject(belt.userData.editorId), belt, 'A failed load restores the same editable machine.');
   assert.deepStrictEqual(await editor.document.serialize(), authored, 'A failed project load preserves authored colors, properties and references.');
   assert.strictEqual(hmi.object.material, authoredScreenMaterial);
-  assert.equal(authoredScreenMaterial.color.getHexString(), '486a85');
+  assert.equal(authoredScreenMaterial.color.getHexString(), authoredScreenColor, 'Rollback preserves the real authored HMI finish, including a protected screen colour distinct from the machine body.');
   belt.traverse(object => {
     const current = object.material ? (Array.isArray(object.material) ? object.material : [object.material]) : [];
     const originals = object.userData.editorOriginalMaterials || [];

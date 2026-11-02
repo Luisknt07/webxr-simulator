@@ -75,8 +75,20 @@ async function inspector() {
     const before = await e.document.serialize(), undo = e.document.undoStack.length;
     e.showInspectorTab('resource'); assert.equal(e.inspectorContent.hidden, true); assert.equal(visibility.at(-1), true); assert(moves.at(-1));
     assert.equal(e.inspectorTabButtons.get('resource').getAttribute('aria-selected'), 'true');
-    await e.inspectorTabButtons.get('resource').fire('keydown', {key: 'Home', preventDefault() {}});
+    await e.inspectorTabButtons.get('resource').fire('keydown', {key: 'Home', preventDefault() {}, stopPropagation() {}});
     assert.equal(e.inspectorTab, 'object'); assert.equal(editorFixture.dom.activeElement, e.inspectorTabButtons.get('object'));
+    assert.deepEqual([...e.inspectorTabButtons.keys()], ['object', 'resource', 'hierarchy']);
+    const hierarchy=e.hierarchy,tree=e.tree,search=e.treeSearch;
+    await e.inspectorTabButtons.get('object').fire('keydown', {key:'End',preventDefault(){},stopPropagation(){}});
+    assert.equal(e.inspectorTab,'hierarchy');assert.equal(editorFixture.dom.activeElement,e.inspectorTabButtons.get('hierarchy'));assert.equal(e.hierarchy.hidden,false);assert.equal(e.hierarchy.parentNode,e.inspector);assert.equal(visibility.at(-1),false,'Hierarchy must release the resource preview.');
+    const retainedQuery=object.name||object.type;e.treeSearch.value=retainedQuery;e.renderTree();const selectedRow=[...e.tree.children].find(row=>row.getAttribute('aria-selected')==='true');assert(selectedRow);await selectedRow.click();e.renderInspector();
+    assert.equal(e.inspectorTab,'hierarchy','Selecting an existing row keeps the hierarchy available.');assert.equal(e.hierarchy,hierarchy);assert.equal(e.tree,tree);assert.equal(e.treeSearch,search);assert.equal(e.treeSearch.value,retainedQuery);assert.equal(e.hierarchy.parentNode,e.inspector,'The existing tree is reattached after inspector reconstruction.');
+    await e.inspectorTabButtons.get('hierarchy').fire('keydown', {key:'ArrowRight',preventDefault(){},stopPropagation(){}});assert.equal(e.inspectorTab,'object');
+    await e.inspectorTabButtons.get('object').fire('keydown', {key:'ArrowRight',preventDefault(){},stopPropagation(){}});assert.equal(e.inspectorTab,'resource');
+    await e.inspectorTabButtons.get('resource').fire('keydown', {key:'ArrowRight',preventDefault(){},stopPropagation(){}});assert.equal(e.inspectorTab,'hierarchy');
+    await e.inspectorTabButtons.get('hierarchy').fire('keydown', {key:'ArrowLeft',preventDefault(){},stopPropagation(){}});assert.equal(e.inspectorTab,'resource');
+    const selectedTabs=[...e.inspectorTabButtons.values()].filter(control=>control.getAttribute('aria-selected')==='true');assert.equal(selectedTabs.length,1);assert.equal(selectedTabs[0],e.inspectorTabButtons.get('resource'));
+    e.treeSearch.value='';e.renderTree();e.showInspectorTab('object');
     assert.deepEqual(await e.document.serialize(), before); assert.equal(e.document.undoStack.length, undo, 'Tab/layout changes never mutate or save the project.');
   }
   e.projectSync.stop(); e.clearAssembly(true);

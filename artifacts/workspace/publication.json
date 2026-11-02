@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "cd4f6df8c0f7d9158177e62b3afde320da153feb",
-  "bundleSha256": "ed9f567e1181255f2a9d213d97d513c9da63841e2e2e9626b67c80928602daf3",
+  "revision": "a4a93de4c92a032650043fcc0e4a55149b564c19",
+  "bundleSha256": "57ab4e72e9bb4e565ec0007db14b056fb17962532ea6842a0bd42956731cab1b",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -100,7 +100,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "ed9f567e1181255f2a9d213d97d513c9da63841e2e2e9626b67c80928602daf3"
+      "sha256": "57ab4e72e9bb4e565ec0007db14b056fb17962532ea6842a0bd42956731cab1b"
     },
     {
       "path": "cad-worker.js",
@@ -3268,7 +3268,7 @@
     },
     {
       "path": "packages/tools/editor/src/workspace-layout.css",
-      "sha256": "c681c037d1870fef204dd36026f7a1f9b9f4172076fb266fa9dc37bc3c906b00"
+      "sha256": "e9c7da5a1e401f159a605729c8486e6dee43d6117a2890d31e5f93f7fcaa8cae"
     },
     {
       "path": "packages/voice-assistant/assets/README.md",
@@ -3645,8 +3645,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "e368d8db1b6e6acfb3d6",
-    "statsSha256": "f7d6ca116af75822e271ca017662b7447c90a35f9afd89543a38a94c6d1347fb",
+    "hash": "d5a5b16064b26d81245e",
+    "statsSha256": "7ede7e13ec95adf25170838c8d82fa63dbb14d70e362582b750ab468b013a1f8",
     "assets": [
       {
         "path": "0.bundle.js",
@@ -3698,7 +3698,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 6131773
+        "size": 6134308
       }
     ]
   }

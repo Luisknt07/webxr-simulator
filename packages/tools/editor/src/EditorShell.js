@@ -2,8 +2,9 @@ import SceneCatalogBrowser from './SceneCatalogBrowser.js';
 import FloorPlanEditor from './FloorPlanEditor.js';
 import DocumentationBrowser from '../../../documentation/DocumentationBrowser.js';
 
-const LAYOUT_KEY = 'hello-studio-layout-v1';
-const DEFAULT_LAYOUT = {left: 238, right: 304, bottom: 248, hierarchy: true, inspector: true, resources: true};
+const LAYOUT_KEY = 'hello-studio-layout-v2';
+const LEGACY_LAYOUT_KEY = 'hello-studio-layout-v1';
+const DEFAULT_LAYOUT = {left: 400, right: 304, bottom: 248, hierarchy: true, inspector: true, resources: true};
 
 function node(tag, className, text) {
   const result = document.createElement(tag);
@@ -29,16 +30,18 @@ export default class EditorShell {
     this.layout = Object.assign({}, DEFAULT_LAYOUT);
     try {
       const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null');
+      if(!saved){const legacy=JSON.parse(localStorage.getItem(LEGACY_LAYOUT_KEY)||'null');if(legacy&&typeof legacy==='object'){if(typeof legacy.right==='number')this.layout.right=legacy.right;if(typeof legacy.inspector==='boolean')this.layout.inspector=legacy.inspector;}}
       if (saved && typeof saved === 'object') Object.keys(DEFAULT_LAYOUT).forEach(key => {
         if (typeof saved[key] === typeof DEFAULT_LAYOUT[key]) this.layout[key] = saved[key];
       });
     } catch (_) { /* A blocked browser preference store does not block editing. */ }
-    this.menus = []; this.menuIndex = -1; this.workspace = null;
+    this.menus = []; this.menuIndex = -1; this.workspace = null;this.mobilePanel='scene';
     this.sceneCatalog = null;
     if (editor.resourceBrowser && editor.resourceBrowser.options) editor.resourceBrowser.options.onScenes = () => this.openSceneCatalog();
     this.ui.classList.add('ed-studio');
-    this.buildToolbar(); this.buildMenus(); this.buildWorkspace(); this.buildSplitters(); this.buildPreviewControls();
+    this.buildToolbar(); this.buildMenus(); this.buildWorkspace(); this.buildSplitters(); this.buildPreviewControls(); this.buildPanelDock();
     this.applyLayout();
+    if(window.addEventListener)window.addEventListener('resize',()=>this.applyLayout(false));
     document.addEventListener('pointerdown', event => { if (this.menuIndex >= 0 && !contains(this.menubar, event.target)) this.closeMenus(); });
     document.addEventListener('keydown', event => {
       if (event.code === 'Escape' && this.menuIndex >= 0) { event.preventDefault(); this.closeMenus(true); }
@@ -168,8 +171,8 @@ export default class EditorShell {
     editor.viewport.appendChild(this.sceneNavigation);
     editor.roomSelect.title = 'Nivel del proyecto actual';
     editor.roomSelect.setAttribute('aria-label', 'Nivel del proyecto actual');
-    const head = editor.treeHeader;
-    head.appendChild(button('‹', () => this.setPanel('hierarchy', false), 'ed-panel-collapse'));
+    // The existing tree is hosted by the inspector's Hierarchy tab.
+    editor.assets.setAttribute('aria-label','Biblioteca y contenido del proyecto');
     editor.viewportHelp.hidden = true;
     const help = button('⌨ Controles', () => { editor.viewportHelp.hidden = !editor.viewportHelp.hidden; }, 'ed-context-help');
     help.setAttribute('aria-label', 'Mostrar u ocultar controles del editor'); editor.viewport.appendChild(help);
@@ -429,7 +432,7 @@ export default class EditorShell {
 
   buildSplitters() {
     this.splitters = {};
-    [['left', 'vertical', 'Redimensionar jerarquía'], ['right', 'vertical', 'Redimensionar inspector'], ['bottom', 'horizontal', 'Redimensionar recursos']].forEach(([name, orientation, label]) => {
+    [['left', 'vertical', 'Redimensionar biblioteca'], ['right', 'vertical', 'Redimensionar inspector'], ['bottom', 'horizontal', 'Redimensionar recursos']].forEach(([name, orientation, label]) => {
       const splitter = node('div', 'ed-splitter ed-splitter-' + name); splitter.tabIndex = 0;
       splitter.setAttribute('role', 'separator'); splitter.setAttribute('aria-orientation', orientation); splitter.setAttribute('aria-label', label);
       splitter.addEventListener('pointerdown', event => {
@@ -454,39 +457,56 @@ export default class EditorShell {
       this.splitters[name] = splitter; this.ui.appendChild(splitter);
     });
     this.reopen = node('div', 'ed-reopen-panels');
-    [['hierarchy', 'Jerarquía'], ['inspector', 'Inspector'], ['resources', 'Recursos']].forEach(([key, label]) => {
-      const control = button(label, () => this.setPanel(key, true)); control.dataset && (control.dataset.panel = key); this.reopen.appendChild(control);
+    [['resources', 'Biblioteca'], ['inspector', 'Inspector'], ['hierarchy', 'Jerarquía']].forEach(([key, label]) => {
+      const control = button(label, () => this.setPanel(key, true)); control.setAttribute('data-panel',key); this.reopen.appendChild(control);
     });
     this.editor.viewport.appendChild(this.reopen);
   }
 
-  setPanel(name, show) { if (['hierarchy', 'inspector', 'resources'].includes(name)) { this.layout[name] = Boolean(show); this.applyLayout(); } }
-  restoreLayout() { this.layout = Object.assign({}, DEFAULT_LAYOUT); this.closeWorkspace(); this.applyLayout(); }
+  buildPanelDock() {
+    this.panelDock=node('nav','ed-panel-dock');this.panelDock.setAttribute('aria-label','Paneles del editor');
+    [['resources','Biblioteca'],['scene','Escena'],['object','Objeto'],['hierarchy','Jerarquía']].forEach(([pane,title])=>{const control=button(title,()=>this.showPanel(pane));control.setAttribute('data-editor-pane',pane);this.panelDock.appendChild(control);});this.ui.appendChild(this.panelDock);
+  }
+  showPanel(pane) {
+    this.closeWorkspace();
+    if(pane==='scene'){this.mobilePanel='scene';this.applyLayout(false);return;}
+    if(pane==='resources'){this.setPanel('resources',true);return;}
+    if(['object','resource','hierarchy'].includes(pane)){this.setPanel('inspector',true);if(this.editor.showInspectorTab)this.editor.showInspectorTab(pane);}
+  }
+  setPanel(name, show) {
+    if(!['hierarchy','inspector','resources'].includes(name))return;
+    this.layout[name]=Boolean(show);
+    if(name==='hierarchy'){
+      if(show){this.layout.inspector=true;this.mobilePanel='inspector';if(this.editor.showInspectorTab)this.editor.showInspectorTab('hierarchy');}
+      else if(this.editor.inspectorTab==='hierarchy'&&this.editor.showInspectorTab)this.editor.showInspectorTab('object');
+    }else if(show)this.mobilePanel=name;
+    else if(this.mobilePanel===name)this.mobilePanel='scene';
+    this.applyLayout();
+  }
+  restoreLayout() { this.layout=Object.assign({},DEFAULT_LAYOUT);this.mobilePanel='scene';this.closeWorkspace();this.applyLayout(); }
   applyLayout(persist = true) {
-    const width = window.innerWidth || 1280, height = window.innerHeight || 720;
-    this.layout.left = clamp(this.layout.left, 155, Math.max(160, Math.min(420, width * .28)));
-    this.layout.right = clamp(this.layout.right, 230, Math.max(240, Math.min(490, width * .34)));
-    this.layout.bottom = clamp(this.layout.bottom, 140, Math.max(145, height - 300));
-    this.ui.style.setProperty('--ed-left', this.layout.hierarchy ? this.layout.left + 'px' : '0px');
-    this.ui.style.setProperty('--ed-right', this.layout.inspector ? this.layout.right + 'px' : '0px');
-    this.ui.style.setProperty('--ed-bottom', this.layout.resources ? this.layout.bottom + 'px' : '0px');
-    this.editor.hierarchy.hidden = !this.layout.hierarchy; this.editor.inspector.hidden = !this.layout.inspector; this.editor.assets.hidden = !this.layout.resources;
-    const resourcesActive = Boolean(this.editor.active);
-    if (this.resourcesActive !== resourcesActive && this.editor.resourceBrowser) {
-      this.resourcesActive = resourcesActive; this.editor.resourceBrowser.setActive(resourcesActive); this.editor.resourceBrowser.render();
-    }
-    if (this.editor.resourceBrowser) {
-      if (this.editor.resourceBrowser.setListingVisible) this.editor.resourceBrowser.setListingVisible(this.layout.resources);
-      if (this.editor.resourceBrowser.setPreviewVisible) this.editor.resourceBrowser.setPreviewVisible(Boolean(this.layout.inspector && this.editor.inspectorTab === 'resource'));
+    const width=window.innerWidth||1280,narrow=width<=950,available=narrow?1280:width;
+    this.layout.left=clamp(this.layout.left,300,Math.max(300,Math.min(560,available*.44)));
+    this.layout.right=clamp(this.layout.right,230,Math.max(240,Math.min(490,available*.34)));
+    this.ui.setAttribute('data-editor-panel',this.mobilePanel);
+    this.ui.style.setProperty('--ed-left',this.layout.resources?this.layout.left+'px':'0px');
+    this.ui.style.setProperty('--ed-right',this.layout.inspector?this.layout.right+'px':'0px');
+    this.ui.style.setProperty('--ed-bottom','0px');
+    this.editor.inspector.hidden=!this.layout.inspector||narrow&&this.mobilePanel!=='inspector';
+    this.editor.hierarchy.hidden=this.editor.inspector.hidden||this.editor.inspectorTab!=='hierarchy';
+    this.editor.assets.hidden=!this.layout.resources||narrow&&this.mobilePanel!=='resources';
+    const resourcesActive=Boolean(this.editor.active);
+    if(this.resourcesActive!==resourcesActive&&this.editor.resourceBrowser){this.resourcesActive=resourcesActive;this.editor.resourceBrowser.setActive(resourcesActive);}
+    if(this.editor.resourceBrowser){
+      if(this.editor.resourceBrowser.setListingVisible)this.editor.resourceBrowser.setListingVisible(!this.editor.assets.hidden);
+      if(this.editor.resourceBrowser.setPreviewVisible)this.editor.resourceBrowser.setPreviewVisible(!this.editor.inspector.hidden&&this.editor.inspectorTab==='resource');
       this.editor.resourceBrowser.render();
     }
-    ['left', 'right', 'bottom'].forEach((key, index) => {
-      this.splitters[key].hidden = !this.layout[['hierarchy', 'inspector', 'resources'][index]];
-      this.splitters[key].setAttribute('aria-valuenow', Math.round(this.layout[key]));
-    });
-    Array.from(this.reopen.children).forEach((control, index) => { control.hidden = this.layout[['hierarchy', 'inspector', 'resources'][index]]; });
-    if (persist) try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(this.layout)); } catch (_) { /* Layout remains usable for this visit. */ }
-    if (this.editor.orbit) this.editor.resize();
+    ['left','right','bottom'].forEach(key=>{const splitter=this.splitters[key];splitter.hidden=key==='bottom'||narrow||!this.layout[key==='left'?'resources':'inspector'];splitter.setAttribute('aria-valuenow',Math.round(this.layout[key]));splitter.tabIndex=splitter.hidden?-1:0;});
+    Array.from(this.reopen.children).forEach(control=>{const key=control.getAttribute('data-panel');control.hidden=key==='hierarchy'?this.layout.inspector&&this.editor.inspectorTab==='hierarchy':this.layout[key];});
+    if(this.panelDock)Array.from(this.panelDock.children).forEach(control=>{const pane=control.getAttribute('data-editor-pane'),active=pane==='scene'?this.mobilePanel==='scene':pane==='resources'?this.mobilePanel==='resources':this.mobilePanel==='inspector'&&this.editor.inspectorTab===pane;control.setAttribute('aria-pressed',String(active));control.classList.toggle('active',active);});
+    if(persist)try{localStorage.setItem(LAYOUT_KEY,JSON.stringify(this.layout));}catch(_){}
+    if(this.editor.orbit)this.editor.resize();
   }
 
   refresh() {
