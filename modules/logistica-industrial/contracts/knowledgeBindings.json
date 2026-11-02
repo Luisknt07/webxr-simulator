@@ -1,0 +1,881 @@
+{
+  "version": 1,
+  "semantics": {
+    "exact": "Available native educational representation of this equipment type; not OEM certification or full article capability.",
+    "family": "Related existing equipment or integrated component only; this does not authorize inserting a new machine."
+  },
+  "links": {
+    "TR-01": [
+      {
+        "resourceId": "library:conveyor.roller-gravity",
+        "relation": "exact"
+      }
+    ],
+    "TR-02": [
+      {
+        "resourceId": "library:conveyor.straight",
+        "relation": "exact"
+      }
+    ],
+    "TR-03": [
+      {
+        "resourceId": "library:conveyor.belt",
+        "relation": "exact"
+      }
+    ],
+    "TR-04": [
+      {
+        "resourceId": "library:conveyor.modular-curve",
+        "relation": "family"
+      },
+      {
+        "resourceId": "library:conveyor.modular-incline",
+        "relation": "family"
+      }
+    ],
+    "TR-05": [
+      {
+        "resourceId": "library:conveyor.pallet-chain",
+        "relation": "exact"
+      }
+    ],
+    "TR-06": [
+      {
+        "resourceId": "library:conveyor.accumulator",
+        "relation": "exact"
+      },
+      {
+        "resourceId": "library:conveyor.belt-zones",
+        "relation": "family"
+      }
+    ],
+    "TR-07": [
+      {
+        "resourceId": "library:conveyor.curve",
+        "relation": "exact"
+      },
+      {
+        "resourceId": "library:conveyor.belt-curve",
+        "relation": "exact"
+      },
+      {
+        "resourceId": "library:conveyor.modular-curve",
+        "relation": "exact"
+      }
+    ],
+    "TR-08": [
+      {
+        "resourceId": "library:conveyor.junction",
+        "relation": "family"
+      },
+      {
+        "resourceId": "library:conveyor.transfer",
+        "relation": "family"
+      },
+      {
+        "resourceId": "library:conveyor.popup-chain",
+        "relation": "family"
+      }
+    ],
+    "TR-09": [
+      {
+        "resourceId": "library:conveyor.popup-chain",
+        "relation": "exact"
+      },
+      {
+        "resourceId": "library:conveyor.transfer",
+        "relation": "family"
+      }
+    ],
+    "TR-10": [
+      {
+        "resourceId": "library:conveyor.roller-turntable",
+        "relation": "exact"
+      },
+      {
+        "resourceId": "library:conveyor.pallet-turntable",
+        "relation": "exact"
+      }
+    ],
+    "TR-11": [
+      {
+        "resourceId": "library:conveyor.pusher",
+        "relation": "exact"
+      },
+      {
+        "resourceId": "library:conveyor.steer",
+        "relation": "exact"
+      }
+    ],
+    "TR-12": [],
+    "TR-13": [
+      {
+        "resourceId": "library:conveyor.elevator",
+        "relation": "exact"
+      },
+      {
+        "resourceId": "library:conveyor.pallet-elevator",
+        "relation": "exact"
+      }
+    ],
+    "TR-14": [],
+    "TR-15": [],
+    "TR-16": [],
+    "TR-17": [
+      {
+        "resourceId": "library:vehicle.sorter",
+        "relation": "family"
+      }
+    ],
+    "TR-18": [
+      {
+        "resourceId": "library:robot.mobile-sorter-tilttray",
+        "relation": "family"
+      }
+    ],
+    "TR-19": [
+      {
+        "resourceId": "library:robot.shuttle",
+        "relation": "family"
+      }
+    ],
+    "TR-20": [],
+    "TR-21": [],
+    "TR-22": [],
+    "TR-23": [],
+    "VE-01": [
+      {
+        "resourceId": "library:vehicle.cart",
+        "relation": "family"
+      }
+    ],
+    "VE-02": [
+      {
+        "resourceId": "library:vehicle.pallet-truck",
+        "relation": "exact"
+      }
+    ],
+    "VE-03": [
+      {
+        "resourceId": "library:vehicle.pallet-truck-electric",
+        "relation": "exact"
+      }
+    ],
+    "VE-04": [
+      {
+        "resourceId": "library:vehicle.stacker",
+        "relation": "exact"
+      }
+    ],
+    "VE-05": [
+      {
+        "resourceId": "library:vehicle.forklift",
+        "relation": "exact"
+      },
+      {
+        "resourceId": "library:vehicle.forklift-electric-3w",
+        "relation": "exact"
+      },
+      {
+        "resourceId": "library:vehicle.forklift-ic",
+        "relation": "exact"
+      }
+    ],
+    "VE-06": [
+      {
+        "resourceId": "library:vehicle.reach-truck",
+        "relation": "exact"
+      }
+    ],
+    "VE-07": [
+      {
+        "resourceId": "library:vehicle.vna-turret",
+        "relation": "exact"
+      }
+    ],
+    "VE-08": [
+      {
+        "resourceId": "library:vehicle.order-picker",
+        "relation": "exact"
+      }
+    ],
+    "VE-09": [
+      {
+        "resourceId": "library:vehicle.tow-tractor",
+        "relation": "exact"
+      }
+    ],
+    "VE-10": [
+      {
+        "resourceId": "library:robot.agv",
+        "relation": "exact"
+      }
+    ],
+    "VE-11": [
+      {
+        "resourceId": "library:vehicle.forklift",
+        "relation": "family"
+      }
+    ],
+    "VE-12": [
+      {
+        "resourceId": "library:vehicle.mobile",
+        "relation": "exact"
+      }
+    ],
+    "VE-13": [
+      {
+        "resourceId": "library:vehicle.mobile",
+        "relation": "family"
+      }
+    ],
+    "VE-14": [
+      {
+        "resourceId": "library:vehicle.forklift",
+        "relation": "family"
+      }
+    ],
+    "VE-15": [
+      {
+        "resourceId": "library:vehicle.tow-tractor",
+        "relation": "family"
+      }
+    ],
+    "VE-16": [],
+    "VE-17": [
+      {
+        "resourceId": "library:robot.shuttle",
+        "relation": "exact"
+      }
+    ],
+    "VE-18": [],
+    "VE-19": [
+      {
+        "resourceId": "library:vehicle.telehandler",
+        "relation": "family"
+      }
+    ],
+    "VE-20": [],
+    "AL-01": [
+      {
+        "resourceId": "library:storage.rack",
+        "relation": "exact"
+      }
+    ],
+    "AL-02": [
+      {
+        "resourceId": "library:rack.double-deep",
+        "relation": "exact"
+      }
+    ],
+    "AL-03": [
+      {
+        "resourceId": "library:rack.drive-in",
+        "relation": "exact"
+      }
+    ],
+    "AL-04": [
+      {
+        "resourceId": "library:rack.drive-through",
+        "relation": "exact"
+      }
+    ],
+    "AL-05": [
+      {
+        "resourceId": "library:rack.push-back",
+        "relation": "exact"
+      }
+    ],
+    "AL-06": [
+      {
+        "resourceId": "library:rack.pallet-flow",
+        "relation": "exact"
+      }
+    ],
+    "AL-07": [
+      {
+        "resourceId": "library:rack.cantilever",
+        "relation": "exact"
+      }
+    ],
+    "AL-08": [
+      {
+        "resourceId": "library:rack.mobile",
+        "relation": "exact"
+      }
+    ],
+    "AL-09": [
+      {
+        "resourceId": "library:robot.shuttle",
+        "relation": "family"
+      },
+      {
+        "resourceId": "library:storage.rack",
+        "relation": "family"
+      }
+    ],
+    "AL-10": [
+      {
+        "resourceId": "library:storage.automatic",
+        "relation": "family"
+      }
+    ],
+    "AL-11": [
+      {
+        "resourceId": "library:rack.miniload",
+        "relation": "exact"
+      }
+    ],
+    "AL-12": [
+      {
+        "resourceId": "library:rack.miniload",
+        "relation": "family"
+      }
+    ],
+    "AL-13": [
+      {
+        "resourceId": "library:rack.miniload",
+        "relation": "family"
+      }
+    ],
+    "AL-14": [
+      {
+        "resourceId": "library:storage.automatic",
+        "relation": "exact"
+      }
+    ],
+    "AL-15": [
+      {
+        "resourceId": "library:storage.automatic",
+        "relation": "family"
+      }
+    ],
+    "AL-16": [
+      {
+        "resourceId": "library:rack.carton-flow",
+        "relation": "exact"
+      }
+    ],
+    "AL-17": [
+      {
+        "resourceId": "library:rack.light-duty",
+        "relation": "exact"
+      },
+      {
+        "resourceId": "library:rack.medium-duty",
+        "relation": "exact"
+      }
+    ],
+    "AL-18": [
+      {
+        "resourceId": "library:storage.pallet",
+        "relation": "exact"
+      }
+    ],
+    "UC-01": [
+      {
+        "resourceId": "library:product.box",
+        "relation": "exact"
+      },
+      {
+        "resourceId": "library:product.box-medium",
+        "relation": "exact"
+      },
+      {
+        "resourceId": "library:product.box-large",
+        "relation": "exact"
+      }
+    ],
+    "UC-02": [
+      {
+        "resourceId": "library:product.pallet-loaded",
+        "relation": "exact"
+      }
+    ],
+    "UC-03": [
+      {
+        "resourceId": "library:product.pallet-euro",
+        "relation": "exact"
+      },
+      {
+        "resourceId": "library:product.pallet-industrial",
+        "relation": "exact"
+      }
+    ],
+    "UC-04": [
+      {
+        "resourceId": "library:product.pallet-plastic",
+        "relation": "exact"
+      }
+    ],
+    "UC-05": [
+      {
+        "resourceId": "library:product.pallet-plastic",
+        "relation": "family"
+      }
+    ],
+    "UC-06": [
+      {
+        "resourceId": "library:product.tote",
+        "relation": "exact"
+      },
+      {
+        "resourceId": "library:product.crate",
+        "relation": "exact"
+      }
+    ],
+    "UC-07": [
+      {
+        "resourceId": "library:product.sack",
+        "relation": "exact"
+      }
+    ],
+    "UC-08": [
+      {
+        "resourceId": "library:product.drum",
+        "relation": "exact"
+      }
+    ],
+    "UC-09": [
+      {
+        "resourceId": "library:product.jerrycan",
+        "relation": "family"
+      }
+    ],
+    "UC-10": [
+      {
+        "resourceId": "library:product.bottle",
+        "relation": "family"
+      }
+    ],
+    "UC-11": [],
+    "UC-12": [],
+    "UC-13": [],
+    "UC-14": [],
+    "UC-15": [],
+    "UC-16": [
+      {
+        "resourceId": "library:rack.cantilever",
+        "relation": "family"
+      }
+    ],
+    "UC-17": [],
+    "UC-18": [
+      {
+        "resourceId": "library:product.cylinder",
+        "relation": "family"
+      }
+    ],
+    "MU-01": [],
+    "MU-02": [],
+    "MU-03": [],
+    "MU-04": [
+      {
+        "resourceId": "library:conveyor.manual-station",
+        "relation": "family"
+      }
+    ],
+    "MU-05": [],
+    "MU-06": [],
+    "MU-07": [],
+    "MU-08": [],
+    "MU-09": [
+      {
+        "resourceId": "library:conveyor.loading",
+        "relation": "family"
+      },
+      {
+        "resourceId": "library:conveyor.automatic-station",
+        "relation": "family"
+      }
+    ],
+    "MU-10": [
+      {
+        "resourceId": "library:conveyor.loading",
+        "relation": "family"
+      }
+    ],
+    "MU-11": [
+      {
+        "resourceId": "library:conveyor.pallet-elevator",
+        "relation": "family"
+      }
+    ],
+    "MU-12": [
+      {
+        "resourceId": "library:conveyor.automatic-station",
+        "relation": "family"
+      }
+    ],
+    "PI-01": [
+      {
+        "resourceId": "library:vehicle.cart",
+        "relation": "family"
+      }
+    ],
+    "PI-02": [],
+    "PI-03": [],
+    "PI-04": [],
+    "PI-05": [
+      {
+        "resourceId": "library:rack.miniload",
+        "relation": "family"
+      }
+    ],
+    "PI-06": [
+      {
+        "resourceId": "library:vehicle.industrial",
+        "relation": "family"
+      }
+    ],
+    "PI-07": [
+      {
+        "resourceId": "library:conveyor.manual-station",
+        "relation": "family"
+      }
+    ],
+    "PI-08": [
+      {
+        "resourceId": "library:conveyor.manual-station",
+        "relation": "family"
+      }
+    ],
+    "EM-01": [
+      {
+        "resourceId": "library:conveyor.manual-station",
+        "relation": "family"
+      }
+    ],
+    "EM-02": [],
+    "EM-03": [],
+    "EM-04": [],
+    "EM-05": [],
+    "EM-06": [],
+    "EM-07": [],
+    "EM-08": [],
+    "EM-09": [
+      {
+        "resourceId": "library:storage.dispenser",
+        "relation": "family"
+      }
+    ],
+    "EM-10": [
+      {
+        "resourceId": "library:machine.palletizer",
+        "relation": "family"
+      }
+    ],
+    "EM-11": [
+      {
+        "resourceId": "library:robot.palletizer",
+        "relation": "family"
+      },
+      {
+        "resourceId": "library:storage.pallet",
+        "relation": "family"
+      }
+    ],
+    "EM-12": [
+      {
+        "resourceId": "library:robot.palletizer",
+        "relation": "family"
+      }
+    ],
+    "RO-01": [
+      {
+        "resourceId": "library:vehicle.industrial",
+        "relation": "exact"
+      }
+    ],
+    "RO-02": [
+      {
+        "resourceId": "library:robot.palletizer",
+        "relation": "exact"
+      }
+    ],
+    "RO-03": [
+      {
+        "resourceId": "library:robot.scara",
+        "relation": "exact"
+      }
+    ],
+    "RO-04": [
+      {
+        "resourceId": "library:robot.delta",
+        "relation": "exact"
+      }
+    ],
+    "RO-05": [
+      {
+        "resourceId": "library:robot.cartesian",
+        "relation": "exact"
+      }
+    ],
+    "RO-06": [
+      {
+        "resourceId": "library:robot.cartesian",
+        "relation": "exact"
+      }
+    ],
+    "RO-07": [
+      {
+        "resourceId": "library:vehicle.collaborative",
+        "relation": "family"
+      }
+    ],
+    "RO-08": [
+      {
+        "resourceId": "library:vehicle.mobile",
+        "relation": "family"
+      }
+    ],
+    "RO-09": [
+      {
+        "resourceId": "library:vehicle.mobile-manipulator",
+        "relation": "exact"
+      }
+    ],
+    "RO-10": [
+      {
+        "resourceId": "library:robot.articulated-process",
+        "relation": "family"
+      }
+    ],
+    "RO-11": [
+      {
+        "resourceId": "library:robot.articulated-process",
+        "relation": "family"
+      }
+    ],
+    "RO-12": [
+      {
+        "resourceId": "library:vehicle.industrial",
+        "relation": "family"
+      }
+    ],
+    "RO-13": [
+      {
+        "resourceId": "library:robot.articulated-process",
+        "relation": "family"
+      }
+    ],
+    "RO-14": [
+      {
+        "resourceId": "library:vehicle.industrial",
+        "relation": "family"
+      }
+    ],
+    "EO-01": [
+      {
+        "resourceId": "library:vehicle.industrial",
+        "relation": "family"
+      },
+      {
+        "resourceId": "library:robot.scara",
+        "relation": "family"
+      }
+    ],
+    "EO-02": [
+      {
+        "resourceId": "library:robot.palletizer",
+        "relation": "family"
+      }
+    ],
+    "EO-03": [
+      {
+        "resourceId": "library:vehicle.industrial",
+        "relation": "family"
+      }
+    ],
+    "EO-04": [],
+    "EO-05": [],
+    "EO-06": [],
+    "EO-07": [],
+    "EO-08": [],
+    "EO-09": [],
+    "EO-10": [],
+    "EO-11": [],
+    "EO-12": [
+      {
+        "resourceId": "library:vehicle.industrial",
+        "relation": "family"
+      }
+    ],
+    "EO-13": [],
+    "EO-14": [],
+    "EO-15": [
+      {
+        "resourceId": "library:robot.articulated-process",
+        "relation": "family"
+      }
+    ],
+    "EO-16": [
+      {
+        "resourceId": "library:robot.articulated-process",
+        "relation": "family"
+      }
+    ],
+    "EO-17": [],
+    "EO-18": [],
+    "EO-19": [
+      {
+        "resourceId": "library:robot.articulated-process",
+        "relation": "family"
+      }
+    ],
+    "EO-20": [],
+    "EO-21": [
+      {
+        "resourceId": "library:robot.articulated-process",
+        "relation": "family"
+      }
+    ],
+    "EO-22": [],
+    "EO-23": [],
+    "EO-24": [],
+    "EO-25": [],
+    "EO-26": [],
+    "EO-27": [],
+    "MA-01": [],
+    "MA-02": [],
+    "MA-03": [],
+    "MA-04": [],
+    "MA-05": [],
+    "MA-06": [],
+    "MA-07": [],
+    "MA-08": [],
+    "MA-09": [],
+    "MA-10": [],
+    "MA-11": [],
+    "MA-12": [],
+    "MA-13": [],
+    "MA-14": [],
+    "MA-15": [],
+    "MA-16": [
+      {
+        "resourceId": "library:processor.combine",
+        "relation": "family"
+      }
+    ],
+    "MA-17": [],
+    "MA-18": [],
+    "MA-19": [],
+    "MA-20": [
+      {
+        "resourceId": "library:processor.process",
+        "relation": "family"
+      }
+    ],
+    "MA-21": [
+      {
+        "resourceId": "library:machine.filler",
+        "relation": "family"
+      }
+    ],
+    "MA-22": [],
+    "SE-01": [
+      {
+        "resourceId": "library:control.sensor",
+        "relation": "exact"
+      }
+    ],
+    "SE-02": [
+      {
+        "resourceId": "library:control.sensor",
+        "relation": "family"
+      }
+    ],
+    "SE-03": [
+      {
+        "resourceId": "library:vehicle.industrial",
+        "relation": "family"
+      }
+    ],
+    "SE-04": [],
+    "SE-05": [],
+    "SE-06": [
+      {
+        "resourceId": "library:conveyor.straight",
+        "relation": "family"
+      }
+    ],
+    "SE-07": [
+      {
+        "resourceId": "library:vehicle.industrial",
+        "relation": "family"
+      }
+    ],
+    "SE-08": [
+      {
+        "resourceId": "library:vehicle.forklift",
+        "relation": "family"
+      }
+    ],
+    "SE-09": [],
+    "SE-10": [],
+    "SE-11": [
+      {
+        "resourceId": "library:control.panel",
+        "relation": "family"
+      }
+    ],
+    "SE-12": [],
+    "SI-01": [],
+    "SI-02": [
+      {
+        "resourceId": "library:storage.rack",
+        "relation": "family"
+      }
+    ],
+    "SI-03": [
+      {
+        "resourceId": "library:control.panel",
+        "relation": "family"
+      }
+    ],
+    "SI-04": [],
+    "SI-05": [],
+    "SI-06": [
+      {
+        "resourceId": "library:widget.lineMonitor",
+        "relation": "family"
+      }
+    ],
+    "SI-07": [
+      {
+        "resourceId": "library:control.panel",
+        "relation": "exact"
+      }
+    ],
+    "SI-08": [
+      {
+        "resourceId": "library:control.panel",
+        "relation": "exact"
+      }
+    ],
+    "SI-09": [
+      {
+        "resourceId": "library:vehicle.industrial",
+        "relation": "family"
+      }
+    ],
+    "SI-10": [
+      {
+        "resourceId": "library:vehicle.mobile",
+        "relation": "family"
+      }
+    ],
+    "SI-11": [
+      {
+        "resourceId": "library:widget.lineMonitor",
+        "relation": "family"
+      }
+    ],
+    "SI-12": [
+      {
+        "resourceId": "library:education.mission",
+        "relation": "family"
+      }
+    ]
+  }
+}

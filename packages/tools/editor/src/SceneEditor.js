@@ -224,6 +224,9 @@ export default class SceneEditor {
         grid: this.assetGrid, folderList: this.folderList, preview: this.preview,
         onPlace: resource => this.placeResource(resource),
         onExploreEquipment: resource => this.conveyorViewer && this.conveyorViewer.open(resource),
+        onDocumentation: target => this.shell && this.shell.openDocumentation(target),
+        isModuleAvailable: moduleId => !this.projectModules || this.projectModules.canShowLevel(moduleId),
+        canInsert: () => Boolean(this.active && this.canEditDocument() && !this.loadingProject),
         onImport: () => this.assetInput.click(),
         onSceneContext: () => ({document: this.document, roomId: this.roomId}),
         onChange: organization => this.document.setStudio({organization}),
@@ -2557,6 +2560,7 @@ export default class SceneEditor {
 
   renderAssets() {
     if (!this.editorEnabled) return;
+    if (this.shell && this.shell.documentation) this.shell.documentation.refreshContext();
     if (this.resourceBrowser) {
       const studio = this.document.studio || {};
       this.resourceBrowser.setEntries(this.entries);
@@ -2606,6 +2610,10 @@ export default class SceneEditor {
   }
 
   async placeResource(resource) {
+    const current = this.resourceBrowser && this.resourceBrowser.resources.find(row => resource && row.id === resource.id);
+    if (!current || !this.active || this.loadingProject || !this.canEditDocument() || current.moduleId && this.projectModules && !this.projectModules.canShowLevel(current.moduleId)) return this.toast('El recurso requiere un módulo habilitado y permiso de edición.');
+    resource = current;
+    const generation = this.projectGeneration, roomId = this.roomId;
     const action = resource && resource.action;
     if (!action) return;
     if (resource.status === 'development' || resource.status === 'En desarrollo') return this.toast(resource.reason || 'Este recurso está en desarrollo.');
@@ -2620,6 +2628,7 @@ export default class SceneEditor {
     if (action.type === 'workspace') return this.shell && this.shell.openWorkspace(action.workspace);
     if (action.type === 'studio') return this.studioTools && typeof this.studioTools[action.method] === 'function' && this.studioTools[action.method]();
     return this.perform(() => {
+      if (generation !== this.projectGeneration || roomId !== this.roomId || !this.active || !this.canEditDocument() || current.moduleId && this.projectModules && !this.projectModules.canShowLevel(current.moduleId)) return;
       if (action.type === 'primitive') return this.createPlacedObject(() => this.document.addPrimitive(this.roomId, action.kind));
       if (action.type === 'prefab') {
         const object = this.createPlacedObject(() => this.document.addPrefab(this.roomId, action.kind, action.variant));

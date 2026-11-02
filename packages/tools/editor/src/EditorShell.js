@@ -1,5 +1,6 @@
 import SceneCatalogBrowser from './SceneCatalogBrowser.js';
 import FloorPlanEditor from './FloorPlanEditor.js';
+import DocumentationBrowser from '../../../documentation/DocumentationBrowser.js';
 
 const LAYOUT_KEY = 'hello-studio-layout-v1';
 const DEFAULT_LAYOUT = {left: 238, right: 304, bottom: 248, hierarchy: true, inspector: true, resources: true};
@@ -127,6 +128,7 @@ export default class EditorShell {
     toolbar.appendChild(editor.saveButton);
     const guide = button('Guía', () => editor.sceneGuide ? editor.sceneGuide.open() : editor.toast('La guía se está preparando.'));
     guide.title = 'Construir un escenario a partir de instrucciones'; toolbar.appendChild(guide);
+    toolbar.appendChild(button('▤ Documentación', () => this.openDocumentation(), 'ed-documentation-open'));
     toolbar.appendChild(editor.undoButton); toolbar.appendChild(editor.redoButton);
     const tools = node('div', 'ed-toolbar-group'); tools.setAttribute('role', 'group'); tools.setAttribute('aria-label', 'Herramienta de transformación');
     this.selectButton = button('↖ Seleccionar', () => editor.setTool('select'));
@@ -232,6 +234,7 @@ export default class EditorShell {
         ['Resultados y eventos', () => this.openWorkspace('results')]
       ]],
       ['Ventana', [
+        ['Documentación del módulo', () => this.openDocumentation()],
         ['Biblioteca', () => this.openResources('library')], ['Proyecto', () => this.openResources('project')], ['Favoritos', () => this.openResources('favorites')],
         ['Jerarquía', () => this.setPanel('hierarchy', !this.layout.hierarchy), '', () => true, () => this.layout.hierarchy],
         ['Inspector', () => this.setPanel('inspector', !this.layout.inspector), '', () => true, () => this.layout.inspector], null,
@@ -241,6 +244,7 @@ export default class EditorShell {
         ['Ocultar / mostrar recursos', () => this.setPanel('resources', !this.layout.resources)], ['Restaurar distribución', () => this.restoreLayout()]
       ]],
       ['Ayuda', [
+        ['Documentación de equipos y operaciones', () => this.openDocumentation()],
         ['Controles del editor', () => { e.viewportHelp.hidden = !e.viewportHelp.hidden; }],
         ['Enfocar selección', () => e.focus(), 'F'], ['Vista inicial', () => e.home()],
         ['Acerca de SMART-TWIN Simulator', () => this.openWorkspace('help')]
@@ -315,8 +319,8 @@ export default class EditorShell {
     this.worktabs = node('div', 'ed-workspace-tabs'); this.worktabs.setAttribute('role', 'tablist');
     this.worktabs.appendChild(button('◇ Escenario 3D', () => this.closeWorkspace()));
     this.workspaceTabs = new Map();
-    [['interface', 'Interfaz'], ['logic', 'Lógica y misiones'], ['signals', 'Señales'], ['results', 'Resultados'], ['console', 'Consola'], ['cameras', 'Cámaras']].forEach(([id, label]) => {
-      const tab = button(label, () => this.openWorkspace(id)); tab.setAttribute('role', 'tab'); tab.hidden = true;
+    [['documentation', 'Documentación'], ['interface', 'Interfaz'], ['logic', 'Lógica y misiones'], ['signals', 'Señales'], ['results', 'Resultados'], ['console', 'Consola'], ['cameras', 'Cámaras']].forEach(([id, label]) => {
+      const tab = button(label, () => this.openWorkspace(id)); tab.setAttribute('role', 'tab'); tab.hidden = id !== 'documentation';
       this.workspaceTabs.set(id, tab); this.worktabs.appendChild(tab);
     });
     this.worktabs.appendChild(button('×', () => this.closeWorkspace(), 'ed-workspace-close'));
@@ -347,11 +351,24 @@ export default class EditorShell {
   openWorkspace(id) {
     this.closeMenus(); this.editor.clearNavigation(); this.workspace = id; this.workarea.hidden = false;
     this.workarea.classList.toggle('ed-workspace-side', ['connections', 'environment'].includes(id));
+    this.workarea.classList.toggle('ed-workspace-documentation', id === 'documentation');
     this.workspaceTabs.forEach((tab, key) => { if (key === id) tab.hidden = false; tab.classList.toggle('active', key === id); tab.setAttribute('aria-selected', String(key === id)); });
     if (this.editor.simulationPanel && this.editor.simulationPanel.panel.parentNode === this.workcontent) this.editor.simulationPanel.toggle(false);
     if (this.workcontent.dispatchEvent) this.workcontent.dispatchEvent(new Event('studio-workspace-close'));
     this.workcontent.textContent = '';
-    if (id === 'signals' || id === 'results' || id === 'console') {
+    if (id === 'documentation') {
+      const editor = this.editor;
+      this.documentation = new DocumentationBrowser(this.workcontent, {
+        initialTarget: this.documentationTarget,
+        getProviders: () => editor.studioTools && editor.studioTools.documentationProviders ? editor.studioTools.documentationProviders() : [],
+        getContextKey: () => String(editor.currentProject && editor.currentProject.id || '') + ':' + editor.projectGeneration,
+        getResources: () => editor.resourceBrowser ? editor.resourceBrowser.resources.filter(resource => !resource.moduleId || !editor.projectModules || editor.projectModules.canShowLevel(resource.moduleId)) : [],
+        onResource: target => this.openDocumentationResource(target)
+      });
+      const current = this.documentation;
+      this.workcontent.addEventListener('studio-workspace-close', () => { current.dispose(); if (this.documentation === current) this.documentation = null; }, {once: true});
+      this.documentationTarget = null;
+    } else if (id === 'signals' || id === 'results' || id === 'console') {
       const monitor = this.editor.simulationPanel;
       monitor.panel.classList.add('ed-docked-simulation'); this.workcontent.appendChild(monitor.panel); monitor.toggle(true); monitor.render(true);
     } else if (id === 'help') {
@@ -374,6 +391,20 @@ export default class EditorShell {
   }
 
   openResources(tab) { this.setPanel('resources', true); if (this.editor.resourceBrowser) this.editor.resourceBrowser.openTab(tab); }
+  openDocumentation(target) {
+    this.documentationTarget = target || null;
+    this.openWorkspace('documentation');
+  }
+  openDocumentationResource(target) {
+    const editor = this.editor, browser = editor.resourceBrowser;
+    if (!browser || target.moduleId && editor.projectModules && !editor.projectModules.canShowLevel(target.moduleId)) return;
+    const resource = browser.resources.find(row => row.id === target.resourceId);
+    if (!resource) return editor.toast('El recurso no está disponible en este proyecto.');
+    this.closeWorkspace(); this.openResources('library');
+    Object.assign(browser.state, {folder: '', query: resource.technicalName || resource.name, kind: 'all', status: 'all', scroll: 0});
+    browser.refresh(); browser.select(resource.id);
+    const card = browser.cards.get(resource.id); if (card && card.scrollIntoView) card.scrollIntoView({block: 'nearest'});
+  }
   openScenes() {
     this.setPanel('resources', true);
     if (this.editor.resourceBrowser) this.editor.resourceBrowser.showScenes();

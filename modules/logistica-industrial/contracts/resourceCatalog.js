@@ -9,6 +9,7 @@ const vehicleEquipment = require('../functions/montacargas/schema/vehicle-equipm
 const productEquipment = require('../functions/flujo-materiales/schema/product-equipment');
 const sceneResources = require('../../../packages/project-model/shared/scene-resources');
 const warehouseRacks = require('../functions/almacenamiento/schema/warehouseRacks');
+const libraryTaxonomy = require('./libraryTaxonomy.js');
 const VERSION = 1;
 const STATUS = {functional: 'Funcional', visual: 'Solo visual', development: 'En desarrollo'};
 const FOLDERS = [
@@ -108,7 +109,7 @@ function rackResources() {
   return warehouseRacks.SYSTEMS.map(system => prefab(system.id === 'selective' ? 'storage.rack' : system.id === 'vertical-lift' ? 'storage.automatic' : 'rack.' + system.id,
     system.label, system.category, system.description, 'palletQueue', system.id, {
       category: 'racks', kind: 'equipment', family: system.mechanism, variant: system.id,
-      components: ['Estructura y apoyos', 'Ubicaciones independientes', 'Panel de mando', 'Inventario y conexiones'],
+      components: ['Estructura y apoyos', 'Ubicaciones identificadas', 'Configuración en el inspector', 'Inventario y conexiones'],
       parameters: ['Módulos', 'Niveles', 'Posiciones a fondo', 'Dimensiones y holguras', 'Carga por posición y nivel', 'Referencia por calle', 'Salida y mecanismo'],
       ports: ['Entrada de cargas', 'Salida de cargas'], tags: ['almacén', 'estantería', 'rack', system.category, system.policy, system.acceptedLoad],
       synonyms: [system.id, system.acceptedLoad === 'pallet' ? 'pallets estibas montacargas' : 'cajas bandejas picking', 'almacenamiento configurable']
@@ -217,7 +218,7 @@ function applyOrganization(resources, organization) {
   });
 }
 function matches(resource, query) {
-  const haystack = folded([resource.name, resource.technicalName, resource.description].concat(resource.tags || [], resource.synonyms || []).join(' '));
+  const haystack = folded([resource.name, resource.technicalName, resource.description, resource.documentationSearch].concat(resource.tags || [], resource.synonyms || []).join(' '));
   return folded(query).split(/\s+/).filter(Boolean).every(term => haystack.includes(term));
 }
 function folderContains(folderId, resourceFolderId, folders) {
@@ -233,6 +234,6 @@ function folderContains(folderId, resourceFolderId, folders) {
   return false;
 }
 
-module.exports = {VERSION, STATUS, FOLDERS, CATEGORIES, CONVEYOR_FAMILIES, ROBOT_FAMILIES: robotEquipment.FAMILIES, VEHICLE_FAMILIES: vehicleEquipment.families,
+module.exports = {VERSION, STATUS, FOLDERS, CATEGORIES, libraryTaxonomy, CONVEYOR_FAMILIES, ROBOT_FAMILIES: robotEquipment.FAMILIES, VEHICLE_FAMILIES: vehicleEquipment.families,
   MOBILITY_FAMILIES: robotEquipment.FAMILIES.concat(vehicleEquipment.families), PRODUCT_TYPES: productEquipment.PRODUCT_TYPES,
   RESOURCES, conveyorResources, robotResources, vehicleResources, productResources, rackResources, assetResource, projectResources, normalizeOrganization, foldersFor, applyOrganization, matches, folderContains, defaultFolder, sceneResources};

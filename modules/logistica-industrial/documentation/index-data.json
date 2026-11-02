@@ -1,0 +1,4010 @@
+{
+  "id": "logistica-industrial-knowledge",
+  "moduleId": "sector.logistics-industrial",
+  "title": "Logística y manufactura",
+  "description": "Biblioteca conceptual de equipos, herramientas, operaciones y sistemas vinculada al catálogo real del editor.",
+  "source": {
+    "id": "nexus-base-conceptual-2026",
+    "title": "NEXUS · Base conceptual de equipos, robótica y operaciones",
+    "filename": "NEXUS_Base_Conceptual_Equipos_Logistica_Manufactura.docx",
+    "sha256": "eb77ebdd20f5b87cb7f734015bb567b29a03e88e9ac796448c883aa6f1b6c755",
+    "counts": {
+      "paragraphs": 3564,
+      "nonemptyParagraphs": 3153,
+      "headings": 319,
+      "tables": 213,
+      "hyperlinks": 209,
+      "imageReferences": 198,
+      "media": 198
+    }
+  },
+  "families": [
+    {
+      "id": "TR",
+      "title": "Transportadores y transferencias",
+      "count": 23,
+      "chapterId": "chapter-3-1",
+      "articleIds": [
+        "TR-01",
+        "TR-02",
+        "TR-03",
+        "TR-04",
+        "TR-05",
+        "TR-06",
+        "TR-07",
+        "TR-08",
+        "TR-09",
+        "TR-10",
+        "TR-11",
+        "TR-12",
+        "TR-13",
+        "TR-14",
+        "TR-15",
+        "TR-16",
+        "TR-17",
+        "TR-18",
+        "TR-19",
+        "TR-20",
+        "TR-21",
+        "TR-22",
+        "TR-23"
+      ]
+    },
+    {
+      "id": "VE",
+      "title": "Vehículos, transporte e izaje",
+      "count": 20,
+      "chapterId": "chapter-3-2",
+      "articleIds": [
+        "VE-01",
+        "VE-02",
+        "VE-03",
+        "VE-04",
+        "VE-05",
+        "VE-06",
+        "VE-07",
+        "VE-08",
+        "VE-09",
+        "VE-10",
+        "VE-11",
+        "VE-12",
+        "VE-13",
+        "VE-14",
+        "VE-15",
+        "VE-16",
+        "VE-17",
+        "VE-18",
+        "VE-19",
+        "VE-20"
+      ]
+    },
+    {
+      "id": "AL",
+      "title": "Racks y sistemas de almacenamiento",
+      "count": 18,
+      "chapterId": "chapter-3-3",
+      "articleIds": [
+        "AL-01",
+        "AL-02",
+        "AL-03",
+        "AL-04",
+        "AL-05",
+        "AL-06",
+        "AL-07",
+        "AL-08",
+        "AL-09",
+        "AL-10",
+        "AL-11",
+        "AL-12",
+        "AL-13",
+        "AL-14",
+        "AL-15",
+        "AL-16",
+        "AL-17",
+        "AL-18"
+      ]
+    },
+    {
+      "id": "UC",
+      "title": "Productos, embalajes y unidades de carga",
+      "count": 18,
+      "chapterId": "chapter-3-4",
+      "articleIds": [
+        "UC-01",
+        "UC-02",
+        "UC-03",
+        "UC-04",
+        "UC-05",
+        "UC-06",
+        "UC-07",
+        "UC-08",
+        "UC-09",
+        "UC-10",
+        "UC-11",
+        "UC-12",
+        "UC-13",
+        "UC-14",
+        "UC-15",
+        "UC-16",
+        "UC-17",
+        "UC-18"
+      ]
+    },
+    {
+      "id": "MU",
+      "title": "Recepción, muelles y estaciones de transferencia",
+      "count": 12,
+      "chapterId": "chapter-3-5",
+      "articleIds": [
+        "MU-01",
+        "MU-02",
+        "MU-03",
+        "MU-04",
+        "MU-05",
+        "MU-06",
+        "MU-07",
+        "MU-08",
+        "MU-09",
+        "MU-10",
+        "MU-11",
+        "MU-12"
+      ]
+    },
+    {
+      "id": "PI",
+      "title": "Picking, consolidación y preparación",
+      "count": 8,
+      "chapterId": "chapter-3-6",
+      "articleIds": [
+        "PI-01",
+        "PI-02",
+        "PI-03",
+        "PI-04",
+        "PI-05",
+        "PI-06",
+        "PI-07",
+        "PI-08"
+      ]
+    },
+    {
+      "id": "EM",
+      "title": "Empaque, paletizado y fin de línea",
+      "count": 12,
+      "chapterId": "chapter-3-7",
+      "articleIds": [
+        "EM-01",
+        "EM-02",
+        "EM-03",
+        "EM-04",
+        "EM-05",
+        "EM-06",
+        "EM-07",
+        "EM-08",
+        "EM-09",
+        "EM-10",
+        "EM-11",
+        "EM-12"
+      ]
+    },
+    {
+      "id": "RO",
+      "title": "Robots y arquitecturas robóticas",
+      "count": 14,
+      "chapterId": "chapter-4-1",
+      "articleIds": [
+        "RO-01",
+        "RO-02",
+        "RO-03",
+        "RO-04",
+        "RO-05",
+        "RO-06",
+        "RO-07",
+        "RO-08",
+        "RO-09",
+        "RO-10",
+        "RO-11",
+        "RO-12",
+        "RO-13",
+        "RO-14"
+      ]
+    },
+    {
+      "id": "EO",
+      "title": "Pinzas, herramientas y accesorios EOAT",
+      "count": 27,
+      "chapterId": "chapter-4-2",
+      "articleIds": [
+        "EO-01",
+        "EO-02",
+        "EO-03",
+        "EO-04",
+        "EO-05",
+        "EO-06",
+        "EO-07",
+        "EO-08",
+        "EO-09",
+        "EO-10",
+        "EO-11",
+        "EO-12",
+        "EO-13",
+        "EO-14",
+        "EO-15",
+        "EO-16",
+        "EO-17",
+        "EO-18",
+        "EO-19",
+        "EO-20",
+        "EO-21",
+        "EO-22",
+        "EO-23",
+        "EO-24",
+        "EO-25",
+        "EO-26",
+        "EO-27"
+      ]
+    },
+    {
+      "id": "MA",
+      "title": "Máquinas y auxiliares de manufactura",
+      "count": 22,
+      "chapterId": "chapter-5-2",
+      "articleIds": [
+        "MA-01",
+        "MA-02",
+        "MA-03",
+        "MA-04",
+        "MA-05",
+        "MA-06",
+        "MA-07",
+        "MA-08",
+        "MA-09",
+        "MA-10",
+        "MA-11",
+        "MA-12",
+        "MA-13",
+        "MA-14",
+        "MA-15",
+        "MA-16",
+        "MA-17",
+        "MA-18",
+        "MA-19",
+        "MA-20",
+        "MA-21",
+        "MA-22"
+      ]
+    },
+    {
+      "id": "SE",
+      "title": "Sensores, accionamientos y seguridad",
+      "count": 12,
+      "chapterId": "chapter-7-1",
+      "articleIds": [
+        "SE-01",
+        "SE-02",
+        "SE-03",
+        "SE-04",
+        "SE-05",
+        "SE-06",
+        "SE-07",
+        "SE-08",
+        "SE-09",
+        "SE-10",
+        "SE-11",
+        "SE-12"
+      ]
+    },
+    {
+      "id": "SI",
+      "title": "Sistemas de información, control y análisis",
+      "count": 12,
+      "chapterId": "chapter-7-2",
+      "articleIds": [
+        "SI-01",
+        "SI-02",
+        "SI-03",
+        "SI-04",
+        "SI-05",
+        "SI-06",
+        "SI-07",
+        "SI-08",
+        "SI-09",
+        "SI-10",
+        "SI-11",
+        "SI-12"
+      ]
+    }
+  ],
+  "chapters": [
+    {
+      "id": "overview",
+      "title": "Presentación y alcance",
+      "parentId": "",
+      "articleIds": [
+        "overview"
+      ],
+      "number": ""
+    },
+    {
+      "id": "guia-de-lectura",
+      "title": "Guía de lectura",
+      "parentId": "",
+      "number": "",
+      "articleIds": [
+        "guia-de-lectura"
+      ]
+    },
+    {
+      "id": "contenido-y-navegacion",
+      "title": "Contenido y navegación",
+      "parentId": "",
+      "number": "",
+      "articleIds": [
+        "contenido-y-navegacion"
+      ]
+    },
+    {
+      "id": "chapter-1",
+      "title": "1. Fundamentos y niveles de automatización",
+      "parentId": "",
+      "number": "1",
+      "articleIds": [
+        "chapter-1"
+      ]
+    },
+    {
+      "id": "chapter-2",
+      "title": "2. Operaciones y conceptos logísticos",
+      "parentId": "",
+      "number": "2",
+      "articleIds": [
+        "chapter-2"
+      ]
+    },
+    {
+      "id": "chapter-3",
+      "title": "3. Equipos de transporte, almacenamiento, manipulación y empaque",
+      "parentId": "",
+      "number": "3",
+      "articleIds": [
+        "chapter-3"
+      ]
+    },
+    {
+      "id": "chapter-3-1",
+      "title": "3.1. Transportadores y transferencias",
+      "parentId": "chapter-3",
+      "number": "3.1",
+      "articleIds": [
+        "chapter-3-1",
+        "TR-01",
+        "TR-02",
+        "TR-03",
+        "TR-04",
+        "TR-05",
+        "TR-06",
+        "TR-07",
+        "TR-08",
+        "TR-09",
+        "TR-10",
+        "TR-11",
+        "TR-12",
+        "TR-13",
+        "TR-14",
+        "TR-15",
+        "TR-16",
+        "TR-17",
+        "TR-18",
+        "TR-19",
+        "TR-20",
+        "TR-21",
+        "TR-22",
+        "TR-23"
+      ]
+    },
+    {
+      "id": "chapter-3-2",
+      "title": "3.2. Vehículos, transporte e izaje",
+      "parentId": "chapter-3",
+      "number": "3.2",
+      "articleIds": [
+        "chapter-3-2",
+        "VE-01",
+        "VE-02",
+        "VE-03",
+        "VE-04",
+        "VE-05",
+        "VE-06",
+        "VE-07",
+        "VE-08",
+        "VE-09",
+        "VE-10",
+        "VE-11",
+        "VE-12",
+        "VE-13",
+        "VE-14",
+        "VE-15",
+        "VE-16",
+        "VE-17",
+        "VE-18",
+        "VE-19",
+        "VE-20"
+      ]
+    },
+    {
+      "id": "chapter-3-3",
+      "title": "3.3. Racks y sistemas de almacenamiento",
+      "parentId": "chapter-3",
+      "number": "3.3",
+      "articleIds": [
+        "chapter-3-3",
+        "AL-01",
+        "AL-02",
+        "AL-03",
+        "AL-04",
+        "AL-05",
+        "AL-06",
+        "AL-07",
+        "AL-08",
+        "AL-09",
+        "AL-10",
+        "AL-11",
+        "AL-12",
+        "AL-13",
+        "AL-14",
+        "AL-15",
+        "AL-16",
+        "AL-17",
+        "AL-18"
+      ]
+    },
+    {
+      "id": "chapter-3-4",
+      "title": "3.4. Productos, embalajes y unidades de carga",
+      "parentId": "chapter-3",
+      "number": "3.4",
+      "articleIds": [
+        "chapter-3-4",
+        "UC-01",
+        "UC-02",
+        "UC-03",
+        "UC-04",
+        "UC-05",
+        "UC-06",
+        "UC-07",
+        "UC-08",
+        "UC-09",
+        "UC-10",
+        "UC-11",
+        "UC-12",
+        "UC-13",
+        "UC-14",
+        "UC-15",
+        "UC-16",
+        "UC-17",
+        "UC-18"
+      ]
+    },
+    {
+      "id": "chapter-3-5",
+      "title": "3.5. Recepción, muelles y estaciones de transferencia",
+      "parentId": "chapter-3",
+      "number": "3.5",
+      "articleIds": [
+        "chapter-3-5",
+        "MU-01",
+        "MU-02",
+        "MU-03",
+        "MU-04",
+        "MU-05",
+        "MU-06",
+        "MU-07",
+        "MU-08",
+        "MU-09",
+        "MU-10",
+        "MU-11",
+        "MU-12"
+      ]
+    },
+    {
+      "id": "chapter-3-6",
+      "title": "3.6. Picking, consolidación y preparación",
+      "parentId": "chapter-3",
+      "number": "3.6",
+      "articleIds": [
+        "chapter-3-6",
+        "PI-01",
+        "PI-02",
+        "PI-03",
+        "PI-04",
+        "PI-05",
+        "PI-06",
+        "PI-07",
+        "PI-08"
+      ]
+    },
+    {
+      "id": "chapter-3-7",
+      "title": "3.7. Empaque, paletizado y fin de línea",
+      "parentId": "chapter-3",
+      "number": "3.7",
+      "articleIds": [
+        "chapter-3-7",
+        "EM-01",
+        "EM-02",
+        "EM-03",
+        "EM-04",
+        "EM-05",
+        "EM-06",
+        "EM-07",
+        "EM-08",
+        "EM-09",
+        "EM-10",
+        "EM-11",
+        "EM-12"
+      ]
+    },
+    {
+      "id": "chapter-4",
+      "title": "4. Robótica, herramientas y cambio de función",
+      "parentId": "",
+      "number": "4",
+      "articleIds": [
+        "chapter-4"
+      ]
+    },
+    {
+      "id": "chapter-4-1",
+      "title": "4.1. Robots y arquitecturas robóticas",
+      "parentId": "chapter-4",
+      "number": "4.1",
+      "articleIds": [
+        "chapter-4-1",
+        "RO-01",
+        "RO-02",
+        "RO-03",
+        "RO-04",
+        "RO-05",
+        "RO-06",
+        "RO-07",
+        "RO-08",
+        "RO-09",
+        "RO-10",
+        "RO-11",
+        "RO-12",
+        "RO-13",
+        "RO-14"
+      ]
+    },
+    {
+      "id": "chapter-4-2",
+      "title": "4.2. Pinzas, herramientas y accesorios EOAT",
+      "parentId": "chapter-4",
+      "number": "4.2",
+      "articleIds": [
+        "chapter-4-2",
+        "EO-01",
+        "EO-02",
+        "EO-03",
+        "EO-04",
+        "EO-05",
+        "EO-06",
+        "EO-07",
+        "EO-08",
+        "EO-09",
+        "EO-10",
+        "EO-11",
+        "EO-12",
+        "EO-13",
+        "EO-14",
+        "EO-15",
+        "EO-16",
+        "EO-17",
+        "EO-18",
+        "EO-19",
+        "EO-20",
+        "EO-21",
+        "EO-22",
+        "EO-23",
+        "EO-24",
+        "EO-25",
+        "EO-26",
+        "EO-27"
+      ]
+    },
+    {
+      "id": "chapter-4-3",
+      "title": "4.3. Cambio de herramientas y reconfiguración de la aplicación",
+      "parentId": "chapter-4",
+      "number": "4.3",
+      "articleIds": [
+        "chapter-4-3"
+      ]
+    },
+    {
+      "id": "chapter-5",
+      "title": "5. Operaciones industriales y máquinas de manufactura",
+      "parentId": "",
+      "number": "5",
+      "articleIds": [
+        "chapter-5"
+      ]
+    },
+    {
+      "id": "chapter-5-2",
+      "title": "5.2. Máquinas y auxiliares de manufactura",
+      "parentId": "chapter-5",
+      "number": "5.2",
+      "articleIds": [
+        "chapter-5-2",
+        "MA-01",
+        "MA-02",
+        "MA-03",
+        "MA-04",
+        "MA-05",
+        "MA-06",
+        "MA-07",
+        "MA-08",
+        "MA-09",
+        "MA-10",
+        "MA-11",
+        "MA-12",
+        "MA-13",
+        "MA-14",
+        "MA-15",
+        "MA-16",
+        "MA-17",
+        "MA-18",
+        "MA-19",
+        "MA-20",
+        "MA-21",
+        "MA-22"
+      ]
+    },
+    {
+      "id": "chapter-6",
+      "title": "6. Celdas de manufactura y configuraciones",
+      "parentId": "",
+      "number": "6",
+      "articleIds": [
+        "chapter-6"
+      ]
+    },
+    {
+      "id": "chapter-7",
+      "title": "7. Integración de logística, manufactura y sistemas",
+      "parentId": "",
+      "number": "7",
+      "articleIds": [
+        "chapter-7"
+      ]
+    },
+    {
+      "id": "chapter-7-1",
+      "title": "7.1. Sensores, accionamientos y seguridad",
+      "parentId": "chapter-7",
+      "number": "7.1",
+      "articleIds": [
+        "chapter-7-1",
+        "SE-01",
+        "SE-02",
+        "SE-03",
+        "SE-04",
+        "SE-05",
+        "SE-06",
+        "SE-07",
+        "SE-08",
+        "SE-09",
+        "SE-10",
+        "SE-11",
+        "SE-12"
+      ]
+    },
+    {
+      "id": "chapter-7-2",
+      "title": "7.2. Sistemas de información, control y análisis",
+      "parentId": "chapter-7",
+      "number": "7.2",
+      "articleIds": [
+        "chapter-7-2",
+        "SI-01",
+        "SI-02",
+        "SI-03",
+        "SI-04",
+        "SI-05",
+        "SI-06",
+        "SI-07",
+        "SI-08",
+        "SI-09",
+        "SI-10",
+        "SI-11",
+        "SI-12"
+      ]
+    },
+    {
+      "id": "chapter-8",
+      "title": "8. Selección, compatibilidad y catálogo configurable",
+      "parentId": "",
+      "number": "8",
+      "articleIds": [
+        "chapter-8"
+      ]
+    },
+    {
+      "id": "chapter-9",
+      "title": "9. Indicadores, experimentación y seguridad",
+      "parentId": "",
+      "number": "9",
+      "articleIds": [
+        "chapter-9"
+      ]
+    },
+    {
+      "id": "chapter-10",
+      "title": "10. Contextualización del simulador y fuentes",
+      "parentId": "",
+      "number": "10",
+      "articleIds": [
+        "chapter-10"
+      ]
+    },
+    {
+      "id": "indice-completo-de-fichas",
+      "title": "Índice completo de fichas",
+      "parentId": "",
+      "number": "",
+      "articleIds": [
+        "indice-completo-de-fichas"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "TR-01",
+      "title": "Rodillos por gravedad",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Transportador sin tracción propia en el que una carga de base suficientemente rígida se apoya sobre rodillos libres. Cambia de ubicación sin modificar su contenido.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-01.png",
+        "alt": "Esquema funcional de Rodillos por gravedad"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.roller-gravity",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "TR-02",
+      "title": "Rodillos motorizados",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Transportador cuya superficie de rodillos recibe movimiento de un accionamiento, transfiriéndolo por contacto a la base de la carga.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-02.png",
+        "alt": "Esquema funcional de Rodillos motorizados"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.straight",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "TR-03",
+      "title": "Banda plana",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Superficie continua flexible que soporta objetos a lo largo del recorrido; resulta útil cuando los rodillos no ofrecen apoyo suficiente.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-03.png",
+        "alt": "Esquema funcional de Banda plana"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.belt",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "TR-04",
+      "title": "Banda modular",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Transportador con una superficie formada por módulos articulados, normalmente plásticos, unidos mediante pasadores y engranados con piñones.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-04.png",
+        "alt": "Esquema funcional de Banda modular"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.modular-curve",
+          "relation": "family"
+        },
+        {
+          "resourceId": "library:conveyor.modular-incline",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "TR-05",
+      "title": "Transportador de cadenas para pallets",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Equipo de transporte que sostiene la unidad de carga sobre dos o más ramales de cadena paralelos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-05.png",
+        "alt": "Esquema funcional de Transportador de cadenas para pallets"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.pallet-chain",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "TR-06",
+      "title": "Rodillos acumulativos por zonas",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Transportador dividido en segmentos capaces de retener unidades sin obligar a detener toda la línea.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-06.png",
+        "alt": "Esquema funcional de Rodillos acumulativos por zonas"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.accumulator",
+          "relation": "exact"
+        },
+        {
+          "resourceId": "library:conveyor.belt-zones",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "TR-07",
+      "title": "Transportador curvo",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Módulo que cambia la dirección del flujo manteniendo un recorrido continuo sobre rodillos o banda.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-07.png",
+        "alt": "Esquema funcional de Transportador curvo"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.curve",
+          "relation": "exact"
+        },
+        {
+          "resourceId": "library:conveyor.belt-curve",
+          "relation": "exact"
+        },
+        {
+          "resourceId": "library:conveyor.modular-curve",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "TR-08",
+      "title": "Transferencia en L o T",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Configuración de unión entre líneas que desvía o reparte unidades hacia una salida lateral o hacia varias rutas. No es una sola tecnología mecánica.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-08.png",
+        "alt": "Esquema funcional de Transferencia en L o T"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.junction",
+          "relation": "family"
+        },
+        {
+          "resourceId": "library:conveyor.transfer",
+          "relation": "family"
+        },
+        {
+          "resourceId": "library:conveyor.popup-chain",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "TR-09",
+      "title": "Transferencia elevable rodillos–cadenas",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Módulo que cambia a noventa grados el desplazamiento de un pallet mediante ramales que emergen entre los rodillos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-09.png",
+        "alt": "Esquema funcional de Transferencia elevable rodillos–cadenas"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.popup-chain",
+          "relation": "exact"
+        },
+        {
+          "resourceId": "library:conveyor.transfer",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "TR-10",
+      "title": "Mesa giratoria",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Plataforma que orienta una carga o un tramo de transportador mediante rotación alrededor de un eje vertical.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-10.png",
+        "alt": "Esquema funcional de Mesa giratoria"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.roller-turntable",
+          "relation": "exact"
+        },
+        {
+          "resourceId": "library:conveyor.pallet-turntable",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "TR-11",
+      "title": "Transferencia lateral y desviador",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Dispositivo que saca una unidad del flujo principal y la dirige a otro transportador o contenedor.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-11.png",
+        "alt": "Esquema funcional de Transferencia lateral y desviador"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.pusher",
+          "relation": "exact"
+        },
+        {
+          "resourceId": "library:conveyor.steer",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "TR-12",
+      "title": "Transportador telescópico",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Equipo cuya longitud útil se extiende para acercar el punto de carga o descarga al interior de un vehículo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-12.png",
+        "alt": "Esquema funcional de Transportador telescópico"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "TR-13",
+      "title": "Elevador vertical de cargas",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Dispositivo que mueve cajas, bandejas o pallets entre niveles mediante una plataforma o sistema guiado.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-13.png",
+        "alt": "Esquema funcional de Elevador vertical de cargas"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.elevator",
+          "relation": "exact"
+        },
+        {
+          "resourceId": "library:conveyor.pallet-elevator",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "TR-14",
+      "title": "Transportador aéreo",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Sistema que desplaza productos suspendidos de carros, ganchos o soportes por una vía elevada.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-14.png",
+        "alt": "Esquema funcional de Transportador aéreo"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "TR-15",
+      "title": "Transportador espiral",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Línea continua que gana o pierde altura siguiendo una hélice, reduciendo la longitud de suelo ocupada frente a una rampa extensa.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-15.png",
+        "alt": "Esquema funcional de Transportador espiral"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "TR-16",
+      "title": "Sorter de zapatos deslizantes",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Clasificador con elementos móviles que empujan lateralmente cajas sobre una superficie transportadora hacia salidas específicas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-16.png",
+        "alt": "Esquema funcional de Sorter de zapatos deslizantes"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "TR-17",
+      "title": "Sorter cross-belt",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Clasificador compuesto por carros o portadores que incorporan pequeñas bandas transversales para descargar en diferentes destinos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-17.png",
+        "alt": "Esquema funcional de Sorter cross-belt"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.sorter",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "TR-18",
+      "title": "Sorter de bandejas inclinables",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Clasificador en el que cada portador sostiene un artículo sobre una bandeja que se inclina para entregarlo por gravedad.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-18.png",
+        "alt": "Esquema funcional de Sorter de bandejas inclinables"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.mobile-sorter-tilttray",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "TR-19",
+      "title": "Carro transferidor",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Plataforma móvil que recibe una carga de un transportador y la lleva a otra línea, normalmente a lo largo de un eje transversal.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-19.png",
+        "alt": "Esquema funcional de Carro transferidor"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.shuttle",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "TR-20",
+      "title": "Transportador vibratorio",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Equipo que impulsa materiales mediante movimientos oscilatorios de una canaleta o superficie, sin una banda continua.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-20.png",
+        "alt": "Esquema funcional de Transportador vibratorio"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "TR-21",
+      "title": "Tornillo sinfín",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Transportador para graneles que usa una hélice giratoria dentro de un tubo o canal. Se incluye como desarrollo del manejo de graneles citado en el material base.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-21.png",
+        "alt": "Esquema funcional de Tornillo sinfín"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "TR-22",
+      "title": "Elevador de cangilones",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Transportador vertical de granel mediante recipientes fijados a una banda o cadena. No debe confundirse con el elevador de plataforma para pallets.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-22.png",
+        "alt": "Esquema funcional de Elevador de cangilones"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "TR-23",
+      "title": "Transporte neumático de granel",
+      "family": "TR",
+      "familyId": "TR",
+      "chapterId": "chapter-3-1",
+      "summary": "Sistema que mueve partículas en una tubería mediante una corriente de gas. Amplía la familia de transporte de graneles del material aportado.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/TR-23.png",
+        "alt": "Esquema funcional de Transporte neumático de granel"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "VE-01",
+      "title": "Carretilla y carro manual",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Equipo de transporte accionado por una persona para mover cajas, piezas o contenedores sin un sistema de tracción propio.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-01.png",
+        "alt": "Esquema funcional de Carretilla y carro manual"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.cart",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "VE-02",
+      "title": "Transpaleta manual",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Equipo con horquillas de baja elevación que permite levantar ligeramente un pallet para trasladarlo horizontalmente.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-02.png",
+        "alt": "Esquema funcional de Transpaleta manual"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.pallet-truck",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "VE-03",
+      "title": "Transpaleta eléctrica",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Vehículo de baja elevación con asistencia motorizada de tracción y, normalmente, elevación, controlado por una persona.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-03.png",
+        "alt": "Esquema funcional de Transpaleta eléctrica"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.pallet-truck-electric",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "VE-04",
+      "title": "Apilador eléctrico",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Equipo de elevación con mástil que recoge pallets y los deposita a diferentes alturas; su geometría puede incluir patas de apoyo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-04.png",
+        "alt": "Esquema funcional de Apilador eléctrico"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.stacker",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "VE-05",
+      "title": "Montacargas contrabalanceado",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Vehículo que equilibra la carga situada delante de su eje frontal mediante la masa del equipo y su contrapeso.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-05.png",
+        "alt": "Esquema funcional de Montacargas contrabalanceado"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.forklift",
+          "relation": "exact"
+        },
+        {
+          "resourceId": "library:vehicle.forklift-electric-3w",
+          "relation": "exact"
+        },
+        {
+          "resourceId": "library:vehicle.forklift-ic",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "VE-06",
+      "title": "Montacargas retráctil",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Vehículo diseñado para almacenamiento interior en altura cuyo conjunto de mástil o carro puede extenderse hacia la carga y retraerse.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-06.png",
+        "alt": "Esquema funcional de Montacargas retráctil"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.reach-truck",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "VE-07",
+      "title": "Montacargas trilateral o VNA",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Equipo para pasillos muy estrechos que orienta o desplaza lateralmente la horquilla para atender ambos lados sin girar todo el vehículo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-07.png",
+        "alt": "Esquema funcional de Montacargas trilateral o VNA"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.vna-turret",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "VE-08",
+      "title": "Recogepedidos",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Vehículo que facilita al operario acceder a ubicaciones de picking y recoger unidades o cajas, no necesariamente pallets completos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-08.png",
+        "alt": "Esquema funcional de Recogepedidos"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.order-picker",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "VE-09",
+      "title": "Tractor de arrastre y tren logístico",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Vehículo que remolca varios carros para abastecer estaciones a lo largo de una ruta. No levanta las cargas como un montacargas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-09.png",
+        "alt": "Esquema funcional de Tractor de arrastre y tren logístico"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.tow-tractor",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "VE-10",
+      "title": "AGV de plataforma",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Vehículo guiado automáticamente que transporta una carga sobre una plataforma o módulo superior por una red habilitada.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-10.png",
+        "alt": "Esquema funcional de AGV de plataforma"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.agv",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "VE-11",
+      "title": "AGV de horquillas",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Vehículo automático que recoge y deposita unidades mediante horquillas, con tareas y ubicaciones definidas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-11.png",
+        "alt": "Esquema funcional de AGV de horquillas"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.forklift",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "VE-12",
+      "title": "AMR de plataforma",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Robot móvil que se localiza y planifica recorridos dentro de un mapa operativo, con un módulo superior para carga.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-12.png",
+        "alt": "Esquema funcional de AMR de plataforma"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.mobile",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "VE-13",
+      "title": "AMR con elevación inferior",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Robot móvil que se introduce debajo de un carro, estantería o soporte compatible y lo eleva para transportarlo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-13.png",
+        "alt": "Esquema funcional de AMR con elevación inferior"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.mobile",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "VE-14",
+      "title": "Montacargas automático AGV/AMR",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Vehículo industrial de elevación que combina navegación automática con manipulación de pallets. La denominación depende de sus capacidades, no solo de su apariencia.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-14.png",
+        "alt": "Esquema funcional de Montacargas automático AGV/AMR"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.forklift",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "VE-15",
+      "title": "AGV tractor",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Equipo de arrastre sin conductor que remolca carros por un circuito logístico.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-15.png",
+        "alt": "Esquema funcional de AGV tractor"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.tow-tractor",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "VE-16",
+      "title": "Grúa puente y polipasto",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Sistema de izaje que eleva y desplaza cargas suspendidas en una zona de trabajo; un polipasto puede operar solo o montado sobre un puente.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-16.png",
+        "alt": "Esquema funcional de Grúa puente y polipasto"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "VE-17",
+      "title": "Carro sobre rieles RGV",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Vehículo que transporta cargas siguiendo una vía física determinada, generalmente entre estaciones fijas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-17.png",
+        "alt": "Esquema funcional de Carro sobre rieles RGV"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.shuttle",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "VE-18",
+      "title": "Camión, furgón y remolque",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Medios de transporte externos que entregan o retiran unidades de carga en el límite del sistema logístico.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-18.png",
+        "alt": "Esquema funcional de Camión, furgón y remolque"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "VE-19",
+      "title": "Plataforma elevadora de vehículo",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Equipo integrado en un camión que conecta la altura de su caja con el suelo durante una operación de carga o descarga.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-19.png",
+        "alt": "Esquema funcional de Plataforma elevadora de vehículo"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.telehandler",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "VE-20",
+      "title": "Dron y sistema móvil de inventario",
+      "family": "VE",
+      "familyId": "VE",
+      "chapterId": "chapter-3-2",
+      "summary": "Plataforma aérea utilizada para capturar información de ubicaciones o unidades de carga, sin asumir que manipula físicamente el inventario.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/VE-20.png",
+        "alt": "Esquema funcional de Dron y sistema móvil de inventario"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "AL-01",
+      "title": "Rack selectivo",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Estructura de almacenamiento que permite acceder directamente a cada pallet desde un pasillo. El rack soporta la carga pero no la transporta.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-01.png",
+        "alt": "Esquema funcional de Rack selectivo"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:storage.rack",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "AL-02",
+      "title": "Rack de doble profundidad",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Sistema que coloca dos posiciones de pallet en profundidad para reducir la proporción de pasillos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-02.png",
+        "alt": "Esquema funcional de Rack de doble profundidad"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:rack.double-deep",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "AL-03",
+      "title": "Rack drive-in",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Almacenamiento compacto con calles donde el equipo de manutención entra para depositar pallets sobre carriles laterales.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-03.png",
+        "alt": "Esquema funcional de Rack drive-in"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:rack.drive-in",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "AL-04",
+      "title": "Rack drive-through",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Sistema compacto con acceso por ambos extremos, destinado a permitir entradas y salidas separadas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-04.png",
+        "alt": "Esquema funcional de Rack drive-through"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:rack.drive-through",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "AL-05",
+      "title": "Rack push-back",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Sistema compacto en el que pallets nuevos empujan hacia el fondo los ya almacenados sobre carros o rodillos inclinados.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-05.png",
+        "alt": "Esquema funcional de Rack push-back"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:rack.push-back",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "AL-06",
+      "title": "Pallet flow o rack dinámico de pallets",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Rack con canales de rodillos inclinados que trasladan pallets por gravedad desde el lado de carga al lado de extracción.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-06.png",
+        "alt": "Esquema funcional de Pallet flow o rack dinámico de pallets"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:rack.pallet-flow",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "AL-07",
+      "title": "Rack cantilever",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Estructura con brazos en voladizo que ofrece acceso frontal para materiales largos sin largueros que obstruyan la carga.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-07.png",
+        "alt": "Esquema funcional de Rack cantilever"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:rack.cantilever",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "AL-08",
+      "title": "Rack móvil",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Conjunto de estanterías montadas sobre bases que se desplazan para abrir un pasillo de acceso selectivo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-08.png",
+        "alt": "Esquema funcional de Rack móvil"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:rack.mobile",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "AL-09",
+      "title": "Pallet Shuttle",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Sistema compacto en el que una lanzadera motorizada mueve pallets dentro de un canal y el equipo externo atiende sus entradas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-09.png",
+        "alt": "Esquema funcional de Pallet Shuttle"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.shuttle",
+          "relation": "family"
+        },
+        {
+          "resourceId": "library:storage.rack",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "AL-10",
+      "title": "Transelevador AS/RS para pallets",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Máquina automática que se desplaza por un pasillo y eleva un extractor para almacenar o recuperar pallets en coordenadas definidas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-10.png",
+        "alt": "Esquema funcional de Transelevador AS/RS para pallets"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:storage.automatic",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "AL-11",
+      "title": "Miniload para cajas",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Sistema automático de almacenamiento de cajas o contenedores atendido por un transelevador de menor escala.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-11.png",
+        "alt": "Esquema funcional de Miniload para cajas"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:rack.miniload",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "AL-12",
+      "title": "Shuttle multinivel para cajas",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Sistema de almacenamiento con vehículos que recorren niveles y elevadores que conectan las distintas cotas con puestos externos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-12.png",
+        "alt": "Esquema funcional de Shuttle multinivel para cajas"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:rack.miniload",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "AL-13",
+      "title": "Almacenamiento cúbico de contenedores",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Sistema de contenedores apilados en una matriz y robots que acceden a ellos desde la parte superior.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-13.png",
+        "alt": "Esquema funcional de Almacenamiento cúbico de contenedores"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:rack.miniload",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "AL-14",
+      "title": "Módulo vertical VLM",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Sistema cerrado de bandejas almacenadas en altura que presenta la bandeja solicitada en una abertura de trabajo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-14.png",
+        "alt": "Esquema funcional de Módulo vertical VLM"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:storage.automatic",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "AL-15",
+      "title": "Carrusel vertical u horizontal",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Almacenamiento en el que una serie de portadores gira hasta presentar la posición solicitada.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-15.png",
+        "alt": "Esquema funcional de Carrusel vertical u horizontal"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:storage.automatic",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "AL-16",
+      "title": "Carton flow",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Estantería dinámica de cajas o totes en canales inclinados de ruedas o rodillos que abastecen el frente de picking por gravedad.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-16.png",
+        "alt": "Esquema funcional de Carton flow"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:rack.carton-flow",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "AL-17",
+      "title": "Estantería ligera y de picking",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Sistema de baldas o soportes para artículos, cajas y contenedores accesibles manualmente.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-17.png",
+        "alt": "Esquema funcional de Estantería ligera y de picking"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:rack.light-duty",
+          "relation": "exact"
+        },
+        {
+          "resourceId": "library:rack.medium-duty",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "AL-18",
+      "title": "Almacenamiento en piso o bloque",
+      "family": "AL",
+      "familyId": "AL",
+      "chapterId": "chapter-3-3",
+      "summary": "Organización de unidades de carga directamente sobre el suelo en posiciones o pilas delimitadas, sin rack.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/AL-18.png",
+        "alt": "Esquema funcional de Almacenamiento en piso o bloque"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:storage.pallet",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "UC-01",
+      "title": "Caja de cartón",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Embalaje secundario o de transporte que agrupa y protege productos; su comportamiento depende de construcción, contenido y cierre.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-01.png",
+        "alt": "Esquema funcional de Caja de cartón"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:product.box",
+          "relation": "exact"
+        },
+        {
+          "resourceId": "library:product.box-medium",
+          "relation": "exact"
+        },
+        {
+          "resourceId": "library:product.box-large",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "UC-02",
+      "title": "Pallet o estiba cargada",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Unidad logística formada por una plataforma y mercancía apoyada, agrupada y asegurada conforme a su manejo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-02.png",
+        "alt": "Esquema funcional de Pallet o estiba cargada"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:product.pallet-loaded",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "UC-03",
+      "title": "Pallet de madera",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Plataforma de tablas y elementos de apoyo utilizada como soporte de manipulación y almacenamiento.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-03.png",
+        "alt": "Esquema funcional de Pallet de madera"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:product.pallet-euro",
+          "relation": "exact"
+        },
+        {
+          "resourceId": "library:product.pallet-industrial",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "UC-04",
+      "title": "Pallet de plástico",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Plataforma moldeada reutilizable o de otros ciclos definidos, con geometría que condiciona limpieza, apilado y transporte.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-04.png",
+        "alt": "Esquema funcional de Pallet de plástico"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:product.pallet-plastic",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "UC-05",
+      "title": "Pallet metálico",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Plataforma de acero, aluminio u otro metal destinada a cargas y ambientes para los que su diseño resulte adecuado.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-05.png",
+        "alt": "Esquema funcional de Pallet metálico"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:product.pallet-plastic",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "UC-06",
+      "title": "Tote, bin y contenedor plástico",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Recipiente reutilizable que agrupa artículos pequeños y ofrece una geometría de transporte o almacenamiento controlada.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-06.png",
+        "alt": "Esquema funcional de Tote, bin y contenedor plástico"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:product.tote",
+          "relation": "exact"
+        },
+        {
+          "resourceId": "library:product.crate",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "UC-07",
+      "title": "Saco y envase flexible",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Embalaje deformable que contiene graneles o unidades; su forma cambia con contenido y manipulación.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-07.png",
+        "alt": "Esquema funcional de Saco y envase flexible"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:product.sack",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "UC-08",
+      "title": "Tambor",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Recipiente cilíndrico para materiales líquidos, pastosos o sólidos, con características definidas por material y cierre.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-08.png",
+        "alt": "Esquema funcional de Tambor"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:product.drum",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "UC-09",
+      "title": "Bidón, garrafa e IBC",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Recipientes para líquidos con geometrías y medios de soporte distintos; un IBC suele integrar una unidad de manejo de mayor tamaño.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-09.png",
+        "alt": "Esquema funcional de Bidón, garrafa e IBC"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:product.jerrycan",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "UC-10",
+      "title": "Botella y lata",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Envases primarios individuales que requieren control de estabilidad y agrupación durante producción y logística.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-10.png",
+        "alt": "Esquema funcional de Botella y lata"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:product.bottle",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "UC-11",
+      "title": "Producto a granel",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Material no dividido en unidades logísticas discretas durante su manejo, como granos, polvo o áridos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-11.png",
+        "alt": "Esquema funcional de Producto a granel"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "UC-12",
+      "title": "Pieza metálica",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Componente cuyo material, forma y estado de proceso determinan su manipulación y transformación.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-12.png",
+        "alt": "Esquema funcional de Pieza metálica"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "UC-13",
+      "title": "Pieza frágil y electrónica",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Producto que puede dañarse por presión, impacto, vibración o condiciones ambientales, incluso si permanece visualmente intacto.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-13.png",
+        "alt": "Esquema funcional de Pieza frágil y electrónica"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "UC-14",
+      "title": "Producto textil",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Material flexible que puede plegarse, engancharse o cambiar de forma, por lo que requiere un modo de presentación controlado.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-14.png",
+        "alt": "Esquema funcional de Producto textil"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "UC-15",
+      "title": "Producto refrigerado o congelado",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Mercancía que debe permanecer dentro de condiciones de temperatura definidas para el caso de estudio.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-15.png",
+        "alt": "Esquema funcional de Producto refrigerado o congelado"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "UC-16",
+      "title": "Carga larga",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Unidad cuya longitud exige varios puntos de apoyo o un vehículo y recorrido específicos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-16.png",
+        "alt": "Esquema funcional de Carga larga"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:rack.cantilever",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "UC-17",
+      "title": "Carga sobredimensionada",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Unidad que excede las dimensiones o características del circuito estándar y necesita una solución específica.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-17.png",
+        "alt": "Esquema funcional de Carga sobredimensionada"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "UC-18",
+      "title": "Producto peligroso",
+      "family": "UC",
+      "familyId": "UC",
+      "chapterId": "chapter-3-4",
+      "summary": "Mercancía cuya naturaleza introduce riesgos específicos de almacenamiento, manipulación o transporte y requiere clasificación aplicable al caso.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/UC-18.png",
+        "alt": "Esquema funcional de Producto peligroso"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:product.cylinder",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "MU-01",
+      "title": "Muelle de carga",
+      "family": "MU",
+      "familyId": "MU",
+      "chapterId": "chapter-3-5",
+      "summary": "Interfaz física entre el vehículo de transporte y la instalación; reúne accesos, espacio de maniobra y condiciones para transferir carga.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MU-01.png",
+        "alt": "Esquema funcional de Muelle de carga"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MU-02",
+      "title": "Rampa niveladora y puente de carga",
+      "family": "MU",
+      "familyId": "MU",
+      "chapterId": "chapter-3-5",
+      "summary": "Equipo que salva diferencias de altura o espacio entre muelle y vehículo dentro de un rango definido.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MU-02.png",
+        "alt": "Esquema funcional de Rampa niveladora y puente de carga"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MU-03",
+      "title": "Retenedor de vehículo y calzos",
+      "family": "MU",
+      "familyId": "MU",
+      "chapterId": "chapter-3-5",
+      "summary": "Medios para reducir desplazamientos accidentales del vehículo durante la transferencia, dentro de un procedimiento de muelle.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MU-03.png",
+        "alt": "Esquema funcional de Retenedor de vehículo y calzos"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MU-04",
+      "title": "Mesa de inspección y recepción",
+      "family": "MU",
+      "familyId": "MU",
+      "chapterId": "chapter-3-5",
+      "summary": "Puesto que permite apoyar, revisar y documentar mercancía sin alterar su identidad logística.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MU-04.png",
+        "alt": "Esquema funcional de Mesa de inspección y recepción"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.manual-station",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "MU-05",
+      "title": "Báscula de plataforma",
+      "family": "MU",
+      "familyId": "MU",
+      "chapterId": "chapter-3-5",
+      "summary": "Instrumento que mide masa mediante una plataforma y un sistema de detección, usado con una carga dentro de su rango.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MU-05.png",
+        "alt": "Esquema funcional de Báscula de plataforma"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MU-06",
+      "title": "Dimensionador",
+      "family": "MU",
+      "familyId": "MU",
+      "chapterId": "chapter-3-5",
+      "summary": "Equipo que estima largo, ancho y alto o una envolvente de carga mediante sensores y una geometría de medición definida.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MU-06.png",
+        "alt": "Esquema funcional de Dimensionador"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MU-07",
+      "title": "Lector de código de barras y terminal RF",
+      "family": "MU",
+      "familyId": "MU",
+      "chapterId": "chapter-3-5",
+      "summary": "Dispositivo de identificación que interpreta un código y lo vincula con datos del sistema; un terminal RF agrega interacción y comunicaciones.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MU-07.png",
+        "alt": "Esquema funcional de Lector de código de barras y terminal RF"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MU-08",
+      "title": "Portal RFID",
+      "family": "MU",
+      "familyId": "MU",
+      "chapterId": "chapter-3-5",
+      "summary": "Conjunto de antenas y lectores que identifica etiquetas por radiofrecuencia en una zona definida.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MU-08.png",
+        "alt": "Esquema funcional de Portal RFID"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MU-09",
+      "title": "Estación de entrada y salida de pallets",
+      "family": "MU",
+      "familyId": "MU",
+      "chapterId": "chapter-3-5",
+      "summary": "Interfaz que permite entregar o retirar estibas entre vehículos y transportadores sin interferir con horquillas o apoyos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MU-09.png",
+        "alt": "Esquema funcional de Estación de entrada y salida de pallets"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.loading",
+          "relation": "family"
+        },
+        {
+          "resourceId": "library:conveyor.automatic-station",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "MU-10",
+      "title": "Tope, centrador y posicionador",
+      "family": "MU",
+      "familyId": "MU",
+      "chapterId": "chapter-3-5",
+      "summary": "Conjunto de elementos que detiene y ubica la carga en una referencia reproducible para una operación posterior.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MU-10.png",
+        "alt": "Esquema funcional de Tope, centrador y posicionador"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.loading",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "MU-11",
+      "title": "Mesa elevadora hidráulica de pallets",
+      "family": "MU",
+      "familyId": "MU",
+      "chapterId": "chapter-3-5",
+      "summary": "Plataforma que ajusta la altura de una unidad para transferencia o trabajo ergonómico.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MU-11.png",
+        "alt": "Esquema funcional de Mesa elevadora hidráulica de pallets"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.pallet-elevator",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "MU-12",
+      "title": "Sistema automático de carga y descarga ATLS",
+      "family": "MU",
+      "familyId": "MU",
+      "chapterId": "chapter-3-5",
+      "summary": "Solución que transfiere unidades entre vehículo e instalación mediante equipos coordinados y una interfaz compatible.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MU-12.png",
+        "alt": "Esquema funcional de Sistema automático de carga y descarga ATLS"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.automatic-station",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "PI-01",
+      "title": "Carro y estación de picking manual",
+      "family": "PI",
+      "familyId": "PI",
+      "chapterId": "chapter-3-6",
+      "summary": "Puesto o soporte donde el operario recoge productos siguiendo un pedido y conserva su separación.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/PI-01.png",
+        "alt": "Esquema funcional de Carro y estación de picking manual"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.cart",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "PI-02",
+      "title": "Sistema pick-to-light",
+      "family": "PI",
+      "familyId": "PI",
+      "chapterId": "chapter-3-6",
+      "summary": "Ayuda visual que señala una ubicación y la cantidad a recoger, manteniendo normalmente la toma física a cargo de una persona.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/PI-02.png",
+        "alt": "Esquema funcional de Sistema pick-to-light"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "PI-03",
+      "title": "Sistema pick-by-voice",
+      "family": "PI",
+      "familyId": "PI",
+      "chapterId": "chapter-3-6",
+      "summary": "Interfaz que comunica instrucciones de picking por audio y recibe confirmaciones mediante voz u otro medio autorizado.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/PI-03.png",
+        "alt": "Esquema funcional de Sistema pick-by-voice"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "PI-04",
+      "title": "Put-to-light y put wall",
+      "family": "PI",
+      "familyId": "PI",
+      "chapterId": "chapter-3-6",
+      "summary": "Sistema de consolidación que indica en qué compartimento debe depositarse un artículo destinado a un pedido.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/PI-04.png",
+        "alt": "Esquema funcional de Put-to-light y put wall"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "PI-05",
+      "title": "Estación goods-to-person",
+      "family": "PI",
+      "familyId": "PI",
+      "chapterId": "chapter-3-6",
+      "summary": "Puesto al que un sistema de almacenamiento lleva contenedores para que una persona retire o deposite artículos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/PI-05.png",
+        "alt": "Esquema funcional de Estación goods-to-person"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:rack.miniload",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "PI-06",
+      "title": "Estación goods-to-robot",
+      "family": "PI",
+      "familyId": "PI",
+      "chapterId": "chapter-3-6",
+      "summary": "Integración que presenta productos a un robot para que realice la extracción o colocación.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/PI-06.png",
+        "alt": "Esquema funcional de Estación goods-to-robot"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.industrial",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "PI-07",
+      "title": "Estación de decantado",
+      "family": "PI",
+      "familyId": "PI",
+      "chapterId": "chapter-3-6",
+      "summary": "Puesto donde se pasan artículos de embalajes de entrada a contenedores compatibles con almacenamiento o picking.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/PI-07.png",
+        "alt": "Esquema funcional de Estación de decantado"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.manual-station",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "PI-08",
+      "title": "Estación de consolidación y verificación",
+      "family": "PI",
+      "familyId": "PI",
+      "chapterId": "chapter-3-6",
+      "summary": "Área donde se reúnen las partes de un pedido y se comprueba su integridad antes del empaque o despacho.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/PI-08.png",
+        "alt": "Esquema funcional de Estación de consolidación y verificación"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.manual-station",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "EM-01",
+      "title": "Mesa de packing",
+      "family": "EM",
+      "familyId": "EM",
+      "chapterId": "chapter-3-7",
+      "summary": "Puesto para elegir embalaje, proteger, empacar y verificar un pedido antes de cerrarlo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EM-01.png",
+        "alt": "Esquema funcional de Mesa de packing"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.manual-station",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "EM-02",
+      "title": "Formadora de cajas",
+      "family": "EM",
+      "familyId": "EM",
+      "chapterId": "chapter-3-7",
+      "summary": "Máquina que convierte cajas plegadas o planchas compatibles en recipientes abiertos preparados para llenado.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EM-02.png",
+        "alt": "Esquema funcional de Formadora de cajas"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EM-03",
+      "title": "Selladora de cajas",
+      "family": "EM",
+      "familyId": "EM",
+      "chapterId": "chapter-3-7",
+      "summary": "Equipo que cierra una caja mediante cinta, adhesivo u otro sistema compatible con su diseño.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EM-03.png",
+        "alt": "Esquema funcional de Selladora de cajas"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EM-04",
+      "title": "Empacadora y case packer",
+      "family": "EM",
+      "familyId": "EM",
+      "chapterId": "chapter-3-7",
+      "summary": "Máquina o celda que coloca productos en un empaque según agrupación y orientación establecidas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EM-04.png",
+        "alt": "Esquema funcional de Empacadora y case packer"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EM-05",
+      "title": "Etiquetadora y print-and-apply",
+      "family": "EM",
+      "familyId": "EM",
+      "chapterId": "chapter-3-7",
+      "summary": "Equipo que coloca una etiqueta preimpresa o la imprime y aplica a una unidad identificada.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EM-05.png",
+        "alt": "Esquema funcional de Etiquetadora y print-and-apply"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EM-06",
+      "title": "Controladora dinámica de peso",
+      "family": "EM",
+      "familyId": "EM",
+      "chapterId": "chapter-3-7",
+      "summary": "Equipo que pesa unidades en movimiento y compara cada lectura con límites definidos para un producto.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EM-06.png",
+        "alt": "Esquema funcional de Controladora dinámica de peso"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EM-07",
+      "title": "Envolvedora stretch",
+      "family": "EM",
+      "familyId": "EM",
+      "chapterId": "chapter-3-7",
+      "summary": "Máquina que aplica película estirable alrededor de una unidad de carga para contribuir a su contención.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EM-07.png",
+        "alt": "Esquema funcional de Envolvedora stretch"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EM-08",
+      "title": "Flejadora",
+      "family": "EM",
+      "familyId": "EM",
+      "chapterId": "chapter-3-7",
+      "summary": "Equipo que rodea y tensa una banda alrededor de un paquete o pallet y une sus extremos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EM-08.png",
+        "alt": "Esquema funcional de Flejadora"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EM-09",
+      "title": "Dispensador de pallets y separadores",
+      "family": "EM",
+      "familyId": "EM",
+      "chapterId": "chapter-3-7",
+      "summary": "Equipo que entrega pallets vacíos o láminas separadoras de forma controlada a un proceso.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EM-09.png",
+        "alt": "Esquema funcional de Dispensador de pallets y separadores"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:storage.dispenser",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "EM-10",
+      "title": "Paletizador convencional por capas",
+      "family": "EM",
+      "familyId": "EM",
+      "chapterId": "chapter-3-7",
+      "summary": "Máquina que forma filas o capas de producto y las deposita sobre un pallet mediante mecanismos dedicados.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EM-10.png",
+        "alt": "Esquema funcional de Paletizador convencional por capas"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:machine.palletizer",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "EM-11",
+      "title": "Celda de paletizado robotizado",
+      "family": "EM",
+      "familyId": "EM",
+      "chapterId": "chapter-3-7",
+      "summary": "Integración de robot, herramienta y estaciones que coloca productos sobre pallets siguiendo un patrón.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EM-11.png",
+        "alt": "Esquema funcional de Celda de paletizado robotizado"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.palletizer",
+          "relation": "family"
+        },
+        {
+          "resourceId": "library:storage.pallet",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "EM-12",
+      "title": "Celda de despaletizado",
+      "family": "EM",
+      "familyId": "EM",
+      "chapterId": "chapter-3-7",
+      "summary": "Sistema que retira producto de una unidad paletizada y lo entrega a una línea o puesto.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EM-12.png",
+        "alt": "Esquema funcional de Celda de despaletizado"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.palletizer",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "RO-01",
+      "title": "Robot articulado de seis ejes",
+      "family": "RO",
+      "familyId": "RO",
+      "chapterId": "chapter-4-1",
+      "summary": "Manipulador con articulaciones rotativas que permite posicionar y orientar una herramienta dentro de un volumen de trabajo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/RO-01.png",
+        "alt": "Esquema funcional de Robot articulado de seis ejes"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.industrial",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "RO-02",
+      "title": "Robot articulado de cuatro ejes",
+      "family": "RO",
+      "familyId": "RO",
+      "chapterId": "chapter-4-1",
+      "summary": "Robot optimizado para manipulación en la que se mantiene una orientación principal, como el paletizado de cajas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/RO-02.png",
+        "alt": "Esquema funcional de Robot articulado de cuatro ejes"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.palletizer",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "RO-03",
+      "title": "Robot SCARA",
+      "family": "RO",
+      "familyId": "RO",
+      "chapterId": "chapter-4-1",
+      "summary": "Arquitectura con brazos articulados para desplazamiento principalmente horizontal y un eje vertical de trabajo, apropiada para tareas rápidas de montaje.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/RO-03.png",
+        "alt": "Esquema funcional de Robot SCARA"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.scara",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "RO-04",
+      "title": "Robot delta o paralelo",
+      "family": "RO",
+      "familyId": "RO",
+      "chapterId": "chapter-4-1",
+      "summary": "Manipulador de cadenas cinemáticas paralelas que mueve una plataforma ligera, normalmente desde una estructura superior.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/RO-04.png",
+        "alt": "Esquema funcional de Robot delta o paralelo"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.delta",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "RO-05",
+      "title": "Robot cartesiano XYZ",
+      "family": "RO",
+      "familyId": "RO",
+      "chapterId": "chapter-4-1",
+      "summary": "Manipulador basado en ejes lineales ortogonales que posicionan una herramienta mediante desplazamientos coordinados.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/RO-05.png",
+        "alt": "Esquema funcional de Robot cartesiano XYZ"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.cartesian",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "RO-06",
+      "title": "Robot pórtico o gantry",
+      "family": "RO",
+      "familyId": "RO",
+      "chapterId": "chapter-4-1",
+      "summary": "Manipulador de cobertura amplia apoyado sobre una estructura elevada, normalmente con ejes lineales para transportar herramientas o cargas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/RO-06.png",
+        "alt": "Esquema funcional de Robot pórtico o gantry"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.cartesian",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "RO-07",
+      "title": "Cobot y aplicación colaborativa",
+      "family": "RO",
+      "familyId": "RO",
+      "chapterId": "chapter-4-1",
+      "summary": "Robot concebido para aplicaciones en las que se estudia la interacción con personas; la colaboración depende de toda la aplicación, no solo del brazo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/RO-07.png",
+        "alt": "Esquema funcional de Cobot y aplicación colaborativa"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.collaborative",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "RO-08",
+      "title": "Robot móvil AMR",
+      "family": "RO",
+      "familyId": "RO",
+      "chapterId": "chapter-4-1",
+      "summary": "Plataforma robótica orientada al desplazamiento autónomo de materiales dentro de un entorno autorizado. Su desarrollo específico está en las fichas VE de vehículos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/RO-08.png",
+        "alt": "Esquema funcional de Robot móvil AMR"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.mobile",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "RO-09",
+      "title": "Manipulador móvil",
+      "family": "RO",
+      "familyId": "RO",
+      "chapterId": "chapter-4-1",
+      "summary": "Integración de un robot móvil con un brazo y una herramienta, capaz de desplazarse entre puestos y manipular objetos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/RO-09.png",
+        "alt": "Esquema funcional de Manipulador móvil"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.mobile-manipulator",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "RO-10",
+      "title": "Robot aplicado a soldadura",
+      "family": "RO",
+      "familyId": "RO",
+      "chapterId": "chapter-4-1",
+      "summary": "Manipulador equipado para guiar un proceso de unión y coordinarlo con piezas sujetas en una celda. Es una aplicación, no una arquitectura única.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/RO-10.png",
+        "alt": "Esquema funcional de Robot aplicado a soldadura"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.articulated-process",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "RO-11",
+      "title": "Robot aplicado a pintura",
+      "family": "RO",
+      "familyId": "RO",
+      "chapterId": "chapter-4-1",
+      "summary": "Manipulador y sistema de aplicación diseñados para recubrimientos en condiciones ambientales y de seguridad específicas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/RO-11.png",
+        "alt": "Esquema funcional de Robot aplicado a pintura"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.articulated-process",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "RO-12",
+      "title": "Robot aplicado a inspección",
+      "family": "RO",
+      "familyId": "RO",
+      "chapterId": "chapter-4-1",
+      "summary": "Robot que coloca sensores o piezas para realizar mediciones y observaciones desde posiciones repetibles.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/RO-12.png",
+        "alt": "Esquema funcional de Robot aplicado a inspección"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.industrial",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "RO-13",
+      "title": "Robot aplicado a pulido y desbarbado",
+      "family": "RO",
+      "familyId": "RO",
+      "chapterId": "chapter-4-1",
+      "summary": "Manipulador que controla el contacto entre abrasivo y pieza para remover material o mejorar la superficie.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/RO-13.png",
+        "alt": "Esquema funcional de Robot aplicado a pulido y desbarbado"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.articulated-process",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "RO-14",
+      "title": "Robot de carga pesada",
+      "family": "RO",
+      "familyId": "RO",
+      "chapterId": "chapter-4-1",
+      "summary": "Familia de manipuladores seleccionada por su capacidad para cargas y momentos elevados; no constituye por sí sola un proceso diferente.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/RO-14.png",
+        "alt": "Esquema funcional de Robot de carga pesada"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.industrial",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "EO-01",
+      "title": "Ventosa de vacío",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Elemento flexible que sella una superficie para sujetarla mediante diferencia de presión; necesita un circuito que genere y controle el vacío.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-01.png",
+        "alt": "Esquema funcional de Ventosa de vacío"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.industrial",
+          "relation": "family"
+        },
+        {
+          "resourceId": "library:robot.scara",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "EO-02",
+      "title": "Cabezal multiventosa o de vacío de área",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Herramienta con varios puntos de vacío o una superficie de sellado amplia para manipular una unidad, grupos o capas compatibles.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-02.png",
+        "alt": "Esquema funcional de Cabezal multiventosa o de vacío de área"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.palletizer",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "EO-03",
+      "title": "Pinza paralela de dos dedos",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Herramienta que desplaza dos mordazas de manera paralela para sujetar una pieza por presión o por ajuste de forma.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-03.png",
+        "alt": "Esquema funcional de Pinza paralela de dos dedos"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.industrial",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "EO-04",
+      "title": "Pinza de tres dedos",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Herramienta de cierre radial que centra y sujeta objetos alrededor de un eje.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-04.png",
+        "alt": "Esquema funcional de Pinza de tres dedos"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-05",
+      "title": "Pinza angular",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Herramienta cuyas mordazas se abren y cierran mediante giro, generando un arco en lugar de un desplazamiento paralelo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-05.png",
+        "alt": "Esquema funcional de Pinza angular"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-06",
+      "title": "Pinza adaptativa",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Herramienta que acomoda su forma o control de contacto para sujetar objetos con geometrías variables.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-06.png",
+        "alt": "Esquema funcional de Pinza adaptativa"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-07",
+      "title": "Pinza blanda o soft gripper",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Efector con superficies deformables que distribuye el contacto sobre productos delicados.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-07.png",
+        "alt": "Esquema funcional de Pinza blanda o soft gripper"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-08",
+      "title": "Pinza magnética",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Dispositivo que sujeta materiales ferromagnéticos mediante un campo magnético, sin requerir vacío.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-08.png",
+        "alt": "Esquema funcional de Pinza magnética"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-09",
+      "title": "Pinza de agujas",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Herramienta que retiene un material mediante penetración controlada de pequeñas agujas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-09.png",
+        "alt": "Esquema funcional de Pinza de agujas"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-10",
+      "title": "Pinza para sacos",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Herramienta especializada para manipular envases flexibles de material a granel mediante apoyo inferior, dedos o agarre específico.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-10.png",
+        "alt": "Esquema funcional de Pinza para sacos"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-11",
+      "title": "Pinza lateral de paletizado",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Cabezal que sujeta una o varias cajas mediante mordazas laterales, con apoyo adicional cuando el diseño lo requiere.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-11.png",
+        "alt": "Esquema funcional de Pinza lateral de paletizado"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-12",
+      "title": "Horquillas robóticas",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Efector que sostiene una carga desde abajo mediante brazos compatibles con sus entradas o superficies de apoyo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-12.png",
+        "alt": "Esquema funcional de Horquillas robóticas"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.industrial",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "EO-13",
+      "title": "Pinza para tambores",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Herramienta que abraza, sujeta el borde o apoya un tambor utilizando geometría específica.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-13.png",
+        "alt": "Esquema funcional de Pinza para tambores"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-14",
+      "title": "Pinza doble de carga y descarga",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Efector con dos puestos de agarre que permite retirar una pieza terminada y colocar una nueva en un ciclo de servicio.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-14.png",
+        "alt": "Esquema funcional de Pinza doble de carga y descarga"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-15",
+      "title": "Atornillador automático",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Herramienta que introduce y aprieta tornillos con una estrategia controlada de giro y verificación.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-15.png",
+        "alt": "Esquema funcional de Atornillador automático"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.articulated-process",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "EO-16",
+      "title": "Antorcha MIG/MAG",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Herramienta que conduce hilo consumible, corriente y gas de protección hacia la zona de soldadura por arco.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-16.png",
+        "alt": "Esquema funcional de Antorcha MIG/MAG"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.articulated-process",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "EO-17",
+      "title": "Antorcha TIG",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Herramienta de soldadura por arco con electrodo de tungsteno no consumible y gas de protección; el aporte puede suministrarse aparte.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-17.png",
+        "alt": "Esquema funcional de Antorcha TIG"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-18",
+      "title": "Pistola de soldadura por puntos",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Herramienta que presiona chapas entre electrodos y hace pasar corriente para generar la unión localizada por resistencia.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-18.png",
+        "alt": "Esquema funcional de Pistola de soldadura por puntos"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-19",
+      "title": "Pistola de pintura y atomizador",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Aplicador que distribuye recubrimiento sobre una superficie mediante atomización o un mecanismo apropiado al material.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-19.png",
+        "alt": "Esquema funcional de Pistola de pintura y atomizador"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.articulated-process",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "EO-20",
+      "title": "Dispensador de adhesivo o sellador",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Herramienta que deposita material de unión o sellado en puntos, cordones o superficies.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-20.png",
+        "alt": "Esquema funcional de Dispensador de adhesivo o sellador"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-21",
+      "title": "Husillo de fresado o pulido",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Accionamiento rotativo para una herramienta de corte o abrasión instalada en un robot o estación.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-21.png",
+        "alt": "Esquema funcional de Husillo de fresado o pulido"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:robot.articulated-process",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "EO-22",
+      "title": "Herramienta de corte robótico",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Efector que separa o recorta material mediante un principio de corte determinado.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-22.png",
+        "alt": "Esquema funcional de Herramienta de corte robótico"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-23",
+      "title": "Cámara 2D y cámara 3D",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Sensores de imagen usados para localizar, identificar o inspeccionar objetos; la 3D añade información espacial según su tecnología.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-23.png",
+        "alt": "Esquema funcional de Cámara 2D y cámara 3D"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-24",
+      "title": "Sonda de medición",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Elemento de contacto o sensor especializado que obtiene información dimensional de una pieza o una referencia.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-24.png",
+        "alt": "Esquema funcional de Sonda de medición"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-25",
+      "title": "Sensor de fuerza y torque",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Dispositivo que mide fuerzas y momentos aplicados entre robot y herramienta o en otra interfaz de trabajo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-25.png",
+        "alt": "Esquema funcional de Sensor de fuerza y torque"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-26",
+      "title": "Cambiador de herramientas robóticas",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Acoplamiento que permite separar la herramienta del robot y conectar otra manteniendo interfaces mecánicas y de servicios.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-26.png",
+        "alt": "Esquema funcional de Cambiador de herramientas robóticas"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "EO-27",
+      "title": "Estación de herramientas y soporte EOAT",
+      "family": "EO",
+      "familyId": "EO",
+      "chapterId": "chapter-4-2",
+      "summary": "Conjunto de alojamientos que mantiene las herramientas disponibles y apoyadas durante un cambio.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/EO-27.png",
+        "alt": "Esquema funcional de Estación de herramientas y soporte EOAT"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-01",
+      "title": "Sierra industrial y estación de corte",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Máquina que separa material mediante una hoja dentada en movimiento y una sujeción adecuada.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-01.png",
+        "alt": "Esquema funcional de Sierra industrial y estación de corte"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-02",
+      "title": "Máquina de corte láser, plasma o agua",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Equipo de corte por trayectoria cuya tecnología debe corresponder al material y al requisito de la pieza.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-02.png",
+        "alt": "Esquema funcional de Máquina de corte láser, plasma o agua"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-03",
+      "title": "Torno convencional y CNC",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Máquina que gira la pieza alrededor de un eje mientras una herramienta retira material para producir geometrías principalmente de revolución.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-03.png",
+        "alt": "Esquema funcional de Torno convencional y CNC"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-04",
+      "title": "Fresadora y centro de mecanizado CNC",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Máquina que emplea herramientas rotativas para retirar material y generar caras, cavidades y otras geometrías.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-04.png",
+        "alt": "Esquema funcional de Fresadora y centro de mecanizado CNC"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-05",
+      "title": "Taladro y estación de perforación",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Equipo que produce agujeros mediante una herramienta que gira y avanza respecto a la pieza.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-05.png",
+        "alt": "Esquema funcional de Taladro y estación de perforación"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-06",
+      "title": "Prensa plegadora",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Máquina que dobla chapa mediante punzón y matriz, aplicando fuerza y movimiento controlados.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-06.png",
+        "alt": "Esquema funcional de Prensa plegadora"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-07",
+      "title": "Prensa de estampado y conformado",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Máquina que transforma material mediante un útil y una fuerza aplicada durante un ciclo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-07.png",
+        "alt": "Esquema funcional de Prensa de estampado y conformado"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-08",
+      "title": "Moldeadora por inyección",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Máquina que introduce material preparado en un molde para obtener una pieza después de enfriamiento o solidificación apropiados.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-08.png",
+        "alt": "Esquema funcional de Moldeadora por inyección"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-09",
+      "title": "Extrusora y línea de extrusión",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Equipo que fuerza material a través de una matriz para obtener una sección continua que después se enfría y corta o recoge.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-09.png",
+        "alt": "Esquema funcional de Extrusora y línea de extrusión"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-10",
+      "title": "Impresora 3D y celda aditiva",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Equipo que fabrica una geometría mediante adición de material siguiendo capas o trayectorias definidas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-10.png",
+        "alt": "Esquema funcional de Impresora 3D y celda aditiva"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-11",
+      "title": "Fuente de soldadura y alimentación",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Equipo que suministra y regula la energía de soldadura y coordina consumibles según el proceso.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-11.png",
+        "alt": "Esquema funcional de Fuente de soldadura y alimentación"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-12",
+      "title": "Posicionador de soldadura y mesa indexada",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Equipo que orienta o presenta una pieza fijada para que un operario o robot acceda a distintas zonas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-12.png",
+        "alt": "Esquema funcional de Posicionador de soldadura y mesa indexada"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-13",
+      "title": "Cabina de pintura y sistema de aplicación",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Instalación que contiene el proceso de recubrimiento y sus flujos de aire, material y piezas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-13.png",
+        "alt": "Esquema funcional de Cabina de pintura y sistema de aplicación"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-14",
+      "title": "Horno de tratamiento, secado o curado",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Equipo que aplica un ciclo térmico a piezas o materiales con un propósito definido.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-14.png",
+        "alt": "Esquema funcional de Horno de tratamiento, secado o curado"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-15",
+      "title": "Pulidora, lijadora y desbarbadora",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Máquina o puesto que modifica una superficie o elimina rebabas mediante abrasión o herramienta específica.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-15.png",
+        "alt": "Esquema funcional de Pulidora, lijadora y desbarbadora"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-16",
+      "title": "Banco de ensamble y fixture",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Estación que organiza componentes y mantiene referencias para unirlos de forma repetible.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-16.png",
+        "alt": "Esquema funcional de Banco de ensamble y fixture"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:processor.combine",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "MA-17",
+      "title": "Alimentador vibratorio de piezas",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Sistema que presenta componentes pequeños en una orientación adecuada para una máquina o robot.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-17.png",
+        "alt": "Esquema funcional de Alimentador vibratorio de piezas"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-18",
+      "title": "Prensa de inserción",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Equipo que une o coloca componentes mediante una fuerza y desplazamiento controlados.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-18.png",
+        "alt": "Esquema funcional de Prensa de inserción"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-19",
+      "title": "Máquina de medición por coordenadas CMM",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Equipo que obtiene coordenadas de puntos o superficies para evaluar geometría respecto a referencias definidas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-19.png",
+        "alt": "Esquema funcional de Máquina de medición por coordenadas CMM"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "MA-20",
+      "title": "Banco de pruebas funcionales",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Estación que verifica si un producto cumple funciones mediante estímulos y mediciones controladas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-20.png",
+        "alt": "Esquema funcional de Banco de pruebas funcionales"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:processor.process",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "MA-21",
+      "title": "Tolva, silo y dosificador",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Conjunto para contener material a granel y entregarlo de forma regulada a un proceso.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-21.png",
+        "alt": "Esquema funcional de Tolva, silo y dosificador"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:machine.filler",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "MA-22",
+      "title": "Extracción de humos y polvo",
+      "family": "MA",
+      "familyId": "MA",
+      "chapterId": "chapter-5-2",
+      "summary": "Sistema auxiliar que capta contaminantes del proceso y los conduce a tratamiento compatible con el riesgo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/MA-22.png",
+        "alt": "Esquema funcional de Extracción de humos y polvo"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "SE-01",
+      "title": "Sensor fotoeléctrico",
+      "family": "SE",
+      "familyId": "SE",
+      "chapterId": "chapter-7-1",
+      "summary": "Dispositivo que detecta un objeto por interacción con un haz luminoso.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SE-01.png",
+        "alt": "Esquema funcional de Sensor fotoeléctrico"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:control.sensor",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "SE-02",
+      "title": "Sensor inductivo, capacitivo y ultrasónico",
+      "family": "SE",
+      "familyId": "SE",
+      "chapterId": "chapter-7-1",
+      "summary": "Familias de detección sin contacto basadas en principios diferentes y seleccionadas según material y distancia.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SE-02.png",
+        "alt": "Esquema funcional de Sensor inductivo, capacitivo y ultrasónico"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:control.sensor",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "SE-03",
+      "title": "Encoder y final de carrera",
+      "family": "SE",
+      "familyId": "SE",
+      "chapterId": "chapter-7-1",
+      "summary": "Elementos de realimentación para conocer desplazamiento o alcanzar una posición de referencia.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SE-03.png",
+        "alt": "Esquema funcional de Encoder y final de carrera"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.industrial",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "SE-04",
+      "title": "Célula de carga y sensor de presión/vacío",
+      "family": "SE",
+      "familyId": "SE",
+      "chapterId": "chapter-7-1",
+      "summary": "Instrumentos que convierten fuerza o presión en una señal útil para medición y control.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SE-04.png",
+        "alt": "Esquema funcional de Célula de carga y sensor de presión/vacío"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "SE-05",
+      "title": "Sensor de temperatura, vibración y condición",
+      "family": "SE",
+      "familyId": "SE",
+      "chapterId": "chapter-7-1",
+      "summary": "Instrumentación que observa variables relevantes para proceso o estado de un equipo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SE-05.png",
+        "alt": "Esquema funcional de Sensor de temperatura, vibración y condición"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "SE-06",
+      "title": "Motor, motorreductor y variador",
+      "family": "SE",
+      "familyId": "SE",
+      "chapterId": "chapter-7-1",
+      "summary": "Accionamiento que transforma energía en movimiento; el reductor adapta velocidad/par y el variador regula un motor compatible.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SE-06.png",
+        "alt": "Esquema funcional de Motor, motorreductor y variador"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:conveyor.straight",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "SE-07",
+      "title": "Servomotor y eje controlado",
+      "family": "SE",
+      "familyId": "SE",
+      "chapterId": "chapter-7-1",
+      "summary": "Accionamiento con realimentación que controla posición, velocidad o par de un eje.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SE-07.png",
+        "alt": "Esquema funcional de Servomotor y eje controlado"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.industrial",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "SE-08",
+      "title": "Actuador neumático e hidráulico",
+      "family": "SE",
+      "familyId": "SE",
+      "chapterId": "chapter-7-1",
+      "summary": "Dispositivo que genera movimiento mediante presión de un fluido, normalmente lineal o rotativo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SE-08.png",
+        "alt": "Esquema funcional de Actuador neumático e hidráulico"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.forklift",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "SE-09",
+      "title": "Resguardo y puerta con enclavamiento",
+      "family": "SE",
+      "familyId": "SE",
+      "chapterId": "chapter-7-1",
+      "summary": "Medida de protección que separa personas de peligros y vincula el acceso con condiciones de funcionamiento.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SE-09.png",
+        "alt": "Esquema funcional de Resguardo y puerta con enclavamiento"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "SE-10",
+      "title": "Cortina y escáner de seguridad",
+      "family": "SE",
+      "familyId": "SE",
+      "chapterId": "chapter-7-1",
+      "summary": "Dispositivos de protección que detectan entrada o presencia en zonas definidas mediante tecnologías y funciones de seguridad específicas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SE-10.png",
+        "alt": "Esquema funcional de Cortina y escáner de seguridad"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "SE-11",
+      "title": "Parada de emergencia y mando de rearme",
+      "family": "SE",
+      "familyId": "SE",
+      "chapterId": "chapter-7-1",
+      "summary": "Funciones para solicitar una parada ante una situación de emergencia y gestionar el restablecimiento conforme al diseño.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SE-11.png",
+        "alt": "Esquema funcional de Parada de emergencia y mando de rearme"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:control.panel",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "SE-12",
+      "title": "Bloqueo de energías y medios auxiliares",
+      "family": "SE",
+      "familyId": "SE",
+      "chapterId": "chapter-7-1",
+      "summary": "Conjunto de procedimientos y dispositivos que evita una puesta en marcha o liberación de energía inesperada durante una intervención autorizada.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SE-12.png",
+        "alt": "Esquema funcional de Bloqueo de energías y medios auxiliares"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "SI-01",
+      "title": "ERP",
+      "family": "SI",
+      "familyId": "SI",
+      "chapterId": "chapter-7-2",
+      "summary": "Sistema que integra información y decisiones de planificación y gestión empresarial, como compras, pedidos y necesidades de recursos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SI-01.png",
+        "alt": "Esquema funcional de ERP"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "SI-02",
+      "title": "WMS",
+      "family": "SI",
+      "familyId": "SI",
+      "chapterId": "chapter-7-2",
+      "summary": "Sistema de gestión del almacén que controla ubicaciones, existencias y tareas logísticas.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SI-02.png",
+        "alt": "Esquema funcional de WMS"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:storage.rack",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "SI-03",
+      "title": "WCS",
+      "family": "SI",
+      "familyId": "SI",
+      "chapterId": "chapter-7-2",
+      "summary": "Sistema que coordina la ejecución de equipos intralogísticos, traduciendo necesidades de flujo en órdenes a los controladores.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SI-03.png",
+        "alt": "Esquema funcional de WCS"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:control.panel",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "SI-04",
+      "title": "WES",
+      "family": "SI",
+      "familyId": "SI",
+      "chapterId": "chapter-7-2",
+      "summary": "Capa de coordinación que organiza tareas y recursos de ejecución logística de acuerdo con prioridades y carga de trabajo.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SI-04.png",
+        "alt": "Esquema funcional de WES"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "SI-05",
+      "title": "MES",
+      "family": "SI",
+      "familyId": "SI",
+      "chapterId": "chapter-7-2",
+      "summary": "Sistema de ejecución de manufactura que relaciona órdenes, operaciones, materiales, calidad y estado de producción.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SI-05.png",
+        "alt": "Esquema funcional de MES"
+      },
+      "resourceLinks": []
+    },
+    {
+      "id": "SI-06",
+      "title": "SCADA",
+      "family": "SI",
+      "familyId": "SI",
+      "chapterId": "chapter-7-2",
+      "summary": "Sistema de supervisión y adquisición de datos que presenta estados, tendencias y alarmas de procesos y equipos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SI-06.png",
+        "alt": "Esquema funcional de SCADA"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:widget.lineMonitor",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "SI-07",
+      "title": "HMI",
+      "family": "SI",
+      "familyId": "SI",
+      "chapterId": "chapter-7-2",
+      "summary": "Interfaz de operación que permite a una persona consultar estados y enviar acciones autorizadas a una máquina o sistema.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SI-07.png",
+        "alt": "Esquema funcional de HMI"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:control.panel",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "SI-08",
+      "title": "PLC y controlador de automatización",
+      "family": "SI",
+      "familyId": "SI",
+      "chapterId": "chapter-7-2",
+      "summary": "Equipo o función de control que interpreta entradas y ejecuta lógica para ordenar salidas dentro del diseño de una máquina.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SI-08.png",
+        "alt": "Esquema funcional de PLC y controlador de automatización"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:control.panel",
+          "relation": "exact"
+        }
+      ]
+    },
+    {
+      "id": "SI-09",
+      "title": "Controlador de robot",
+      "family": "SI",
+      "familyId": "SI",
+      "chapterId": "chapter-7-2",
+      "summary": "Sistema que ejecuta programas de movimiento y coordina herramienta, ejes e interfaces del robot.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SI-09.png",
+        "alt": "Esquema funcional de Controlador de robot"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.industrial",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "SI-10",
+      "title": "Gestor de flota",
+      "family": "SI",
+      "familyId": "SI",
+      "chapterId": "chapter-7-2",
+      "summary": "Sistema que asigna y coordina tareas de robots móviles o vehículos automáticos y supervisa su disponibilidad.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SI-10.png",
+        "alt": "Esquema funcional de Gestor de flota"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:vehicle.mobile",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "SI-11",
+      "title": "Gemelo digital y modelo de simulación",
+      "family": "SI",
+      "familyId": "SI",
+      "chapterId": "chapter-7-2",
+      "summary": "Representación computacional de un sistema con estructura, reglas y datos; un vínculo con el sistema físico debe declararse cuando exista.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SI-11.png",
+        "alt": "Esquema funcional de Gemelo digital y modelo de simulación"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:widget.lineMonitor",
+          "relation": "family"
+        }
+      ]
+    },
+    {
+      "id": "SI-12",
+      "title": "IA, analítica y asistente de voz",
+      "family": "SI",
+      "familyId": "SI",
+      "chapterId": "chapter-7-2",
+      "summary": "Funciones que ayudan a interpretar datos, explicar tareas o proponer decisiones dentro de permisos y evidencias definidos.",
+      "illustration": {
+        "src": "modules/logistica-industrial/documentation/assets/SI-12.png",
+        "alt": "Esquema funcional de IA, analítica y asistente de voz"
+      },
+      "resourceLinks": [
+        {
+          "resourceId": "library:education.mission",
+          "relation": "family"
+        }
+      ]
+    }
+  ]
+}

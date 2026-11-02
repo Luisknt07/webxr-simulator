@@ -651,6 +651,12 @@ export default class StudioTools {
     if (editor.shell) editor.shell.openWorkspace('logic');
   }
   connect() { if (this.editor.shell) this.editor.shell.openWorkspace('connections'); }
+  documentationProviders() {
+    const editor = this.editor;
+    return [{id: 'sector.logistics-industrial', title: 'Logística industrial',
+      available: () => !editor.projectModules || editor.projectModules.canShowLevel('sector.logistics-industrial'),
+      load: () => import(/* webpackChunkName: "logistics-documentation" */ '../documentation/catalog.cjs').then(value => value.default || value)}];
+  }
   openWorkspace(id, container) {
     if (!container) return;
     if (this.graphicsSettings) { this.graphicsSettings.dispose(); this.graphicsSettings = null; }
