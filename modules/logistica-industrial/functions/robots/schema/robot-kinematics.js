@@ -30,10 +30,10 @@ function configuration(value) {
   if (!value || typeof value !== 'object') return robots.normalize({});
   // Geometry/runtime hold stable config objects during a cycle. Invalidate on
   // every mechanical field edit while avoiding full schema parsing per frame.
-  const signature = [value.variant, value.family, value.visualModel, value.tool, value.reach, value.length, value.width, value.height, value.baseHeight, value.maxProductDepth, value.jointLimitsJson].join('|');
+  const signature = [value.variant, value.family, value.visualModel, value.tool, value.reach, value.length, value.width, value.height, value.baseHeight, value.maxProductWidth, value.maxProductHeight, value.maxProductDepth, value.jointLimitsJson].join('|');
   const cached = prepared.get(value); if (cached && cached.signature === signature) return cached.config;
   const config = robots.normalize(value); prepared.set(value, {signature, config});
-  prepared.set(config, {signature: [config.variant, config.family, config.visualModel, config.tool, config.reach, config.length, config.width, config.height, config.baseHeight, config.maxProductDepth, config.jointLimitsJson].join('|'), config});
+  prepared.set(config, {signature: [config.variant, config.family, config.visualModel, config.tool, config.reach, config.length, config.width, config.height, config.baseHeight, config.maxProductWidth, config.maxProductHeight, config.maxProductDepth, config.jointLimitsJson].join('|'), config});
   return config;
 }
 
@@ -50,7 +50,23 @@ function getDimensions(value) {
     deltaUpper: reach * .34, deltaLower: reach * .90, deltaEffector: reach * .075,
     toolLength,toolOffset:[toolLength,toolSupport?toolSupport.depth/2+toolSupport.rearClearance:0,0],toolSupport};
 }
-function jointDefinitions(value) { return robots.getJointDefinitions(configuration(value)); }
+const jointTables = new WeakMap();
+function mechanicalJoints(config) {
+  // Only baseJoints/getJointDefinitions dependencies belong in this key. The
+  // normalized config is stable during motion; parsing its limits and copying
+  // the complete schema defaults for every IK candidate dominated solve time.
+  const signature = [config.variant, config.family, config.reach, config.length, config.width, config.height, config.maxProductDepth, config.jointLimitsJson].join('|');
+  const cached = jointTables.get(config);
+  if (cached && cached.signature === signature) return cached.definitions;
+  const definitions = robots.getJointDefinitions(config);
+  jointTables.set(config, {signature, definitions});
+  return definitions;
+}
+function jointDefinitions(value) {
+  // Public callers retain independent, mutable records. Internal FK/IK reads
+  // the private table without allocating copies or exposing it to mutation.
+  return mechanicalJoints(configuration(value)).map(definition => Object.assign({}, definition));
+}
 // The parallel gripper grips the sides below the top of a carton. Its real
 // 55 mm pads end at the TCP and the actuator remains at least 95 mm behind
 // it. A 40 mm insertion gives side contact while keeping the body above the
@@ -61,12 +77,12 @@ function getToolContactDepth(value, height) {
   return c.tool === 'gripper' && Number.isFinite(size) && size > 0 ? Math.min(.04, size * .5) : 0;
 }
 function clampJoints(value, joints) {
-  return jointDefinitions(value).map((definition, index) => clamp(Number.isFinite(Number(joints && joints[index])) ? Number(joints[index]) : Number(definition.home) || 0, definition.min, definition.max));
+  return mechanicalJoints(configuration(value)).map((definition, index) => clamp(Number.isFinite(Number(joints && joints[index])) ? Number(joints[index]) : Number(definition.home) || 0, definition.min, definition.max));
 }
 function homePose(value) {
   const c = configuration(value), d = getDimensions(c);
   if (c.family === 'delta') return inverse(c, [0, d.deltaTop - d.reach * .72, 0]);
-  return forward(c, jointDefinitions(c).map(definition => definition.home || 0));
+  return forward(c, mechanicalJoints(c).map(definition => definition.home || 0));
 }
 function result(c, joints, p, q, frames, extra) {
   return Object.assign({joints, tcp: objectPoint(p), toolPosition: p.slice(), quaternion: q.slice(), toolQuaternion: q.slice(), frames,
@@ -149,12 +165,12 @@ function forward(value, input) {
 function inverse(value, target, seed) {
   const c = configuration(value), d = getDimensions(c);
   const targetPoint = point(target && target.position ? target.position : target), desired = target && (target.quaternion || target.toolQuaternion);
-  const initial = Array.isArray(seed) ? seed : seed && seed.joints || [], joints = jointDefinitions(c).map((definition, index) => Number.isFinite(initial[index]) ? initial[index] : definition.home || 0);
+  const initial = Array.isArray(seed) ? seed : seed && seed.joints || [], definitions = mechanicalJoints(c), joints = definitions.map((definition, index) => Number.isFinite(initial[index]) ? initial[index] : definition.home || 0);
   if (c.family === 'articulated' || c.family === 'palletizer' || c.family === 'mobileManipulator') {
     const targetOrientation = desired || axis(2, -PI / 2), wristPoint = sub(targetPoint, rotate(d.toolOffset, targetOrientation));
     const xz = Math.hypot(wristPoint[0], wristPoint[2]), y = wristPoint[1] - c.baseHeight;
     const cosElbow = clamp((xz * xz + y * y - d.upperArm * d.upperArm - d.forearm * d.forearm) / (2 * d.upperArm * d.forearm), -1, 1);
-    const limits = jointDefinitions(c), choices = [];
+    const limits = definitions, choices = [];
     for (const radialSign of [1, -1]) for (const elbowSign of [-1, 1]) {
       const candidate = joints.slice(), radial = xz * radialSign;
       candidate[0] = fitAngle(Math.atan2(-wristPoint[2], wristPoint[0]) + (radialSign < 0 ? PI : 0), limits[0], initial[0]);
@@ -183,7 +199,7 @@ function inverse(value, target, seed) {
     }
   } else if (c.family === 'scara') {
     const x = targetPoint[0], z = -targetPoint[2];
-    const limits = jointDefinitions(c), beta = Math.acos(clamp((x * x + z * z - d.upperArm * d.upperArm - d.forearm * d.forearm) / (2 * d.upperArm * d.forearm), -1, 1));
+    const limits = definitions, beta = Math.acos(clamp((x * x + z * z - d.upperArm * d.upperArm - d.forearm * d.forearm) / (2 * d.upperArm * d.forearm), -1, 1));
     const choices = [-1, 1].map(sign => {
       const elbow = clamp(sign * beta, limits[1].min, limits[1].max), angle = fitAngle(Math.atan2(z, x) - Math.atan2(d.forearm * Math.sin(elbow), d.upperArm + d.forearm * Math.cos(elbow)), limits[0], initial[0]);
       const xx = d.upperArm * Math.cos(angle) + d.forearm * Math.cos(angle + elbow), zz = d.upperArm * Math.sin(angle) + d.forearm * Math.sin(angle + elbow);
@@ -205,7 +221,7 @@ function inverse(value, target, seed) {
       if (h < EPS || Math.abs(rhs) > h + 1e-8) possible = false;
       joints[i] = Math.atan2(b, a) - Math.acos(clamp(rhs / Math.max(EPS, h), -1, 1));
     }
-    if (desired) joints[3] = fitAngle(yawOfDownQuaternion(desired), jointDefinitions(c)[3], initial[3]);
+    if (desired) joints[3] = fitAngle(yawOfDownQuaternion(desired), definitions[3], initial[3]);
     const output = forward(c, joints); output.error = norm(sub(output.toolPosition, targetPoint));
     output.reached = possible && output.reached && output.error < .002;
     if (desired) {
@@ -258,7 +274,7 @@ function yawOfDownQuaternion(q) {
 }
 
 function validatePose(value, pose) {
-  const c = configuration(value), definitions = jointDefinitions(c);
+  const c = configuration(value), definitions = mechanicalJoints(c);
   if (!pose || !Array.isArray(pose.joints) || pose.joints.length !== definitions.length ||
     pose.joints.some((joint, index) => !Number.isFinite(joint) || joint < definitions[index].min - 1e-7 || joint > definitions[index].max + 1e-7)) throw new Error('La postura del robot no coincide con sus ejes o recorridos.');
   if (pose.open !== undefined && (!Number.isFinite(pose.open) || pose.open < 0 || pose.open > 1) ||

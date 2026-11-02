@@ -1,0 +1,65 @@
+{
+  "format": "smarttwin.kinematics-pre-cache",
+  "version": 1,
+  "variants": {
+    "articulated-general": "42cb17f0aa7e02851849bcab49593a96d25e0a9d36f9a6a7dcd6743c3a0d42f7",
+    "articulated-process": "42cb17f0aa7e02851849bcab49593a96d25e0a9d36f9a6a7dcd6743c3a0d42f7",
+    "collaborative": "474ffd1a1b7806a7a6f85fcb1e171a5f2c4796863a050ee4224a290284de441e",
+    "scara": "ed06f93c81370c21d9b323d3aa91cbeb82a50c3cabfcc83b47b006036b045b6b",
+    "delta": "4f27b48e8eecdeec3c58a117dbfe53420ba75571c6c43a50c313ca959656caee",
+    "cartesian": "f6af9fe6b0180ce8f61d1203226417e681e38f84e45d31acb604aa39b9598661",
+    "palletizer": "38ecf2fc2cc5f4fb033a9fefbe68c3c28b305cbf8468cd577a597b958992f04c",
+    "amr": "5ec1f884d07cb93f17b176bd8492afa97b509f7bdeac05491662caf1f0b4e0b1",
+    "agv": "08ddc737a61dbb34cf683fce80e893affc87efb853ceed5e70918237d393251c",
+    "shuttle": "e15a73f6fddb5371a7f6383363cbe28214a6a823c6621742bbac87ec5f17cba9",
+    "cylindrical-rpp": "6a79cb253458261b6fb04aa114b0e6b724db70c9a1f8c147243efd6a51ef1348",
+    "polar-rrp": "ce2c5aeaa356dca4f835d421ed5c72a57c0ec46ac9befa66e4ea92643583bdda",
+    "mobile-manipulator": "308e29f18572bd040e45a926938672bd0b3c3ea49e257200e8f66f5800a659c9",
+    "mobile-sorter-crossbelt": "9e1298e7c352a517f26f05532fbf9a7fc0e558ef148db27528b97aa73b400bc1",
+    "mobile-sorter-tilttray": "9e1298e7c352a517f26f05532fbf9a7fc0e558ef148db27528b97aa73b400bc1"
+  },
+  "invalid": [
+    {
+      "changes": {
+        "jointLimitsJson": "{"
+      },
+      "error": "Límites articulares: JSON inválido."
+    },
+    {
+      "changes": {
+        "jointLimitsJson": "{}"
+      },
+      "error": "Límites articulares: lista demasiado grande o inválida."
+    },
+    {
+      "changes": {
+        "jointLimitsJson": "[{\"id\":\"J99\",\"min\":0,\"max\":1}]"
+      },
+      "error": "El límite articular debe permanecer dentro del recorrido del modelo."
+    },
+    {
+      "changes": {
+        "jointLimitsJson": "[{\"id\":\"J2\",\"min\":-2,\"max\":2}]"
+      },
+      "error": "El límite articular debe permanecer dentro del recorrido del modelo."
+    },
+    {
+      "changes": {
+        "jointLimitsJson": "[{\"id\":\"J2\",\"min\":-1,\"max\":1},{\"id\":\"J2\",\"min\":-1,\"max\":1}]"
+      },
+      "error": "Límite articular inválido o repetido."
+    },
+    {
+      "changes": {
+        "jointLimitsJson": "[{\"id\":\"J2\",\"min\":-1,\"max\":1,\"home\":2}]"
+      },
+      "error": "La posición inicial queda fuera del límite articular."
+    },
+    {
+      "changes": {
+        "reach": -1
+      },
+      "error": "Valor fuera de rango: Alcance nominal del brazo sin herramienta · m."
+    }
+  ]
+}

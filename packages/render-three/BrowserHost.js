@@ -20,31 +20,62 @@ export function createBrowserHost(options = {}) {
   const graphics = new AdaptiveGraphics(renderer, {storage: null}); ctx.graphics = graphics;
   const input = new BrowserInput(ctx, renderer.domElement, options.input || {}); ctx.input = input;
   const listeners = [], cleanup = []; let disposed = false, started = false, lost = false, lastTime = null, frames = 0, primaryRenders = 0, workMs = 0, callbacks = {}, desktop = null, xrButton = null;
+  let frameError = null, lastFrameError = null, frameErrors = 0, frameAttempts = 0, failedFrames = 0, skippedSimulationFrames = 0, notificationErrors = 0;
   const listen = (target, name, handler, settings) => {target.addEventListener(name, handler, settings); listeners.push(() => target.removeEventListener(name, handler, settings));};
   const resize = () => {const width = container.clientWidth || window.innerWidth, height = container.clientHeight || window.innerHeight; camera.aspect = width / height; camera.updateProjectionMatrix(); graphics.setViewport(width, height, window.devicePixelRatio || 1); renderer.setSize(width, height, false);};
   listen(window, 'resize', resize); resize();
   listen(renderer.domElement, 'webglcontextlost', event => {event.preventDefault(); lost = true; input.reset(); if (options.onContextLost) options.onContextLost();});
   listen(renderer.domElement, 'webglcontextrestored', () => {lost = false; lastTime = null; if (options.onContextRestored) options.onContextRestored();});
+  function containFrameError(error, phase, time) {
+    let message = 'Unknown frame error', stack = '';
+    try {message = String(error && error.message || error).slice(0, 1000); stack = String(error && error.stack || '').slice(0, 5000);} catch (_) { /* Even diagnostic coercion must not escape the native RAF callback. */ }
+    const detail = Object.freeze({phase, message, stack, time, frameAttempt: frameAttempts, simulationBlocked: true});
+    lastFrameError = detail; frameErrors++;
+    if (frameError) return;
+    frameError = detail;
+    // Reset a held input once, while still allowing subsequent input/render
+    // frames. The app must explicitly repair/restart before clearing the latch.
+    try {input.reset();} catch (_) {notificationErrors++;}
+    try {
+      if (options.onFrameError) options.onFrameError(Object.freeze({...detail, error}));
+      else ctx.notify('La simulación se ha detenido por un error de ' + phase + ': ' + message);
+    } catch (_) {notificationErrors++;}
+  }
   function frame(time, xrFrame) {
     if (disposed) return;
+    frameAttempts++;
     const now = Number.isFinite(time) ? time : performance.now(), delta = lastTime === null ? 0 : Math.max(0, Math.min(.1, (now - lastTime) / 1000)); lastTime = now;
-    graphics.tick(delta, {hidden: document.hidden, xr: ctx.vrMode, camera, renderWorkMs: workMs});
-    if (lost || document.hidden && !ctx.vrMode) return;
+    let failed = false;
+    const attempt = (phase, action) => {try {action(); return true;} catch (error) {failed = true; containFrameError(error, phase, now); return false;}};
+    attempt('graphics', () => graphics.tick(delta, {hidden: document.hidden, xr: ctx.vrMode, camera, renderWorkMs: workMs}));
+    if (disposed || lost || document.hidden && !ctx.vrMode) {if (failed) failedFrames++; return;}
     const start = performance.now(), collision = ctx.collisionWorld;
-    if (collision && collision.beginFrame) collision.beginFrame();
+    if (collision && collision.beginFrame) attempt('collision.begin', () => collision.beginFrame());
     try {
-      if (!options.inputBlocked || !options.inputBlocked()) input.step(delta, xrFrame);
-      if (callbacks.before) callbacks.before({delta, frame: xrFrame, ctx});
-      scene.updateMatrixWorld(true); renderer.render(scene, camera); primaryRenders++; frames++;
-      if (callbacks.after) callbacks.after({delta, frame: xrFrame, ctx});
-    } finally {if (collision && collision.endFrame) collision.endFrame(); workMs = performance.now() - start;}
+      if (!disposed) attempt('input', () => {if (!options.inputBlocked || !options.inputBlocked()) input.step(delta, xrFrame);});
+      if (!disposed && callbacks.before) {
+        if (frameError) skippedSimulationFrames++;
+        else attempt('before', () => callbacks.before({delta, frame: xrFrame, ctx}));
+      }
+      // A failed matrix update may represent invalid physical transforms. Do
+      // not render those stale matrices; retry the update on the next RAF.
+      if (!disposed && attempt('matrices', () => scene.updateMatrixWorld(true))) {
+        if (attempt('render', () => renderer.render(scene, camera))) {primaryRenders++; frames++;}
+      }
+      // UI and post-render cleanup continue even if a prior phase failed.
+      if (!disposed && callbacks.after) attempt('after', () => callbacks.after({delta, frame: xrFrame, ctx}));
+    } finally {
+      if (collision && collision.endFrame) attempt('collision.end', () => collision.endFrame());
+      workMs = performance.now() - start; if (failed) failedFrames++;
+    }
   }
   const api = {
     context: ctx,
     setFrameHandler(value = {}) {if (disposed) throw new Error('Browser host is disposed.'); callbacks = value;},
     start() {if (disposed) throw new Error('Browser host is disposed.'); if (!started) {started = true; lastTime = null; renderer.setAnimationLoop(frame);} return api;},
     onDispose(callback) {if (disposed) throw new Error('Browser host is disposed.'); cleanup.push(callback);},
-    stats() {return {frames, primaryRenders, contextLost: lost, started, disposed, renderWorkMs: workMs};},
+    stats() {return {frames, primaryRenders, contextLost: lost, started, disposed, renderWorkMs: workMs, frameAttempts, failedFrames, frameErrors, skippedSimulationFrames, notificationErrors, frameError, lastFrameError};},
+    clearFrameError() {if (disposed) throw new Error('Browser host is disposed.'); const prior = frameError; frameError = null; lastTime = null; return prior;},
     mountXR(target, settings = {}) {
       if (disposed) throw new Error('Browser host is disposed.');
       if (xrButton || !target) return xrButton;

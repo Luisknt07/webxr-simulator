@@ -60,10 +60,27 @@ function pose(ctx, mode) {
 
 async function start() {
   let ctx;
+  function frameFailure(event) {
+    if (!ctx || ctx.publicFrameFailure) return;
+    ctx.publicFrameFailure = {phase: event.phase, message: event.message};
+    if (ctx.demo) {
+      // A partially executed material-flow step must never be retried silently.
+      // Keep navigation/rendering alive; restart restores the authored custody.
+      ctx.demo.paused = true;
+      ctx.demo.driving.resetInput();
+    }
+    ctx.input.reset();
+    byId('drive').disabled = true; byId('pause').disabled = true;
+    notice('Se interrumpió la simulación. Abre Menú → Reiniciar para recuperar el escenario.');
+    clearTimeout(notice.timer);
+    byId('viewer-notice').setAttribute('role', 'alert');
+    console.error('Public viewer frame (' + event.phase + '):', event.error || event.message);
+  }
   const browser = createBrowserHost({container: byId('viewer'), shadows: true, notify: notice,
     inputBlocked: () => !!ctx.publicDialogOpen,
     input: {desktopPointerLock: true, canWalk: () => !ctx.drivingVehicle && !ctx.publicDialogOpen, canInteract: () => !!ctx.demo && !ctx.demo.paused && !ctx.publicDialogOpen,
       onReset: () => {if (ctx && ctx.demo) ctx.demo.driving.resetInput();}, time: () => ctx.demo ? ctx.demo.simulation.time : 0},
+    onFrameError: frameFailure,
     onContextLost: () => notice('Se ha interrumpido la imagen. Esperando la recuperación del navegador…'), onContextRestored: () => notice('Imagen recuperada.')});
   ctx = browser.context; ctx.room = 0; ctx.roomId = 'hall';
   activeBrowser = browser;
@@ -113,7 +130,15 @@ async function start() {
       input.reset();
     });
     listen(byId('pause'), 'click', () => {ctx.demo.setPaused(!ctx.demo.paused); input.reset();});
-    listen(byId('restart'), 'click', () => {input.reset(); ctx.demo.restart(); pose(ctx, overview ? 'overview' : 'walk'); closeMenu(); notice('Escenario reiniciado.');});
+    listen(byId('restart'), 'click', () => {
+      input.reset();
+      try {
+        ctx.demo.restart(); pose(ctx, overview ? 'overview' : 'walk'); closeMenu();
+        ctx.publicFrameFailure = null; browser.clearFrameError();
+        byId('drive').disabled = false; byId('pause').disabled = false;
+        byId('viewer-notice').removeAttribute('role'); notice('Escenario reiniciado.');
+      } catch (error) {frameFailure({phase:'restart',message:error.message,error});}
+    });
     function updateUI() {
       const stats = ctx.demo.stats(), driving = !!ctx.demo.driving.id;
       document.body.classList.toggle('driving', driving); byId('drive').textContent = driving ? 'Bajar del vehículo · F' : 'Subir al montacargas · F';
@@ -122,18 +147,19 @@ async function start() {
       const nearby = !driving && ctx.demo.driving.nearest();
       byId('navigation-hint').textContent = driving ? '' : locked ? nearby ? 'F · Subir al montacargas    Esc · Liberar mouse' : 'W A S D · Caminar    Esc · Liberar mouse' : input.pointerLockUnavailable ? 'Mantén clic y arrastra · Mirar con el puntero    W A S D · Caminar' : 'Clic en la escena · Mirar con el puntero    W A S D · Caminar';
       byId('pause').textContent = stats.paused ? 'Continuar' : 'Pausar'; byId('pause').setAttribute('aria-pressed', String(stats.paused));
-      byId('demo-progress').textContent = stats.paused ? 'Simulación en pausa · puedes seguir explorando.' : stats.vehicle && stats.vehicle.delivered >= 2 ? 'Práctica completada · 2 pallets entregados.' : stats.vehicle && stats.vehicle.carrying ? 'Pallet recogido · baja la carga y sigue la ruta hasta su destino.' : stats.belt && stats.belt.packages ? 'Pallet de cuatro cajas listo en la banda · alinea las horquillas y recoge la carga.' : stats.palletizer ? 'El robot coloca cajas individuales: '+(stats.palletizer.cartons%stats.palletizer.perPallet)+' / '+stats.palletizer.perPallet+' en el pallet actual · '+stats.palletizer.completed+' / '+stats.palletizer.limit+' pallets completados.' : 'El robot prepara la primera carga · observa el proceso.';
+      byId('demo-progress').textContent = ctx.publicFrameFailure ? 'Simulación interrumpida · Menú → Reiniciar.' : stats.paused ? 'Simulación en pausa · puedes seguir explorando.' : stats.vehicle && stats.vehicle.delivered >= 2 ? 'Práctica completada · 2 pallets entregados.' : stats.vehicle && stats.vehicle.carrying ? 'Pallet recogido · baja la carga y sigue la ruta hasta su destino.' : stats.belt && stats.belt.packages ? 'Pallet de cuatro cajas listo en la banda · alinea las horquillas y recoge la carga.' : stats.palletizer ? 'El robot coloca cajas individuales: '+(stats.palletizer.cartons%stats.palletizer.perPallet)+' / '+stats.palletizer.perPallet+' en el pallet actual · '+stats.palletizer.completed+' / '+stats.palletizer.limit+' pallets completados.' : 'El robot prepara la primera carga · observa el proceso.';
       byId('reticle').classList.toggle('hovering', !!ctx.desktopControllerData.currentIntersection);
     }
     browser.setFrameHandler({
-      before({delta}) {if (lighting.sync) lighting.sync(); if (!ctx.publicDialogOpen) host.step(delta); ctx.demo.driving.docking.renderBefore(scene, delta);},
+      before({delta}) {if (lighting.sync) lighting.sync(); if (!ctx.publicDialogOpen && !ctx.publicFrameFailure) host.step(delta); ctx.demo.driving.docking.renderBefore(scene, delta);},
       after({delta}) {ctx.demo.driving.docking.postRender(); uiElapsed += delta; if (uiElapsed > .2) {uiElapsed = 0; updateUI();}}
     });
     browser.start(); updateUI(); byId('loading').hidden = true; document.body.classList.add('ready');
     window.smartTwinViewer = Object.freeze({
       getStats: () => ({app: 'public-viewer', sceneId: 'vr-robot-dispatch', frameCount: browser.stats().frames, primaryRenders: browser.stats().primaryRenders, contextLost: browser.stats().contextLost,
         render: {...renderer.info.render}, memory: {...renderer.info.memory}, graphics: graphics.getStats(), simulation: ctx.demo.stats(),
-        activeFunctions: [DEMO_FUNCTION_ID,'assistant.voice'], requestsAPI: configuration.backendAvailable === true, immersive: ctx.vrMode}),
+        activeFunctions: [DEMO_FUNCTION_ID,'assistant.voice'], requestsAPI: configuration.backendAvailable === true, immersive: ctx.vrMode,
+        frameError: browser.stats().frameError, frameErrors: browser.stats().frameErrors}),
       dispose,
       // Explicit QA facade: no editor or networking object is constructed.
       context: ctx, host, document: documentModel, THREE
