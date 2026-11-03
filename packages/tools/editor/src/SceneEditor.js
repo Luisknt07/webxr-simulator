@@ -5,6 +5,7 @@ import AssetLibrary from './AssetLibrary.js';
 import AssetThumbnails from './AssetThumbnails.js';
 import EditorShell from './EditorShell.js';
 import ResourceBrowser from './ResourceBrowser.js';
+import resourcePresets from './ResourcePresetConfiguration.js';
 import {usage as resourceUsage, remove as removeResource} from '../../../../apps/workspace/studio/ResourceOperations.js';
 import SceneDocument from '../../../project-model/src/SceneDocument.js';
 import InteractionRuntime from './InteractionRuntime.js';
@@ -223,7 +224,10 @@ export default class SceneEditor {
       this.resourceBrowser = new ResourceBrowser({
         host: this.assets, library: this.library, thumbnails: this.assetThumbnails,
         grid: this.assetGrid, folderList: this.folderList, preview: this.preview,
-        onPlace: resource => this.placeResource(resource),
+        onPlace: (resource, settings) => this.placeResource(resource, settings),
+        getResourceConfiguration: resource => resourcePresets.describe(resource),
+        normalizeResourceConfiguration: (resource, parameters) => resourcePresets.normalize(resource, parameters),
+        createConfiguredPrefab: (resource, parameters) => resourcePresets.createConfiguredPrefab(resource, parameters),
         onExploreEquipment: resource => this.conveyorViewer && this.conveyorViewer.open(resource),
         onDocumentation: target => this.shell && this.shell.openDocumentation(target),
         isModuleAvailable: moduleId => !this.projectModules || this.projectModules.canShowLevel(moduleId),
@@ -2640,7 +2644,7 @@ export default class SceneEditor {
     if (!filtered.length) this.assetGrid.appendChild(el('p', 'ed-hint', 'No hay archivos para este filtro.'));
   }
 
-  async placeResource(resource) {
+  async placeResource(resource, settings = {}) {
     const current = this.resourceBrowser && this.resourceBrowser.resources.find(row => resource && row.id === resource.id);
     if (!current || !this.active || this.loadingProject || !this.canEditDocument() || current.moduleId && this.projectModules && !this.projectModules.canShowLevel(current.moduleId)) return this.toast('El recurso requiere un módulo habilitado y permiso de edición.');
     resource = current;
@@ -2648,6 +2652,8 @@ export default class SceneEditor {
     const action = resource && resource.action;
     if (!action) return;
     if (resource.status === 'development' || resource.status === 'En desarrollo') return this.toast(resource.reason || 'Este recurso está en desarrollo.');
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw new Error('Opciones de recurso inválidas.');
+    const parameters = resourcePresets.normalize(resource, settings.parameters === undefined ? {} : settings.parameters);
     if (action.type === 'asset') return this.addAsset(action.entry || resource.asset);
     if (action.type === 'decal') return this.startDecalPlacement();
     if (action.type === 'scene') {
@@ -2668,7 +2674,10 @@ export default class SceneEditor {
       if (generation !== this.projectGeneration || roomId !== this.roomId || !this.active || !this.canEditDocument() || current.moduleId && this.projectModules && !this.projectModules.canShowLevel(current.moduleId)) return;
       if (action.type === 'primitive') return this.createPlacedObject(() => this.document.addPrimitive(this.roomId, action.kind));
       if (action.type === 'prefab') {
-        const object = this.createPlacedObject(() => this.document.addPrefab(this.roomId, action.kind, action.variant));
+        const object = this.createPlacedObject(() => {
+          const instance = this.document.addPrefab(this.roomId, action.kind, action.variant);
+          return resourcePresets.applyToObject(this.document, instance, resource, parameters);
+        });
         this.focus(); return object;
       }
     });

@@ -6,6 +6,7 @@ import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { BasisTextureLoader } from 'three/examples/jsm/loaders/BasisTextureLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import AssetThumbnails from './AssetThumbnails.js';
 import assetDefinitions from '../../../../modules/turismo/functions/museo/assets.js';
 import assetLimits from '../../../render-three/schema/asset-limits.js';
 import { optimizeModel } from '../../../render-three/src/ModelOptimizer.js';
@@ -139,7 +140,7 @@ function disposeObject(root) {
       });
     });
   });
-  textures.forEach(texture => texture.dispose());
+  textures.forEach(texture => { if (!(texture.userData && texture.userData.sharedIndustrialTexture)) texture.dispose(); });
   materials.forEach(material => material.dispose());
   geometries.forEach(geometry => geometry.dispose());
 }
@@ -151,6 +152,8 @@ function cloneNativeMaterial(material, textureCopies) {
     if (texture && texture.isTexture) {
       if (!textureCopies.has(texture)) {
         const textureCopy = texture.clone();
+        // This preview owns the copy even when the original is a shared atlas.
+        if (textureCopy.userData) delete textureCopy.userData.sharedIndustrialTexture;
         textureCopy.needsUpdate = true;
         textureCopies.set(texture, textureCopy);
       }
@@ -160,7 +163,7 @@ function cloneNativeMaterial(material, textureCopies) {
   // ShaderMaterial.clone already clones its uniforms, including texture uniforms.
   Object.keys(copy.uniforms || {}).forEach(key => {
     const texture = copy.uniforms[key].value;
-    if (texture && texture.isTexture) texture.needsUpdate = true;
+    if (texture && texture.isTexture) { if (texture.userData) delete texture.userData.sharedIndustrialTexture; texture.needsUpdate = true; }
   });
   return copy;
 }
@@ -616,9 +619,14 @@ export default class AssetLibrary {
     const render = () => renderer.render(scene, camera);
     const resize = () => {
       const width = Math.max(container.clientWidth, 160);
-      renderer.setSize(width, 240, false);
-      camera.aspect = width / 240;
+      const height = Math.round(Math.max(220, Math.min(360, width * .85)));
+      renderer.setSize(width, height, false);
+      renderer.domElement.style.height = height + 'px';
+      camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      const direction = camera.position.clone().sub(controls.target);
+      const framed = AssetThumbnails.frameCamera(object, camera, {fill: .9, direction});
+      controls.target.copy(framed.center); controls.update();
       render();
     };
     controls.addEventListener('change', render);

@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { BasisTextureLoader } from 'three/examples/jsm/loaders/BasisTextureLoader.js';
 
-const WIDTH = 192;
-const HEIGHT = 128;
+const WIDTH = 320;
+const HEIGHT = 320;
 const CACHE_LIMIT = 80;
 const TYPE_LABELS = { model: '3D', image: 'IMAGEN', audio: 'AUDIO', video: 'VIDEO', text: 'TEXTO', source: 'BLENDER', other: 'ARCHIVO' };
 const TYPE_ICONS = { model: '◇', image: '▧', audio: '♫', video: '▶', text: '{ }', source: '◉', other: '▤' };
@@ -23,7 +23,9 @@ function disposeObject(root) {
       });
     });
   });
-  textures.forEach(texture => texture.dispose());
+  // Sticker/surface atlases are shared by native actors across renderers. A
+  // preview owns its mesh/material, but cannot invalidate that live scene data.
+  textures.forEach(texture => {if (!(texture.userData && texture.userData.sharedIndustrialTexture)) texture.dispose();});
   materials.forEach(material => material.dispose());
   geometries.forEach(geometry => geometry.dispose());
 }
@@ -33,6 +35,68 @@ function keyFor(entry) {
 }
 
 export default class AssetThumbnails {
+  /** Fit visible native geometry to an actual perspective viewport. The same
+   * pure camera fit is reusable by the larger orbit preview; it does not create
+   * a renderer or change an equipment transform/material/operational rig. */
+  static frameCamera(object, camera, options = {}) {
+    if (!object || !camera || !camera.isPerspectiveCamera) throw new Error('La vista requiere un modelo y una cámara de perspectiva.');
+    object.updateWorldMatrix(true, true);
+    const points = [], box = new THREE.Box3(), corner = new THREE.Vector3(), instance = new THREE.Matrix4(), transform = new THREE.Matrix4();
+    const addGeometry = (geometry, matrix) => {
+      if (!geometry.boundingBox && geometry.computeBoundingBox) geometry.computeBoundingBox();
+      const bounds = geometry.boundingBox;
+      if (!bounds || bounds.isEmpty() || ![bounds.min.x,bounds.min.y,bounds.min.z,bounds.max.x,bounds.max.y,bounds.max.z].every(Number.isFinite)) return;
+      for (let i = 0; i < 8; i++) {
+        corner.set(i & 1 ? bounds.max.x : bounds.min.x, i & 2 ? bounds.max.y : bounds.min.y, i & 4 ? bounds.max.z : bounds.min.z).applyMatrix4(matrix);
+        if (![corner.x,corner.y,corner.z].every(Number.isFinite)) continue;
+        box.expandByPoint(corner); points.push(corner.clone());
+      }
+    };
+    const visit = node => {
+      const data = node.userData || {};
+      if (!node.visible || data.editorHelper || data.editorRuntimeHelper || data.thumbnailExclude) return;
+      const materials = (Array.isArray(node.material) ? node.material : [node.material]).filter(Boolean);
+      if (node.geometry && (!materials.length || materials.some(material => material.visible !== false && !(material.transparent && material.opacity <= 0)))) {
+        if (node.isInstancedMesh && node.getMatrixAt) {
+          for (let i = 0; i < node.count; i++) {node.getMatrixAt(i, instance); transform.multiplyMatrices(node.matrixWorld, instance); addGeometry(node.geometry, transform);}
+        } else addGeometry(node.geometry, node.matrixWorld);
+      }
+      node.children.forEach(visit);
+    };
+    visit(object);
+    if (!points.length || box.isEmpty()) throw new Error('El modelo no tiene geometría visible.');
+    const reference = box.getCenter(new THREE.Vector3()), radius = Math.max(box.getSize(new THREE.Vector3()).length() / 2, .0001);
+    const direction = options.direction && options.direction.isVector3 ? options.direction.clone() : new THREE.Vector3(1.2, .85, 1.5);
+    if (![direction.x,direction.y,direction.z].every(Number.isFinite) || direction.lengthSq() < 1e-12) direction.set(1.2,.85,1.5);
+    direction.normalize();
+    const up = Math.abs(direction.y) > .999 ? new THREE.Vector3(0,0,1) : new THREE.Vector3(0,1,0);
+    const right = new THREE.Vector3().crossVectors(up, direction).normalize(), vertical = new THREE.Vector3().crossVectors(direction, right).normalize();
+    const fill = Math.max(.7, Math.min(.96, Number.isFinite(options.fill) ? options.fill : .92));
+    const tanY = Math.tan((camera.getEffectiveFOV ? camera.getEffectiveFOV() : camera.fov) * Math.PI / 360) * fill;
+    const tanX = tanY * camera.aspect;
+    if (!(tanX > 0) || !(tanY > 0) || !Number.isFinite(tanX + tanY)) throw new Error('La proporción de la vista no es válida.');
+    let left = Infinity, rightEdge = -Infinity, bottom = Infinity, top = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    const relative = new THREE.Vector3();
+    points.forEach(point => {
+      relative.copy(point).sub(reference);
+      const x = relative.dot(right), y = relative.dot(vertical), z = relative.dot(direction);
+      left = Math.min(left, x - tanX * z); rightEdge = Math.max(rightEdge, x + tanX * z);
+      bottom = Math.min(bottom, y - tanY * z); top = Math.max(top, y + tanY * z);
+      minZ = Math.min(minZ,z); maxZ = Math.max(maxZ,z);
+    });
+    // The interval intersection solves both viewport axes and all depths, unlike
+    // a radius multiplier which wastes space on long, tall or rotated machines.
+    const distance = Math.max((rightEdge - left) / (2 * tanX), (top - bottom) / (2 * tanY), maxZ + Math.max(radius * .02, .0001));
+    const center = reference.clone().addScaledVector(right, (rightEdge + left) / 2).addScaledVector(vertical, (top + bottom) / 2);
+    const position = center.clone().addScaledVector(direction, distance);
+    if (camera.parent) camera.parent.updateWorldMatrix(true, false);
+    camera.position.copy(camera.parent ? camera.parent.worldToLocal(position.clone()) : position);
+    camera.up.copy(up); camera.near = Math.max(Math.min((distance - maxZ) * .25, radius / 1000), .000001);
+    camera.far = Math.max(camera.near + .01, distance - minZ + radius * 2);
+    camera.lookAt(center); camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
+    return {bounds:box, center, distance, radius, fill, points:points.length};
+  }
+
   constructor(library, rootElement) {
     this.library = library;
     this.rootElement = rootElement;
@@ -268,14 +332,8 @@ export default class AssetThumbnails {
       light.position.set(4, 8, 6);
       scene.add(light);
       scene.add(object);
-      object.updateMatrixWorld(true);
-      const box = new THREE.Box3().setFromObject(object);
-      if (box.isEmpty()) throw new Error('El modelo no tiene geometría visible.');
-      const center = box.getCenter(new THREE.Vector3());
-      const radius = Math.max(box.getSize(new THREE.Vector3()).length() / 2, 0.01);
-      const camera = new THREE.PerspectiveCamera(38, WIDTH / HEIGHT, Math.max(radius / 1000, 0.0001), radius * 100 + 100);
-      camera.position.copy(center).add(new THREE.Vector3(1.2, 0.8, 1.5).normalize().multiplyScalar(radius * 3.5));
-      camera.lookAt(center);
+      const camera = new THREE.PerspectiveCamera(38, WIDTH / HEIGHT, .001, 100);
+      AssetThumbnails.frameCamera(object, camera);
       renderer.render(scene, camera);
       return { src: renderer.domElement.toDataURL('image/png') };
     } finally {

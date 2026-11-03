@@ -4,6 +4,7 @@ import {createIndustrialPrefab} from '../../../../modules/logistica-industrial/f
 import {setEditorIcon} from './EditorIcons.js';
 
 const MIME = 'application/x-hello-studio-resource';
+const PRESET_MIME = 'application/x-smarttwin-resource-preset';
 const TABS = [['library', 'Biblioteca'], ['project', 'Proyecto'], ['favorites', 'Favoritos']];
 const STORAGE_KEY = 'hello-studio-resource-browser-v1:';
 const taxonomy = catalog.libraryTaxonomy;
@@ -28,7 +29,7 @@ function button(text, title, action, className = '') {
   result.type = 'button'; result.title = title; result.addEventListener('click', action);
   return result;
 }
-function tabState() { return {query: '', selected: '', folder: '', scroll: 0, navScroll: 0, expanded: {}, view: 'cards', kind: 'all', status: 'all', domain:'all', scope: 'scene'}; }
+function tabState() { return {query: '', selected: '', folder: '', scroll: 0, navScroll: 0, navScrollX:0, expanded: {}, view: 'cards', kind: 'all', status: 'all', domain:'all', scope: 'scene'}; }
 function allStates() { return {library: tabState(), project: tabState(), favorites: tabState()}; }
 function size(bytes) {
   if (!Number.isFinite(bytes)) return '';
@@ -87,6 +88,7 @@ export default class ResourceBrowser {
     this.resources = []; this.cards = new Map(); this.previewToken = 0; this.renderSignature = ''; this.previewVisible = true; this.listingVisible = true; this.previewSelection = null;
     this.sceneScope = null; this.sceneRoomId = null;
     this.mutationQueue = Promise.resolve();
+    this.familySelections = new Map(); this.configurationDrafts = new Map(); this.invalidConfigurations=new Set();this.previewRefresh = null;
     this._build(); this._loadState();
     if (this.thumbnails) {
       // Keep the existing bounded, lazy, shared renderer. Synthetic entries use
@@ -100,6 +102,11 @@ export default class ResourceBrowser {
         return resource ? Promise.resolve(procedural(resource)) : library.instantiate(descriptor, settings);
       };
       this.thumbnails.library = adapter; this.thumbnails.rootElement = this.grid;
+    }
+    this.navigationWidth = 0; this.navigationDisposed = false;
+    if (typeof ResizeObserver !== 'undefined') {
+      this.navigationObserver = new ResizeObserver(() => this._syncNavigationLayout());
+      this.navigationObserver.observe(this.host);
     }
   }
 
@@ -151,7 +158,7 @@ export default class ResourceBrowser {
     this.host.appendChild(header);
     const body = node('div', 'ed-assets-body studio-resource-body');
     this.folderList.setAttribute('aria-label', 'Categorías y carpetas de recursos'); this.folderList.classList.add('studio-resource-folders');
-    this.folderList.addEventListener('scroll', () => { this.state.navScroll = this.folderList.scrollTop; this._saveState(); }, {passive: true});
+    this.folderList.addEventListener('scroll', () => { this.state.navScroll = this.folderList.scrollTop;this.state.navScrollX=this.folderList.scrollLeft||0; this._saveState(); }, {passive: true});
     this.grid.setAttribute('role', 'tabpanel'); this.grid.classList.add('studio-resource-grid');
     this.grid.addEventListener('scroll', () => { this.state.scroll = this.grid.scrollTop; this._saveState(); }, {passive: true});
     this.preview.classList.add('studio-resource-preview'); this.preview.setAttribute('aria-label', 'Detalles y vista previa del recurso');
@@ -193,6 +200,7 @@ export default class ResourceBrowser {
     if (id !== this.projectId) {
       this._saveState(); this.projectId = id; this.states = allStates(); this.tab = 'library'; this._loadState();
       this.clearPreview(); this.previewSelection = null; this.renderSignature = '';
+      this.familySelections.clear(); this.configurationDrafts.clear();this.invalidConfigurations.clear();
       this.sceneRoomId = null;
     }
     this.organization = catalog.normalizeOrganization(project.organization);
@@ -210,7 +218,7 @@ export default class ResourceBrowser {
   }
   openTab(tab) {
     if (!TABS.some(item => item[0] === tab)) return;
-    this.state.scroll = this.grid.scrollTop; this.state.navScroll = this.folderList.scrollTop; this.tab = tab; this.clearPreview(); this._stateChanged();
+    this.state.scroll = this.grid.scrollTop; this.state.navScroll = this.folderList.scrollTop;this.state.navScrollX=this.folderList.scrollLeft||0; this.tab = tab; this.clearPreview(); this._stateChanged();
   }
   showScenes() {
     this.openTab('project');
@@ -239,6 +247,7 @@ export default class ResourceBrowser {
         state.scope = value.scope === 'project' ? 'project' : 'scene';
         state.domain=DOMAINS.some(row=>row[0]===value.domain)?value.domain:'all';
         state.navScroll = Number.isFinite(value.navScroll) ? Math.max(0, value.navScroll) : 0;
+        state.navScrollX=Number.isFinite(value.navScrollX)?Math.max(0,value.navScrollX):0;
         if (value.expanded && typeof value.expanded === 'object') catalog.CATEGORIES.concat(taxonomy.GROUPS).forEach(category => { if (typeof value.expanded[category.id] === 'boolean') state.expanded[category.id] = value.expanded[category.id]; });
       });
     } catch (error) { /* Storage may be unavailable; navigation remains usable. */ }
@@ -272,7 +281,38 @@ export default class ResourceBrowser {
   _insertionPermitted() {try {return !!(this.active && (!this.options.canInsert || this.options.canInsert()));} catch (_) {return false;}}
   _canInsert(resource) {return !!(this._moduleAvailable(resource) && resource.action && resource.status !== 'development' && (resource.action.type === 'scene' || this._insertionPermitted()));}
   _expandLibrary(expand) {taxonomy.GROUPS.forEach(group => {this.states.library.expanded[group.id] = expand;}); this._stateChanged();}
-  _familySummary(resource) {return resource.subcategory === 'conveyors' && resource.family && this.tab === 'library' && !this.state.query.trim() && (this.state.folder === 'group:TR' || !this.state.folder || !this.state.folder.startsWith('group:') && this.state.folder.split('/').length < 3);}
+  _family(resource) {return resource && resource.origin === 'library' && catalog.resourceFamilies ? catalog.resourceFamilies.familyFor(resource) : null;}
+  _variants(resource) {const family=this._family(resource);return family ? catalog.resourceFamilies.listVariants(family.id,this.resources) : [];}
+  _familyRows(resources) {
+    if(this.tab!=='library'||!catalog.resourceFamilies)return resources;
+    const defaults=new Map(catalog.resourceFamilies.listFamilies(resources).map(family=>[family.id,family.representativeId]));
+    const groups=new Map(),rows=[];
+    resources.forEach(resource=>{const family=this._family(resource);if(!family){rows.push(resource);return;}if(!groups.has(family.id)){groups.set(family.id,[]);rows.push(family.id);}groups.get(family.id).push(resource);});
+    return rows.map(row=>{if(typeof row!=='string')return row;const variants=groups.get(row),selected=variants.find(resource=>resource.id===this.state.selected)||variants.find(resource=>resource.id===this.familySelections.get(row))||variants.find(resource=>resource.id===defaults.get(row));return selected||variants[0];});
+  }
+  _configuration(resource, submitted) {
+    if(typeof this.options.getResourceConfiguration!=='function')return {fields:[],values:{}};
+    const schema=this.options.getResourceConfiguration(resource)||{},fields=Array.isArray(schema.fields)?schema.fields:[],values={},draft=submitted===undefined?this.configurationDrafts.get(resource.id):submitted;
+    if(fields.length>32)throw new Error('La configuración contiene demasiados parámetros.');
+    const known=new Set();
+    fields.forEach(field=>{
+      if(!field||!/^[a-zA-Z][a-zA-Z0-9_]{0,63}$/.test(field.key)||['constructor','prototype','__proto__'].includes(field.key)||known.has(field.key)||!['number','select','checkbox'].includes(field.type))throw new Error('El parámetro de biblioteca no tiene un esquema válido.');
+      known.add(field.key);let value=draft&&Object.prototype.hasOwnProperty.call(draft,field.key)?draft[field.key]:schema.values&&Object.prototype.hasOwnProperty.call(schema.values,field.key)?schema.values[field.key]:field.value;
+      if(field.type==='number'){if(typeof value!=='number'||!Number.isFinite(value)||Number.isFinite(field.min)&&value<field.min||Number.isFinite(field.max)&&value>field.max)throw new Error('Revisa '+field.label+': el valor está fuera de los límites.');}
+      else if(field.type==='checkbox'){if(typeof value!=='boolean')throw new Error('Revisa '+field.label+': selecciona una opción válida.');}
+      else {const choices=Array.isArray(field.options)?field.options:[];if(!choices.some(option=>(typeof option==='object'?option.value:option)===value))throw new Error('Revisa '+field.label+': la variante no está disponible.');}
+      values[field.key]=value;
+    });
+    if(submitted!==undefined&&(!submitted||typeof submitted!=='object'||Array.isArray(submitted)||Object.keys(submitted).some(key=>!known.has(key))))throw new Error('La configuración del recurso contiene parámetros desconocidos.');
+    if(typeof this.options.normalizeResourceConfiguration==='function')this.options.normalizeResourceConfiguration(resource,Object.assign({},values));
+    return {fields,values};
+  }
+  _preset(resource, parameters) {return {version:1,resourceId:resource.id,projectId:this.projectId,roomId:this.sceneRoomId,parameters:this._configuration(resource,parameters).values};}
+  _writeDrag(event,resource) {
+    if(!this._canInsert(resource)){event.preventDefault();this._message('El recurso requiere un módulo activo y permisos de edición.');return;}
+    try {if(this.invalidConfigurations.has(resource.id))throw new Error('Corrige los parámetros antes de añadir este equipo.');const preset=this._preset(resource);event.dataTransfer.setData(MIME,resource.id);if(Object.keys(preset.parameters).length)event.dataTransfer.setData(PRESET_MIME,JSON.stringify(preset));if(resource.asset&&['model','image'].includes(resource.asset.kind))event.dataTransfer.setData('application/x-webxr-asset',resource.asset.importId||resource.asset.path);event.dataTransfer.effectAllowed='copyMove';}
+    catch(error){event.preventDefault();this._message(error.message);}
+  }
   _documentation(resource) {const link = resource.articleId || resource.documentationLinks && resource.documentationLinks[0] && resource.documentationLinks[0].articleId; if (link) return this._call('onDocumentation', {articleId: link, resourceId: resource.id});}
   _matchesDomain(resource){const domain=this.state.domain;if(!domain||domain==='all'||!DOMAIN_GROUPS[domain])return true;const group=taxonomy.location(resource).group;if(domain==='shared')return DOMAIN_GROUPS.shared.has(group);return DOMAIN_GROUPS[domain].has(group)||DOMAIN_GROUPS.shared.has(group);}
   render() {
@@ -314,17 +354,10 @@ export default class ResourceBrowser {
     });
     const eligibleSelection = filtered.find(resource => resource.id === this.state.selected && this._moduleAvailable(resource));
     if (!eligibleSelection && this.state.selected && this.resources.some(resource => resource.id === this.state.selected && !this._moduleAvailable(resource))) {this.state.selected = ''; this.clearPreview();}
-    // The root catalog presents families. Their variants remain real resources
-    // (and stable favorite references), revealed by the family navigation or
-    // the contextual selector instead of repeating technical cards everywhere.
-    if (this.tab === 'library' && !this.state.query.trim() && (this.state.folder === 'group:TR' || !this.state.folder || !this.state.folder.startsWith('group:') && this.state.folder.split('/').length < 3)) {
-      const families = new Set();
-      filtered = filtered.filter(resource => {
-        if (resource.subcategory !== 'conveyors' || !resource.family) return true;
-        if (families.has(resource.family)) return false;
-        families.add(resource.family); return true;
-      });
-    }
+    // Families are presentation only. Each card still selects, previews, drags
+    // and inserts one exact native resource, including a variant found by search.
+    const variantCount=filtered.length;
+    filtered=this._familyRows(filtered);
     if (this.thumbnails) this.thumbnails.reset();
     this.grid.textContent = ''; this.cards.clear();
     if (this.tab === 'library') {
@@ -341,7 +374,7 @@ export default class ResourceBrowser {
       this.grid.appendChild(node('p', 'ed-hint studio-resource-empty', family ? family.name + ': todavía no hay variantes completas disponibles. Se habilitan cuando su modelo, mecanismo, conexiones y guardado están validados.' : this.tab === 'favorites' ? 'Marca un recurso con ☆ para conservar su referencia aquí. No se duplican sus archivos.' : this.tab === 'project' && this.state.scope === 'scene' && this.sceneScope ? 'Esta escena no utiliza archivos con estos filtros. Elige «Todo el proyecto» para añadir recursos guardados o importa un archivo.' : 'No hay recursos para estos filtros. Prueba otra categoría o importa archivos al Proyecto.'));
     }
     this.grid.scrollTop = this.state.scroll;
-    this.caption.textContent = filtered.length + ' recursos · ' + (this.tab === 'library' ? taxonomy.title(this.state.folder) || 'Toda la biblioteca · equipos y recursos registrados' : this.tab === 'project' ? this.state.scope === 'scene' && this.sceneScope ? 'Archivos usados en la escena actual · Escenarios muestra todos los niveles' : 'Todo el proyecto · incluye archivos todavía sin colocar' : 'Referencias a Biblioteca y Proyecto');
+    this.caption.textContent = filtered.length + (this.tab==='library'?' familias y recursos · '+variantCount+' variantes':' recursos') + ' · ' + (this.tab === 'library' ? taxonomy.title(this.state.folder) || 'Toda la biblioteca · equipos y recursos registrados' : this.tab === 'project' ? this.state.scope === 'scene' && this.sceneScope ? 'Archivos usados en la escena actual · Escenarios muestra todos los niveles' : 'Todo el proyecto · incluye archivos todavía sin colocar' : 'Referencias a Biblioteca y Proyecto');
     const selected = eligibleSelection;
     this.previewSelection = selected || null;
     if (selected && this.active && this.previewVisible) {
@@ -350,6 +383,19 @@ export default class ResourceBrowser {
     return true;
   }
   refresh() { this.renderSignature = ''; return this.render(); }
+  _syncNavigationLayout(force = false) {
+    if (this.navigationDisposed || !this.active || !this.listingVisible || this.tab !== 'library') return;
+    const width = Math.round(Number(this.host.clientWidth || (this.host.getBoundingClientRect && this.host.getBoundingClientRect().width) || 0));
+    if (!width || !force && width === this.navigationWidth) return;
+    this.navigationWidth = width;
+    // A vertical scroll offset from the wide tree has no meaning in the compact
+    // horizontal category rail. Keep both real selected controls visible when
+    // the user changes panel width; never reorder or replace catalogue items.
+    if (width <= 430) this.folderList.scrollTop = 0;
+    const category = this.folderList.querySelector('.studio-library-category.is-selected > summary');
+    const selected = (width <= 430 ? this.subfamilyList : this.folderList).querySelector('.studio-resource-folder.active');
+    [category, selected].forEach(control => {if (control && control.scrollIntoView) control.scrollIntoView({block:'nearest', inline:'nearest'});});
+  }
   _renderFolders() {
     this.folderList.textContent = '';this.subfamilyList.textContent='';this.subfamilyList.hidden=this.tab!=='library';
     const addFolder = (parent, id, label, count) => {
@@ -407,29 +453,28 @@ export default class ResourceBrowser {
       if (this.options.onCaptureTemplate) this.folderList.appendChild(button('▣ Guardar selección', 'Guardar la selección como plantilla reutilizable', () => this._call('onCaptureTemplate')));
     }
     this.folderList.scrollTop = this.state.navScroll;
+    this.folderList.scrollLeft=this.state.navScrollX||0;
+    this._syncNavigationLayout(true);
   }
   _renderCard(resource) {
     const selected = resource.id === this.state.selected;
+    const family=this.tab==='library'&&this._family(resource),variants=family&&this._variants(resource);
     const card = node('div', 'ed-asset-card studio-resource-card' + (selected ? ' selected' : ''));
+    card.setAttribute('data-resource-id',resource.id);
+    if(family){card.classList.add('studio-resource-family-card');card.setAttribute('data-resource-family',family.id);}
     const choose = button('', resource.description, () => this.select(resource), 'studio-resource-choose'); choose.setAttribute('aria-label', 'Previsualizar ' + resource.name); choose.setAttribute('aria-pressed', String(selected));
     const thumbnail = node('span', 'ed-file-thumbnail studio-resource-thumbnail');
-    choose.appendChild(thumbnail); choose.appendChild(node('strong', 'ed-file-name', resource.name));
-    const familySummary = this._familySummary(resource);
-    const family = familySummary && (catalog.CONVEYOR_FAMILIES || []).find(item => item.id === resource.family);
-    if (family) choose.querySelector('strong').textContent = family.name;
-    const detail = familySummary ? this.resources.filter(item => item.family === resource.family && item.subcategory === 'conveyors').length + ' variantes disponibles' : resource.asset ? TYPE_NAMES[resource.asset.kind] || 'Archivo' : resource.kind === 'equipment' ? 'Equipo configurable' : TYPE_NAMES[resource.kind] || 'Recurso';
-    choose.appendChild(node('span', 'studio-resource-type', detail + (resource.asset ? ' · ' + size(resource.asset.size) : '')));
-    const badge = node('span', 'studio-resource-status studio-resource-status--' + resource.status, catalog.STATUS[resource.status] || resource.status); choose.appendChild(badge);
-    if (resource.articleId) choose.appendChild(node('span', 'studio-library-concept-label', resource.articleId + ' · Ficha conceptual · modelo pendiente'));
-    if (!this._moduleAvailable(resource)) {card.classList.add('studio-library-module-disabled'); choose.appendChild(node('span', 'studio-library-module-label', 'Módulo no disponible en esta vista'));}
-    const description = node('span', 'studio-resource-description', resource.description); choose.appendChild(description);
+    const copy=node('span','studio-resource-card-copy');choose.appendChild(thumbnail);choose.appendChild(copy);copy.appendChild(node('strong','ed-file-name',family?family.name:resource.name));
+    const detail = family ? variants.length+' variantes · '+resource.name : resource.asset ? TYPE_NAMES[resource.asset.kind] || 'Archivo' : resource.kind === 'equipment' ? 'Equipo configurable' : TYPE_NAMES[resource.kind] || 'Recurso';
+    copy.appendChild(node('span', 'studio-resource-type', detail + (resource.asset ? ' · ' + size(resource.asset.size) : '')));
+    const badge = node('span', 'studio-resource-status studio-resource-status--' + resource.status, catalog.STATUS[resource.status] || resource.status); copy.appendChild(badge);
+    if (resource.articleId) copy.appendChild(node('span', 'studio-library-concept-label', resource.articleId + ' · Ficha conceptual · modelo pendiente'));
+    if (!this._moduleAvailable(resource)) {card.classList.add('studio-library-module-disabled'); copy.appendChild(node('span', 'studio-library-module-label', 'Módulo no disponible en esta vista'));}
+    const description = node('span', 'studio-resource-description', resource.description); copy.appendChild(description);
     if (resource.action && resource.status !== 'development') {
       choose.draggable = this._canInsert(resource) && resource.action.type !== 'workspace';
-      choose.addEventListener('dragstart', event => {if (!this._canInsert(resource)) {event.preventDefault(); return this._message('El recurso requiere un módulo activo y permisos de edición.');} event.dataTransfer.setData(MIME, resource.id); if (resource.asset && ['model', 'image'].includes(resource.asset.kind)) event.dataTransfer.setData('application/x-webxr-asset', resource.asset.importId || resource.asset.path); event.dataTransfer.effectAllowed = 'copyMove'; });
-      choose.addEventListener('dblclick', () => {
-        if (familySummary) { this.state.folder = 'industrial/conveyors/' + resource.family; this.state.scroll = 0; this._stateChanged(); }
-        else this.place(resource);
-      });
+      choose.addEventListener('dragstart', event => this._writeDrag(event,resource));
+      choose.addEventListener('dblclick', () => this.place(resource));
     }
     card.appendChild(choose);
     const favorite = this.organization.favorites.includes(resource.id);
@@ -448,45 +493,98 @@ export default class ResourceBrowser {
     if (!resource) return;
     if (!this._moduleAvailable(resource)) {this.clearPreview(); this._message('Activa el módulo de este recurso para previsualizarlo o insertarlo. Su ficha conceptual permanece accesible.'); return false;}
     this.state.selected = resource.id; this.previewSelection = resource; this._saveState(); this._call('onSelect', resource);
+    const family=this._family(resource);if(family)this.familySelections.set(family.id,resource.id);
     this.cards.forEach((card, id) => { card.setAttribute('aria-pressed', String(id === resource.id)); card.parentNode.classList.toggle('selected', id === resource.id); });
     if (this.active && this.previewVisible && this.previewResource !== resource.id) this._renderPreview(resource);
     this.renderSignature = '';
+    if(this.tab==='library'&&family&&!this.cards.has(resource.id))this.render();
   }
-  place(resource) {
+  place(resource, settings = {}) {
     if (!resource || !resource.action || resource.status === 'development') { this._message(resource && resource.reason || 'Este recurso solo se puede previsualizar.'); return; }
     const current = this.resources.find(item => item.id === resource.id);
     if (!current || !this._canInsert(current)) {this._message('El recurso requiere un módulo disponible y permiso de edición. Actualiza la biblioteca.'); return false;}
-    this._call('onPlace', current); return true;
+    try {if(this.invalidConfigurations.has(current.id))throw new Error('Corrige los parámetros antes de añadir este equipo.');const parameters=this._configuration(current,settings.parameters).values;this._call('onPlace', current,{parameters});return true;}
+    catch(error){this._message(error.message);return false;}
   }
   dropEvent(event) {
     const id = event.dataTransfer && event.dataTransfer.getData(MIME);
     if (!id) return false;
     const resource = this.resources.find(item => item.id === id);
     if (!resource) { this._message('El recurso arrastrado ya no está disponible en este proyecto.'); return true; }
-    event.preventDefault(); this.place(resource); return true;
+    event.preventDefault();
+    if(!this._canInsert(resource)){this.place(resource);return true;}
+    const raw=event.dataTransfer.getData(PRESET_MIME);
+    if(raw){
+      try {if(raw.length>16384)throw new Error('La configuración arrastrada es demasiado extensa.');const preset=JSON.parse(raw);if(!preset||preset.version!==1||preset.resourceId!==id||preset.projectId!==this.projectId||preset.roomId!==this.sceneRoomId)throw new Error('La configuración arrastrada pertenece a otra escena o recurso.');this.place(resource,{parameters:this._configuration(resource,preset.parameters).values});}
+      catch(error){this._message(error.message||'No se pudo validar la configuración arrastrada.');}
+    }else this.place(resource);
+    return true;
   }
   clearPreview() {
+    if(this.previewRefresh!==null){clearTimeout(this.previewRefresh);this.previewRefresh=null;}
     this.previewToken++; this.previewResource = null;
     if (this.previewContent && this.library.cancelPreview) this.library.cancelPreview(this.previewContent);
     if (this.previewCleanup) this.previewCleanup();
     this.previewCleanup = null; this.previewContent = null;
   }
+  _renderConfiguration(resource) {
+    let schema;try{schema=this._configuration(resource);}catch(error){this.preview.appendChild(node('p','ed-error',error.message));return;}
+    if(!schema.fields.length)return;
+    this.invalidConfigurations.delete(resource.id);
+    const form=node('fieldset','studio-resource-configuration');form.setAttribute('data-resource-configuration',resource.id);form.appendChild(node('legend','','Configurar antes de añadir'));
+    form.appendChild(node('p','ed-hint','Ajusta esta variante. Los cambios se aplican a la nueva instancia y a su vista previa.'));
+    const message=node('p','ed-error');message.setAttribute('aria-live','polite');
+    const currentValues=Object.assign({},schema.values);
+    const updateInsert=()=>Array.from(this.preview.querySelectorAll('button')).filter(control=>control.getAttribute('data-resource-insert')===resource.id).forEach(control=>{control.disabled=this.invalidConfigurations.has(resource.id)||!this._canInsert(resource);});
+    schema.fields.forEach(field=>{
+      const label=node('label','studio-resource-configuration-field',field.label||field.key),input=node(field.type==='select'?'select':'input');input.setAttribute('data-resource-parameter',field.key);input.setAttribute('aria-label',field.label||field.key);
+      if(field.type==='select'){(field.options||[]).forEach(choice=>{const value=typeof choice==='object'?choice.value:choice,option=node('option','',typeof choice==='object'?choice.label||String(value):String(value));option.value=String(value);input.appendChild(option);});input.value=String(schema.values[field.key]);}
+      else if(field.type==='checkbox'){input.type='checkbox';input.checked=schema.values[field.key];}
+      else {input.type='number';input.value=String(schema.values[field.key]);if(Number.isFinite(field.min))input.min=String(field.min);if(Number.isFinite(field.max))input.max=String(field.max);input.step=Number.isFinite(field.step)?String(field.step):'any';}
+      input.disabled=!this._insertionPermitted();
+      input.addEventListener('change',()=>{
+        if(this.previewRefresh!==null){clearTimeout(this.previewRefresh);this.previewRefresh=null;}
+        currentValues[field.key]=field.type==='checkbox'?input.checked:field.type==='number'?(input.value.trim()===''?NaN:Number(input.value)):(field.options||[]).map(choice=>typeof choice==='object'?choice.value:choice).find(value=>String(value)===input.value);
+        try {const valid=this._configuration(resource,currentValues);this.configurationDrafts.set(resource.id,valid.values);this.invalidConfigurations.delete(resource.id);message.textContent='';
+          const projectId=this.projectId;this.previewRefresh=setTimeout(()=>{this.previewRefresh=null;if(this.active&&this.previewVisible&&projectId===this.projectId&&this.state.selected===resource.id)this._renderPreview(this.resources.find(item=>item.id===resource.id)||resource);},120);
+        }catch(error){this.invalidConfigurations.add(resource.id);message.textContent=error.message;}updateInsert();
+      });label.appendChild(input);if(field.unit)label.appendChild(node('small','',field.unit));form.appendChild(label);
+    });form.appendChild(message);this.preview.appendChild(form);return form;
+  }
   async _renderPreview(resource) {
     if (!this.active || !this.previewVisible || !this._moduleAvailable(resource)) return;
     this.clearPreview(); const token = this.previewToken; this.previewResource = resource.id;
     this.preview.textContent = ''; this.preview.appendChild(node('strong', 'ed-preview-title', resource.name));
-    if (resource.subcategory === 'conveyors' && resource.family) {
-      const variants = this.resources.filter(item => item.subcategory === 'conveyors' && item.family === resource.family && item.action);
-      const label = node('label', 'studio-resource-variant', 'Variante');
-      const select = node('select'); select.setAttribute('aria-label', 'Variante del transportador');
-      variants.forEach(item => { const option = node('option', '', item.name); option.value = item.id; select.appendChild(option); });
-      select.value = resource.id; select.addEventListener('change', () => this.select(select.value)); label.appendChild(select); this.preview.appendChild(label);
+    const family=this._family(resource),variants=family&&this._variants(resource);
+    if (family) {
+      const familyTitle=node('p','studio-resource-family-heading',family.name+' · '+variants.length+' variantes');familyTitle.setAttribute('data-resource-family',family.id);this.preview.appendChild(familyTitle);
+      if(variants.length>1){const label = node('label', 'studio-resource-variant', 'Variante');
+      const select = node('select','studio-resource-variant-select'); select.setAttribute('aria-label', 'Variante del equipo');select.setAttribute('data-resource-family-selector',family.id);
+      // Choosing a sibling is an explicit request, unlike the search that led
+      // here. Keep its category/domain, but retire an incompatible search term.
+      const inContext=item=>{
+        if(!this._moduleAvailable(item)||!this._matchesDomain(item))return false;
+        if(this.tab==='favorites'&&!this.organization.favorites.includes(item.id))return false;
+        if(this.state.status!=='all'&&item.status!==this.state.status)return false;
+        if(this.state.kind!=='all'&&(this.state.kind==='equipment'?item.kind!=='equipment'&&item.category!=='industrial':item.kind!==this.state.kind&&(!item.asset||item.asset.kind!==this.state.kind)))return false;
+        const folder=this.state.folder;if(!folder)return true;
+        if(folder.startsWith('origin:'))return item.origin===folder.slice(7);
+        if(folder.startsWith('group:'))return taxonomy.matchesPath(item,folder);
+        const[category,subcategory,mechanism]=folder.split('/');return item.category===category&&(!subcategory||item.subcategory===subcategory)&&(!mechanism||item.family===mechanism);
+      };
+      variants.forEach(item => { const option = node('option', '', item.name); option.value = item.id;option.disabled=!inContext(item); select.appendChild(option); });
+      select.value = resource.id; select.addEventListener('change', () => {
+        const next=this.resources.find(item=>item.id===select.value);
+        if(!next||!inContext(next)){select.value=resource.id;return;}
+        if(!catalog.matches(next,this.state.query))this.state.query='';
+        this.select(next);
+      }); label.appendChild(select); this.preview.appendChild(label);}
     }
     this.preview.appendChild(node('span', 'studio-resource-status studio-resource-status--' + resource.status, catalog.STATUS[resource.status] || resource.status));
     const description = node('p', 'studio-resource-preview-description', resource.description); this.preview.appendChild(description);
     const actions = node('div', 'studio-resource-actions');
     if (resource.subcategory === 'conveyors' && resource.equipmentId && this.options.onExploreEquipment) actions.appendChild(button('Explorar equipo', 'Consultar partes, funcionamiento, controles, conexiones y aplicaciones del modelo real', () => this._call('onExploreEquipment', resource)));
-    if (resource.action) {const insert = button(resource.action.type === 'scene' ? 'Abrir escenario' : resource.action.type === 'workspace' ? 'Editar recurso' : '+ Añadir al escenario', resource.action.type === 'workspace' ? 'Abrir su espacio de trabajo' : 'Crear una instancia independiente del recurso', () => this.place(resource), 'primary'); insert.disabled = !this._canInsert(resource); actions.appendChild(insert);}
+    if (resource.action) {const insert = button(resource.action.type === 'scene' ? 'Abrir escenario' : resource.action.type === 'workspace' ? 'Editar recurso' : '+ Añadir al escenario', resource.action.type === 'workspace' ? 'Abrir su espacio de trabajo' : 'Crear una instancia independiente del recurso', () => this.place(resource), 'primary'); insert.setAttribute('data-resource-insert',resource.id);insert.disabled = !this._canInsert(resource); actions.appendChild(insert);}
     else if (resource.reason) this.preview.appendChild(node('p', 'studio-resource-pending', resource.reason));
     if (this.options.onDocumentation && (resource.articleId || resource.documentationLinks && resource.documentationLinks.length)) actions.appendChild(button('▤ Documentación y concepto', 'Abrir ficha, imagen, conexiones y funcionamiento documentado', () => this._documentation(resource)));
     if (resource.asset && resource.asset.kind === 'image' && this.options.onImageAction) {
@@ -501,6 +599,7 @@ export default class ResourceBrowser {
     }
     actions.setAttribute('aria-label', 'Acciones del recurso seleccionado');
     this.preview.appendChild(actions);
+    const configuration=this._renderConfiguration(resource);
     const content = node('div', 'ed-preview-content studio-resource-preview-content'); this.previewContent = content; this.preview.appendChild(content);
     if (resource.articleId && resource.thumbnail && /^modules\/logistica-industrial\/documentation\/assets\/[A-Z]{2}-\d{2}\.png$/.test(resource.thumbnail.src || '')) {const image = node('img', 'studio-library-concept-preview'); image.src = resource.thumbnail.src; image.alt = resource.thumbnail.alt || 'Esquema conceptual'; content.appendChild(image); content.appendChild(node('p', 'ed-hint', 'Ilustración conceptual del documento; no es un equipo 3D insertable.'));}
     const details = node('dl', 'studio-resource-metadata');
@@ -509,7 +608,6 @@ export default class ResourceBrowser {
     if (resource.asset) { row('Ruta original', resource.asset.path); row('Tamaño', size(resource.asset.size)); }
     row('Unidades', resource.dimensions && resource.dimensions.units); row('Componentes', (resource.components || []).join(' · ')); row('Parámetros', (resource.parameters || []).join(' · ')); row('Puertos', (resource.ports || []).join(' · ')); row('Simulación', resource.simulation ? 'Modelo didáctico: ' + resource.simulation : 'Sin comportamiento de simulación añadido');
     if (resource.equipmentId) {
-      const family = (catalog.CONVEYOR_FAMILIES || []).find(item => item.id === resource.family);
       row('Familia', family && family.name); row('Identidad equipo', resource.equipmentId); row('Versión equipo', resource.equipmentVersion);
       row('Productos', (resource.productProfiles || []).map(profile => typeof profile === 'string' ? profile : profile.name || profile.id).join(' · '));
       row('Valores', 'Dimensiones y límites configurables son valores didácticos del simulador; no son prestaciones comerciales.');
@@ -519,15 +617,16 @@ export default class ResourceBrowser {
     // One scrollable sheet and an always-visible action footer. Keep the same
     // preview/media nodes; moving them never creates another WebGL renderer.
     const sheet = node('div', 'studio-resource-sheet-content');
-    Array.from(this.preview.children).filter(child => ![actions, description, content, details].includes(child)).forEach(child => sheet.appendChild(child));
-    sheet.appendChild(content); sheet.appendChild(description); sheet.appendChild(details);
+    Array.from(this.preview.children).filter(child => ![actions, description, content, details, configuration].includes(child)).forEach(child => sheet.appendChild(child));
+    sheet.appendChild(content);if(configuration)sheet.appendChild(configuration);sheet.appendChild(description); sheet.appendChild(details);
     this.preview.appendChild(sheet); this.preview.appendChild(actions);
     try {
       let cleanup;
-      if (this.options.onPreview) cleanup = await this.options.onPreview(resource, content);
+      const parameters=this._configuration(resource).values;
+      if (this.options.onPreview) cleanup = await this.options.onPreview(resource, content,{parameters});
       else if (resource.asset) cleanup = await this.library.preview(resource.asset, content);
       else if (resource.thumbnail && resource.thumbnail.type === 'procedural') {
-        const object = procedural(resource), disposers = [() => disposeObject(object)];
+        const object = this.options.createConfiguredPrefab && resource.action && resource.action.type==='prefab' ? await this.options.createConfiguredPrefab(resource,parameters) : procedural(resource), disposers = [() => disposeObject(object)];
         try { this.library.previewModel(object, content, disposers); cleanup = () => disposers.splice(0).reverse().forEach(dispose => dispose()); }
         catch (error) { disposers.splice(0).reverse().forEach(dispose => dispose()); throw error; }
       }
@@ -620,7 +719,10 @@ export default class ResourceBrowser {
     });
   }
   dispose() {
+    this.navigationDisposed = true;
+    if (this.navigationObserver) {this.navigationObserver.disconnect(); this.navigationObserver = null;}
     this._saveState(); this.clearPreview();
+    this.configurationDrafts.clear();this.familySelections.clear();this.invalidConfigurations.clear();
     this.setPreviewHost(null);
     if (this.thumbnails) { this.thumbnails.reset(); if (this.originalThumbnailLibrary) this.thumbnails.library = this.originalThumbnailLibrary; }
   }

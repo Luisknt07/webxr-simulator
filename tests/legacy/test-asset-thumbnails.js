@@ -27,7 +27,7 @@ const renderers = [];
 class Renderer {
   constructor() { this.domElement = { toDataURL: () => 'data:image/png;base64,dGh1bWJuYWls' }; this.rendered = 0; renderers.push(this); }
   setPixelRatio(value) { assert.equal(value, 1); }
-  setSize(width, height) { assert.equal(width, 192); assert.equal(height, 128); }
+  setSize(width, height) { assert.equal(width, 320); assert.equal(height, 320); }
   render(scene, camera) { assert(scene.isScene); assert(camera.isCamera); this.rendered++; }
   dispose() { this.disposed = true; }
   forceContextLoss() { this.lost = true; }

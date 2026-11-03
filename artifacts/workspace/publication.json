@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "06ca5c293e20f66cf5123ea3cdb5dc9b06389908",
-  "bundleSha256": "91028ccc1ccbdad6b45cad6629c55e6132740b1bff0078f18ef3fd254c0fd2cf",
+  "revision": "dfb4ec992b7f04b56a3e50a062d738132dfa4dd8",
+  "bundleSha256": "274ee71832bab9600ab03485a74e6fd71d4c11768fd382ba38f9fba17841c8c9",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -44,7 +44,7 @@
   "files": [
     {
       "path": "11.js",
-      "sha256": "ab138cc2f0f1740b8a633dd455b8c9211cdddfaf620981de4035d965f94df69f"
+      "sha256": "be386f20dba41e9fcb09d14d6e679a690ecd2b7ab16266021b61ad413fe44fe8"
     },
     {
       "path": "12.js",
@@ -52,23 +52,23 @@
     },
     {
       "path": "13.js",
-      "sha256": "9b0f7ff6627053b1541dc3f3b701dfbbffd42de491079d0677b5b00a3c3ef121"
+      "sha256": "d8bfe990101aa51f7191296b224ff8b83befefdf636feb4b49d8d8aa18d5b067"
     },
     {
       "path": "14.js",
-      "sha256": "31b774c32a203ec38daf120db757aeb08913559b66a65e545051a4398bd5dc3b"
+      "sha256": "1ae9d269f796ac898c7a4a1ed091af37130f8a8a27e73fec0da4ddc64fd65735"
     },
     {
       "path": "15.js",
-      "sha256": "78e3a1c42e01298ff5b57d0a65219951c260498acabec9a3c700040a74ed35cf"
+      "sha256": "06a51b00c8a6899301674ca68d4e937be4894dec2147afc9b414e8949f969ada"
     },
     {
       "path": "16.js",
-      "sha256": "8832df7977e608b9d4df6a23f830cb79e0b5785346ca43e578b80beeeae6e617"
+      "sha256": "167081967f867d70e11bd3233ad0d3c627816b89f9eb93f49beaf472328095d1"
     },
     {
       "path": "3.js",
-      "sha256": "21f718e967b86cca4692809bad33ed778540895bd9ab550d5845b08d92ddf313"
+      "sha256": "c98db283c10cbcc311a1309b67bcebe09224a321da4ca63f32f6b4710f8d310a"
     },
     {
       "path": "apps/workspace/scenario-library.css",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "91028ccc1ccbdad6b45cad6629c55e6132740b1bff0078f18ef3fd254c0fd2cf"
+      "sha256": "274ee71832bab9600ab03485a74e6fd71d4c11768fd382ba38f9fba17841c8c9"
     },
     {
       "path": "cad-worker.js",
@@ -104,7 +104,7 @@
     },
     {
       "path": "configurable-practice-reference.js",
-      "sha256": "3deda8efd0033811c488a978a4ad3493dea0bd74b61d5a52ca533908ca29812c"
+      "sha256": "517ac1cce49c442e081c6aeee1a7ee84f1e3333d05c2d4df60d74064991d6432"
     },
     {
       "path": "editor-tools.json",
@@ -116,23 +116,23 @@
     },
     {
       "path": "logistics-documentation.js",
-      "sha256": "2c534ee18223bab1bc57343debeb0095f6e0780963b8834dd90a27adf69debe0"
+      "sha256": "b2cb4f0b2f168646aef0085e3409d510edd95e1ba3869e4cc7416c1c2bb4b4d7"
     },
     {
       "path": "logistics-equipment-workspace.js",
-      "sha256": "db2ce72177691c745882008ae66fcf165300292950c80eaec47bd2aca472bc4b"
+      "sha256": "b56dca4cda9a66e8650ee7d0fc91a7c88e2a566cb3ada67b62e0da2f8db6c02c"
     },
     {
       "path": "logistics-practice-browser.js",
-      "sha256": "2233c8abc3ff22010e1225cfa895c5acebf27740ccd94abcf86ec3d196e73ae5"
+      "sha256": "be5a0bcadc837751875c303674cef2c9d141deda1afa4075f92f5b79fe46ddf0"
     },
     {
       "path": "logistics-practice-index.js",
-      "sha256": "af9311b89187dea0916eca5edfb08bb1ccc3671fb4e503a318522548321cb3e6"
+      "sha256": "366fa1ef0471369971aabed0ed7d7d4d195530a653f1f5c96d60098dd58f3669"
     },
     {
       "path": "logistics-practice-scenes.js",
-      "sha256": "082c45c2c44a2a638c8ecca7c5bc8e013df7410e6e4a730063fca1299e2c1b05"
+      "sha256": "6f59c8a096bfa25615b324acb4b9ed89aa5db01480051ec091e1cae4f662bcb7"
     },
     {
       "path": "mesh-optimizer-worker.js",
@@ -3284,11 +3284,11 @@
     },
     {
       "path": "nexus-equipment-reference.js",
-      "sha256": "87ac60a8c03afaf097aac2781ab4c9c4e24847c29ba90218187b8944e7247b2f"
+      "sha256": "f60208786e48aed1de110ab93a41953c12cf93ad842d61248414afe71a9ac4fa"
     },
     {
       "path": "nexus-practices-reference.js",
-      "sha256": "05e9ed1fdd7c47a909484ba186d5482340fe3af417f45bd17fba0a6897ee9752"
+      "sha256": "0e00f6b3b06264da5cd7fa7ec9135f7e951a6ce3cf24813a22db11e449dea066"
     },
     {
       "path": "packages/assistant-ui/assistant-workspace.css",
@@ -3476,7 +3476,7 @@
     },
     {
       "path": "packages/tools/editor/src/library-navigation.css",
-      "sha256": "90b0f11534a85c6caa112aa1d75ccc220e6325392e50e8166e4d7562bdcaa81b"
+      "sha256": "b7c25ac4659868e4ae6d652e65df0a025f57acdde0bf46ac7c04f181e39b0424"
     },
     {
       "path": "packages/tools/editor/src/project-content.css",
@@ -3488,7 +3488,7 @@
     },
     {
       "path": "packages/tools/editor/src/resources.css",
-      "sha256": "947934e067cdd71fbbd46bc2b34a1b1a28bb09b3b09e9d9d1fa648f525c47566"
+      "sha256": "fcadf079c39520d0f7835715ff75e2a31a392f7dcc883506acba821edb5eab7c"
     },
     {
       "path": "packages/tools/editor/src/scene-guide.css",
@@ -3876,17 +3876,17 @@
     },
     {
       "path": "scenario-library.js",
-      "sha256": "eaf7b3f17585fb7970f326e1eeb6a73299e1cd13282157e1044aca7754abf324"
+      "sha256": "a21c5642b8b493e198ee5c43e8a45a938016f891c49bed52e74ba5dd57a8e844"
     }
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "3b4c82c2c97dadeff1a1",
-    "statsSha256": "128d55e5aa066b6a6764b99f7520485053670a56708e478b1cc0339c584dd8de",
+    "hash": "63f92b7da4ed6663b953",
+    "statsSha256": "1945ac265b73dd8bf126d0d801693672494e3e38d3d0f19f9e4faa32afd6c7f2",
     "assets": [
       {
         "path": "11.js",
-        "size": 26240
+        "size": 26241
       },
       {
         "path": "12.js",
@@ -3914,7 +3914,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 6868122
+        "size": 6900704
       },
       {
         "path": "configurable-practice-reference.js",
@@ -3930,7 +3930,7 @@
       },
       {
         "path": "logistics-practice-browser.js",
-        "size": 11116
+        "size": 11117
       },
       {
         "path": "logistics-practice-index.js",
@@ -3950,7 +3950,7 @@
       },
       {
         "path": "scenario-library.js",
-        "size": 814837
+        "size": 814839
       }
     ]
   }

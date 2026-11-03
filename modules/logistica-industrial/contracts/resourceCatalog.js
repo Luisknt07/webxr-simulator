@@ -10,6 +10,7 @@ const productEquipment = require('../functions/flujo-materiales/schema/product-e
 const sceneResources = require('../../../packages/project-model/shared/scene-resources');
 const warehouseRacks = require('../functions/almacenamiento/schema/warehouseRacks');
 const libraryTaxonomy = require('./libraryTaxonomy.js');
+const resourceFamilies = require('./resourceFamilies.js');
 const VERSION = 1;
 const STATUS = {functional: 'Funcional', visual: 'Solo visual', development: 'En desarrollo'};
 const FOLDERS = [
@@ -236,6 +237,7 @@ function folderContains(folderId, resourceFolderId, folders) {
 
 const catalogueResources=require('./catalogueResources.cjs'),catalogueAliases={'library:storage.dispenser':'equipment.packaging.pallet-dispenser','library:machine.filler':'equipment.machine.filler','library:machine.packer':'equipment.packaging.case-packer','library:machine.labeler':'equipment.packaging.print-apply','library:machine.palletizer':'equipment.packaging.robot-palletizer','library:workstation.table':'equipment.machine.assembly-bench'};
 const upgradedResources=RESOURCES.map(row=>{const target=catalogueAliases[row.id]&&catalogueResources.find(value=>value.catalogueEquipmentId===catalogueAliases[row.id]);return target&&target.status==='functional'?Object.assign({},target,{id:row.id,name:row.name,technicalName:row.technicalName,aliasOf:target.id,description:target.description}):row;});
-module.exports = {VERSION, STATUS, FOLDERS, CATEGORIES, libraryTaxonomy, CONVEYOR_FAMILIES, ROBOT_FAMILIES: robotEquipment.FAMILIES, VEHICLE_FAMILIES: vehicleEquipment.families,
+const classifiedResources=upgradedResources.concat(catalogueResources).map(row=>{const path=libraryTaxonomy.cataloguePath(row);return path?Object.assign({},row,{catalogueGroup:path.group,catalogueSubgroup:path.subgroup}):row;});
+module.exports = {VERSION, STATUS, FOLDERS, CATEGORIES, libraryTaxonomy, resourceFamilies, CONVEYOR_FAMILIES, ROBOT_FAMILIES: robotEquipment.FAMILIES, VEHICLE_FAMILIES: vehicleEquipment.families,
   MOBILITY_FAMILIES: robotEquipment.FAMILIES.concat(vehicleEquipment.families), PRODUCT_TYPES: productEquipment.PRODUCT_TYPES,
-  RESOURCES: upgradedResources.concat(catalogueResources), LEGACY_RESOURCES: RESOURCES, conveyorResources, robotResources, vehicleResources, productResources, rackResources, assetResource, projectResources, normalizeOrganization, foldersFor, applyOrganization, matches, folderContains, defaultFolder, sceneResources};
+  RESOURCES: classifiedResources, LEGACY_RESOURCES: RESOURCES, conveyorResources, robotResources, vehicleResources, productResources, rackResources, assetResource, projectResources, normalizeOrganization, foldersFor, applyOrganization, matches, folderContains, defaultFolder, sceneResources};
