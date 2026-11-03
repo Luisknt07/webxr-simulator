@@ -16,7 +16,8 @@ export default class PracticeCampaignHost {
  availability(id,mode,settings={}){return recipes.availability(id,mode,settings);}
  openCatalogue(){
   if(this.editor.editorEnabled){const url=new URL('/play',window.location.origin);return window.open(url.href,'_blank','noopener');}
-  return this.studio.open('scenes');
+  if(this.editor.ctx&&this.editor.ctx.vrMode)return this.studio.open('scenes');
+  return window.location.assign(new URL('/play',window.location.origin).href);
  }
  async catalogue(host,options={}){
   const owner=this.identity(),generation=this.generation;host.textContent="Cargando CEDI y Smart Factory…";

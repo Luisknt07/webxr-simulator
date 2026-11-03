@@ -5,6 +5,9 @@ const rules=[{test:/[\\/]three[\\/]build[\\/]three(?:\.module)?\.js$/,use:{loade
 function application(name,entry,file){return {name,mode:'production',context:ROOT,entry:path.join(ROOT,entry),output:{filename:file,path:path.join(ROOT,'artifacts',name),publicPath:'',globalObject:'self'},devtool:false,module:{rules},resolve:{extensions:['.mjs','.js','.json'],alias:{'three$':path.join(ROOT,'node_modules/three/build/three.module.js')}},optimization:{splitChunks:false,runtimeChunk:false},performance:{hints:'warning'}};}
 const publicViewer=application('public-viewer','apps/public-viewer/main.js','viewer.js');
 const workspace=application('workspace','apps/workspace/src/index.js','bundle.js');
+// The catalogue is a DOM/data entry: visiting /play never imports the 3D world.
+workspace.entry={bundle:path.join(ROOT,'apps/workspace/src/index.js'),'scenario-library':path.join(ROOT,'apps/workspace/src/scenario-library.js')};
+workspace.output.filename='[name].js';
 const empty=application('core-empty','apps/core-empty/browser.js','core-empty.js');
 const workers={name:'geometry-workers',mode:'production',context:ROOT,target:'webworker',entry:{'mesh-optimizer-worker':'./packages/render-three/workers/MeshOptimizerWorker.js','collision-worker':'./packages/render-three/workers/CollisionWorker.js','cad-worker':'./packages/tools/cad/workers/CADWorker.js'},output:{filename:'[name].js',path:path.join(ROOT,'artifacts/workspace'),globalObject:'self'},devtool:false,module:{rules},resolve:{alias:{'three$':path.join(ROOT,'node_modules/three/build/three.module.js')}}};
 module.exports=[publicViewer,workspace,empty,workers];

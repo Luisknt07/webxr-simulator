@@ -11,7 +11,7 @@ const PROFILES = ['public-viewer', 'core-empty', 'workspace'];
 const ASSET_ROOTS = ['modules/turismo/assets', 'modules/logistica-industrial/assets', 'packages/tools/ai/assets', 'packages/tools/editor/assets', 'packages/voice-assistant/assets', 'projects/smarttwin/branding', 'projects/smarttwin/scenes', 'projects/smarttwin/previews'];
 const VENDOR_FILES = ['basis_transcoder.js', 'basis_transcoder.wasm', 'draco_decoder.js', 'draco_wasm_wrapper.js', 'draco_decoder.wasm'].map(file => 'packages/render-three/vendor/' + file);
 const ASSET_CODE = new Set(['packages/tools/ai/assets/native-texture-ai-worker.js', 'packages/tools/ai/assets/onnxruntime-1.30.0/ort.wasm.min.js', 'packages/tools/ai/assets/onnxruntime-1.30.0/ort-wasm-simd-threaded.mjs']);
-const COMPILED = {'public-viewer': ['viewer.js'], 'core-empty': ['core-empty.js'], workspace: ['bundle.js', 'mesh-optimizer-worker.js', 'collision-worker.js', 'cad-worker.js']};
+const COMPILED = {'public-viewer': ['viewer.js'], 'core-empty': ['core-empty.js'], workspace: ['bundle.js', 'scenario-library.js', 'mesh-optimizer-worker.js', 'collision-worker.js', 'cad-worker.js']};
 const PRIVATE_SEGMENTS = new Set(['server', 'data', 'tests', 'test', 'node_modules', '.git', '.codex', '.agents']);
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const posix = value => value.split(path.sep).join('/');
@@ -102,6 +102,21 @@ function configurablePracticeAssets(root) {
     const name=folder+'/'+file.path,image=read(root,name);if(image.length!==file.bytes||digest(image)!==file.sha256||!image.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))error('practice_assets','Configurable illustration differs from the source receipt.');return name;
   });
 }
+function practiceCardAssets(root) {
+  const folder='modules/logistica-industrial/practices/configurable/assets/catalog',manifest=folder+'/manifest.json';
+  if(!safePath(root,manifest,false))return[];
+  const bytes=read(root,manifest);if(bytes.length>32*1024)error('practice_card_assets','Practice card receipt is too large.');
+  const data=JSON.parse(bytes),expected=['CEDI-01','CEDI-02','CEDI-03','CEDI-04','CEDI-05','SF-01','SF-02','SF-03','SF-04','SF-05'];
+  if(data.format!=='smarttwin.practice-card-art'||data.version!==1||data.usage!=='reference-illustration'||!Array.isArray(data.files)||data.files.length!==expected.length)error('practice_card_assets','Invalid practice card receipt.');
+  const seen=new Set();let total=0;
+  return data.files.map((file,index)=>{
+    if(!file||file.practiceId!==expected[index]||file.path!==file.practiceId+'.webp'||seen.has(file.path)||!Number.isSafeInteger(file.bytes)||file.bytes<20||file.bytes>300*1024||!/^[a-f0-9]{64}$/.test(file.sha256||'')||file.width!==768||file.height!==512)error('practice_card_assets','Invalid practice card image.');
+    seen.add(file.path);total+=file.bytes;if(total>2*1024*1024)error('practice_card_assets','Practice cards exceed the private media budget.');
+    const name=folder+'/'+file.path,image=read(root,name);
+    if(image.length!==file.bytes||digest(image)!==file.sha256||image.toString('ascii',0,4)!=='RIFF'||image.toString('ascii',8,12)!=='WEBP'||image.readUInt32LE(4)!==image.length-8)error('practice_card_assets','Practice card bytes differ from the reviewed WebP receipt.');
+    return name;
+  });
+}
 function makePlan(root, application, compilation) {
   const files = new Map(), add = (output, source, bytes) => {
     relative(output); if (files.has(output)) { if (files.get(output).source !== source) error('duplicate_output', 'Conflicting publication output: ' + output); return; }
@@ -148,9 +163,11 @@ function makePlan(root, application, compilation) {
     scenes = [PUBLIC_SCENE];
   } else if (application === 'core-empty') add('core.css', 'apps/core-empty/core.css');
   else {
+    add('catalogue.html', 'apps/workspace/catalogue.html');
     documentationAssets(root).forEach(name => add(name, name));
     practiceAssets(root).forEach(name=>add(name,name));
     configurablePracticeAssets(root).forEach(name=>add(name,name));
+    practiceCardAssets(root).forEach(name=>add(name,name));
     ASSET_ROOTS.forEach(folder => walk(root, folder, name => { if (allowedAsset(name)) add(name, name); }, {skipPrivate: true}));
     const moduleMetadata=safePath(root,'data/build/workspace-catalog.json',false);
     if(fs.existsSync(moduleMetadata)){
@@ -172,8 +189,9 @@ function makePlan(root, application, compilation) {
   return {application, files, scenes, compilation: application === 'workspace' ? compilation : null};
 }
 function attributes(tag) { const result = {}; const expression = /([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g; let match; while ((match = expression.exec(tag))) result[match[1].toLowerCase()] = match[2] === undefined ? match[3] === undefined ? match[4] : match[3] : match[2]; return result; }
-function verifyStartup(plan, getBytes) {
-  const html = getBytes('index.html').toString('utf8'), mount = plan.application === 'workspace' ? '/workspace/' : '/', origin = 'https://build.invalid';
+function verifyStartup(plan, getBytes, entry = 'index.html') {
+  const catalogue = plan.application === 'workspace' && entry === 'catalogue.html';
+  const html = getBytes(entry).toString('utf8'), mount = plan.application === 'workspace' ? '/workspace/' : '/', origin = 'https://build.invalid';
   // The API serves the private entry at /editor, while its resources live under
   // /workspace/. A legacy base="./" would silently request public-root files.
   const entryURL = origin + (plan.application === 'workspace' ? '/editor' : mount);
@@ -193,9 +211,10 @@ function verifyStartup(plan, getBytes) {
     if (/^<link/i.test(tag)) { if (/\b(?:stylesheet|icon|preload|modulepreload)\b/i.test(attr.rel || '')) check(attr.href, base); }
     else { const name = check(attr.src, base); if (/^<script/i.test(tag) && name) scripts.push(name); }
   }
-  const primary = COMPILED[plan.application][0], requiredScripts = [primary];
+  const primary = catalogue ? 'scenario-library.js' : COMPILED[plan.application][0], requiredScripts = [primary];
   if (plan.application === 'public-viewer') requiredScripts.unshift('config.js');
-  if (plan.application === 'workspace') requiredScripts.unshift('packages/render-three/src/StartupStatus.js');
+  if (plan.application === 'workspace' && !catalogue) requiredScripts.unshift('packages/render-three/src/StartupStatus.js');
+  if (catalogue && scripts.some(name => name === 'bundle.js' || /StartupStatus/.test(name))) error('catalogue_renderer', 'The catalogue must not load the scene runtime.');
   for (const name of requiredScripts) if (!scripts.includes(name)) error('missing_startup', 'The application HTML does not load its required script: ' + name);
   if (requiredScripts.length > 1 && scripts.indexOf(requiredScripts[0]) > scripts.indexOf(primary)) error('startup_order', 'Startup configuration/status must load before the application bundle.');
   for (const name of plan.files.keys()) if (/\.css$/i.test(name)) {
@@ -234,7 +253,7 @@ function revisionFor(root, supplied) {
 function packageApps(options = {}) {
   const root = fs.realpathSync(path.resolve(options.root || ROOT)); if (root === path.parse(root).root || !fs.statSync(root).isDirectory()) error('unsafe_root', 'Use a concrete application workspace.');
   const revision = revisionFor(root, options.revision), compilation = workspaceCompilation(root), plans = PROFILES.map(application => makePlan(root, application, compilation));
-  plans.forEach(plan => { verifyExisting(root, plan.application, compilation); verifyStartup(plan, name => { const file = plan.files.get(name); return file.bytes === undefined ? read(root, file.source) : file.bytes; }); });
+  plans.forEach(plan => { verifyExisting(root, plan.application, compilation); const bytes = name => { const file = plan.files.get(name); return file.bytes === undefined ? read(root, file.source) : file.bytes; }; verifyStartup(plan, bytes); if (plan.application === 'workspace') verifyStartup(plan, bytes, 'catalogue.html'); });
   const artifactsPath = path.join(root, 'artifacts'); if (!fs.existsSync(artifactsPath)) fs.mkdirSync(artifactsPath); const artifacts = safePath(root, 'artifacts');
   const stages = [], committed = []; let totalBytes = 0;
   try {
@@ -268,5 +287,5 @@ function packageApps(options = {}) {
   for (const entry of committed) if (entry.backup) removeGenerated(root, entry.backup);
   return plans.map(plan => ({application: plan.application, directory: path.join(artifacts, plan.application), manifest: plan.manifest}));
 }
-module.exports = {packageApps, FORMAT, PUBLIC_SCENE, verifyStartup, documentationAssets, practiceAssets, configurablePracticeAssets};
+module.exports = {packageApps, FORMAT, PUBLIC_SCENE, verifyStartup, documentationAssets, practiceAssets, configurablePracticeAssets, practiceCardAssets};
 if (require.main === module) { try { const values = packageApps(); for (const value of values) console.log(value.application + ': ' + value.manifest.files.length + ' verified files, ' + value.manifest.bundleSha256); } catch (failure) { console.error(failure.message); process.exitCode = 1; } }

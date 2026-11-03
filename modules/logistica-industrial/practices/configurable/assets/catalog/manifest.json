@@ -1,0 +1,89 @@
+{
+  "format": "smarttwin.practice-card-art",
+  "version": 1,
+  "usage": "reference-illustration",
+  "generator": "built-in image_gen",
+  "caption": "Ilustración de referencia",
+  "files": [
+    {
+      "practiceId": "CEDI-01",
+      "path": "CEDI-01.webp",
+      "bytes": 45794,
+      "sha256": "8f86ad6086d3b08de0ad918ddd59716648f477d234e4d00663bdf867e1ad3ee0",
+      "width": 768,
+      "height": 512
+    },
+    {
+      "practiceId": "CEDI-02",
+      "path": "CEDI-02.webp",
+      "bytes": 64778,
+      "sha256": "c4174102a3155b9ec438382349a76c8b873a5c602c060126e1cb4f55e2cda70b",
+      "width": 768,
+      "height": 512
+    },
+    {
+      "practiceId": "CEDI-03",
+      "path": "CEDI-03.webp",
+      "bytes": 67048,
+      "sha256": "ffc72df494d947b34d6ffcafc98c756f74899f8cc8ecc3cf39fe840bdc15ddc7",
+      "width": 768,
+      "height": 512
+    },
+    {
+      "practiceId": "CEDI-04",
+      "path": "CEDI-04.webp",
+      "bytes": 78056,
+      "sha256": "6f839d1dc26ed759b4356962f954a7d26b77f8303cfe67f949f19ff3abc7a37b",
+      "width": 768,
+      "height": 512
+    },
+    {
+      "practiceId": "CEDI-05",
+      "path": "CEDI-05.webp",
+      "bytes": 65878,
+      "sha256": "50c522d5f2868716df4886469025bb5458f8aff4999d30bbd91626a76ff5ef91",
+      "width": 768,
+      "height": 512
+    },
+    {
+      "practiceId": "SF-01",
+      "path": "SF-01.webp",
+      "bytes": 68816,
+      "sha256": "d9a365a3d3e68f7a922d13d2b260f2368d26994739e4b51a77dc2c90a7da33c4",
+      "width": 768,
+      "height": 512
+    },
+    {
+      "practiceId": "SF-02",
+      "path": "SF-02.webp",
+      "bytes": 59604,
+      "sha256": "a4aa7424b8f44acfd55400ac7599a48e73bfa3758ff509fe833e77e63a4efc81",
+      "width": 768,
+      "height": 512
+    },
+    {
+      "practiceId": "SF-03",
+      "path": "SF-03.webp",
+      "bytes": 45574,
+      "sha256": "54b6f3947ee70ea9aaf851bd8bfba27d012bda75998a065a4d3e4bb1009e35f0",
+      "width": 768,
+      "height": 512
+    },
+    {
+      "practiceId": "SF-04",
+      "path": "SF-04.webp",
+      "bytes": 68946,
+      "sha256": "0dc39ea2a8a348ca0e83818dae49a774fe99bdb52a6ea4e9fc0e6f3256119264",
+      "width": 768,
+      "height": 512
+    },
+    {
+      "practiceId": "SF-05",
+      "path": "SF-05.webp",
+      "bytes": 52486,
+      "sha256": "53246be0f18c9141a185f5119d553004fda942910a643258f875a02c8d3b5886",
+      "width": 768,
+      "height": 512
+    }
+  ]
+}

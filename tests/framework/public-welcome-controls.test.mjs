@@ -29,12 +29,12 @@ test('the public welcome keeps a real editor CTA and a separately packaged welco
  assert.match(html,/<button\b[^>]*id="explore-scenes"/);assert.match(html,/Cinco procesos de CEDI y cinco de Smart Factory/);
 });
 
-test('anonymous server users are directed to editor login while authenticated exploration opens the player',async()=>{
+test('server exploration opens the independent catalogue through login, without preselecting a 3D scene',async()=>{
  const f=fixture({backendAvailable:true,apiOrigin:'https://studio.example'});assert.deepEqual(f.errors,[]);assert.equal(f.creates,1);assert.deepEqual(f.navigationCalls,[],'Welcome setup does not open the 3D scene.');
  const editor=f.elements.get('editor-access'),login=new URL(editor.href);assert.equal(login.origin,'https://studio.example');assert.equal(login.pathname,'/login');assert.equal(login.searchParams.get('next'),'/editor');
- f.galleryOptions.onStateChange({user:null,backend:'https://studio.example'});assert.equal(new URL(editor.href).pathname,'/login');await f.elements.get('explore-scenes').click();assert.deepEqual(f.navigationCalls,['gallery']);
+ f.galleryOptions.onStateChange({user:null,backend:'https://studio.example'});assert.equal(new URL(editor.href).pathname,'/login');await f.elements.get('explore-scenes').click();assert.deepEqual(f.navigationCalls,[]);assert.deepEqual(f.assignments,['https://studio.example/login?next=%2Fplay']);
  f.galleryOptions.onStateChange({user:{id:'temporary-viewer'},backend:'https://studio.example'});assert.equal(editor.href,'https://studio.example/editor');assert.equal(f.elements.get('workspace-link').href,'https://studio.example/play');
- await f.elements.get('explore-scenes').click();assert.deepEqual(f.assignments,['https://studio.example/play']);assert.deepEqual(f.navigationCalls,['gallery'],'Opening the practice player must not start the public demo.');
+ await f.elements.get('explore-scenes').click();assert.deepEqual(f.assignments,['https://studio.example/login?next=%2Fplay','https://studio.example/play']);assert.deepEqual(f.navigationCalls,[],'Opening the catalogue must not start the public demo.');
 });
 
 test('static hosting opens the actual access explanation instead of requesting a private editor or API',async()=>{

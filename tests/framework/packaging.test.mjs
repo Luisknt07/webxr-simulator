@@ -8,7 +8,7 @@ import {createRequire} from 'node:module';
 const require = createRequire(import.meta.url);
 const {packageApps, FORMAT} = require('../../tooling/build/package-apps.cjs');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
-const compiled = {'public-viewer': ['viewer.js'], 'core-empty': ['core-empty.js'], workspace: ['bundle.js', 'mesh-optimizer-worker.js', 'collision-worker.js', 'cad-worker.js']};
+const compiled = {'public-viewer': ['viewer.js'], 'core-empty': ['core-empty.js'], workspace: ['bundle.js', 'scenario-library.js', 'mesh-optimizer-worker.js', 'collision-worker.js', 'cad-worker.js']};
 function write(root, filename, bytes = filename) { const output = path.join(root, filename); fs.mkdirSync(path.dirname(output), {recursive: true}); fs.writeFileSync(output, bytes); }
 function walk(directory, prefix = '') { return fs.readdirSync(directory, {withFileTypes: true}).flatMap(entry => entry.isDirectory() ? walk(path.join(directory, entry.name), prefix + entry.name + '/') : [prefix + entry.name]).sort(); }
 function fixture(t) {
@@ -23,6 +23,7 @@ function fixture(t) {
   for (const id of ['welcome','pickup','route','deposit','completed','safety']) write(root, 'packages/voice-assistant/assets/'+id+'.wav', 'approved test audio '+id);
   write(root, 'apps/core-empty/index.html', '<link rel="stylesheet" href="core.css"><script defer src="core-empty.js"></script>'); write(root, 'apps/core-empty/core.css', 'body{margin:0}');
   write(root, 'apps/workspace/index.html', '<base href="/workspace/"><link rel="stylesheet" href="packages/render-three/src/workspace.css"><link rel="icon" href="projects/smarttwin/branding/icon.png"><script src="packages/render-three/src/StartupStatus.js"></script><script src="bundle.js"></script>');
+  write(root, 'apps/workspace/catalogue.html', '<base href="/workspace/"><script defer src="scenario-library.js"></script>');
   write(root, 'packages/render-three/src/workspace.css', '.world{background:url("../../../modules/turismo/assets/texture.png")}'); write(root, 'modules/logistica-industrial/functions/bandas/runtime/belt.css', '.belt{}'); write(root, 'apps/workspace/studio/studio.css', '.studio{}');
   write(root, 'packages/render-three/src/StartupStatus.js', 'window.startupReady=true;');
   for (const filename of ['basis_transcoder.js', 'basis_transcoder.wasm', 'draco_decoder.js', 'draco_wasm_wrapper.js', 'draco_decoder.wasm']) write(root, 'packages/render-three/vendor/' + filename);
@@ -88,6 +89,13 @@ test('wrong root URLs and external startup scripts cannot silently produce a bro
   const root = fixture(t); write(root, 'apps/workspace/index.html', '<base href="/workspace/"><script src="/bundle.js"></script>'); assert.throws(() => packageApps({root, revision: 'fixture'}), {code: 'startup_mount'});
   write(root, 'apps/workspace/index.html', '<base href="./"><script src="bundle.js"></script>'); assert.throws(() => packageApps({root, revision: 'fixture'}), {code: 'startup_mount'});
   write(root, 'apps/workspace/index.html', '<script src="https://tracking.invalid/collect.js"></script>'); assert.throws(() => packageApps({root, revision: 'fixture'}), {code: 'external_startup'});
+});
+
+test('the catalogue is verified separately and cannot accidentally preload the renderer or escape private publication',t=>{
+ const root=fixture(t);const result=packageApps({root,revision:'catalogue-page'}),workspace=result.find(row=>row.application==='workspace'),publicBuild=result.find(row=>row.application==='public-viewer');
+ assert(workspace.manifest.files.some(row=>row.path==='catalogue.html'));assert(workspace.manifest.files.some(row=>row.path==='scenario-library.js'));assert(!publicBuild.manifest.files.some(row=>/catalogue|scenario-library/.test(row.path)));
+ write(root,'apps/workspace/catalogue.html','<base href="/workspace/"><script src="scenario-library.js"></script><script src="bundle.js"></script>');assert.throws(()=>packageApps({root,revision:'renderer-preload'}),{code:'catalogue_renderer'});
+ write(root,'apps/workspace/catalogue.html','<base href="/workspace/"><script src="https://external.invalid/catalogue.js"></script>');assert.throws(()=>packageApps({root,revision:'external-catalogue'}),{code:'external_startup'});
 });
 
 test('a symlink or junction in a declared input cannot publish files from another tree', t => {

@@ -5,6 +5,7 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),
 const {createHash,randomBytes}=require('node:crypto');
 const {createApiHandler}=require("./server/api.js");
 const {ApiError}=require("./server/validation.js");
+const {playEntry}=require('../workspace/PlayRoute.cjs');
 const ROOT=path.resolve(__dirname,'../..'),PUBLIC_SCENE='vr-robot-dispatch';
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const ip=value=>String(value||'').replace(/^::ffff:/,'');
@@ -62,7 +63,7 @@ function createApplication(options={}){
    const privateEntry=pathname==='/editor'||pathname==='/play';const privateRoute=privateEntry||pathname==='/editor/'||pathname==='/workspace'||pathname.startsWith('/workspace/');
    if(privateRoute){if(!allowLocal&&!req.studioSecure)return json(res,426,{error:'El espacio privado requiere HTTPS.'});const user=api.studio.user(req,false);if(!user){if(privateEntry||pathname==='/editor/'||pathname==='/workspace'||pathname==='/workspace/'){res.writeHead(302,{'Location':'/login?next='+encodeURIComponent((pathname==='/play'?'/play':'/editor')+url.search),'Cache-Control':'no-store'});return res.end();}return json(res,401,{error:'Inicia sesión.',code:'authentication_required'});}api.studio._expectedUser(req,user);}
    if(pathname==='/workspace'||pathname==='/workspace/'||pathname==='/editor/'){res.writeHead(302,{'Location':'/editor'+url.search,'Cache-Control':'no-store'});return res.end();}
-   const build=privateRoute?workspaceBuild:publicBuild,relative=privateRoute?(privateEntry?'index.html':pathname.slice('/workspace/'.length)):(pathname==='/'?'index.html':pathname.slice(1));
+   const build=privateRoute?workspaceBuild:publicBuild,relative=privateRoute?(privateEntry?(pathname==='/play'?playEntry(url.searchParams):'index.html'):pathname.slice('/workspace/'.length)):(pathname==='/'?'index.html':pathname.slice(1));
    if(!relativePath(relative))return json(res,404,{error:'Recurso no disponible.'});
    if(relative==='publication.json'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});return res.end(req.method==='HEAD'?undefined:JSON.stringify(build.manifest));}
    const file=realFile(build,relative);if(!file)return json(res,404,{error:'Recurso no disponible.'});

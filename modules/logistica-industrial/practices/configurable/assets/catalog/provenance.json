@@ -1,0 +1,129 @@
+{
+  "format": "smarttwin.practice-card-art-provenance",
+  "version": 1,
+  "generator": "built-in image_gen",
+  "caption": "Ilustración de referencia",
+  "claims": "Illustrations describe each process; they are not photographs or screenshots of the simulator.",
+  "files": [
+    {
+      "practiceId": "CEDI-01",
+      "path": "CEDI-01.webp",
+      "bytes": 45794,
+      "sha256": "8f86ad6086d3b08de0ad918ddd59716648f477d234e4d00663bdf867e1ad3ee0",
+      "width": 768,
+      "height": 512,
+      "originalSha256": "29c59e25f9043efb19d5e7f2e91be0ff693e0d944f7ca46696bda22b738ab82b",
+      "originalWidth": 1536,
+      "originalHeight": 1024,
+      "prompt": "Use case: product-mockup. Asset type: high quality educational website practice card illustration, landscape 3:2 composition. Subject: a realistic industrial receiving dock: one white unbranded medium rigid delivery truck backed toward a grey raised warehouse dock with a sectional doorway, a pallet with neatly secured cardboard boxes by the dock, small yellow bollards and a wheel restraint. Polished precise isometric 3D product visualization on a pure white seamless background, soft ambient contact shadows, no scenery clutter. Practical scale, crisp mechanical details, restrained teal accents, brushed metal, natural cardboard, no people. All objects fully in frame with generous white margin. No text, no numbers, no lettering, no logos, no watermark, no user interface. This is one coherent receiving operation, not a collage."
+    },
+    {
+      "practiceId": "CEDI-02",
+      "path": "CEDI-02.webp",
+      "bytes": 64778,
+      "sha256": "c4174102a3155b9ec438382349a76c8b873a5c602c060126e1cb4f55e2cda70b",
+      "width": 768,
+      "height": 512,
+      "originalSha256": "0e9a7f32cefd3d051b2a2f824f1bf1e0116d2c9e4acd6100ac85e7d99f64777a",
+      "originalWidth": 1536,
+      "originalHeight": 1024,
+      "prompt": "Use case: product-mockup. Asset type: educational website practice card illustration, high quality landscape 3:2. Subject: a blue and orange selective warehouse rack with three levels and cardboard-box pallets seated on its beams, one small yellow reach forklift correctly parked alongside it and a handheld barcode scanner on a small stand. Show storage, inventory and replenishment in one compact coherent installation. Style: polished precise realistic isometric 3D product visualization on a pure white seamless background with soft contact shadows. Crisp details, credible dimensions, restrained teal accents, industrial blue, yellow safety details, brushed metal, natural cardboard. Keep the complete compact group in frame with generous white margin; clean uncluttered composition. No people. No text, letters, numbers, logos, watermarks or user interface; small screens have abstract graphical blocks only. One coherent subject, not a collage."
+    },
+    {
+      "practiceId": "CEDI-03",
+      "path": "CEDI-03.webp",
+      "bytes": 67048,
+      "sha256": "ffc72df494d947b34d6ffcafc98c756f74899f8cc8ecc3cf39fe840bdc15ddc7",
+      "width": 768,
+      "height": 512,
+      "originalSha256": "6715fab10f756b74ed218a2356f2016294d8a04c004b33481df0ac36c511026e",
+      "originalWidth": 1536,
+      "originalHeight": 1024,
+      "prompt": "Use case: product-mockup. Asset type: educational website practice card illustration, high quality landscape 3:2. Subject: a warehouse order preparation and consolidation station: short blue-framed steel roller conveyor, three cardboard cartons in separate picking totes, an upright barcode monitor on a stand and a small loaded picking cart alongside. Show careful order picking and consolidation, no robotic arm. Style: polished precise realistic isometric 3D product visualization on a pure white seamless background with soft contact shadows. Crisp details, credible dimensions, restrained teal accents, industrial blue, yellow safety details, brushed metal, natural cardboard. Keep the complete compact group in frame with generous white margin; clean uncluttered composition. No people. No text, letters, numbers, logos, watermarks or user interface; small screens have abstract graphical blocks only. One coherent subject, not a collage."
+    },
+    {
+      "practiceId": "CEDI-04",
+      "path": "CEDI-04.webp",
+      "bytes": 78056,
+      "sha256": "6f839d1dc26ed759b4356962f954a7d26b77f8303cfe67f949f19ff3abc7a37b",
+      "width": 768,
+      "height": 512,
+      "originalSha256": "191cc48b8d55facc67053cde070e82d167966bca82d6eef8605f1a7a564e4bd8",
+      "originalWidth": 1536,
+      "originalHeight": 1024,
+      "prompt": "Use case: product-mockup. Asset type: educational website practice card illustration, high quality landscape 3:2. Subject: a compact shipping packaging station with a steel workbench, open carton with products inside, tape dispenser and label printer, beside a fully boxed shrink-wrapped pallet and a manual yellow pallet jack. Do not use a robot lifting a pallet. Style: polished precise realistic isometric 3D product visualization on a pure white seamless background with soft contact shadows. Crisp details, credible dimensions, restrained teal accents, industrial blue, yellow safety details, brushed metal, natural cardboard. Keep the complete compact group in frame with generous white margin; clean uncluttered composition. No people. No text, letters, numbers, logos, watermarks or user interface; small screens have abstract graphical blocks only. One coherent subject, not a collage."
+    },
+    {
+      "practiceId": "CEDI-05",
+      "path": "CEDI-05.webp",
+      "bytes": 65878,
+      "sha256": "50c522d5f2868716df4886469025bb5458f8aff4999d30bbd91626a76ff5ef91",
+      "width": 768,
+      "height": 512,
+      "originalSha256": "e37fa43c912d03f80b5880a0b942e234bdf9f4547a8001f302566e0559daee93",
+      "originalWidth": 1536,
+      "originalHeight": 1024,
+      "prompt": "Use case: product-mockup. Asset type: educational website practice card illustration, high quality landscape 3:2. Subject: a warehouse dispatch operation: one white unbranded delivery truck with open rear doors backed toward a small dock, palletized boxes secured for transport and a yellow forklift carrying a single low pallet near the truck. The forklift forks support the wood pallet from below; realistic safe load. Style: polished precise realistic isometric 3D product visualization on a pure white seamless background with soft contact shadows. Crisp details, credible dimensions, restrained teal accents, industrial blue, yellow safety details, brushed metal, natural cardboard. Keep the complete compact group in frame with generous white margin; clean uncluttered composition. No people. No text, letters, numbers, logos, watermarks or user interface; small screens have abstract graphical blocks only. One coherent subject, not a collage."
+    },
+    {
+      "practiceId": "SF-01",
+      "path": "SF-01.webp",
+      "bytes": 68816,
+      "sha256": "d9a365a3d3e68f7a922d13d2b260f2368d26994739e4b51a77dc2c90a7da33c4",
+      "width": 768,
+      "height": 512,
+      "originalSha256": "d2b36d85f0b2a5195bd9feb89e23d0792a42751c5f63e334e323fea2b3273b82",
+      "originalWidth": 1536,
+      "originalHeight": 1024,
+      "prompt": "Use case: product-mockup. Asset type: educational website practice card illustration, high quality landscape 3:2. Subject: a raw material receiving installation: blue steel roller conveyor with two small industrial parts bins, low storage rack holding grey metal component trays and one yellow pallet jack carrying a raw-material pallet. Physical manufacturing materials, not retail products. Style: polished precise realistic isometric 3D product visualization on a pure white seamless background with soft contact shadows. Crisp details, credible dimensions, restrained teal accents, industrial blue, yellow safety details, brushed metal, natural cardboard. Keep the complete compact group in frame with generous white margin; clean uncluttered composition. No people. No text, letters, numbers, logos, watermarks or user interface; small screens have abstract graphical blocks only. One coherent subject, not a collage."
+    },
+    {
+      "practiceId": "SF-02",
+      "path": "SF-02.webp",
+      "bytes": 59604,
+      "sha256": "a4aa7424b8f44acfd55400ac7599a48e73bfa3758ff509fe833e77e63a4efc81",
+      "width": 768,
+      "height": 512,
+      "originalSha256": "9a55bd082ac039be9f777ff4f56e7ada3117af6ffdf34ed611d58eeff3018def",
+      "originalWidth": 1536,
+      "originalHeight": 1024,
+      "prompt": "Use case: product-mockup. Asset type: educational website practice card illustration, high quality landscape 3:2. Subject: a manufacturing production-planning and line-supply workstation: an ergonomic steel desk with an unbranded digital schedule monitor displaying only colored blocks, compact kitting bins with neatly separated metal housings, lids and fasteners, and a small line-side trolley. No readable text. Style: polished precise realistic isometric 3D product visualization on a pure white seamless background with soft contact shadows. Crisp details, credible dimensions, restrained teal accents, industrial blue, yellow safety details, brushed metal, natural cardboard. Keep the complete compact group in frame with generous white margin; clean uncluttered composition. No people. No text, letters, numbers, logos, watermarks or user interface; small screens have abstract graphical blocks only. One coherent subject, not a collage."
+    },
+    {
+      "practiceId": "SF-03",
+      "path": "SF-03.webp",
+      "bytes": 45574,
+      "sha256": "54b6f3947ee70ea9aaf851bd8bfba27d012bda75998a065a4d3e4bb1009e35f0",
+      "width": 768,
+      "height": 512,
+      "originalSha256": "e7bf4e7f6b67b3c643c07ba43d66170901adad3e6abe13b7b3dfeb696bfcbc7d",
+      "originalWidth": 1536,
+      "originalHeight": 1024,
+      "prompt": "Use case: product-mockup. Asset type: educational website practice card illustration, high quality landscape 3:2. Subject: a compact enclosed CNC machining and manufacturing cell with a clear closed protective window, spindle and clamped metal workpiece inside, a side touchscreen control pendant with abstract interface, a short steel loading table and a finished metal component. Accurate plausible machinery, no robot. Style: polished precise realistic isometric 3D product visualization on a pure white seamless background with soft contact shadows. Crisp details, credible dimensions, restrained teal accents, industrial blue, yellow safety details, brushed metal, natural cardboard. Keep the complete compact group in frame with generous white margin; clean uncluttered composition. No people. No text, letters, numbers, logos, watermarks or user interface; small screens have abstract graphical blocks only. One coherent subject, not a collage."
+    },
+    {
+      "practiceId": "SF-04",
+      "path": "SF-04.webp",
+      "bytes": 68946,
+      "sha256": "0dc39ea2a8a348ca0e83818dae49a774fe99bdb52a6ea4e9fc0e6f3256119264",
+      "width": 768,
+      "height": 512,
+      "originalSha256": "ef9e1bd1f11cdecf378a7337dd06aabae4f9bc9171a77dbdab87431c3c921944",
+      "originalWidth": 1536,
+      "originalHeight": 1024,
+      "prompt": "Use case: product-mockup. Asset type: educational website practice card illustration, high quality landscape 3:2. Subject: a precise industrial assembly and quality-control workstation: orange articulated six-axis robot with a small parallel gripper holding ONE small metal housing over a steel assembly bench, separate lid and fasteners in trays, a caliper and a compact inspection camera on a stand. Robot base firmly anchored, cable dress neatly routed. No boxes or pallets lifted by robot. Style: polished precise realistic isometric 3D product visualization on a pure white seamless background with soft contact shadows. Crisp details, credible dimensions, restrained teal accents, industrial blue, yellow safety details, brushed metal, natural cardboard. Keep the complete compact group in frame with generous white margin; clean uncluttered composition. No people. No text, letters, numbers, logos, watermarks or user interface; small screens have abstract graphical blocks only. One coherent subject, not a collage."
+    },
+    {
+      "practiceId": "SF-05",
+      "path": "SF-05.webp",
+      "bytes": 52486,
+      "sha256": "53246be0f18c9141a185f5119d553004fda942910a643258f875a02c8d3b5886",
+      "width": 768,
+      "height": 512,
+      "originalSha256": "a3435bf70fa1071303b54949ba1e774cc93ac362740c5964f46c973c893c26ca",
+      "originalWidth": 1536,
+      "originalHeight": 1024,
+      "prompt": "Use case: product-mockup. Asset type: educational website practice card illustration, high quality landscape 3:2. Subject: a finished-goods manufacturing packaging and dispatch station: short blue-framed roller conveyor transporting three closed cardboard cartons, a compact carton sealing and labeling machine, finished pallet with restrained cartons and a small yellow forklift parked nearby. Coherent physically connected flow. Style: polished precise realistic isometric 3D product visualization on a pure white seamless background with soft contact shadows. Crisp details, credible dimensions, restrained teal accents, industrial blue, yellow safety details, brushed metal, natural cardboard. Keep the complete compact group in frame with generous white margin; clean uncluttered composition. No people. No text, letters, numbers, logos, watermarks or user interface; small screens have abstract graphical blocks only. One coherent subject, not a collage."
+    }
+  ]
+}

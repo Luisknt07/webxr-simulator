@@ -42,6 +42,9 @@ export default class StudioExperience {
     };
     this.ready = this.initialize();
     window.addEventListener('pagehide', () => { this.connection.stop(); this.education.saveProgress(); this.missionOverlay.dispose(); });
+    // A cached execution document has already retired its module resources on
+    // pagehide. Reconstruct it once instead of resuming a half-disposed world.
+    window.addEventListener('pageshow', event => { if (event.persisted && new URL(window.location).pathname === '/play') window.location.reload(); });
     this.connection = new StudioRoomConnection(this.client, {interval: 250, getPose: () => this.pose(), onRoom: room => this.receiveRoom(room), onEvents: (events, room) => this.applyEvents(events, room), onError: error => { this.roomError = error.message; this.message('Sala: ' + error.message); }});
   }
   async initialize() {
@@ -61,7 +64,7 @@ export default class StudioExperience {
     this.applySpawn();
     const invitation = new URL(window.location).searchParams.get('room');
     if (invitation && !ROOM_IDS.includes(invitation) && this.client.user) await this.joinRoom(invitation);
-    if(new URL(window.location).pathname==='/play'){await this.editor.ready;const params=new URL(window.location).searchParams;if(params.has('practice')){try{let settings={mode:params.get('mode')||'manual',caseId:params.get('caseId')||'A',difficulty:Number(params.get('difficulty')||1)};if(params.has('settings')){const text=params.get('settings');if(text.length>30000)throw Error('La configuración de la práctica supera el tamaño permitido.');const value=JSON.parse(text);if(!value||typeof value!=='object'||Array.isArray(value))throw Error('La configuración de la práctica no es válida.');settings=value;}await this.practiceCampaign.launch(params.get('practice'),settings);}catch(error){this.message(error.message);this.open('scenes');}}else this.open('scenes');}
+    if(new URL(window.location).pathname==='/play'){await this.editor.ready;const params=new URL(window.location).searchParams;if(params.has('practice')){try{let settings={mode:params.get('mode')||'manual',caseId:params.get('caseId')||'A',difficulty:Number(params.get('difficulty')||1)};if(params.has('settings')){const text=params.get('settings');if(text.length>30000)throw Error('La configuración de la práctica supera el tamaño permitido.');const value=JSON.parse(text);if(!value||typeof value!=='object'||Array.isArray(value))throw Error('La configuración de la práctica no es válida.');settings=value;}await this.practiceCampaign.launch(params.get('practice'),settings);}catch(error){this.message(error.message);this.open('scenes');}}else if(!['scene','libraryScene','project'].some(key=>params.get(key)))this.open('scenes');}
   }
   identity() {
     if(this.practiceCampaign)this.practiceCampaign.identityChanged();
@@ -204,6 +207,10 @@ export default class StudioExperience {
   async guard(action) { if (this.busy) return; this.busy = true; try { return await action(); } catch (error) { this.message(error.message); } finally { this.busy = false; } }
   close() { if(this.campaignBrowser){this.campaignBrowser.dispose();this.campaignBrowser=null;} if (this.graphicsSettings) { this.graphicsSettings.dispose(); this.graphicsSettings = null; } if (this.avatarCleanup) { this.avatarCleanup(); this.avatarCleanup = null; } if (this.editor.accessView && this.editor.accessView.disposeGallery) this.editor.accessView.disposeGallery(); this.drawer.hidden = true; this.drawer.className = 'studio-drawer'; this.shade.hidden = true; this.menuButton.setAttribute('aria-expanded', 'false'); this.menuButton.focus(); }
   open(page = 'personal') {
+    // A catalogue is its own document: leaving the renderer also releases the
+    // active world. Editors retain their draft in this tab; XR keeps its native
+    // immersive menu until the user exits the session.
+    if (page === 'scenes' && !this.ctx.vrMode && !this.editor.staticPublic) return this.practiceCampaign.openCatalogue();
     if (this.ctx.vrMode && this.immersiveMenu) {
       if (this.administration) this.administration.close();
       // Delayed account/network events may change an already open menu, but

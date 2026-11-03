@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es" data-page="scenario-library">
+<head>
+  <meta charset="utf-8">
+  <base href="/workspace/">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Elige y configura una práctica de logística CEDI o Smart Factory antes de entrar a la instalación.">
+  <title>Prácticas de simulación · SMART-TWIN</title>
+  <link rel="icon" href="projects/smarttwin/branding/favicon-32x32.png">
+  <link rel="stylesheet" href="modules/logistica-industrial/practices/ui/practice.css">
+  <link rel="stylesheet" href="packages/documentation/documentation.css">
+  <link rel="stylesheet" href="apps/workspace/scenario-library.css">
+  <script src="scenario-library.js" defer></script>
+</head>
+<body>
+  <main id="scenario-library-page">
+    <header class="scenario-library-header">
+      <a href="/" class="scenario-library-brand" aria-label="SMART-TWIN · Inicio">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 3 43 14v21L24 46 5 35V14Z" fill="#008f81"/><path d="m24 3 19 11-19 11L5 14Z" fill="#48d9be"/><path d="M24 25v21" stroke="#dcfff5" stroke-width="2"/><path d="m24 8 13 7-13 8-13-8Z" fill="#ecfff9"/></svg>
+        <span><strong>SMART-TWIN <span>Simulator</span></strong><small>Simulación industrial y logística</small></span>
+      </a>
+      <nav class="scenario-library-navigation" aria-label="Navegación principal">
+        <a href="/" data-library-home>Inicio</a>
+        <a href="/editor" data-library-editor hidden>Ir al editor <span aria-hidden="true">↗</span></a>
+        <span id="scenario-library-account" aria-live="polite"></span>
+        <button type="button" id="scenario-library-logout" hidden>Cerrar sesión</button>
+      </nav>
+    </header>
+    <p id="scenario-library-status" role="status" aria-live="polite">Cargando tus prácticas…</p>
+    <div id="scenario-library-content"></div>
+    <noscript>Activa JavaScript para consultar y configurar las prácticas. <a href="/">Volver al inicio</a>.</noscript>
+  </main>
+</body>
+</html>

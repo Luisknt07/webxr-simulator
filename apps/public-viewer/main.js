@@ -16,7 +16,7 @@ const VIEWER_WORLD_ID = 'public-vr-robot-dispatch';
 let activeBrowser = null, gallery = null, accessDialog = null, navigation = null, practiceURL = null;
 
 function accountURL() {
-  const configured = configuration.workspaceURL || (configuration.apiOrigin ? new URL('login?next=%2Fworkspace', configuration.apiOrigin.replace(/\/?$/, '/')).href : configuration.backendAvailable === true ? new URL('/login?next=%2Fworkspace', document.baseURI).href : '');
+  const configured = configuration.workspaceURL || (configuration.apiOrigin ? new URL('login?next=%2Fplay', configuration.apiOrigin.replace(/\/?$/, '/')).href : configuration.backendAvailable === true ? new URL('/login?next=%2Fplay', document.baseURI).href : '');
   if (!configured) return null;
   const url = new URL(configured, document.baseURI);
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
@@ -176,6 +176,7 @@ function fail(error) {
 byId('retry').addEventListener('click', () => window.location.reload());
 try {
   const workspaceURL = accountURL();
+  practiceURL=workspaceURL;
   const accessLinks = [byId('workspace-link')];
   accessLinks.forEach(link => {link.href = workspaceURL || '#workspace-access'; if (!workspaceURL) link.addEventListener('click', event => {event.preventDefault(); openAccess();});});
   const editorLink = byId('editor-access');
@@ -184,7 +185,7 @@ try {
   gallery = mountGallery({document, configuration, baseURI: document.baseURI, fetcher: (url, options) => fetch(url, options), workspaceURL, onAccess: openAccess,
     onStateChange(state) {
       const target = state.user && state.backend ? new URL('/play', document.baseURI).href : workspaceURL || '#workspace-access';
-      practiceURL=state.user&&state.backend?target:null;
+      practiceURL=state.backend?target:workspaceURL;
       accessLinks.forEach(link => {link.href = target;});
       if(state.user&&state.backend)editorLink.href=new URL('/editor',document.baseURI).href;
       byId('workspace-link').textContent = state.user ? 'Mi espacio ↗' : workspaceURL ? 'Iniciar sesión ↗' : 'Acceder al espacio ↗';

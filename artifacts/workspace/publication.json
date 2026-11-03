@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "38bf0fbcef00b803072a6a7ac6bf837187e18fa7",
-  "bundleSha256": "abc1e9de66794247b32c572658a0f85a33726d692a4479ff5e3afac9a069f62a",
+  "revision": "2738721fc0a44fe7a5fb01fdf435d6769248f859",
+  "bundleSha256": "d451cb39c9d9870591ac506df4561343a3c7ec767c130f034dee56ccde442e71",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -43,56 +43,36 @@
   ],
   "files": [
     {
-      "path": "0.bundle.js",
-      "sha256": "f11d3bd1d198b262274c036dfe2938543d3e193d297062396ada31f3cf15531d"
+      "path": "11.js",
+      "sha256": "ab138cc2f0f1740b8a633dd455b8c9211cdddfaf620981de4035d965f94df69f"
     },
     {
-      "path": "1.bundle.js",
-      "sha256": "f782ea43f5e1ef3b21b923108a2f660a1878a33d6ce975a2a8e89e8654900b51"
+      "path": "12.js",
+      "sha256": "53505fc1c838a2c923502f22db168f618251b99881f87ae5aefacbfe4f8a0efb"
     },
     {
-      "path": "10.bundle.js",
-      "sha256": "a4beabac9ed35e75936edd218dcf27d8ec47771702ae26902058ac303ce476b9"
+      "path": "13.js",
+      "sha256": "9b0f7ff6627053b1541dc3f3b701dfbbffd42de491079d0677b5b00a3c3ef121"
     },
     {
-      "path": "11.bundle.js",
-      "sha256": "039934990c18b9a2b0a042aada7f72c459086966db50dfe57f7848ef5e52165d"
+      "path": "14.js",
+      "sha256": "31b774c32a203ec38daf120db757aeb08913559b66a65e545051a4398bd5dc3b"
     },
     {
-      "path": "12.bundle.js",
-      "sha256": "8a5251fe60c269ca0fac63160e4ebad2b40ca0c7e45fe0c330fbb2166dc034d5"
+      "path": "15.js",
+      "sha256": "78e3a1c42e01298ff5b57d0a65219951c260498acabec9a3c700040a74ed35cf"
     },
     {
-      "path": "13.bundle.js",
-      "sha256": "27045c9d5baf7a759ad9e1d854e67daf88ee3358b23c68d5763161aa4f80ebff"
+      "path": "16.js",
+      "sha256": "8832df7977e608b9d4df6a23f830cb79e0b5785346ca43e578b80beeeae6e617"
     },
     {
-      "path": "2.bundle.js",
-      "sha256": "2978f59eb83dc48eada4f5099516caef745d80e41f3335cb716598a3f472b56c"
+      "path": "3.js",
+      "sha256": "21f718e967b86cca4692809bad33ed778540895bd9ab550d5845b08d92ddf313"
     },
     {
-      "path": "3.bundle.js",
-      "sha256": "14c2709cbdf35103d81a88879a4c4c8e0a793700bd980b7967b24cf9d0a2d9ce"
-    },
-    {
-      "path": "4.bundle.js",
-      "sha256": "0cd6b789a62ad96c1b839f5c9b29db9137ea542e750e1b8cdfe8bb033415dca4"
-    },
-    {
-      "path": "5.bundle.js",
-      "sha256": "3df053e5c3b7e6eaed158116662f6f0e6329e608bf5281b905a5089dafabd949"
-    },
-    {
-      "path": "6.bundle.js",
-      "sha256": "c0c4b0ca457eeb00c2e735768f66a02445a86e70cd7f7108e0da25f2d2ed0353"
-    },
-    {
-      "path": "8.bundle.js",
-      "sha256": "a773f8c8debe5c83d5dcece72aa3899b567979d92a43f62a2b05a749f7964146"
-    },
-    {
-      "path": "9.bundle.js",
-      "sha256": "5327d06523f39a1ead690275682c428e0c6f70ff945da2329ad0f2a86220bc1f"
+      "path": "apps/workspace/scenario-library.css",
+      "sha256": "af9a0ff2b1987e7136e65bebfb642d9ce2637e33058d9848f4966bd3748ee7b2"
     },
     {
       "path": "apps/workspace/studio/admin-workspace.css",
@@ -108,15 +88,23 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "abc1e9de66794247b32c572658a0f85a33726d692a4479ff5e3afac9a069f62a"
+      "sha256": "d451cb39c9d9870591ac506df4561343a3c7ec767c130f034dee56ccde442e71"
     },
     {
       "path": "cad-worker.js",
       "sha256": "2b8ea4701174222b172ecefb0d072ff0c9e5324abcb88cb83858341c447516ce"
     },
     {
+      "path": "catalogue.html",
+      "sha256": "b647901b2efbe808aa893669d454316d19ca94a8c1d2c07945383c94d166e96a"
+    },
+    {
       "path": "collision-worker.js",
       "sha256": "85574d4efe07fbb87ce1ce6e1ae14b349024addf288100e4dd95ac76cfe352da"
+    },
+    {
+      "path": "configurable-practice-reference.js",
+      "sha256": "3deda8efd0033811c488a978a4ad3493dea0bd74b61d5a52ca533908ca29812c"
     },
     {
       "path": "editor-tools.json",
@@ -125,6 +113,26 @@
     {
       "path": "index.html",
       "sha256": "8360755d3e45cdca0a00da88fc956b8610673831d05fc442d650fd82063bf639"
+    },
+    {
+      "path": "logistics-documentation.js",
+      "sha256": "2c534ee18223bab1bc57343debeb0095f6e0780963b8834dd90a27adf69debe0"
+    },
+    {
+      "path": "logistics-equipment-workspace.js",
+      "sha256": "db2ce72177691c745882008ae66fcf165300292950c80eaec47bd2aca472bc4b"
+    },
+    {
+      "path": "logistics-practice-browser.js",
+      "sha256": "2233c8abc3ff22010e1225cfa895c5acebf27740ccd94abcf86ec3d196e73ae5"
+    },
+    {
+      "path": "logistics-practice-index.js",
+      "sha256": "af9311b89187dea0916eca5edfb08bb1ccc3671fb4e503a318522548321cb3e6"
+    },
+    {
+      "path": "logistics-practice-scenes.js",
+      "sha256": "755158545df7d88755ce84b48937031471ec7ab7224f2f83d7ab01c29a5f00a8"
     },
     {
       "path": "mesh-optimizer-worker.js",
@@ -2711,6 +2719,46 @@
       "sha256": "3245464c96b41ffb23473cbc498abf5278c3b57334741ca6be92398f8061a71c"
     },
     {
+      "path": "modules/logistica-industrial/practices/configurable/assets/catalog/CEDI-01.webp",
+      "sha256": "8f86ad6086d3b08de0ad918ddd59716648f477d234e4d00663bdf867e1ad3ee0"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/catalog/CEDI-02.webp",
+      "sha256": "c4174102a3155b9ec438382349a76c8b873a5c602c060126e1cb4f55e2cda70b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/catalog/CEDI-03.webp",
+      "sha256": "ffc72df494d947b34d6ffcafc98c756f74899f8cc8ecc3cf39fe840bdc15ddc7"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/catalog/CEDI-04.webp",
+      "sha256": "6f839d1dc26ed759b4356962f954a7d26b77f8303cfe67f949f19ff3abc7a37b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/catalog/CEDI-05.webp",
+      "sha256": "50c522d5f2868716df4886469025bb5458f8aff4999d30bbd91626a76ff5ef91"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/catalog/SF-01.webp",
+      "sha256": "d9a365a3d3e68f7a922d13d2b260f2368d26994739e4b51a77dc2c90a7da33c4"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/catalog/SF-02.webp",
+      "sha256": "a4aa7424b8f44acfd55400ac7599a48e73bfa3758ff509fe833e77e63a4efc81"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/catalog/SF-03.webp",
+      "sha256": "54b6f3947ee70ea9aaf851bd8bfba27d012bda75998a065a4d3e4bb1009e35f0"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/catalog/SF-04.webp",
+      "sha256": "0dc39ea2a8a348ca0e83818dae49a774fe99bdb52a6ea4e9fc0e6f3256119264"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/catalog/SF-05.webp",
+      "sha256": "53246be0f18c9141a185f5119d553004fda942910a643258f875a02c8d3b5886"
+    },
+    {
       "path": "modules/logistica-industrial/practices/configurable/assets/images/image1.png",
       "sha256": "062a9e073f821475c69ec9457d7acc32699a9e55a783e8ce9e952c020e58c093"
     },
@@ -2876,7 +2924,7 @@
     },
     {
       "path": "modules/logistica-industrial/practices/ui/practice.css",
-      "sha256": "569b2097f847b2083f59ad8a010f71b3c8fa67ade86eb3d0459a0185b163ef46"
+      "sha256": "115cf2f5cffd2dafca9937be367a0a7af6b0efbd32eed389dfe8be0e2582c622"
     },
     {
       "path": "modules/turismo/assets/angel.basis",
@@ -3233,6 +3281,14 @@
     {
       "path": "modules/turismo/assets/zoomicon.png",
       "sha256": "95772b9ee433abcd9352e32098680bbed1124dcad0bfdfac87ab466560ffea48"
+    },
+    {
+      "path": "nexus-equipment-reference.js",
+      "sha256": "87ac60a8c03afaf097aac2781ab4c9c4e24847c29ba90218187b8944e7247b2f"
+    },
+    {
+      "path": "nexus-practices-reference.js",
+      "sha256": "05e9ed1fdd7c47a909484ba186d5482340fe3af417f45bd17fba0a6897ee9752"
     },
     {
       "path": "packages/assistant-ui/assistant-workspace.css",
@@ -3813,68 +3869,84 @@
     {
       "path": "projects/smarttwin/scenes/vr-warehouse-missions.json",
       "sha256": "42fa406ab46dd834562f11bbc77814d7fa9aed81c09ad9de2534f7c9a173feed"
+    },
+    {
+      "path": "scenario-library.js",
+      "sha256": "eaf7b3f17585fb7970f326e1eeb6a73299e1cd13282157e1044aca7754abf324"
     }
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "c410201f66ba705814b2",
-    "statsSha256": "12fba1f0475eb5fcf28908562369ff61af0da7e908e1f8778a356da813081d35",
+    "hash": "339ec0368136da6cb8da",
+    "statsSha256": "1b8ca8442ea882e09a14837896376de811c7d57164823020cc81c7d43a4cd6a1",
     "assets": [
       {
-        "path": "0.bundle.js",
-        "size": 9348
+        "path": "11.js",
+        "size": 26240
       },
       {
-        "path": "1.bundle.js",
-        "size": 6538
+        "path": "12.js",
+        "size": 17353
       },
       {
-        "path": "10.bundle.js",
+        "path": "13.js",
         "size": 2047
       },
       {
-        "path": "11.bundle.js",
+        "path": "14.js",
         "size": 2050
       },
       {
-        "path": "12.bundle.js",
+        "path": "15.js",
         "size": 3390
       },
       {
-        "path": "13.bundle.js",
+        "path": "16.js",
         "size": 3313
       },
       {
-        "path": "2.bundle.js",
+        "path": "3.js",
         "size": 7714
       },
       {
-        "path": "3.bundle.js",
+        "path": "bundle.js",
+        "size": 6838305
+      },
+      {
+        "path": "configurable-practice-reference.js",
         "size": 7542
       },
       {
-        "path": "4.bundle.js",
+        "path": "logistics-documentation.js",
         "size": 999578
       },
       {
-        "path": "5.bundle.js",
+        "path": "logistics-equipment-workspace.js",
         "size": 4037
       },
       {
-        "path": "6.bundle.js",
-        "size": 667816
+        "path": "logistics-practice-browser.js",
+        "size": 11116
       },
       {
-        "path": "8.bundle.js",
+        "path": "logistics-practice-index.js",
+        "size": 6538
+      },
+      {
+        "path": "logistics-practice-scenes.js",
+        "size": 667812
+      },
+      {
+        "path": "nexus-equipment-reference.js",
         "size": 1298374
       },
       {
-        "path": "9.bundle.js",
+        "path": "nexus-practices-reference.js",
         "size": 4014891
       },
       {
-        "path": "bundle.js",
-        "size": 6837553
+        "path": "scenario-library.js",
+        "size": 814837
       }
     ]
   }
