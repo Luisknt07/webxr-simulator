@@ -38,15 +38,61 @@ test('all ten facilities have real enclosed CAD envelopes, usable openings, text
       }
       for(const floor of facility.floors){const material=f.document.getBehaviors(floor).find(row=>row.type==='surfaceMaterial');assert.equal(material.preset,'concrete');assert.equal(material.colorMapMode,'preserve');assert.equal(material.name,'Hormigón');assert(f.document.getBehaviors(floor).some(row=>row.type==='teleport'&&row.enabled));}
       const measures=costs(objects,{validate:(value,message)=>assert(value,message)});
-      assert(measures.drawCalls<=38,'Thin wall and frame partitions preserve collision correctness in at most 38 static draws before culling.');assert(measures.triangles<12000);assert.equal(measures.lights,0);assert.equal(facility.costs.dynamicLights,0);assert.equal(facility.costs.shadowMaps,0);
+      assert(measures.drawCalls-facility.outdoor.costs.batches<=38,'The unchanged interior keeps its original draw bound.');assert(facility.outdoor.costs.batches<=12,'The physical yard, outer boundary and two neighbouring warehouses add at most twelve static batches.');assert(measures.drawCalls<=50);assert(measures.triangles<26000);assert.equal(measures.lights,0);assert.equal(facility.costs.dynamicLights,0);assert.equal(facility.costs.shadowMaps,0);
       assert(facility.costs.parts>200,'Profiles, seams, fixtures and services are real geometry, not text-only claims.');
       assert(objects.some(row=>row.name.includes('Difusores LED')));assert(objects.some(row=>row.name.includes('Protección contra incendios')));assert(objects.some(row=>row.name.includes('señalética')));
       assert.equal(f.document.studio.environments.find(row=>row.roomId==='hall').renderQuality,'balanced');
       const saved=native.validateDocument(await f.document.serialize(),value=>value);assert(saved.rooms.hall.additions.some(row=>row.descriptor.type==='cad'));
-      report.push({id:entry.id,...measures,architecture:facility.costs,openings:facility.openings,bounds:facility.bounds});
+      report.push({id:entry.id,...measures,architecture:facility.costs,openings:facility.openings,bounds:facility.bounds,outdoor:facility.outdoor});
     }finally{native.releaseGeometry(f);}
   }
   fs.mkdirSync(path.join(ROOT,'data/qa-studio/practice-facilities'),{recursive:true});fs.writeFileSync(path.join(ROOT,'data/qa-studio/practice-facilities/facility-matrix.json'),JSON.stringify({format:'smarttwin.practice-facility-audit',passed:true,rows:report,limits:'Native geometry, persisted materials and clear aperture probes; no hardware FPS/lux/legal certification.'},null,2));
+});
+
+test('outdoor ground physically joins every original pad, preserves routes and encloses the terrain before its edge',async()=>{
+  const report=[];
+  for(const entry of native.configurableRecipes.list()){
+    const f=native.fixture(),next=native.fixture(),objects=[];
+    try{
+      const plan=native.configurableRecipes.plan(entry.id,{mode:'manual'}),facility=buildPracticeFacility(f.document,'hall',plan,objects),out=facility.outdoor;
+      f.root.updateWorldMatrix(true,true);f.ctx.collisionWorld.setRoom('hall');
+      assert(out.objectIds.length>0);assert.equal(out.context.length,2);assert.equal(out.entrances[0].width,10);assert.equal(out.entrances[1].width,2);
+      const ground=objects.filter(o=>facility.floors.includes(o)||o.userData.practiceFacility.role==='outdoor-ground');
+      const groundMeshes=[];ground.forEach(o=>{o.traverse(n=>{if(n.isMesh)groundMeshes.push(n);});assert(f.document.getBehaviors(o).some(b=>b.type==='collision'&&b.enabled));assert(f.document.getBehaviors(o).some(b=>b.type==='teleport'&&b.enabled));});
+      const rects=out.sourceFloorRects.concat(out.pavementRects,out.terrainRects);
+      for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++){
+        const a=rects[i],b=rects[j],dx=Math.min(a[2],b[2])-Math.max(a[0],b[0]),dz=Math.min(a[3],b[3])-Math.max(a[1],b[1]);assert(dx<1e-5||dz<1e-5,'Source/yard/road/terrain surfaces must not share coplanar area.');
+      }
+      const points=[];
+      for(const r of out.sourceFloorRects){const x=(r[0]+r[2])/2,z=(r[1]+r[3])/2;points.push([r[0]-.05,z],[r[2]+.05,z],[x,r[1]-.05],[x,r[3]+.05]);}
+      for(const g of out.entrances)points.push([g.center,out.siteBounds.maxZ-.5],[g.center,out.siteBounds.maxZ+.5]);
+      points.push([out.road.center,91.8],[-91.8,0],[91.8,0],[0,-91.8]);
+      for(const [x,z] of points){
+        const ray=new native.THREE.Raycaster(new native.THREE.Vector3(x,.5,z),new native.THREE.Vector3(0,-1,0),0,1),hits=ray.intersectObjects(groundMeshes,false);
+        assert(hits.length,'Native ground geometry missing beside an old edge at '+[entry.id,x,z]);assert(Math.abs(hits[0].point.y)<1e-5,'Exterior support must remain level with the existing source floor.');
+      }
+      const world=f.ctx.collisionWorld,T=native.THREE;
+      for(const g of out.entrances){
+        const from=new T.Vector3(g.center,1.6,g.wallCoordinate-1),to=new T.Vector3(g.center,1.6,g.wallCoordinate+1),moved=world.moveCapsule(from,to,{radius:.25,height:1.6,eyeHeight:1.6});
+        assert(moved.distanceTo(to)<.02,'The real '+g.kind+' access cannot be blocked by a compound perimeter collider.');
+      }
+      const start=new T.Vector3(out.road.center,1.6,91.7),wanted=new T.Vector3(out.road.center,1.6,93.7),stopped=world.moveCapsule(start,wanted,{radius:.25,height:1.6,eyeHeight:1.6});
+      assert(stopped.z<92.4&&stopped.z>91.7,'Closed outer boundary must stop native walking before the terrain edge.');
+      assert.equal(world.canOccupyCapsule(new T.Vector3(out.road.center,1.6,92.8),{radius:.25,height:1.6,eyeHeight:1.6}),false);
+      const sideStart=new T.Vector3(out.siteBounds.minX+1,1.6,out.siteBounds.minZ+7.31),sideEnd=sideStart.clone().add(new T.Vector3(-2,0,0)),sideStopped=world.moveCapsule(sideStart,sideEnd,{radius:.25,height:1.6,eyeHeight:1.6});
+      assert(sideStopped.x>out.siteBounds.minX+.15,'Rendered welded fence bars must stop native capsule passage between posts.');
+      // The CEDI receiving routes can retreat over the original far edge with
+      // uninterrupted physical support. No stock or vehicle transform changes.
+      if(['CEDI-01','SF-01'].includes(entry.id)){
+        const x=-plan.interiorArea.width/2-14,from=new T.Vector3(x+.5,1.6,0),to=new T.Vector3(x-1,1.6,0);assert(world.moveCapsule(from,to,{radius:.25,height:1.6,eyeHeight:1.6}).distanceTo(to)<.02);
+      }
+      const saved=native.validateDocument(await f.document.serialize(),v=>v);await next.document.load(saved);next.ctx.collisionWorld.setRoom('hall');
+      assert(out.objectIds.every(id=>next.document.getObject(id)),'Every outdoor object has a normal persisted editable ID.');
+      assert.equal(next.ctx.collisionWorld.canOccupyCapsule(new T.Vector3(out.road.center,1.6,92.8),{radius:.25,height:1.6,eyeHeight:1.6}),false,'Outer physical boundary survives save/reopen.');
+      report.push({id:entry.id,physicalSupportSamples:points.length,preservedSourceFloors:out.sourceFloorRects.length,gateWidths:out.entrances.map(g=>g.width),outerBoundaryStop:stopped.toArray(),outdoorCosts:out.costs});
+    }finally{native.releaseGeometry(f);native.releaseGeometry(next);}
+  }
+  fs.mkdirSync(path.join(ROOT,'data/qa-studio/practice-facilities'),{recursive:true});fs.writeFileSync(path.join(ROOT,'data/qa-studio/practice-facilities/outdoor-ground-native.json'),JSON.stringify({passed:true,rows:report,limits:'Native support/collision, access probes and document persistence. No device FPS or outdoor lux certification.'},null,2));
 });
 
 test('native collision leaves interior stock locations empty and blocks real wall material after reload',async()=>{
@@ -81,5 +127,20 @@ test('receiving keeps its six-pallet operational crossing clear after a real sav
     const original=costs(objects),restored=costs(restoredObjects);assert.equal(restored.drawCalls,original.drawCalls);assert.equal(restored.triangles,original.triangles);
     assertGate(restoredObjects,{...gate,center:6.3,width:2.7},native.THREE);
     assert(next.document.getObjects('hall').some(row=>next.document.getBehaviors(row).some(b=>b.type==='surfaceMaterial'&&b.emissiveMode==='custom'&&b.emissiveIntensity>1)),'Persisted LED emission must survive reload.');
+  }finally{native.releaseGeometry(f);native.releaseGeometry(next);}
+});
+
+test('the actual configurable project persists exterior IDs and physical bounds with its practice manifest',async()=>{
+  const f=native.fixture(),next=native.fixture();
+  try{
+    const built=native.buildConfigurablePracticeScene(f.document,'hall','CEDI-01',{mode:'manual',scene:f.scene});
+    const saved=native.validateDocument(await f.document.serialize(),v=>v),level=saved.studio.moduleData['sector.logistics-industrial'].levels.find(row=>row.roomId==='hall');
+    assert.deepEqual(level.facility.outdoor,built.manifest.facility.outdoor,'The real project manifest must include the exterior, not only temporary runtime userData.');
+    assert.equal(level.facility.outdoor.physicalBounds.minX,-94);assert.equal(level.facility.outdoor.physicalBounds.maxX,94);
+    assert.equal(level.facility.outdoor.worldBoundary.height,2.4);assert.equal(level.facility.outdoor.costs.batches,12);
+    await next.document.load(saved);next.ctx.collisionWorld.setRoom('hall');
+    assert(level.facility.outdoor.objectIds.every(id=>next.document.getObject(id)));
+    const b=level.facility.outdoor.worldBoundary,x=level.facility.outdoor.road.center;
+    assert.equal(next.ctx.collisionWorld.canOccupyCapsule(new native.THREE.Vector3(x,1.6,b.maxZ),{radius:.25,height:1.6,eyeHeight:1.6}),false,'The outer wall is present and physical in the saved actual practice project.');
   }finally{native.releaseGeometry(f);native.releaseGeometry(next);}
 });

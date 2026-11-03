@@ -11,6 +11,9 @@ import ImmersiveStudioMenu from './ImmersiveStudioMenu.js';
 import VehicleMissionOverlay from '../../../packages/tools/editor/src/VehicleMissionOverlay.js';
 import PracticeCampaignHost from '../../../modules/logistica-industrial/practices/runtime/PracticeCampaignHost.js';
 import {setEditorIcon} from '../../../packages/tools/editor/src/EditorIcons.js';
+import {getSceneCameraMode,setDroneFlight} from '../../../packages/render-three/SceneCameraMode.js';
+import SceneCaptureController from '../../../packages/scene-capture/SceneCaptureController.js';
+import SceneCaptureToolbar from '../../../packages/scene-capture/SceneCaptureToolbar.js';
 
 const ROOM_IDS = ['hall', 'sound', 'photogrammetry', 'vertigo', 'panoramastereo', 'panorama1', 'panorama2', 'panorama3', 'panorama4', 'panorama5'];
 function el(tag, text, parent, className) { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; if (parent) parent.appendChild(node); return node; }
@@ -27,6 +30,11 @@ export default class StudioExperience {
     editor.projectClient.onSessionChange = error => this.invalidateAccount(error);
     this.tools = new StudioTools(editor); this.education = new EducationRuntime(editor, this.client); this.administration = new AdminWorkspace(this); this.avatars = new Map(); this.roomRevision = 0;
     this.practiceCampaign=new PracticeCampaignHost(this);
+    this.sceneToolbars=new Set();
+    if(this.ctx.renderer&&this.ctx.renderer.domElement&&typeof this.ctx.renderer.domElement.getContext==='function'){
+      this.sceneCapture=new SceneCaptureController({getCanvas:()=>this.ctx.renderer.domElement,document,window,getContext:()=>this.captureContext(),label:()=>this.editor.currentProject&&this.editor.currentProject.name||'SMART-TWIN'});
+      this.ctx.sceneCapture=this.sceneCapture;this.ctx.mountSceneCaptureToolbar=host=>{const toolbar=new SceneCaptureToolbar({controller:this.sceneCapture,document,window,onInteract:()=>{this.editor.hooks.unlock();this.editor.hooks.clearKeyboard();if(this.ctx.vehicleDriving&&this.ctx.vehicleDriving.resetInput)this.ctx.vehicleDriving.resetInput();}});toolbar.mount(host);return toolbar;};
+    }
     this.originalEnter = editor.enter.bind(editor);
     editor.enter = () => { if (this.room) { this.message('Sal de la sala compartida para editar el proyecto.'); return; } if (this.client.configured && (!this.client.user || !this.client.user.permissions.editor)) { this.open('account'); return; } this.close(); return this.originalEnter(); };
     this.build(vrButton); this.bindSimulation(); this.sharedGrabs = new SharedGrabs(this); this.presentation = new RemotePresentation();
@@ -41,10 +49,10 @@ export default class StudioExperience {
       const result = await applyProject(project, ...options); this.tools.refreshLabels(); await this.education.restoreProgress(); return result;
     };
     this.ready = this.initialize();
-    window.addEventListener('pagehide', () => { this.connection.stop(); this.education.saveProgress(); this.missionOverlay.dispose(); });
+    window.addEventListener('pagehide', () => { this.sceneCaptureDisposed=true;if(this.sceneToolbars)for(const toolbar of [...this.sceneToolbars])toolbar.dispose();if(this.sceneCapture)this.sceneCapture.dispose();this.connection.stop(); this.education.saveProgress(); this.missionOverlay.dispose(); });
     // A cached execution document has already retired its module resources on
     // pagehide. Reconstruct it once instead of resuming a half-disposed world.
-    window.addEventListener('pageshow', event => { if (event.persisted && new URL(window.location).pathname === '/play') window.location.reload(); });
+    window.addEventListener('pageshow', event => { if (event.persisted && ['/play','/editor'].includes(new URL(window.location).pathname)) window.location.reload(); });
     this.connection = new StudioRoomConnection(this.client, {interval: 250, getPose: () => this.pose(), onRoom: room => this.receiveRoom(room), onEvents: (events, room) => this.applyEvents(events, room), onError: error => { this.roomError = error.message; this.message('Sala: ' + error.message); }});
   }
   async initialize() {
@@ -197,13 +205,23 @@ export default class StudioExperience {
   }
   message(text) { this.notice.textContent = text; this.notice.hidden = false; clearTimeout(this.noticeTimer); this.noticeTimer = setTimeout(() => { this.notice.hidden = true; }, 6500); }
   setDesktopFlight(enabled) {
-    if (this.ctx.vrMode) return;
-    this.editor.hooks.clearKeyboard(); this.ctx.desktopFlight = Boolean(enabled);
-    if (this.ctx.desktopLook && this.ctx.desktopLook.reset) this.ctx.desktopLook.reset();
+    const manifest=this.practiceCampaign&&this.practiceCampaign.activeManifest(),walkingBounds=manifest&&manifest.facility&&manifest.facility.outdoor&&manifest.facility.outdoor.worldBoundary;
+    if(!setDroneFlight(this.ctx,enabled,{walkingBounds,clearInput:()=>this.editor.hooks.clearKeyboard(),message:text=>this.message(text)}))return false;
     if (this.flightButton) { this.flightButton.setAttribute('aria-pressed', String(this.ctx.desktopFlight)); this.flightButton.textContent = this.ctx.desktopFlight ? 'Vuelo dron · activo' : 'Vuelo dron'; }
     const touch = this.ctx.mobileNavigation && this.ctx.mobileNavigation.active;
-    this.message(this.ctx.desktopFlight ? touch ? 'Vuelo táctil: usa Subir y Bajar. El mando izquierdo avanza en la dirección de la cámara.' : 'Vuelo dron · WASD para avanzar y desplazar · Q subir · E bajar · Ctrl acelerar · clic para mirar · Esc libera el mouse.' : 'Vuelo dron desactivado. Se mantiene tu posición y el modo de desplazamiento elegido en Ajustes.');
+    this.message(this.ctx.desktopFlight ? touch ? 'Vuelo táctil: usa Subir y Bajar. El mando izquierdo avanza en la dirección de la cámara.' : 'Vuelo dron · WASD para avanzar y desplazar · Q subir · E bajar · Ctrl acelerar · clic para mirar · Esc libera el mouse.' : 'Caminar · Usa WASD o el mando táctil para recorrer la instalación.');
+    if(this.sceneToolbars)for(const toolbar of this.sceneToolbars)toolbar.update();return true;
   }
+  mountPracticeSceneTools(host){
+    const root=el('nav',undefined,host,'st-practice-scene-tools');root.setAttribute('aria-label','Cámara y captura de la escena');root.setAttribute('data-practice-scene-tools','');
+    for(const type of ['pointerdown','pointerup','click','keydown','keyup'])root.addEventListener(type,event=>event.stopPropagation());
+    const modes=el('div',undefined,root,'st-practice-camera-modes');modes.setAttribute('role','group');modes.setAttribute('aria-label','Modo de cámara');const walk=button(modes,'Caminar',()=>this.setDesktopFlight(false),'st-practice-camera-mode'),drone=button(modes,'Dron',()=>this.setDesktopFlight(true),'st-practice-camera-mode');walk.setAttribute('data-practice-camera-mode','walk');drone.setAttribute('data-practice-camera-mode','drone');studioIcon(walk,'person');studioIcon(drone,'move');
+    const hint=el('span','',root,'st-practice-camera-hint');hint.setAttribute('aria-live','polite');const mediaHost=el('div',undefined,root,'st-practice-scene-media');mediaHost.setAttribute('data-scene-capture-mount','');const media=this.ctx.mountSceneCaptureToolbar&&this.ctx.mountSceneCaptureToolbar(mediaHost);
+    let disposed=false,last='';const toolbar={root,mediaHost,update:()=>{if(disposed)return;const state=getSceneCameraMode(this.ctx),touch=this.ctx.mobileNavigation&&this.ctx.mobileNavigation.active,key=[state.mode,state.reason,!!touch,this.editor.active].join('|');if(key===last)return;last=key;root.hidden=!!this.ctx.vrMode||this.editor.active;walk.disabled=drone.disabled=state.blocked;walk.setAttribute('aria-pressed',String(state.mode==='walk'));drone.setAttribute('aria-pressed',String(state.mode==='drone'));walk.title=drone.title=state.reason||'Cambiar el modo de navegación de esta escena';hint.textContent=state.reason||(state.mode==='drone'?(touch?'Dron · mando + Subir / Bajar':'Dron · WASD · Q subir / E bajar'):(touch?'Caminar · mando táctil':'Caminar · WASD · clic para mirar'));},dispose:()=>{if(disposed)return;disposed=true;if(media&&media.dispose)media.dispose();root.remove();if(this.sceneToolbars)this.sceneToolbars.delete(toolbar);}};
+    if(!this.sceneToolbars)this.sceneToolbars=new Set();this.sceneToolbars.add(toolbar);toolbar.update();return toolbar;
+  }
+  captureContext(){return{active:!!this.client.user&&!this.editor.active&&!this.editor.loadingProject&&!this.editor.initializing&&!this.ctx.roomTransition&&!this.invalidating&&!this.sceneCaptureDisposed,xr:!!this.ctx.vrMode,identity:[this.client.user&&this.client.user.id,this.editor.currentProject&&this.editor.currentProject.id,this.editor.roomId,this.editor.projectGeneration].join('/')};}
+  syncSceneCapture(){if(!this.sceneCapture)return;const context=this.captureContext(),key=JSON.stringify(context);if(key!==this.sceneCaptureContextKey){this.sceneCaptureContextKey=key;this.sceneCapture.setContext(context);}}
   async guard(action) { if (this.busy) return; this.busy = true; try { return await action(); } catch (error) { this.message(error.message); } finally { this.busy = false; } }
   close() { if(this.campaignBrowser){this.campaignBrowser.dispose();this.campaignBrowser=null;} if (this.graphicsSettings) { this.graphicsSettings.dispose(); this.graphicsSettings = null; } if (this.avatarCleanup) { this.avatarCleanup(); this.avatarCleanup = null; } if (this.editor.accessView && this.editor.accessView.disposeGallery) this.editor.accessView.disposeGallery(); this.drawer.hidden = true; this.drawer.className = 'studio-drawer'; this.shade.hidden = true; this.menuButton.setAttribute('aria-expanded', 'false'); this.menuButton.focus(); }
   open(page = 'personal') {
@@ -500,6 +518,8 @@ export default class StudioExperience {
     simulation.command = (id, action, value, scope) => { if (!this.room || this.applyingNetwork) return this.rawCommand(id, action, value, scope); if (this.room.role === 'observer') { this.message('El observador tiene acceso de lectura.'); return false; } this.connection.action({type: 'control', objectId: id, action, value, scope}).catch(error => this.message(error.message)); return true; };
   }
   tick() {
+    this.syncSceneCapture();
+    if(this.sceneToolbars)for(const toolbar of this.sceneToolbars)toolbar.update();
     this.header.hidden = this.editor.active || this.ctx.vrMode; this.controls.hidden = true;
     if (this.ctx.vrMode && !this.drawer.hidden) this.close();
     this.education.tick();

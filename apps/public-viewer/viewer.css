@@ -630,3 +630,21 @@ body:has(#editor-return:not([hidden])) #vehicle-operation-panels{--vehicle-hud-t
  #vehicle-operation-panels .vehicle-navigation-display[data-operation="drop"][data-display="inspection"][data-expanded="true"] .vehicle-docking-summary,
  #vehicle-operation-panels .vehicle-navigation-display[data-operation="drop"][data-display="inspection"][data-expanded="true"] .vehicle-docking-metrics:not([hidden]){max-height:none!important;white-space:normal!important;font-size:11px!important;line-height:1.4!important}
 }
+
+/* Scene navigation and local capture remain accessible without opening a menu. */
+.public-scene-tools{position:fixed;top:78px;left:50%;transform:translateX(-50%);z-index:8;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;padding:6px;max-width:calc(100vw - 24px);border:1px solid #a8c9c470;border-radius:12px;background:#f6fbfaf2;box-shadow:0 4px 18px #132e3a26;color:#15353b;pointer-events:auto}
+.public-camera-modes{display:flex;gap:5px;flex:none}
+.public-camera-modes button{min-height:38px;padding:7px 10px;border:1px solid #abcac7;border-radius:8px;background:#fff;color:#15353b;font:600 12px/1.25 "Segoe UI",Arial,sans-serif}
+.public-camera-modes button[aria-pressed=true]{background:#007b70;border-color:#007b70;color:#fff}
+.public-camera-modes button:disabled{opacity:.7}
+.public-scene-media{min-width:0;max-width:100%}
+body:not(.scene-active) .public-scene-tools,.immersive .public-scene-tools{display:none!important}
+.xr-browser-touch .touch-flight{display:flex;flex-direction:column;gap:6px;pointer-events:auto}
+.xr-browser-touch .touch-flight[hidden]{display:none!important}
+.xr-browser-touch .touch-flight button{min-height:44px;min-width:64px;padding:8px 10px;touch-action:none;background:#173f45e8;color:#fff;border:1px solid #b8e9db99}
+@media(max-width:650px),(pointer:coarse){.public-scene-tools{top:74px;gap:5px;padding:5px}.public-camera-modes button{min-height:44px;padding:8px;font-size:11px}}
+@media(max-width:450px){.public-scene-tools{width:max-content;max-width:calc(100vw - 16px)}.public-scene-media .scene-capture-toolbar{justify-content:center}.xr-browser-touch{left:12px;right:12px}.xr-browser-touch .touch-flight button{min-width:54px}.xr-browser-touch .touch-use{right:96px}}
+@media(max-height:560px){.public-scene-tools{top:68px}.xr-browser-touch{bottom:26px!important}}
+/* Keep touch altitude and interaction above the thumb pads and study shortcut. */
+@media(pointer:coarse){.xr-browser-touch .touch-flight{position:absolute;right:0;bottom:110px}.xr-browser-touch .touch-use{left:50%;right:auto;bottom:104px;transform:translateX(-50%);min-height:44px}}
+@media(pointer:coarse){.scene-active .viewer-notice{bottom:200px}}

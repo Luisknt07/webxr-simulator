@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import {createHost, createLocalCatalog} from '../../packages/core/index.js';
 import {createBrowserHost} from '../../packages/render-three/BrowserHost.js';
+import {getSceneCameraMode, setDroneFlight} from '../../packages/render-three/SceneCameraMode.js';
+import {SceneCaptureController, SceneCaptureToolbar} from '../../packages/scene-capture/index.js';
 import SelectedSceneDocument from './SelectedSceneDocument.js';
 import {demoModule, DEMO_MODULE_ID, DEMO_FUNCTION_ID} from './DemoRuntime.js';
 import {mountGallery} from './Gallery.js';
@@ -48,6 +50,7 @@ function openAccess() {
 function pose(ctx, mode) {
   if (!ctx.demo || ctx.demo.driving.id && !ctx.demo.driving.unmount()) return false;
   ctx.input.reset(); ctx.cameraRig.position.set(0, 0, 0); ctx.cameraRig.quaternion.set(0, 0, 0, 1);
+  ctx.desktopFlight = false; ctx.desktopFlightAnchor = null;
   if (!ctx.vrMode && ctx.desktopLook) {ctx.desktopLook.unlock(); ctx.desktopLook.reset();}
   if (ctx.vrMode) {
     // Only the rig changes in XR. The native headset pose remains untouched.
@@ -117,6 +120,25 @@ async function start() {
     await host.activate('shared.assistance', {functions:['assistant.voice']});
     if (stopped) {await host.dispose({force: true}); return;}
     pose(ctx, 'walk');
+    const tools = document.createElement('div'); tools.className = 'public-scene-tools'; tools.setAttribute('aria-label', 'Cámara y captura del escenario');
+    const modes = document.createElement('div'); modes.className = 'public-camera-modes'; modes.setAttribute('role', 'group'); modes.setAttribute('aria-label', 'Modo de navegación'); tools.appendChild(modes);
+    const releaseInput = () => {input.reset(); ctx.desktopLook.unlock(); ctx.demo.driving.resetInput();};
+    const modeButtons = ['walk', 'drone'].map(mode => {
+      const button = document.createElement('button'); button.type = 'button'; button.dataset.cameraMode = mode; button.textContent = mode === 'drone' ? 'Dron / vuelo' : 'Caminar';
+      listen(button, 'click', () => {
+        if (getSceneCameraMode(ctx).blocked) {notice(getSceneCameraMode(ctx).reason); return;}
+        releaseInput();
+        if (overview) {pose(ctx, 'walk'); overview = false; byId('overview').textContent = 'Vista general';}
+        if (setDroneFlight(ctx, mode === 'drone', {clearInput: releaseInput, message: notice})) notice(mode === 'drone' ? 'Dron: WASD para desplazarte · Q subir · E bajar · Ctrl acelerar. En móvil usa Subir y Bajar.' : 'Caminar: recorre los pasillos con WASD o el mando táctil.');
+        updateUI();
+      }); modes.appendChild(button); return button;
+    });
+    for (const name of ['pointerdown', 'keydown', 'keyup']) listen(modes, name, event => {event.stopPropagation(); if (name === 'pointerdown') releaseInput();});
+    const mediaHost = document.createElement('div'); mediaHost.className = 'public-scene-media'; tools.appendChild(mediaHost); document.body.appendChild(tools);
+    const capture = ctx.sceneCapture = new SceneCaptureController({getCanvas: () => renderer.domElement, document, window,
+      getContext: () => ({active: !stopped && !ctx.publicFrameFailure, xr: !!ctx.vrMode, identity: VIEWER_WORLD_ID}), label: () => 'SmartTwin-demostracion-industrial'});
+    const captureToolbar = new SceneCaptureToolbar({controller: capture, document, window, onInteract: releaseInput}); captureToolbar.mount(mediaHost);
+    browser.onDispose(() => {captureToolbar.dispose(); capture.dispose(); tools.remove(); if (ctx.sceneCapture === capture) ctx.sceneCapture = null;});
     browser.mountXR(byId('xr-action'), {className: 'viewer-xr-button', spawn: [4, 0, 8],
       beforeChange: () => ctx.demo.driving.unmount(true),
       afterChange: active => {if (active) pose(ctx, 'walk'); document.body.classList.toggle('immersive', active);}});
@@ -141,6 +163,8 @@ async function start() {
     });
     function updateUI() {
       const stats = ctx.demo.stats(), driving = !!ctx.demo.driving.id;
+      const cameraMode = getSceneCameraMode(ctx); tools.dataset.mode = cameraMode.mode;
+      modeButtons.forEach(button => {button.disabled = cameraMode.blocked; button.setAttribute('aria-pressed', String(button.dataset.cameraMode === cameraMode.mode)); button.title = cameraMode.reason || (button.dataset.cameraMode === 'drone' ? 'Vuela por la instalación · Q subir · E bajar' : 'Volver a un apoyo peatonal libre');});
       document.body.classList.toggle('driving', driving); byId('drive').textContent = driving ? 'Bajar del vehículo · F' : 'Subir al montacargas · F';
       const locked = ctx.desktopLook.isLocked;
       document.body.classList.toggle('look-locked', locked);
@@ -152,7 +176,7 @@ async function start() {
     }
     browser.setFrameHandler({
       before({delta}) {if (lighting.sync) lighting.sync(); if (!ctx.publicDialogOpen && !ctx.publicFrameFailure) host.step(delta); ctx.demo.driving.docking.renderBefore(scene, delta);},
-      after({delta}) {ctx.demo.driving.docking.postRender(); uiElapsed += delta; if (uiElapsed > .2) {uiElapsed = 0; updateUI();}}
+      after({delta}) {capture.afterRender(); ctx.demo.driving.docking.postRender(); uiElapsed += delta; if (uiElapsed > .2) {uiElapsed = 0; updateUI();}}
     });
     browser.start(); updateUI(); byId('loading').hidden = true; document.body.classList.add('ready');
     window.smartTwinViewer = Object.freeze({

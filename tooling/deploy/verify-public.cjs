@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const SCENE='vr-robot-dispatch',FILES=['index.html','viewer.js','viewer.css','welcome.css','config.js','cover.jpg',`projects/smarttwin/previews/${SCENE}.png`,`projects/smarttwin/scenes/${SCENE}.json`,'projects/smarttwin/scenes/catalog.json'];
-FILES.push('packages/voice-assistant/voice-assistant.css','packages/input-devices/input-device.css',...['welcome','pickup','route','deposit','completed','safety'].map(id=>'packages/voice-assistant/assets/'+id+'.wav'));
+FILES.push('packages/voice-assistant/voice-assistant.css','packages/input-devices/input-device.css','packages/scene-capture/scene-capture.css',...['welcome','pickup','route','deposit','completed','safety'].map(id=>'packages/voice-assistant/assets/'+id+'.wav'));
 // These are individually reviewed publication resources. A reference manifest
 // or a matching folder/extension must never expand this deployment allowlist.
 const STUDY_FILES=[

@@ -20,6 +20,7 @@ function fixture(t) {
   write(root, 'modules/turismo/assets/smart-twin-cover.jpg', 'approved public cover');
   write(root, 'packages/voice-assistant/voice-assistant.css', '.voice-assistant{}');
   write(root, 'packages/input-devices/input-device.css', '.input-device{}');
+  write(root, 'packages/scene-capture/scene-capture.css', '.scene-capture-toolbar{}');
   for (const id of ['welcome','pickup','route','deposit','completed','safety']) write(root, 'packages/voice-assistant/assets/'+id+'.wav', 'approved test audio '+id);
   write(root, 'apps/core-empty/index.html', '<link rel="stylesheet" href="core.css"><script defer src="core-empty.js"></script>'); write(root, 'apps/core-empty/core.css', 'body{margin:0}');
   write(root, 'apps/workspace/index.html', '<base href="/workspace/"><link rel="stylesheet" href="packages/render-three/src/workspace.css"><link rel="icon" href="projects/smarttwin/branding/icon.png"><script src="packages/render-three/src/StartupStatus.js"></script><script src="bundle.js"></script>');
@@ -47,7 +48,7 @@ test('three artifacts contain exact allowlisted files, SHA receipts and only one
     assert.equal(manifest.bundleSha256, manifest.files.find(file => file.path === compiled[output.application][0]).sha256);
   }
   const publicBuild = outputs.find(output => output.application === 'public-viewer'); assert.deepEqual(publicBuild.manifest.scenes, ['vr-robot-dispatch']);
-  assert.deepEqual(publicBuild.manifest.files.map(file => file.path), ['config.js', 'cover.jpg', 'index.html', 'projects/smarttwin/previews/vr-robot-dispatch.png', 'projects/smarttwin/scenes/catalog.json', 'projects/smarttwin/scenes/vr-robot-dispatch.json', 'viewer.css', 'welcome.css', 'viewer.js','packages/voice-assistant/voice-assistant.css','packages/input-devices/input-device.css',...['welcome','pickup','route','deposit','completed','safety'].map(id=>'packages/voice-assistant/assets/'+id+'.wav')].sort());
+  assert.deepEqual(publicBuild.manifest.files.map(file => file.path), ['config.js', 'cover.jpg', 'index.html', 'projects/smarttwin/previews/vr-robot-dispatch.png', 'projects/smarttwin/scenes/catalog.json', 'projects/smarttwin/scenes/vr-robot-dispatch.json', 'viewer.css', 'welcome.css', 'viewer.js','packages/voice-assistant/voice-assistant.css','packages/input-devices/input-device.css','packages/scene-capture/scene-capture.css',...['welcome','pickup','route','deposit','completed','safety'].map(id=>'packages/voice-assistant/assets/'+id+'.wav')].sort());
   const catalog = JSON.parse(fs.readFileSync(path.join(publicBuild.directory, 'projects/smarttwin/scenes/catalog.json'))); assert.equal(catalog.scenes.length, 1); assert.equal(catalog.scenes[0].unexpectedSecret, undefined); assert.equal(catalog.privateAdminField, undefined); assert.equal(catalog.maxActive, 1);
   const empty = outputs.find(output => output.application === 'core-empty'); assert.deepEqual(empty.manifest.files.map(file => file.path), ['core-empty.js', 'core.css', 'index.html']); assert.deepEqual(empty.manifest.scenes, []);
   const workspace = outputs.find(output => output.application === 'workspace'); assert.deepEqual(workspace.manifest.scenes, ['private-training', 'vr-robot-dispatch']); const names = workspace.manifest.files.map(file => file.path);

@@ -131,6 +131,7 @@ function makePlan(root, application, compilation) {
     add('viewer.css', 'apps/public-viewer/viewer.css'); add('config.js', 'apps/public-viewer/config.js');
     add('packages/voice-assistant/voice-assistant.css','packages/voice-assistant/voice-assistant.css');
     add('packages/input-devices/input-device.css','packages/input-devices/input-device.css');
+    add('packages/scene-capture/scene-capture.css','packages/scene-capture/scene-capture.css');
     for (const id of ['welcome','pickup','route','deposit','completed','safety']) {
       const file='packages/voice-assistant/assets/'+id+'.wav'; add(file,file);
     }

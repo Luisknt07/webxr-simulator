@@ -12,12 +12,14 @@ const document = {createElement: tag => new Element(tag), createTextNode: text =
 let navigated; const location = new URL('https://localhost:8080/'); location.assign = value => { navigated = new URL(value); };
 class ImmersiveMenuMock { open(page) { this.page = page; } identityChanged() { this.identities = (this.identities || 0) + 1; } setVR(active) { this.active = active; } }
 class AdministrationMock { close() { this.closed = true; } async openModal() { this.modalOpened = true; } }
-const Experience = new Function('THREE', 'document', 'window', 'localStorage', 'avatarBadge', 'DEFAULT_AVATAR', 'AdminWorkspace', 'ImmersiveStudioMenu', 'VehicleMissionOverlay', 'setEditorIcon', code)(THREE, document, {location}, {getItem() { return null; }}, () => new Element('avatar'), {}, AdministrationMock, ImmersiveMenuMock, require('../support/load-vehicle-mission-overlay')(), require('../support/load-editor-icons.cjs')().setEditorIcon);
+const cameraModeSource=fs.readFileSync(path.resolve(__dirname,'../../packages/render-three/SceneCameraMode.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
+const {getSceneCameraMode,setDroneFlight}=new Function('THREE',cameraModeSource+'\nreturn{getSceneCameraMode,setDroneFlight};')(THREE);
+const Experience = new Function('THREE', 'document', 'window', 'localStorage', 'avatarBadge', 'DEFAULT_AVATAR', 'AdminWorkspace', 'ImmersiveStudioMenu', 'VehicleMissionOverlay', 'setEditorIcon','getSceneCameraMode','setDroneFlight', code)(THREE, document, {location}, {getItem() { return null; }}, () => new Element('avatar'), {}, AdministrationMock, ImmersiveMenuMock, require('../support/load-vehicle-mission-overlay')(), require('../support/load-editor-icons.cjs')().setEditorIcon,getSceneCameraMode,setDroneFlight);
 const walk = root => [root].concat(root.children.flatMap(walk));
 const labels = root => walk(root).filter(value => value.tag === 'button').map(value => value.textContent);
 const account = {id: 'u1', displayName: 'Ana', avatar: {}, permissions: {editor: true, manageUsers: true}};
 function fixture(user = null) {
-  const experience = Object.create(Experience.prototype), content = new Element(), ctx = {room: 0};
+  const experience = Object.create(Experience.prototype), content = new Element(), ctx = {room: 0,camera:new THREE.PerspectiveCamera(),cameraRig:new THREE.Group()};ctx.cameraRig.add(ctx.camera);
   const editor = {ctx, document: {rooms: new Map([['hall', {root: {visible: true}}]]), studio: {}}, currentProject: {id: 'p1', revision: 1}, roomId: 'hall',
     hooks: {clearKeyboard() {}, unlock() {}, async gotoRoom() {}}, projectSync: {stop() { editor.stopped = true; }}, clearObjectClipboard() { editor.clipboardCleared = true; },
     projectTabs: {syncIdentity() { editor.tabsCleared = true; }}, leave() { this.active = false; }};

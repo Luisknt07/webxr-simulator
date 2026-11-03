@@ -1,0 +1,26 @@
+.scene-capture-toolbar{--capture-ink:#15353b;--capture-border:#abcac7;--capture-surface:#fff;--capture-accent:#007b70;box-sizing:border-box;display:flex;align-items:center;justify-content:flex-end;gap:6px;min-width:0;max-width:100%;position:relative;color:var(--capture-ink);font:600 12px/1.25 "Segoe UI",Arial,sans-serif;pointer-events:auto}
+.scene-capture-toolbar *{box-sizing:border-box}
+.scene-capture-actions{display:flex;align-items:center;gap:5px;min-width:0;flex:none}
+.scene-capture-button{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:64px;min-height:38px;margin:0;padding:7px 10px;border:1px solid var(--capture-border);border-radius:8px;background:var(--capture-surface);color:var(--capture-ink);font:inherit;cursor:pointer;white-space:nowrap;touch-action:manipulation}
+.scene-capture-button:hover:not(:disabled){background:#e2f5ef;border-color:var(--capture-accent)}
+.scene-capture-button:focus-visible,.scene-capture-download:focus-visible{outline:3px solid #19a7a0;outline-offset:2px}
+.scene-capture-button:disabled{cursor:default;color:#5c6d71;background:#eef2f2;border-color:#c7d1d2}
+.scene-capture-icon{display:block;position:relative;width:15px;height:15px;flex:none}
+.scene-capture-icon--photo{border:1.6px solid currentColor;border-radius:3px;height:12px}
+.scene-capture-icon--photo:before{content:"";position:absolute;width:6px;height:6px;top:1.3px;left:2.9px;border:1.4px solid currentColor;border-radius:50%}
+.scene-capture-icon--photo:after{content:"";position:absolute;width:6px;height:3px;left:2.9px;top:-4px;border:1.4px solid currentColor;border-bottom:0;border-radius:2px 2px 0 0}
+.scene-capture-icon--record{border:1.5px solid currentColor;border-radius:50%}
+.scene-capture-icon--record:before{content:"";position:absolute;inset:3px;background:currentColor;border-radius:50%}
+.scene-capture-icon--cancel:before,.scene-capture-icon--cancel:after{content:"";position:absolute;top:7px;left:1px;width:13px;height:1.5px;background:currentColor;transform:rotate(45deg)}
+.scene-capture-icon--cancel:after{transform:rotate(-45deg)}
+.scene-capture-toolbar[data-recording=true] .scene-capture-button[aria-pressed=true]{background:#fff0ed;color:#a52e20;border-color:#cf685a}
+.scene-capture-toolbar[data-recording=true] .scene-capture-icon--record{border-radius:2px;border:0;background:#b43c2c;width:11px;height:11px;margin:2px}
+.scene-capture-toolbar[data-recording=true] .scene-capture-icon--record:before{display:none}
+.scene-capture-timer{color:#a52e20;font-variant-numeric:tabular-nums;min-width:35px;text-align:center;font-size:12px}
+.scene-capture-download{color:#00675e;background:#dff5ed;border:1px solid #b2d6ca;min-height:32px;display:inline-flex;align-items:center;justify-content:center;padding:6px 9px;border-radius:7px;text-decoration:none;white-space:nowrap}
+.scene-capture-status{position:absolute;top:calc(100% + 5px);right:0;max-width:min(330px,calc(100vw - 32px));width:max-content;padding:5px 8px;border:1px solid #b6cfca;border-radius:6px;background:#f4fbf8;color:#284c49;font-size:11px;font-weight:400;line-height:1.35;box-shadow:0 2px 6px #10252d12;pointer-events:none;z-index:3}
+.scene-capture-toolbar[data-error=true] .scene-capture-status{color:#8d2f23;background:#fff2ee;border-color:#d5a49a}
+.scene-capture-toolbar [hidden]{display:none!important}
+@media(max-width:650px),(pointer:coarse){.scene-capture-button{min-height:44px;min-width:44px;padding:8px}.scene-capture-download{min-height:44px}.scene-capture-toolbar{gap:4px}.scene-capture-actions{gap:4px}.scene-capture-button .scene-capture-label{font-size:11px}.scene-capture-status{max-width:min(300px,calc(100vw - 24px));font-size:11px}}
+@media(max-width:450px){.scene-capture-toolbar{flex-wrap:wrap;justify-content:flex-end;max-width:100%}.scene-capture-button{padding:7px;gap:5px;min-width:58px}.scene-capture-download{padding:5px 7px;font-size:11px}.scene-capture-timer{min-width:31px;font-size:11px}}
+@media(prefers-reduced-motion:reduce){.scene-capture-toolbar *{animation:none!important;transition:none!important}}

@@ -6,6 +6,8 @@ const path = require('node:path');
 const THREE = require('three');
 const VehicleMissionOverlay = require('../support/load-vehicle-mission-overlay')();
 const {setEditorIcon}=require('../support/load-editor-icons.cjs')();
+const cameraModeSource=fs.readFileSync(path.resolve(__dirname,'../../packages/render-three/SceneCameraMode.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
+const {getSceneCameraMode,setDroneFlight}=new Function('THREE',cameraModeSource+'\nreturn{getSceneCameraMode,setDroneFlight};')(THREE);
 const practiceHostSource=fs.readFileSync(path.resolve(__dirname,'../../modules/logistica-industrial/practices/runtime/PracticeCampaignHost.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export default class PracticeCampaignHost','return class PracticeCampaignHost');
 const PracticeCampaignHost=new Function(practiceHostSource)();
 const code = fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-studio-experience.js"), '../src/studio/StudioExperience.js')), 'utf8')
@@ -16,10 +18,10 @@ const windowListeners = new Map();
 const createAvatar = config => { const avatar = new THREE.Group(); avatar.userData.dispose = () => { avatar.userData.disposed = true; }; return avatar; };
 class ImmersiveMenuMock { constructor(studio) { this.studio = studio; } open(page) { calls.push(['immersiveOpen', page]); } close() { calls.push(['immersiveClose']); } setVR(active) { calls.push(['immersiveVR', active]); } identityChanged() { calls.push(['immersiveIdentity']); } }
 class AdministrationMock { close() { calls.push(['administrationClose']); } }
-const Experience = new Function('THREE', 'StudioClient', 'StudioRoomConnection', 'StudioTools', 'EducationRuntime', 'SharedGrabs', 'RemotePresentation', 'createAvatar', 'avatarBadge', 'DEFAULT_AVATAR', 'captureSimulation', 'restoreSimulation', 'window', 'AdminWorkspace', 'ImmersiveStudioMenu', 'document', 'VehicleMissionOverlay', 'PracticeCampaignHost', 'setEditorIcon',
+const Experience = new Function('THREE', 'StudioClient', 'StudioRoomConnection', 'StudioTools', 'EducationRuntime', 'SharedGrabs', 'RemotePresentation', 'createAvatar', 'avatarBadge', 'DEFAULT_AVATAR', 'captureSimulation', 'restoreSimulation', 'window', 'AdminWorkspace', 'ImmersiveStudioMenu', 'document', 'VehicleMissionOverlay', 'PracticeCampaignHost', 'setEditorIcon','getSceneCameraMode','setDroneFlight',
   code + '\nreturn StudioExperience;')(THREE, class {}, class {}, class {}, class {}, class {}, class {}, createAvatar, () => ({}), {},
   (runtime, options) => { captures.push(options); if (runtime.held && !options.allowHeld) throw new Error('Suelta las cargas'); return {version: 1, time: runtime.time}; },
-  (runtime, state, options) => { restores.push({runtime, state, options}); }, {location, addEventListener(type, listener) { windowListeners.set(type, listener); }}, AdministrationMock, ImmersiveMenuMock, {querySelectorAll() { return []; }}, VehicleMissionOverlay, PracticeCampaignHost, setEditorIcon);
+  (runtime, state, options) => { restores.push({runtime, state, options}); }, {location, addEventListener(type, listener) { windowListeners.set(type, listener); }}, AdministrationMock, ImmersiveMenuMock, {querySelectorAll() { return []; }}, VehicleMissionOverlay, PracticeCampaignHost, setEditorIcon,getSceneCameraMode,setDroneFlight);
 
 function setup() {
   const experience = Object.create(Experience.prototype), cameraRig = new THREE.Group(), camera = new THREE.PerspectiveCamera();
@@ -51,6 +53,9 @@ async function run() {
   const lifecycle = [], constructorCtx = {}, constructorEditor = {ctx: constructorCtx, projectClient: {}, enter() {}, startRuntime() {}, async applyServerProject() {}};
   constructorCtx.editor = constructorEditor;
   const constructed = new ConstructorExperience(constructorEditor); await constructed.ready;
+  let restoredReloads=0;location.reload=()=>restoredReloads++;const restored=windowListeners.get('pageshow');
+  for(const route of ['/play?practice=CEDI-01','/editor?project=qa-saved']){location.href='https://localhost:8080'+route;restored({persisted:false});assert.equal(restoredReloads,route.startsWith('/play')?0:1);restored({persisted:true});assert.equal(location.pathname+location.search,route,'Restoring the document preserves its saved project/practice route.');}
+  assert.equal(restoredReloads,2,'Both learner and editor documents reconstruct resources retired on pagehide.');location.href='https://localhost:8080/';restored({persisted:true});assert.equal(restoredReloads,2);
   assert(constructed.practiceCampaign instanceof PracticeCampaignHost, 'The stripped-import legacy loader must supply the real practice host constructor.');
   assert.strictEqual(constructed.practiceCampaign.editor,constructorEditor);
   assert(constructed.missionOverlay instanceof VehicleMissionOverlay, 'The Studio loader must provide the actual lazily mounted mission overlay constructor.');

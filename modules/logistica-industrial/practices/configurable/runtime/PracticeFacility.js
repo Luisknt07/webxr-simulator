@@ -27,7 +27,9 @@ const FINISHES = {
   glass:{name:'Vidrio alto difusor',color:'#a8c2ca',preset:'custom',roughness:.48,emissiveMode:'custom',emissive:'#a3bfcc',emissiveIntensity:.15},
   light:{name:'Difusores LED',color:'#f8f4df',preset:'custom',roughness:.72,emissiveMode:'custom',emissive:'#fff4dc',emissiveIntensity:1.15},
   red:{name:'Protección contra incendios',color:'#b93e37',preset:'paintedMetal',roughness:.67,wear:.12,wearType:'chips'},
-  green:{name:'Identificación de salida',color:'#19846a',preset:'paintedMetal',roughness:.85}
+  green:{name:'Identificación de salida',color:'#19846a',preset:'paintedMetal',roughness:.85},
+  paving:{name:'Patio y calle de hormigón vial',color:'#646b68',preset:'concrete',roughness:.98,wear:.17,wearType:'dirt',repeatX:.13,repeatY:.13},
+  terrain:{name:'Terreno compactado del parque industrial',color:'#77806c',preset:'concrete',roughness:1,wear:.13,wearType:'dirt',repeatX:.09,repeatY:.09}
 };
 const round = n => Math.round(n * 1000000) / 1000000;
 const finish = (key, values={}) => Object.assign(schema.defaultBehavior('surfaceMaterial'),{colorMapMode:'preserve',metalness:0,roughness:.8,clearcoat:0,seed:311},FINISHES[key],values);
@@ -51,7 +53,7 @@ export function buildPracticeFacility(doc,roomId,plan,objects) {
     // collision still use the exact same persisted geometry.
     if(collision&&!collisionPartition&&['steel','trim','yellow'].includes(key))collisionPartition=Math.abs(position[0]-bounds.minX)<Math.abs(position[0]-bounds.maxX)?'left-frame':'right-frame';
     const batchKey=key+':'+(collision?'solid:'+collisionPartition:'detail');
-    if(!batches.has(batchKey)) batches.set(batchKey,{key,collision,positions:[],parts:0});
+    if(!batches.has(batchKey)) batches.set(batchKey,{key,collision,positions:[],parts:0,outdoor:collisionPartition.startsWith('outdoor:')||['paving','terrain'].includes(key),partition:collisionPartition});
     const batch=batches.get(batchKey);quaternion.setFromEuler(new THREE.Euler(...(rotation||[0,0,0])));
     matrix.compose(new THREE.Vector3(...position),quaternion,new THREE.Vector3(...scale));
     const array=geometry.attributes.position.array;
@@ -102,6 +104,88 @@ export function buildPracticeFacility(doc,roomId,plan,objects) {
     for(let y=clearHeight+.35;y<clearHeight+.65;y+=.09)box('trim',[x+sign*.25,y,center],[.04,.02,clearWidth]);
     for(const edge of [-1,1])cylinder('trim',[x+sign*.32,1.32,center+edge*(clearWidth/2+.12)],.055,.035);
   }
+  function exterior() {
+    // The authored interior and the tested truck pads remain separate, exact
+    // source slabs. Subtract their rectangles instead of hiding the cliff with
+    // a second coplanar floor, which would shimmer in both eyes of the headset.
+    const site={minX:bounds.minX-22,maxX:bounds.maxX+22,minZ:bounds.minZ-22,maxZ:bounds.maxZ+22};
+    const ground={minX:-94,maxX:94,minZ:-94,maxZ:94};
+    const gateX=profile.right?width/2+7:profile.left?-width/2-7:bounds.minX-9;
+    const road=[gateX-5,site.maxZ,gateX+5,ground.maxZ],siteRect=[site.minX,site.minZ,site.maxX,site.maxZ];
+    const sourceRects=floors.map(f=>[f.position.x-f.scale.x/2,f.position.z-f.scale.z/2,f.position.x+f.scale.x/2,f.position.z+f.scale.z/2]);
+    function subtract(rect,cut) {
+      const [x0,z0,x1,z1]=rect,a=Math.max(x0,cut[0]),b=Math.max(z0,cut[1]),c=Math.min(x1,cut[2]),d=Math.min(z1,cut[3]);
+      if(c<=a||d<=b)return [rect];
+      return [[x0,z0,a,z1],[c,z0,x1,z1],[a,z0,c,b],[a,d,c,z1]].filter(r=>r[2]-r[0]>.00001&&r[3]-r[1]>.00001);
+    }
+    const cutAll=(rects,cuts)=>cuts.reduce((result,cut)=>result.flatMap(rect=>subtract(rect,cut)),rects);
+    const pavingRects=cutAll([siteRect],sourceRects).concat([road]);
+    const terrainRects=cutAll([[ground.minX,ground.minZ,ground.maxX,ground.maxZ]],[siteRect,road]);
+    for(const [key,rects] of [['paving',pavingRects],['terrain',terrainRects]])for(const r of rects)box(key,[(r[0]+r[2])/2,-.12,(r[1]+r[3])/2],[r[2]-r[0],.24,r[3]-r[1]],true,undefined,'outdoor:'+key);
+    const boundary=[];
+    function fence(axis,at,min,max,side,holes=[]) {
+      const segments=cutAll([[min,0,max,1]],holes.map(h=>[h.center-h.width/2,-1,h.center+h.width/2,2])).map(r=>[r[0],r[2]]);
+      const point=(along,y,offset=0)=>axis==='x'?[along,y,at+offset]:[at+offset,y,along];
+      const scale=(length,height,thickness)=>axis==='x'?[length,height,thickness]:[thickness,height,length];
+      const steelPartition='outdoor:fence:'+side,curbPartition='outdoor:curb:'+side;
+      for(const [a,b] of segments){
+        // Raised curb, lower crash rail, closely spaced welded bars and real
+        // posts. The collision is the rendered geometry, not a hidden wall.
+        box('plinth',point((a+b)/2,.1),scale(b-a,.2,.34),true,undefined,curbPartition);
+        for(const y of [.48,1.16,2.08])box('steel',point((a+b)/2,y),scale(b-a,y===.48?.19:.055,y===.48?.12:.045),true,undefined,steelPartition);
+        const count=Math.ceil((b-a)/.36);
+        for(let n=0;n<=count;n++)box('steel',point(a+(b-a)*n/count,1.13),scale(.014,1.9,.014),true,undefined,steelPartition);
+        const bays=Math.ceil((b-a)/3.2);
+        for(let n=0;n<=bays;n++){
+          const along=a+(b-a)*n/bays;box('steel',point(along,1.12),scale(.085,2.24,.085),true,undefined,steelPartition);
+          box('trim',point(along,.028),scale(.2,.055,.2));
+        }
+        boundary.push({side,axis,coordinate:at,from:a,to:b,curbHeight:.2,fenceHeight:2.24,barSpacingMax:.36});
+      }
+    }
+    const access=[{id:plan.id+'-yard-vehicle-entry',kind:'vehicle',axis:'x',wallCoordinate:site.maxZ,center:gateX,width:10,height:5},
+      {id:plan.id+'-yard-pedestrian-entry',kind:'pedestrian',axis:'x',wallCoordinate:site.maxZ,center:0,width:2,height:2.3}];
+    fence('z',site.minX,site.minZ,site.maxZ,'left');fence('z',site.maxX,site.minZ,site.maxZ,'right');
+    fence('x',site.minZ,site.minX,site.maxX,'back');fence('x',site.maxZ,site.minX,site.maxX,'front',access.map(a=>({center:a.center,width:a.width})));
+    // The approach road terminates at a closed physical boundary before the
+    // terrain edge. Drone inspection remains free; returning to walking uses
+    // native placement against the same visible boundary, never a fake floor.
+    const worldBoundary={minX:-92.8,maxX:92.8,minZ:-92.8,maxZ:92.8,height:2.4,thickness:.5};
+    for(const [side,x] of [['left',worldBoundary.minX],['right',worldBoundary.maxX]])box('plinth',[x,1.2,0],[.5,2.4,186.1],true,undefined,'outdoor:curb:'+side);
+    for(const [side,z] of [['back',worldBoundary.minZ],['front',worldBoundary.maxZ]])box('plinth',[0,1.2,z],[185.1,2.4,.5],true,undefined,'outdoor:curb:'+side);
+    // Galvanized gate-end posts double as impact bollards; rubber bands and the
+    // ground safety paint distinguish them. Nothing crosses the clear aperture.
+    for(const entry of access)for(const side of [-1,1]){
+      const x=entry.center+side*(entry.width/2+.24),z=site.maxZ-.45;
+      box('steel',[x,.6,z],[.18,1.2,.18],true,undefined,'outdoor:fence:front');
+      box('dark',[x,1.03,z],[.194,.045,.194]);
+    }
+    // Two neighbouring, closed industrial buildings give the exterior scale
+    // and a horizon beyond the fenced paved yard. Each is its own thin spatial
+    // bank, so the empty yard cannot become an enclosing CAD solid.
+    const context=[];
+    for(const side of [-1,1]){
+      const x=side<0?site.minX-14:site.maxX+14,z=site.minZ-13,w=18,d=14,h=6.4,partition='outdoor:neighbour:'+side;
+      for(const edge of [-1,1]){
+        box('wall',[x+edge*w/2,h/2,z],[.18,h,d],true,undefined,partition);
+        box('wall',[x,h/2,z+edge*d/2],[w,h,.18],true,undefined,partition);
+      }
+      box('roof',[x,h+.05,z],[w+.4,.12,d+.4]);
+      for(let at=x-w/2+1;at<x+w/2;at+=2)box('trim',[at,h+.14,z],[.035,.08,d+.4]);
+      // Roof services and a front shutter visibly belong to the same shell.
+      box('steel',[x+4,h+.42,z-3],[2.3,.7,1.6]);
+      box('dark',[x,2.3,z+d/2+.11],[4.8,4.6,.045]);
+      for(let y=.25;y<4.6;y+=.35)box('trim',[x,y,z+d/2+.14],[4.6,.025,.025]);
+      box('dark',[x-w*.31,4.35,z+d/2+.105],[3,.72,.04]);
+      context.push({kind:'industrial-warehouse',position:[x,0,z],width:w,depth:d,height:h});
+    }
+    return {version:1,siteBounds:site,groundBounds:ground,physicalBounds:{...ground,minY:-.24,maxY:7.28},worldBoundary,pavementRects:pavingRects,terrainRects,sourceFloorRects:sourceRects,
+      road:{axis:'z',center:gateX,width:10,from:site.maxZ,to:ground.maxZ},entrances:access,boundary,context,
+      markings:{walkway:[-.8,bounds.maxZ+1,.8,site.maxZ],bays:[[gateX-4.5,site.minZ+3,gateX+4.5,site.minZ+11]],
+        arrows:[[gateX,site.maxZ-5,0],[gateX,site.maxZ-14,0],[gateX,site.maxZ+10,0]],
+        crossings:[[gateX-4.8,bounds.maxZ+3.5,gateX+4.8,bounds.maxZ+5]],
+        labels:[[gateX,site.maxZ-3,0,7,.6,15],[gateX,89.2,Math.PI,7,.6,13]],signs:[[gateX+5.9,site.maxZ-2.4,0,1,6],[1.6,site.maxZ-1.2,0,0,10],[gateX+4.7,90.3,Math.PI,1,6]]}};
+  }
   try {
     const floor=slab('Interior · piso de hormigón · planta original '+width+' × '+depth+' m',0,0,width,depth,true);
     if(profile.left)slab('Patio separado · maniobra real del camión · hormigón texturado',-width/2-7,0,14,depth);
@@ -114,6 +198,7 @@ export function buildPracticeFacility(doc,roomId,plan,objects) {
     if(!profile.right)slab('Instalación · margen lateral derecho',width/2+continuation+perimeter/2,0,perimeter,depth);
     if(!profile.left)slab('Instalación · acceso exterior de servicio',bounds.minX-1.4,0,2.8,5.8);
     slab('Instalación · salida peatonal exterior',0,bounds.maxZ+1,2.4,2);
+    const outdoor=exterior();
 
     const leftWidth=['CEDI-01','SF-01'].includes(plan.id)?depth-1.2:profile.left?6:3.6,rightWidth=profile.right?8:0;
     gateway('left',0,leftWidth,4.8,profile.left?'Recepción lateral desde patio':'Acceso de materiales');
@@ -167,27 +252,30 @@ export function buildPracticeFacility(doc,roomId,plan,objects) {
     box('dark',[fireX,1.29,fireZ],[.18,.045,.08]);cylinder('dark',[fireX+.12,1.02,fireZ],.018,.46);
     box('steel',[fireX,.68,fireZ+.03],[.26,.04,.22]);
 
-    let triangles=0;
+    let triangles=0,outdoorTriangles=0,outdoorBatches=0;
     for(const batch of batches.values()){
       const positions=batch.positions,descriptor={type:'cad',recipe:{steps:[{id:'s1',op:'primitive.mesh',params:{positions},inputs:[]}],output:'s1'},mesh:{positions},color:FINISHES[batch.key].color,smoothingAngle:0};
-      const object=doc.addCAD(roomId,descriptor);doc.setProperty(object,'name','Instalación · '+FINISHES[batch.key].name+(batch.collision?' · estructura física':' · detalles'));
+      const object=doc.addCAD(roomId,descriptor);doc.setProperty(object,'name',(batch.outdoor?'Exterior industrial · ':'Instalación · ')+FINISHES[batch.key].name+(batch.collision?' · estructura física':' · detalles'));
       doc.setTransform(object,{position:[0,0,0],scale:[1,1,1]});
-      doc.setBehaviors(object,[Object.assign(schema.defaultBehavior('collision'),{enabled:batch.collision}),finish(batch.key)]);
-      object.userData.practiceFacility={role:batch.collision?'envelope':'detail',practiceId:plan.id,finish:batch.key,bakedParts:batch.parts};
+      doc.setBehaviors(object,[Object.assign(schema.defaultBehavior('collision'),{enabled:batch.collision}),...(batch.key==='paving'||batch.key==='terrain'?[schema.defaultBehavior('teleport')]:[]),finish(batch.key)]);
+      object.userData.practiceFacility={role:batch.outdoor?(batch.key==='paving'||batch.key==='terrain'?'outdoor-ground':'outdoor-envelope'):batch.collision?'envelope':'detail',practiceId:plan.id,finish:batch.key,bakedParts:batch.parts,...(batch.outdoor?{partition:batch.partition}:{})};
       objects.push(object);created.push(object);triangles+=positions.length/9;
+      if(batch.outdoor){outdoorTriangles+=positions.length/9;outdoorBatches++;}
     }
-    const text=[profile.title,profile.zone,'SALIDA PEATONAL','EXTINTOR','USO DE EPP','NO OBSTRUIR','CIRCULACIÓN PEATONAL'];
+    const text=[profile.title,profile.zone,'SALIDA PEATONAL','EXTINTOR','USO DE EPP','NO OBSTRUIR','CIRCULACIÓN PEATONAL','ACCESO · PATIO INDUSTRIAL'];
     const backZ=-depth/2-perimeter*.54,frontZ=depth/2+perimeter*.54;
     const marks=doc.addIndustrialFloorPresentation(roomId,{type:'industrialFloor',version:1,bounds:[bounds.minX,bounds.minZ,bounds.maxX,bounds.maxZ],floorY:.005,texts:text,
-      walkways:[[bounds.minX+.5,backZ-.55,bounds.maxX-.5,backZ+.55]],
+      walkways:[[bounds.minX+.5,backZ-.55,bounds.maxX-.5,backZ+.55],outdoor.markings.walkway],
       zones:[[-width/2+.35,-depth/2+.35,width/2+continuation-.35,depth/2-.35]],
-      crossings:profile.left?[[-width/2-1.1,depth/2-.1,-width/2+1.1,depth/2+1.15]]:[],
-      labels:[[(bounds.minX+bounds.maxX)/2,frontZ,Math.PI,Math.min(8,span*.5),.55,8],[0,bounds.maxZ-.8,0,1.35,.32,10],[width*.22,backZ,0,Math.min(5,span*.25),.35,14]],
-      signs:[[fireX+.45,fireZ-.08,Math.PI,0,11],[-width/2+1.5,bounds.maxZ-.48,Math.PI,1,12],[width/2+continuation-1.3,bounds.maxZ-.48,Math.PI,1,9]]});
+      crossings:(profile.left?[[-width/2-1.1,depth/2-.1,-width/2+1.1,depth/2+1.15]]:[]).concat(outdoor.markings.crossings),bays:outdoor.markings.bays,arrows:outdoor.markings.arrows,
+      labels:[[(bounds.minX+bounds.maxX)/2,frontZ,Math.PI,Math.min(8,span*.5),.55,8],[0,bounds.maxZ-.8,0,1.35,.32,10],[width*.22,backZ,0,Math.min(5,span*.25),.35,14]].concat(outdoor.markings.labels),
+      signs:[[fireX+.45,fireZ-.08,Math.PI,0,11],[-width/2+1.5,bounds.maxZ-.48,Math.PI,1,12],[width/2+continuation-1.3,bounds.maxZ-.48,Math.PI,1,9]].concat(outdoor.markings.signs)});
     doc.setProperty(marks,'name','Instalación · señalética de seguridad y pasillos');doc.setBehaviors(marks,[Object.assign(schema.defaultBehavior('collision'),{enabled:false})]);marks.userData.practiceFacility={role:'signage',practiceId:plan.id};objects.push(marks);created.push(marks);
     const environment=Object.assign(schema.studio.defaultEnvironment(roomId),{sky:'color',skyColor:'#b9c9cf',horizonColor:'#d7dfdc',groundColor:'#7f8b83',sunColor:'#fff4e0',sunIntensity:1.02,ambientIntensity:.58,exposure:1.02,shadows:false,renderQuality:'balanced'});
     doc.setStudio({environments:(doc.studio&&doc.studio.environments||[]).filter(row=>row.roomId!==roomId).concat(environment)});
-    return {version:1,profile:plan.id,objects:created.map(object=>Object.assign({objectId:object.userData.editorId},object.userData.practiceFacility)),floor,floors,bounds,openings,physicalParts:parts,
+    outdoor.objectIds=created.filter(object=>object.userData.practiceFacility.role.startsWith('outdoor-')).map(object=>object.userData.editorId);outdoor.signageObjectId=marks.userData.editorId;
+    outdoor.costs={batches:outdoorBatches,bakedGeometryTriangles:outdoorTriangles,dynamicLights:0,shadowMaps:0};
+    return {version:1,profile:plan.id,objects:created.map(object=>Object.assign({objectId:object.userData.editorId},object.userData.practiceFacility)),floor,floors,bounds,openings,outdoor,physicalParts:parts,
       adaptations:[{kind:'facility-perimeter',reason:'Pasillo perimetral físico de 1.8 m para cerramientos, estructura y evacuación fuera de la distribución original; la planta y las poses de los equipos no se escalan.',sourceArea:{width,depth},perimeter,continuation},...(['CEDI-01','SF-01'].includes(plan.id)?[{kind:'lateral-receiving-aperture',side:'left',clearWidth:leftWidth,clearHeight:4.8,reason:'Apertura lateral continua para retirada y giro de un pallet del camión físico; conserva los segmentos extremos de pared, los montantes y la salida peatonal. La puerta de seis metros bloqueaba el radio de giro de SF-01.'}]:[]),...(profile.right?[{kind:'side-loading-dispatch-aperture',side:'right',clearWidth:rightWidth,clearHeight:4.8,reason:'Apertura de expedición con paso lateral al muelle y a los espejos del camión físico; conserva los bordes y evita conducir un vehículo a piso sobre la plataforma elevada del muelle.'}]:[])],
       costs:{bakedGeometryTriangles:triangles,batches:batches.size,parts:[...batches.values()].reduce((n,b)=>n+b.parts,0),dynamicLights:0,shadowMaps:0},environment,
       references:['https://www.hse.gov.uk/WORKPLACETRANSPORT/information/safeworkplace.htm','https://www.hse.gov.uk/workplacetransport/lighting.htm'],

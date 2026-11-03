@@ -1,0 +1,1 @@
+{"name":"@smarttwin/scene-capture","version":"1.0.0","type":"module","exports":{".":"./index.js","./controller":"./SceneCaptureController.js","./toolbar":"./SceneCaptureToolbar.js","./style.css":"./scene-capture.css"},"sideEffects":["./scene-capture.css"]}

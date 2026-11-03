@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "2738721fc0a44fe7a5fb01fdf435d6769248f859",
-  "bundleSha256": "d451cb39c9d9870591ac506df4561343a3c7ec767c130f034dee56ccde442e71",
+  "revision": "06ca5c293e20f66cf5123ea3cdb5dc9b06389908",
+  "bundleSha256": "91028ccc1ccbdad6b45cad6629c55e6132740b1bff0078f18ef3fd254c0fd2cf",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "d451cb39c9d9870591ac506df4561343a3c7ec767c130f034dee56ccde442e71"
+      "sha256": "91028ccc1ccbdad6b45cad6629c55e6132740b1bff0078f18ef3fd254c0fd2cf"
     },
     {
       "path": "cad-worker.js",
@@ -112,7 +112,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "8360755d3e45cdca0a00da88fc956b8610673831d05fc442d650fd82063bf639"
+      "sha256": "9534ee94ac831984ca543ad900a940085a665452dcd713a10f9ce49b9c23ec6e"
     },
     {
       "path": "logistics-documentation.js",
@@ -132,7 +132,7 @@
     },
     {
       "path": "logistics-practice-scenes.js",
-      "sha256": "755158545df7d88755ce84b48937031471ec7ab7224f2f83d7ab01c29a5f00a8"
+      "sha256": "082c45c2c44a2a638c8ecca7c5bc8e013df7410e6e4a730063fca1299e2c1b05"
     },
     {
       "path": "mesh-optimizer-worker.js",
@@ -2924,7 +2924,7 @@
     },
     {
       "path": "modules/logistica-industrial/practices/ui/practice.css",
-      "sha256": "115cf2f5cffd2dafca9937be367a0a7af6b0efbd32eed389dfe8be0e2582c622"
+      "sha256": "f981bfb908e4b36e19102bd20247d436b57e96aa64fd4c07c572674eebd6be63"
     },
     {
       "path": "modules/turismo/assets/angel.basis",
@@ -3333,6 +3333,10 @@
     {
       "path": "packages/render-three/vendor/draco_wasm_wrapper.js",
       "sha256": "42ca4ddac3f2e646bac2e693ac27c5e6bf9081766c7258ea68aa01d2b77319cc"
+    },
+    {
+      "path": "packages/scene-capture/scene-capture.css",
+      "sha256": "adf62e08ac18a01b647d904e546eff0c71c60764a8174b56aba6bc93625e5811"
     },
     {
       "path": "packages/tools/ai/assets/README.md",
@@ -3877,8 +3881,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "339ec0368136da6cb8da",
-    "statsSha256": "1b8ca8442ea882e09a14837896376de811c7d57164823020cc81c7d43a4cd6a1",
+    "hash": "3b4c82c2c97dadeff1a1",
+    "statsSha256": "128d55e5aa066b6a6764b99f7520485053670a56708e478b1cc0339c584dd8de",
     "assets": [
       {
         "path": "11.js",
@@ -3910,7 +3914,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 6838305
+        "size": 6868122
       },
       {
         "path": "configurable-practice-reference.js",
@@ -3934,7 +3938,7 @@
       },
       {
         "path": "logistics-practice-scenes.js",
-        "size": 667812
+        "size": 672595
       },
       {
         "path": "nexus-equipment-reference.js",

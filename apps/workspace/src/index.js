@@ -576,7 +576,7 @@ export function init() {
       createProjectModules: projectModulesFor
     });
     context.editor.ready.then(async () => {
-      window.addEventListener('pagehide',()=>{if(context.editor.projectModules)context.editor.projectModules.dispose().catch(()=>{});if(context.editor.contentBrowser)context.editor.contentBrowser.dispose();},{once:true});
+      window.addEventListener('pagehide',()=>{if(context.sceneCapture)context.sceneCapture.dispose();if(context.editor.projectModules)context.editor.projectModules.dispose().catch(()=>{});if(context.editor.contentBrowser)context.editor.contentBrowser.dispose();},{once:true});
       context.editor.entities = new SceneEntities(context.editor);
       if (context.editor.editorEnabled) context.editor.conveyorViewer = new ConveyorViewer(context.editor);
       const studio = new StudioExperience(context.editor, vrButton);
@@ -957,6 +957,7 @@ function animate(time, frame) {
     const docking = context.vehicleDriving && context.vehicleDriving.docking;
     if (docking && docking.renderBefore) docking.renderBefore(scene, delta);
     renderer.render(scene, camera);
+    if(context.sceneCapture)context.sceneCapture.afterRender();
     if (context.xrMirror) context.xrMirror.postRender(scene, camera, delta);
     if (docking && docking.postRender) docking.postRender();
     if (context.goto !== null) {
@@ -975,7 +976,7 @@ window.onload = async () => {
     start() { init(); },
     context() { return context; },
     capture() { return context.studio ? context.studio.captureExecution() : null; },
-    dispose() { clearKeyboardState(); if (renderer) renderer.setAnimationLoop(null); if (context.editor && context.editor.simulation) context.editor.simulation.stop(); }
+    dispose() { clearKeyboardState(); if(context.sceneCapture)context.sceneCapture.dispose();if(context.studio)context.studio.sceneCaptureDisposed=true;if (renderer) renderer.setAnimationLoop(null); if (context.editor && context.editor.simulation) context.editor.simulation.stop(); }
   };
   context.beforeVoicePanelOpen = () => {if (context.studio) {context.studio.close(); if (context.studio.immersiveMenu) context.studio.immersiveMenu.close();} clearKeyboardState(); if (context.vehicleDriving) context.vehicleDriving.resetInput(); if (controls && controls.unlock) controls.unlock();};
   context.beforeAssistantPanelOpen=context.beforeVoicePanelOpen;

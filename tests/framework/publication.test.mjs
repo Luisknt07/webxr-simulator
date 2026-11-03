@@ -15,7 +15,7 @@ function fixture(t){
 }
 test('Pages receives only one verified scene, even with sensitive repository siblings',t=>{
  const root=fixture(t);fs.mkdirSync(path.join(root,'data'));fs.writeFileSync(path.join(root,'data/private.sqlite'),'private');fs.writeFileSync(path.join(root,'.env'),'secret fixture');
- const result=preparePages({root,revision:'a'.repeat(40)});assert.equal(result.files,30);assert.equal(result.publication.revision,'a'.repeat(40));assert.equal(fs.existsSync(path.join(result.target,'data')),false);assert.equal(fs.existsSync(path.join(result.target,'.env')),false);assert.equal(fs.existsSync(path.join(result.target,'.nojekyll')),true);assert.equal(STUDY_FILES.length,9);assert.equal(CAD_NOTES.length,3);for(const file of STUDY_FILES.concat(CAD_NOTES,'welcome.css'))assert(fs.statSync(path.join(result.target,file)).isFile());
+ const result=preparePages({root,revision:'a'.repeat(40)});assert.equal(result.files,31);assert.equal(result.publication.revision,'a'.repeat(40));assert.equal(fs.existsSync(path.join(result.target,'data')),false);assert.equal(fs.existsSync(path.join(result.target,'.env')),false);assert.equal(fs.existsSync(path.join(result.target,'.nojekyll')),true);assert.equal(STUDY_FILES.length,9);assert.equal(CAD_NOTES.length,3);for(const file of STUDY_FILES.concat(CAD_NOTES,'welcome.css'))assert(fs.statSync(path.join(result.target,file)).isFile());
 });
 test('publication rejects tampered code and unlisted files',t=>{
  const root=fixture(t),dir=path.join(root,'artifacts/public-viewer'),code=path.join(dir,'viewer.js'),original=fs.readFileSync(code);
@@ -32,7 +32,7 @@ test('a newly hashed future private metadata field still fails the public schema
 test('the welcome stylesheet, reviewed images and CAD notes retain the same hash verification as executable files',t=>{
  const root=fixture(t),dir=path.join(root,'artifacts/public-viewer');
  for(const file of ['welcome.css',STUDY_FILES[0],CAD_NOTES[1]]){const target=path.join(dir,file),original=fs.readFileSync(target);fs.appendFileSync(target,'tampered resource');assert.throws(()=>verifyPublic({root}),/hash mismatch/);fs.writeFileSync(target,original);}
- assert.equal(verifyPublic({root}).files,30);
+ assert.equal(verifyPublic({root}).files,31);
 });
 
 test('an extra image cannot publish through the study folder even when it is listed and newly hashed',t=>{

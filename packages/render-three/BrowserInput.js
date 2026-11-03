@@ -4,12 +4,13 @@ import XRLocomotion from './src/XRLocomotion.js';
 import {createXRGrip, updateXRGrip} from './src/XRGripTracking.js';
 
 const UP = new THREE.Vector3(0, 1, 0), WALK_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
+const FLIGHT_KEYS = new Set(['KeyQ', 'KeyE', 'ControlLeft', 'ControlRight']);
 const clamp = value => Math.max(-1, Math.min(1, value));
 
 export default class BrowserInput {
   constructor(ctx, canvas, options = {}) {
-    this.ctx = ctx; this.canvas = canvas; this.options = options; this.listeners = []; this.keys = new Set(); this.axes = {x: 0, y: 0}; this.pointers = new Map(); this.controllers = [];
-    this.euler = new THREE.Euler(0, 0, 0, 'YXZ'); this.forward = new THREE.Vector3(); this.right = new THREE.Vector3(); this.from = new THREE.Vector3(); this.to = new THREE.Vector3();
+    this.ctx = ctx; this.canvas = canvas; this.options = options; this.listeners = []; this.keys = new Set(); this.axes = {x: 0, y: 0, z: 0}; this.pointers = new Map(); this.flightPointers = new Map(); this.flightBoost = false; this.controllers = [];
+    this.euler = new THREE.Euler(0, 0, 0, 'YXZ'); this.forward = new THREE.Vector3(); this.right = new THREE.Vector3(); this.from = new THREE.Vector3(); this.to = new THREE.Vector3(); this.flightDirection = new THREE.Vector3();
     const beam = new THREE.Mesh(new THREE.BoxBufferGeometry(.004, .004, 1)); beam.name = 'beam'; beam.position.z = -.5;
     const beamRoot = new THREE.Group(); beamRoot.add(beam);
     this.texture = new THREE.DataTexture(new Uint8Array([100, 240, 212, 255]), 1, 1, THREE.RGBAFormat); this.texture.needsUpdate = true;
@@ -38,8 +39,12 @@ export default class BrowserInput {
       this.listen(controller, 'selectend', () => this.ray.onSelectEnd({target: controller}));
     }
     ctx.controllers = this.controllers;
-    this.listen(window, 'keydown', event => {if (this.walkAllowed() && WALK_KEYS.has(event.code) && !event.ctrlKey && !event.metaKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) {event.preventDefault(); this.keys.add(event.code);}});
-    this.listen(window, 'keyup', event => this.keys.delete(event.code)); this.listen(window, 'blur', () => this.reset());
+    this.listen(window, 'keydown', event => {
+      const flight = this.syncFlightMode(), target = event.target;
+      if (this.ctx.vrMode || this.ctx.drivingVehicle || !this.walkAllowed() || event.metaKey || event.altKey || target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable) || event.ctrlKey && !flight) return;
+      if (WALK_KEYS.has(event.code) || flight && FLIGHT_KEYS.has(event.code)) {event.preventDefault(); this.keys.add(event.code); this.flightBoost = flight && !!event.ctrlKey;}
+    });
+    this.listen(window, 'keyup', event => {this.keys.delete(event.code); if (!event.ctrlKey || event.code === 'ControlLeft' || event.code === 'ControlRight') this.flightBoost = false;}); this.listen(window, 'blur', () => this.reset());
     this.listen(document, 'visibilitychange', () => {if (document.hidden) this.reset();});
     this.listen(canvas, 'contextmenu', event => event.preventDefault());
     this.listen(canvas, 'pointerdown', event => {
@@ -70,6 +75,8 @@ export default class BrowserInput {
     this.listen(canvas, 'pointercancel', () => {this.clearDrag(); this.lockPress = null;});
     this.listen(canvas, 'lostpointercapture', () => {this.drag = null;});
     this.listen(window, 'pointerup', event => {if (this.drag && this.drag.id === event.pointerId) this.clearDrag();});
+    this.listen(window, 'pointerup', event => this.releaseFlightPointer(event.pointerId));
+    this.listen(window, 'pointercancel', event => this.releaseFlightPointer(event.pointerId));
     this.listen(this.document, 'pointerlockchange', () => {this.clearDrag(); if (!ctx.desktopLook.isLocked) this.lockPress = null;});
     this.listen(this.document, 'pointerlockerror', () => this.disablePointerLock());
     this.buildTouch();
@@ -106,26 +113,57 @@ export default class BrowserInput {
     const root = document.createElement('nav'); root.className = 'xr-browser-touch'; root.setAttribute('aria-label', 'Controles táctiles'); this.touch = root;
     for (const kind of ['move', 'look']) {
       const pad = document.createElement('div'); pad.className = 'touch-pad'; pad.textContent = kind === 'move' ? 'Caminar' : 'Mirar'; pad.setAttribute('role', 'group'); pad.setAttribute('aria-label', pad.textContent); root.appendChild(pad);
-      this.listen(pad, 'pointerdown', event => {if (Array.from(this.pointers.values()).some(value => value.kind === kind)) return; event.preventDefault(); const box = pad.getBoundingClientRect(); this.pointers.set(event.pointerId, {kind, x: event.clientX, y: event.clientY, cx: box.x + box.width / 2, cy: box.y + box.height / 2, radius: box.width / 2}); pad.setPointerCapture(event.pointerId);});
+      if (kind === 'move') this.movePad = pad;
+      this.listen(pad, 'pointerdown', event => {if (this.ctx.vrMode || this.ctx.drivingVehicle || !this.walkAllowed() || !this.lookAllowed() || Array.from(this.pointers.values()).some(value => value.kind === kind)) return; event.preventDefault(); const box = pad.getBoundingClientRect(); this.pointers.set(event.pointerId, {kind, x: event.clientX, y: event.clientY, cx: box.x + box.width / 2, cy: box.y + box.height / 2, radius: box.width / 2}); pad.setPointerCapture(event.pointerId);});
       this.listen(pad, 'pointermove', event => {
-        const point = this.pointers.get(event.pointerId); if (!point) return; event.preventDefault();
+        const point = this.pointers.get(event.pointerId); if (!point) return; if (this.ctx.vrMode || this.ctx.drivingVehicle || !this.walkAllowed() || !this.lookAllowed()) {this.reset(); return;} event.preventDefault();
         if (point.kind === 'move') {this.axes.x = clamp((event.clientX - point.cx) / point.radius); this.axes.y = clamp((point.cy - event.clientY) / point.radius);}
         else this.look(event.clientX - point.x, event.clientY - point.y);
         point.x = event.clientX; point.y = event.clientY;
       });
       for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) this.listen(pad, type, event => {const point = this.pointers.get(event.pointerId); this.pointers.delete(event.pointerId); if (point && point.kind === 'move') this.axes.x = this.axes.y = 0;});
     }
+    const vertical = this.document.createElement('div'); vertical.className = 'touch-flight'; vertical.setAttribute('role', 'group'); vertical.setAttribute('aria-label', 'Altura del dron'); vertical.hidden = !this.flightAllowed(); this.flightTouch = vertical;
+    for (const axis of ['up', 'down']) {
+      const button = this.document.createElement('button'); button.type = 'button'; button.className = 'touch-flight-' + axis; button.setAttribute('data-flight-axis', axis); button.textContent = axis === 'up' ? '↑ Subir' : '↓ Bajar'; button.setAttribute('aria-label', axis === 'up' ? 'Subir dron, mantener pulsado' : 'Bajar dron, mantener pulsado'); button.title = axis === 'up' ? 'Mantener pulsado · Q' : 'Mantener pulsado · E'; vertical.appendChild(button);
+      const direction = axis === 'up' ? 1 : -1;
+      this.listen(button, 'pointerdown', event => {
+        if (!this.syncFlightMode() || event.button !== undefined && event.button !== 0) return;
+        event.preventDefault(); if (event.stopPropagation) event.stopPropagation(); this.flightPointers.set(event.pointerId, {direction, button}); this.updateFlightAxis();
+        if (button.setPointerCapture) {try {button.setPointerCapture(event.pointerId);} catch (_) {}}
+      });
+      for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) this.listen(button, type, event => this.releaseFlightPointer(event.pointerId));
+      this.listen(button, 'keydown', event => {if ((event.key === ' ' || event.key === 'Enter') && this.syncFlightMode()) {event.preventDefault(); if (event.stopPropagation) event.stopPropagation(); this.flightPointers.set('key-' + axis, {direction, button}); this.updateFlightAxis();}});
+      this.listen(button, 'keyup', event => {if (event.key === ' ' || event.key === 'Enter') {event.preventDefault(); if (event.stopPropagation) event.stopPropagation(); this.releaseFlightPointer('key-' + axis);}});
+      this.listen(button, 'blur', () => this.releaseFlightPointer('key-' + axis));
+    }
+    root.appendChild(vertical); this.flightActive = this.flightAllowed();
     const use = document.createElement('button'); use.textContent = 'Usar'; use.type = 'button'; use.className = 'touch-use'; this.listen(use, 'click', () => this.select()); root.appendChild(use); document.body.appendChild(root);
   }
+  flightAllowed() {return !this.disposed && !!this.ctx.desktopFlight && !this.ctx.vrMode && !this.ctx.drivingVehicle && this.walkAllowed();}
+  syncFlightMode() {
+    const active = this.flightAllowed(); if (active !== this.flightActive) {this.flightActive = active; this.reset();}
+    if (this.flightTouch) this.flightTouch.hidden = !active;
+    if (this.movePad) {const label = active ? 'Volar' : 'Caminar'; if (this.movePad.textContent !== label) this.movePad.textContent = label; this.movePad.setAttribute('aria-label', label);}
+    return active;
+  }
+  updateFlightAxis() {this.axes.z = this.flightAllowed() ? clamp(Array.from(this.flightPointers.values()).reduce((total, point) => total + point.direction, 0)) : 0;}
+  releaseFlightPointer(id) {
+    const point = this.flightPointers.get(id); if (!point) return; this.flightPointers.delete(id); this.updateFlightAxis();
+    if (Number.isFinite(id) && point.button.hasPointerCapture && point.button.hasPointerCapture(id)) {try {point.button.releasePointerCapture(id);} catch (_) {}}
+  }
   reset() {
-    this.keys.clear(); this.axes.x = this.axes.y = 0; this.pointers.clear(); this.clearDrag(); this.lockPress = null; this.locomotion.reset();
+    this.keys.clear(); this.axes.x = this.axes.y = this.axes.z = 0; this.flightBoost = false; for (const id of Array.from(this.flightPointers.keys())) this.releaseFlightPointer(id); this.pointers.clear(); this.clearDrag(); this.lockPress = null; this.locomotion.reset();
     this.ray.controllers.forEach(data => this.ray.cancelSelect(data));
     if (this.options.onReset) this.options.onReset();
   }
   xrChanged(active) {this.reset(); this.ctx.desktopControllerData.enabled = !active; if (active) this.ctx.desktopLook.unlock();}
-  walkAllowed() {return !(this.ctx.voicePanelOpen || this.ctx.assistantPanelOpen || this.ctx.externalDevicePanelOpen) && (!this.options.canWalk || this.options.canWalk());}
+  walkAllowed() {return !this.disposed && !this.ctx.publicDialogOpen && !this.ctx.studioMenuOpen && !(this.ctx.voicePanelOpen || this.ctx.assistantPanelOpen || this.ctx.externalDevicePanelOpen) && (!this.options.canWalk || this.options.canWalk());}
   step(delta, frame) {
+    if (this.disposed) return;
     const ctx = this.ctx, session = ctx.renderer.xr.getSession();
+    const flight = this.syncFlightMode();
+    if ((!this.walkAllowed() || ctx.drivingVehicle || ctx.vrMode) && (this.keys.size || this.pointers.size || this.flightPointers.size || this.axes.x || this.axes.y || this.axes.z)) this.reset();
     if (ctx.vrMode && session) {
       this.controllers.forEach((controller, index) => {
         const source = session.inputSources[index], previous = this.ray.controllers.find(data => data.controller === controller);
@@ -135,10 +173,17 @@ export default class BrowserInput {
         if (source) controller.dispatchEvent({type: 'connected', data: source});
       });
       this.locomotion.tick(delta);
-    } else if (this.walkAllowed()) {
+    } else if (!ctx.vrMode && !ctx.drivingVehicle && this.walkAllowed()) {
       const key = code => Number(this.keys.has(code)), x = key('KeyD') + key('ArrowRight') - key('KeyA') - key('ArrowLeft') + this.axes.x,
         y = key('KeyW') + key('ArrowUp') - key('KeyS') - key('ArrowDown') + this.axes.y;
-      if (x || y) {
+      const z = flight ? key('KeyQ') - key('KeyE') + this.axes.z : 0;
+      if (flight && (x || y || z)) {
+        ctx.camera.getWorldDirection(this.forward); this.forward.normalize(); this.right.crossVectors(this.forward, UP).normalize();
+        this.flightDirection.copy(this.forward).multiplyScalar(clamp(y)).addScaledVector(this.right, clamp(x)); this.flightDirection.y += clamp(z); if (this.flightDirection.lengthSq() > 1) this.flightDirection.normalize();
+        const seconds = Number.isFinite(delta) ? Math.min(.1, Math.max(0, delta)) : 0, speed = this.flightBoost || key('ControlLeft') || key('ControlRight') ? 9 : 3;
+        ctx.camera.getWorldPosition(this.from); this.to.copy(this.from).addScaledVector(this.flightDirection, seconds * speed); this.to.y = Math.max(1.65, Math.min(30, this.to.y));
+        ctx.cameraRig.position.add(this.to.sub(this.from));
+      } else if (x || y) {
         ctx.camera.getWorldDirection(this.forward); this.forward.y = 0; this.forward.normalize(); this.right.crossVectors(this.forward, UP).normalize();
         ctx.camera.getWorldPosition(this.from); this.to.copy(this.from).addScaledVector(this.forward, clamp(y) * delta * 2).addScaledVector(this.right, clamp(x) * delta * 2);
         const resolved = ctx.collisionWorld ? ctx.collisionWorld.moveCapsule(this.from, this.to, {radius: .25, height: 1.65, eyeHeight: 1.65}) : this.to;
