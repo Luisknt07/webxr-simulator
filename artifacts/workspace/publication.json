@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "538208e5e102bf3d4066cda5e9bbf6ef4849f9d6",
-  "bundleSha256": "c6f19630c8b2eb93d4b4629035bfdf7513b7f40311ccafd45c8f585bb6cd56bf",
+  "revision": "38bf0fbcef00b803072a6a7ac6bf837187e18fa7",
+  "bundleSha256": "abc1e9de66794247b32c572658a0f85a33726d692a4479ff5e3afac9a069f62a",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -44,55 +44,55 @@
   "files": [
     {
       "path": "0.bundle.js",
-      "sha256": "01e259dd5ddfdb9714f43481bba26fee75daa044ff7f84f6a82571e1833447fc"
+      "sha256": "f11d3bd1d198b262274c036dfe2938543d3e193d297062396ada31f3cf15531d"
     },
     {
       "path": "1.bundle.js",
-      "sha256": "345d262de8cb13cfd9c126833ec0f0c459e039367ada5cd764f817f69d52e77c"
+      "sha256": "f782ea43f5e1ef3b21b923108a2f660a1878a33d6ce975a2a8e89e8654900b51"
     },
     {
       "path": "10.bundle.js",
-      "sha256": "7cf8b8b01218d9aa3a950c00142f2363285417b17d731c160cad472fa7027d74"
+      "sha256": "a4beabac9ed35e75936edd218dcf27d8ec47771702ae26902058ac303ce476b9"
     },
     {
       "path": "11.bundle.js",
-      "sha256": "42a867c01602575a650186f06edd70a0ec968b750655f623014b043c15848074"
+      "sha256": "039934990c18b9a2b0a042aada7f72c459086966db50dfe57f7848ef5e52165d"
     },
     {
       "path": "12.bundle.js",
-      "sha256": "0208c2a9bff7ef95f3e910ec1b6ea189310a05db20a147192dc679df9100c429"
+      "sha256": "8a5251fe60c269ca0fac63160e4ebad2b40ca0c7e45fe0c330fbb2166dc034d5"
     },
     {
       "path": "13.bundle.js",
-      "sha256": "d3dc83abc309f2a687b9c27c3b4f7ffa89b9b2cb7bace9b2d084addd57746477"
+      "sha256": "27045c9d5baf7a759ad9e1d854e67daf88ee3358b23c68d5763161aa4f80ebff"
     },
     {
       "path": "2.bundle.js",
-      "sha256": "7b3c32835d02a8eb768fc01ab8b5ef7323b2d2e75a837b42539701a2f50d4b50"
+      "sha256": "2978f59eb83dc48eada4f5099516caef745d80e41f3335cb716598a3f472b56c"
     },
     {
       "path": "3.bundle.js",
-      "sha256": "5dfa73021b396e01efad02ded5be2d36885cfca3588f24c2b9edd1ceab06a1c5"
+      "sha256": "14c2709cbdf35103d81a88879a4c4c8e0a793700bd980b7967b24cf9d0a2d9ce"
     },
     {
       "path": "4.bundle.js",
-      "sha256": "a6d9df2fde81e5f15baecc93d4e607bf47d287ecc23aa8ba5569d6feb34d3bfb"
+      "sha256": "0cd6b789a62ad96c1b839f5c9b29db9137ea542e750e1b8cdfe8bb033415dca4"
     },
     {
       "path": "5.bundle.js",
-      "sha256": "3d269d5e5ecf5ccfe7d7cb0f23cd57d0b4592c7c6a376079bcd1cc0521dfcaf1"
+      "sha256": "3df053e5c3b7e6eaed158116662f6f0e6329e608bf5281b905a5089dafabd949"
     },
     {
       "path": "6.bundle.js",
-      "sha256": "2c5083bcb966815a707852912c1e51a56273bd2a530a8e368b00477a42afeefa"
+      "sha256": "c0c4b0ca457eeb00c2e735768f66a02445a86e70cd7f7108e0da25f2d2ed0353"
     },
     {
       "path": "8.bundle.js",
-      "sha256": "afc003993224d5626f0aa6dd112b4ef71293ef6c4eb823e47f534dae04ceb42d"
+      "sha256": "a773f8c8debe5c83d5dcece72aa3899b567979d92a43f62a2b05a749f7964146"
     },
     {
       "path": "9.bundle.js",
-      "sha256": "3cd4efb546d15ed8884e437261e3c252c2ccc581a81471f2139d53b66d358a52"
+      "sha256": "5327d06523f39a1ead690275682c428e0c6f70ff945da2329ad0f2a86220bc1f"
     },
     {
       "path": "apps/workspace/studio/admin-workspace.css",
@@ -108,7 +108,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "c6f19630c8b2eb93d4b4629035bfdf7513b7f40311ccafd45c8f585bb6cd56bf"
+      "sha256": "abc1e9de66794247b32c572658a0f85a33726d692a4479ff5e3afac9a069f62a"
     },
     {
       "path": "cad-worker.js",
@@ -3817,8 +3817,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "7cc9df9ad80edfc8fbe7",
-    "statsSha256": "535ffc20f61135ddc5b18978368044b13f6864d665d269cba300483f5241fef0",
+    "hash": "c410201f66ba705814b2",
+    "statsSha256": "12fba1f0475eb5fcf28908562369ff61af0da7e908e1f8778a356da813081d35",
     "assets": [
       {
         "path": "0.bundle.js",
@@ -3850,7 +3850,7 @@
       },
       {
         "path": "3.bundle.js",
-        "size": 3289
+        "size": 7542
       },
       {
         "path": "4.bundle.js",
@@ -3862,7 +3862,7 @@
       },
       {
         "path": "6.bundle.js",
-        "size": 630111
+        "size": 667816
       },
       {
         "path": "8.bundle.js",
@@ -3874,7 +3874,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 6782595
+        "size": 6837553
       }
     ]
   }

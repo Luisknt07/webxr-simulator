@@ -24,3 +24,15 @@ test('tracked XR poses and active editing retain their camera positions',()=>{
 test('other practices, absent actors and headless contexts keep their established view',()=>{
  const f=fixture(),before=[pose(f.rig),pose(f.camera)];f.manifest.practiceId='SF-03';assert.equal(f.host.frameInitialView(),false);f.manifest.practiceId='CEDI-01';f.actors.delete('truck');assert.equal(f.host.frameInitialView(),false);f.editor.ctx={};assert.equal(f.host.frameInitialView(),false);assert.deepEqual([pose(f.rig),pose(f.camera)],before);assert.deepEqual(f.resets(),[0,0]);
 });
+
+test('a completed facility starts other practices at a free walking pose in its own world frame',()=>{
+ const f=fixture(),root=f.vehicle.parent,before=[pose(f.vehicle),pose(f.truck)],probes=[];
+ root.rotation.y=.3;root.position.y=.15;root.updateWorldMatrix(true,true);
+ f.manifest.practiceId='SF-03';f.manifest.facility={bounds:{minX:-16,maxX:16,minZ:-12,maxZ:12}};f.editor.document.getRoot=()=>root;
+ f.ctx.collisionWorld={canOccupyCapsule(point){probes.push(point.clone());return probes.length>1;}};
+ assert.equal(f.host.frameInitialView(),true);assert.equal(probes.length,2,'An occupied first view cannot trap the user inside a machine.');
+ const eye=f.camera.getWorldPosition(new THREE.Vector3());assert(eye.distanceTo(root.localToWorld(new THREE.Vector3(-14,1.65,10)))<1e-7);
+ const target=root.localToWorld(new THREE.Vector3(0,1.3,0));assert(f.camera.getWorldDirection(new THREE.Vector3()).dot(target.sub(eye).normalize())>.99999);
+ assert.deepEqual([pose(f.vehicle),pose(f.truck)],before);assert.deepEqual(f.resets(),[1,1]);
+ f.ctx.collisionWorld.canOccupyCapsule=()=>false;const old=pose(f.rig);assert.equal(f.host.frameInitialView(),false);assert.deepEqual(pose(f.rig),old);
+});

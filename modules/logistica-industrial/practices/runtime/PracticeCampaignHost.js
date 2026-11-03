@@ -8,9 +8,9 @@ const safeImage=value=>value&&typeof value.src==='string'&&/^modules\/logistica-
 const modes=['manual','semiautomatic','automatic'];
 /** Account-owned attempts; catalogue previews never award progress or consume a project quota. */
 export default class PracticeCampaignHost {
- constructor(studio){this.studio=studio;this.editor=studio.editor;this.client=studio.client;this.generation=0;this.attempt=null;this.progress=null;this.userId='';this.busy=false;this.browsers=new Set();this.preview=null;}
+ constructor(studio){this.studio=studio;this.editor=studio.editor;this.client=studio.client;this.generation=0;this.attempt=null;this.progress=null;this.userId='';this.busy=false;this.browsers=new Set();this.preview=null;this.disposed=false;}
  identity(){return this.client.user&&this.client.user.id||'';}
- assertIdentity(owner,generation){if(!owner||owner!==this.identity()||generation!==this.generation)throw Error("La cuenta o el intento cambió durante la operación.");}
+ assertIdentity(owner,generation){if(this.disposed||!owner||owner!==this.identity()||generation!==this.generation)throw Error("La cuenta o el intento cambió durante la operación.");}
  identityChanged(){const owner=this.identity();if(owner===this.userId)return;const hadPractice=!!(this.attempt||this.preview);this.generation++;this.progress=null;this.userId=owner;this.closeGuide();if(this.previewBanner)this.previewBanner.remove();this.preview=null;if(hadPractice){this.revoked=true;this.attempt=null;this.editor.stopRuntime();this.editor.document.rooms.forEach(entry=>{entry.root.visible=false;});}for(const browser of this.browsers)if(browser.setProgress)browser.setProgress(null,owner);if(hadPractice)this.notifyLayout();}
  async refresh(){const owner=this.identity(),generation=this.generation;if(!owner)throw Error("Inicia sesión para consultar las prácticas y conservar resultados.");const result=await this.client.request('GET','/practices/progress');this.assertIdentity(owner,generation);this.progress=progressSchema.normalize(result.progress,owner);this.capabilities=result.capabilities||[];for(const browser of this.browsers)browser.setProgress(this.progress,owner);return this.progress;}
  availability(id,mode,settings={}){return recipes.availability(id,mode,settings);}
@@ -44,8 +44,25 @@ export default class PracticeCampaignHost {
  activeManifest(){if(this.revoked)return null;const studio=this.editor.document&&this.editor.document.studio,data=studio&&studio.moduleData&&studio.moduleData['sector.logistics-industrial'];return data&&(data.levels||[]).find(row=>row.roomId===this.editor.roomId);}
  frameInitialView(){
   const editor=this.editor,ctx=editor&&editor.ctx,manifest=this.activeManifest(),doc=editor&&editor.document;
-  if(!ctx||editor.active||ctx.vrMode||!manifest||manifest.practiceId!=='CEDI-01'||!doc||typeof doc.getObject!=='function')return false;
+  if(!ctx||editor.active||ctx.vrMode||!manifest||!doc||typeof doc.getObject!=='function')return false;
   const camera=ctx.camera,rig=ctx.cameraRig;if(!camera||!rig||!camera.position||!rig.position||typeof camera.lookAt!=='function'||typeof camera.position.set!=='function'||typeof rig.position.set!=='function')return false;
+  if(manifest.practiceId!=='CEDI-01'){
+   const bounds=manifest.facility&&manifest.facility.bounds,root=typeof doc.getRoot==='function'&&doc.getRoot(editor.roomId);
+   if(!bounds||!root||!camera.position.clone||![bounds.minX,bounds.maxX,bounds.minZ,bounds.maxZ].every(Number.isFinite))return false;
+   root.updateWorldMatrix(true,false);
+   const x0=bounds.minX+2,x1=bounds.maxX-2,z0=bounds.minZ+2,z1=bounds.maxZ-2,candidates=[[x1,z1],[x0,z1],[x1,z0],[x0,z0],[0,z1],[0,z0]],world=ctx.collisionWorld;
+   let eye;
+   for(const [x,z]of candidates){
+    const point=root.localToWorld(camera.position.clone().set(x,1.65,z));
+    if(!world||typeof world.canOccupyCapsule!=='function'||world.canOccupyCapsule(point,{radius:.3,height:1.65})){eye=point;break;}
+   }
+   if(!eye)return false;
+   const target=root.localToWorld(camera.position.clone().set((bounds.minX+bounds.maxX)/2,1.3,(bounds.minZ+bounds.maxZ)/2));
+   rig.position.set(eye.x,eye.y-1.65,eye.z);if(rig.quaternion&&typeof rig.quaternion.set==='function')rig.quaternion.set(0,0,0,1);
+   camera.position.set(0,1.65,0);if(typeof rig.updateWorldMatrix==='function')rig.updateWorldMatrix(true,true);camera.lookAt(target.x,target.y,target.z);
+   if(typeof camera.updateWorldMatrix==='function')camera.updateWorldMatrix(true,false);
+   if(typeof ctx.resetCollisionPose==='function')ctx.resetCollisionPose();if(ctx.desktopLook&&typeof ctx.desktopLook.reset==='function')ctx.desktopLook.reset();return true;
+  }
   const aliases=manifest.aliases||[],vehicleId=manifest.vehicleIds&&manifest.vehicleIds[0],truckId=manifest.receiving&&manifest.receiving.truckId||(aliases.find(row=>row.alias==='E01')||{}).objectId;
   const vehicle=vehicleId&&doc.getObject(vehicleId),truck=truckId&&doc.getObject(truckId);
   const position=actor=>{if(!actor||!actor.position)return null;if(typeof actor.updateWorldMatrix==='function')actor.updateWorldMatrix(true,false);const point=typeof actor.position.clone==='function'?actor.position.clone():{x:actor.position.x,y:actor.position.y,z:actor.position.z};if(typeof actor.getWorldPosition==='function'&&typeof point.setFromMatrixPosition==='function')actor.getWorldPosition(point);return[point.x,point.y,point.z].every(Number.isFinite)?point:null;};
@@ -84,7 +101,7 @@ export default class PracticeCampaignHost {
    if(attempt.settings.executionMode!=='campaign'||attempt.settings.evaluation!=='assessed')throw Error("El caso aislado o libre no desbloquea la campaña.");const access=progressSchema.access(this.progress,attempt.practiceId);if(!access.next||!progressSchema.access(this.progress,access.next).allowed)throw Error("Completa y guarda esta práctica antes de pasar a la siguiente.");return this.launch(access.next,attempt.settings);
   }};
  }
- async configure(){const c=this.context();if(!c)return false;this.closeGuide();const dialog=node('dialog');dialog.className='st-practice-guide-modal st-practice-configure-modal';dialog.setAttribute('aria-label',"Configurar práctica");this.guide=dialog;const head=node('header',undefined,dialog);node('h2',"Nuevo intento · "+c.plan.id,head);const close=node('button','Volver a la escena',head);close.addEventListener('click',()=>this.closeGuide());dialog.addEventListener('cancel',event=>{event.preventDefault();this.closeGuide();});const host=node('div',undefined,dialog);document.body.appendChild(dialog);if(dialog.showModal)dialog.showModal();else dialog.setAttribute('open','');const record=recipes.entry(c.plan.id),form=new PracticeSetupForm(host,{record,definition:record,settings:c.config.settings||c.manifest.settings||c.config,plan:settings=>recipes.plan(record.id,settings),capability:(mode,settings)=>this.availability(record.id,mode,settings),access:settings=>progressSchema.access(this.progress,record.id,{author:settings.executionMode==='isolated'}),onDocumentation:target=>this.openGuide('documentation',target),onStart:settings=>this.launch(record.id,settings)});this.guideCleanup=()=>form.dispose();return true;}
+ async configure(){const c=this.context();if(!c)return false;this.closeGuide();const dialog=node('dialog');dialog.className='st-practice-guide-modal st-practice-configure-modal';dialog.setAttribute('aria-label',"Configurar práctica");this.guide=dialog;const head=node('header',undefined,dialog);node('h2',"Nuevo intento · "+c.plan.id,head);const close=node('button','Volver a la escena',head);close.addEventListener('click',()=>this.closeGuide());dialog.addEventListener('cancel',event=>{event.preventDefault();this.closeGuide();});const host=node('div',undefined,dialog);document.body.appendChild(dialog);if(dialog.showModal)dialog.showModal();else dialog.setAttribute('open','');const record=recipes.entry(c.plan.id),form=new PracticeSetupForm(host,{record,definition:record,settings:c.config.settings||c.manifest.settings||c.config,manifest:c.manifest,plan:settings=>recipes.plan(record.id,settings),capability:(mode,settings)=>this.availability(record.id,mode,settings),access:settings=>progressSchema.access(this.progress,record.id,{author:settings.executionMode==='isolated'}),onDocumentation:target=>this.openGuide('documentation',target),onStart:settings=>this.launch(record.id,settings)});this.guideCleanup=()=>form.dispose();return true;}
  async saveAttempt(attempt,owner,generation){this.assertIdentity(owner,generation);const controller=this.editor.practiceController;if(!controller||!controller.current()||attempt!==this.attempt)throw Error("El intento ya no está activo.");if(controller.session.state().passed)return this.complete(attempt,owner,generation);const result=await this.client.request('POST','/practices/attempts/'+encodeURIComponent(attempt.id)+'/checkpoint',{checkpoint:controller.session.serialize()});this.assertIdentity(owner,generation);return result;}
  async complete(attempt=this.attempt,owner=this.identity(),generation=this.generation){
   this.assertIdentity(owner,generation);if(!attempt||attempt!==this.attempt)throw Error('El resultado ya no pertenece al intento activo.');const controller=this.editor.practiceController;if(!controller||!controller.current())throw Error("La simulación ya no corresponde a este intento.");const receipt=progressSchema.receipt(controller.config,controller.session,{attemptId:attempt.id,routeId:attempt.routeId,sourceSha256:attempt.sourceSha256});
@@ -111,5 +128,5 @@ export default class PracticeCampaignHost {
   if(c&&c.manifest.layoutAdjustments&&c.manifest.layoutAdjustments.length){node('h3','Ajustes registrados del montaje',content);const list=node('ul',undefined,content);for(const row of c.manifest.layoutAdjustments)node('li',typeof row==='string'?row:row.reason||row.adjustmentReason||JSON.stringify(row),list);}
  }
  async index(){const data=await import(/* webpackChunkName: "logistics-practice-index" */ '../configurable/index.cjs');return data.default||data;}
- dispose(){this.closeGuide();if(this.previewBanner)this.previewBanner.remove();for(const browser of this.browsers)browser.dispose();this.browsers.clear();this.notifyLayout();}
+ dispose(){if(this.disposed)return;this.disposed=true;this.generation++;this.revoked=true;this.attempt=null;this.preview=null;this.progress=null;this.closeGuide();if(this.previewBanner)this.previewBanner.remove();this.previewBanner=null;for(const browser of this.browsers)browser.dispose();this.browsers.clear();this.notifyLayout();}
 }

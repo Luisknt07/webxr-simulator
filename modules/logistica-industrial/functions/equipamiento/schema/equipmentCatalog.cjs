@@ -44,6 +44,9 @@ function descriptor(row) {
  if(role==='tool'&&mechanism==='stand'){nativeKind='product';nativeVariant='crate';operationLevel='physical-support';requiresRuntimeHook='';}
  const defaults={catalogueEquipmentId:row.id,length:size[0],width:size[1],height:size[2],supportHeight:1,frameColor:'#466574',accentColor:'#e9b849',detail:'balanced',wear:.12,processTime:5,setupTime:0,capacity:8,parallelism:1,outputCapacity:8,powered:true,running:false,withPanel:!['storage','product','sensor','safety','tool'].includes(role),speed:.4};
  if(nativeKind==='processor')Object.assign(defaults,{mode:'process',length:Math.max(1.5,defaults.length),width:Math.max(.6,defaults.width)});
+ // The library must not overwrite the reach truck's actual straddle envelope
+ // with the generic vehicle thumbnail frame when inserting a new actor.
+ if(role==='vehicle'&&mechanism==='reach-truck')Object.assign(defaults,require('../../montacargas/schema/vehicles.js').defaults(nativeVariant),{catalogueEquipmentId:row.id});
  if(role==='transport'){
   const native=require('../../bandas/schema/conveyor-equipment.js').getDefinition(nativeVariant);
   if(native)Object.assign(defaults,native.preset,{catalogueEquipmentId:row.id,autoSpawn:false,withPanel:false});

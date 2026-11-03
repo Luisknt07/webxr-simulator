@@ -3,6 +3,9 @@ import schema from '../../../contracts/behaviors.js';
 import catalogue from '../../../functions/equipamiento/schema/equipmentCatalog.cjs';
 import recipes from '../Recipes.cjs';
 import {studySceneBase,studyWorkspace,disposeStudyGeometry} from '../../../scenarios/StudySceneProject.js';
+import {buildPracticeFacility} from './PracticeFacility.js';
+import {buildPracticeMaterialFixtures} from './PracticeMaterialFixtures.js';
+import {buildPracticeEquipmentAttachments} from './PracticeEquipmentAttachments.js';
 
 const MODULE='sector.logistics-industrial';
 const TYPES=['source','conveyor','processor','palletQueue','robot','vehicle','sensor','automation','product','plc'];
@@ -16,16 +19,8 @@ function add(doc,roomId,objects,kind,name,variant,values,position,rotation){
 }
 function queue(doc,roomId,objects,name,position){return add(doc,roomId,objects,'palletQueue',name,undefined,FLOOR_STOCK,[position[0],position[1]+1,position[2]]);}
 function shell(doc,roomId,plan,objects){
- const width=plan.interiorArea.width,depth=plan.interiorArea.depth,receiving=plan.id==='CEDI-01';
- const part=(name,color,position,scale,collide=true)=>{const o=doc.addPrimitive(roomId,'box',color);doc.setProperty(o,'name',name);doc.setTransform(o,{position,scale});doc.setBehaviors(o,[Object.assign(schema.defaultBehavior('collision'),{enabled:collide})]);objects.push(o);return o;};
- const floor=part('Interior · planta original '+width+' × '+depth+' m','#87908d',[0,-.12,0],[width,.24,depth]);doc.setBehaviors(floor,[schema.defaultBehavior('collision'),schema.defaultBehavior('teleport'),Object.assign(schema.defaultBehavior('surfaceMaterial'),{preset:'concrete',color:'#87908d',roughness:.85})]);
- if(plan.sourceRow.modes[plan.mode].equipment.some(row=>row.center[0]<0)){const patio=part('Patio separado · maniobra real del camión','#7c8584',[-width/2-7,-.13,0],[14,.24,depth]);doc.setBehaviors(patio,[schema.defaultBehavior('collision'),schema.defaultBehavior('teleport')]);}
- if(plan.sourceRow.modes[plan.mode].equipment.some(row=>row.center[0]>width)){const patio=part('Patio derecho separado · maniobra real del camión','#7c8584',[width/2+7,-.13,0],[14,.24,depth]);doc.setBehaviors(patio,[schema.defaultBehavior('collision'),schema.defaultBehavior('teleport')]);}
- if(receiving)part('Continuación física y pasillo reservado a CEDI-02 · sin generación de stock','#788c86',[width/2+5,-.12,0],[10,.24,depth]);
- part('Instalación · pared posterior','#a3aaa7',[0,3,-depth/2],[width,6,.15]);
- part('Instalación · techo industrial','#46535b',[0,6.3,0],[width,.15,depth]);
- for(const x of [-width*.3,0,width*.3]){part('Viga estructural','#35454e',[x,6.1,0],[.14,.25,depth]);for(const z of [-depth*.28,depth*.28])part('Luminaria de superficie · sin luz dinámica adicional','#e1e8df',[x,5.96,z],[2,.04,.16],false);}
- doc.setStudio({environments:(doc.studio&&doc.studio.environments||[]).filter(row=>row.roomId!==roomId).concat([Object.assign(schema.studio.defaultEnvironment(roomId),{sky:'color',skyColor:'#b5c0c5',horizonColor:'#b5c0c5',groundColor:'#84918f',sunIntensity:.8,ambientIntensity:.5,shadows:false,renderQuality:'balanced'})])});
+ return buildPracticeFacility(doc,roomId,plan,objects);
+
 }
 function actor(doc,roomId,plan,row,objects){
  const d=row.catalogueEquipmentId&&catalogue.definition(row.catalogueEquipmentId),position=row.sourceCenter.slice();let object;
@@ -63,7 +58,7 @@ function receiving(doc,roomId,plan,rows,objects,adjustments){
  rows.find(row=>row.alias==='E02').componentObjectIds=[id(restraint)];rows.find(row=>row.alias==='E04').componentObjectIds=[id(reader),id(scale),id(inspectionBay)];
  for(let i=0;i<6;i++){
   const position=[-19+12*.17+(i-2.5)*1.26,bedTop,seatZ],seat=queue(doc,roomId,objects,'E01 · asiento cargado P'+String(i+1).padStart(2,'0'),position),sku='CEDI-01-P'+String(i+1).padStart(2,'0');sourceIds.push(id(seat));
-  const product=add(doc,roomId,objects,'product',sku+' · 8 cajas × 5 kg + tara 20 kg','pallet-loaded',{sourceId:id(seat),sku,productType:'pallet',loadMode:'pallet',units:8,mass:60,width:1.2,depth:.8,height:.72,palletType:'euro-1200x800',palletMaterial:'wood',contents:'boxes',quality:'good',defect:'none',color:'#b8935e'},[position[0],bedTop+.005,position[2]]);
+  const product=add(doc,roomId,objects,'product',sku+' · 8 cajas × 5 kg + tara 20 kg','pallet-loaded',{sourceId:id(seat),sku,productType:'pallet',loadMode:'pallet',units:8,mass:60,palletTareKg:20,width:1.2,depth:.8,height:.72,palletType:'euro-1200x800',palletMaterial:'wood',contents:'boxes',quality:'good',defect:'none',color:'#b8935e'},[position[0],bedTop+.005,position[2]]);
   product.userData.configurableLoadIdentity={palletId:sku,lotId:'LOTE-CEDI-01-001',orderId:'ORD-CEDI-01-048',boxIds:Array.from({length:8},(_,n)=>sku+'-B'+String(n+1).padStart(2,'0'))};palletIds.push(id(product));stock.push({product,seat,position});
  }
  const releasedRoot=byAlias('E07'),quarantineRoot=byAlias('E05'),releasedPositions=[[6.8,0,-5],[8.3,0,-5],[12.9,0,-6],[14.4,0,-6],[12.9,0,-3.5],[14.4,0,-3.5]],receiverIds=[],quarantineIds=[id(quarantineRoot)];
@@ -98,16 +93,21 @@ function measure(objects){let triangles=0,drawCalls=0,meshes=0;const materials=n
 export function buildConfigurablePracticeScene(doc,roomId,practiceId,options={}){
  const plan=recipes.plan(practiceId,options),own=!doc.transaction,objects=[],adjustments=[],rows=plan.layoutBindings.map(row=>Object.assign({},row));if(own)doc.begin();
  try{
-  studySceneBase(doc,roomId);shell(doc,roomId,plan,objects);rows.forEach(row=>actor(doc,roomId,plan,row,objects));
+  studySceneBase(doc,roomId);const facility=shell(doc,roomId,plan,objects);rows.forEach(row=>actor(doc,roomId,plan,row,objects));
   let built={sourceIds:[],receiverIds:[],productIds:[],palletIds:[],vehicleIds:[],robotIds:[],conveyorIds:[],processIds:[],links:[]};
   if(plan.id==='CEDI-01')built=receiving(doc,roomId,plan,rows,objects,adjustments);
+  else built=buildPracticeMaterialFixtures(doc,roomId,plan,rows,objects,{add,set,queue,id,schema});
+  if(built.materialRecipe){built.materialRecipe.operationReady=!!plan.availability.ready;built.materialRecipe.validatedEvidence=plan.availability.evidence||null;}
+  adjustments.push(...(facility&&facility.adaptations||[]),...(built.fixtureLayoutAdjustments||[]));
   layoutOverrides(doc,plan,rows,built,adjustments);
   for(const row of rows){const object=doc.getObject(row.objectId);object.updateWorldMatrix(true,true);const box=new THREE.Box3().setFromObject(object),size=box.getSize(new THREE.Vector3());row.actualPose={position:object.position.toArray(),rotation:object.rotation.toArray().slice(0,3),scale:object.scale.toArray()};row.actualFootprint=[size.x,size.z,size.y];}
+  const equipmentAttachments=buildPracticeEquipmentAttachments(doc,roomId,plan,rows,objects);
   const route=addFloorPlan(doc,roomId,plan,rows,objects),stageBindings=recipes.workflowRequirements(plan);
   const settings=recipes.normalizedOptions(plan);
-  const manifest=Object.assign({version:2,practiceId:plan.id,title:plan.title,caseId:plan.caseId,mode:plan.mode,difficulty:plan.difficulty,roomId,kind:'configurable',expectedUnits:plan.expectedUnits,sku:plan.id+'-ORDER',steps:plan.steps,sourceSha256:plan.sourceSha256,sourceHashes:plan.sourceHashes,plan,settings,aliases:rows,layoutElements:rows,layoutAdjustments:adjustments,stageBindings,evidenceAdapter:{kind:'workflow'},availability:plan.availability,executionRoute:route,validation:{coordinateMapping:'table centre -> centred world; no dimension scaling',mappedAliases:rows.length,sourceAliases:plan.modeDescription.equipment.length,modePolicy:'exactly one selected mode; no hidden actors for other modes',rv:measure(objects),executionReady:plan.availability.ready,limits:plan.availability.reasons}},built);
+  const manifest=Object.assign({version:2,practiceId:plan.id,title:plan.title,caseId:plan.caseId,mode:plan.mode,difficulty:plan.difficulty,roomId,kind:'configurable',expectedUnits:plan.expectedUnits,sku:plan.id+'-ORDER',steps:plan.steps,sourceSha256:plan.sourceSha256,sourceHashes:plan.sourceHashes,plan,settings,aliases:rows,layoutElements:rows,layoutAdjustments:adjustments,stageBindings,evidenceAdapter:{kind:'workflow'},availability:plan.availability,executionRoute:route,facility:facility&&Object.fromEntries(['version','profile','bounds','openings','adaptations','costs','environment','limits','objects'].map(key=>[key,facility[key]])),validation:{coordinateMapping:'table centre -> centred world; no dimension scaling',mappedAliases:rows.length,sourceAliases:plan.modeDescription.equipment.length,modePolicy:'exactly one selected mode; no hidden actors for other modes',rv:measure(objects),executionReady:plan.availability.ready,limits:plan.availability.reasons}},built);
+  manifest.equipmentAttachments=equipmentAttachments;
   manifest.sourceId=built.sourceIds[0]||rows[0].objectId;manifest.receiverId=built.receiverIds[0]||rows[rows.length-1].objectId;
-  manifest.materialFixture={status:built.palletIds.length?'native-seeded':'source-recipe-only',quantities:JSON.parse(JSON.stringify(plan.fixture)),physicalProductIds:built.productIds.slice(),notice:built.palletIds.length?'Existencias físicas iniciales identificadas y conservadas; el registro no genera más stock.':'Montaje de configuración: la receta de insumos está documentada; no se crean existencias ni se habilita evaluación antes de enlazar su adaptador material específico.'};
+  manifest.materialFixture={status:built.productIds.length?'native-seeded':'source-recipe-only',quantities:JSON.parse(JSON.stringify(plan.fixture)),physicalProductIds:built.productIds.slice(),notice:built.productIds.length?'Existencias físicas iniciales identificadas y conservadas por referencia. La evaluación exige además el adaptador y las pruebas del flujo; el registro no genera stock.':'Montaje de configuración: la receta de insumos está documentada; no se crean existencias ni se habilita evaluación antes de enlazar su adaptador material específico.'};
   const studio=doc.studio||{},moduleData=Object.assign({},studio.moduleData||{}),data=Object.assign({version:1,levels:[],attempts:[]},moduleData[MODULE]||{});data.levels=(data.levels||[]).filter(row=>row.roomId!==roomId).concat([manifest]);moduleData[MODULE]=data;doc.setStudio({moduleData,scenes:(studio.scenes||[]).filter(row=>row.id!==roomId).concat([{id:roomId,name:plan.id+' · '+plan.title,moduleId:MODULE}]),startRoomId:roomId});
   if(own)doc.commit();return{plan,manifest,objects,report:{id:plan.id,caseId:plan.caseId,mode:plan.mode,actors:objects.length,expectedUnits:plan.expectedUnits,rv:manifest.validation.rv},...built};
  }catch(error){if(own)doc.cancel();throw error;}

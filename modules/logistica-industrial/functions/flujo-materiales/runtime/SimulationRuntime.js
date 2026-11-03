@@ -10,6 +10,7 @@ import PalletQueueRuntime from '../../almacenamiento/runtime/PalletQueueRuntime.
 import RobotRuntime from '../../robots/runtime/RobotRuntime.js';
 import VehicleRuntime from '../../montacargas/runtime/VehicleRuntime.js';
 import VehicleTrainingRuntime from '../../montacargas/runtime/VehicleTrainingRuntime.js';
+import RuntimeNativeRenderBanks from '../../presentacion/runtime/RuntimeNativeRenderBanks.js';
 
 const {normalizeBehaviors, simulationTypes} = behaviorSchema;
 const conveyorLayout = behaviorSchema.conveyorLayout;
@@ -110,6 +111,7 @@ export default class SimulationRuntime {
     this.vehicleRuntime = typeof VehicleRuntime === 'function' ? new VehicleRuntime(this) : null;
     this.vehicleTraining = typeof VehicleTrainingRuntime === 'function' ? new VehicleTrainingRuntime(this) : null;
     this.productionAnalytics = new behaviorSchema.productionAnalytics.Recorder();
+    this.nativeRenderBanks = typeof RuntimeNativeRenderBanks === 'function' ? new RuntimeNativeRenderBanks() : null;
   }
 
   start(roomId) {
@@ -121,6 +123,7 @@ export default class SimulationRuntime {
     this.droppedSeconds = 0;
     this.events = [];
     this.running = true;
+    this.nativePresentationFailure = null;
     const flowConfigurations = new Map();
     this.document.getObjects(roomId).forEach(object => {
       if (!object || object.userData.editorHelper || object.userData.editorRuntimeHelper || object.userData.editorVisualOwnerId || object.userData.industrialRetiredSupply) return;
@@ -218,6 +221,7 @@ export default class SimulationRuntime {
   }
 
   stop() {
+    if (this.nativeRenderBanks) this.nativeRenderBanks.reset();
     if (this.ctx.vehicleDriving) this.ctx.vehicleDriving.unmount(true);
     if (this.vehicleRuntime) this.vehicleRuntime.stop();
     this.stopping = true;
@@ -1062,6 +1066,20 @@ export default class SimulationRuntime {
   pickupProduct(product, controller, inputMode = 'select') {
     if (!controller || product.heldBy || this.held.has(controller) || controller.userData && controller.userData.grabbing) return false;
     if (this.ctx.drivingVehicle || product.vehicleOwnerId || product.robotOwnerId || product.robotReservedBy || product.vehicleReservedBy) return false;
+    const sector = this.document.studio && this.document.studio.moduleData && this.document.studio.moduleData['sector.logistics-industrial'];
+    const practice = sector && (sector.levels || []).find(row => row.roomId === this.roomId && row.plan && row.plan.kind === 'configurable');
+    if (practice) {
+      const metadata = this.productMetadata(product), entry = product.sourceEntry;
+      const pallet = metadata.loadMode === 'pallet' || metadata.productType === 'pallet';
+      const loaded = pallet && (metadata.units > 1 || entry && entry.members && entry.members.length > 0);
+      // Scoped teaching policy, not a certified manual-handling calculation.
+      // Empty pallets and individual light parts remain available to picking;
+      // a hand/controller cannot bypass the native forklift's load custody.
+      if (loaded || metadata.mass > 25) {
+        this.notify('Esta carga requiere equipo de manutención. Utiliza el montacargas, la transpaleta o el manipulador compatible.');
+        return false;
+      }
+    }
     if (!this.processorRuntime.canPickup(product)) return false;
     if (!this.palletQueueRuntime.canPickup(product)) { this.notify('Retira primero las cajas superiores de esta columna de la estiba.'); return false; }
     if (product.item && product.item.palletOwnerId) {
@@ -1608,6 +1626,26 @@ export default class SimulationRuntime {
     } finally {
       this.productFeedback.update(elapsed);
       if (ownsFrame) world.endFrame();
+    }
+  }
+
+  // Called after live machine materials, cab/hologram and LOD presentation.
+  // Rendering banks never change native physics, product custody or rig links.
+  syncNativePresentation() {
+    if (!this.nativeRenderBanks || this.nativePresentationFailure) return;
+    try {
+      const sector=this.document.studio&&this.document.studio.moduleData&&this.document.studio.moduleData['sector.logistics-industrial'],level=sector&&Array.isArray(sector.levels)&&sector.levels.find(row=>row&&row.kind==='configurable'&&row.roomId===this.roomId),root=this.document.getRoot(this.roomId);
+      const staticObjects=level&&level.facility&&Array.isArray(level.facility.objects)?level.facility.objects.slice(0,128).filter(row=>row&&['envelope','detail'].includes(row.role)).map(row=>this.document.getObject(row.objectId)).filter(object=>object&&object.parent===root&&object.userData.editorDescriptor&&object.userData.editorDescriptor.type==='cad'):[];
+      this.nativeRenderBanks.sync(Array.from(this.records.values(), record => record.object), {
+        editing: !this.running || !!(this.ctx.editor && this.ctx.editor.active),
+        version: this.ctx.editor && this.ctx.editor.changeVersion || 0,
+        staticObjects
+      });
+    } catch (error) {
+      // An optional render optimization must never stop input or simulation.
+      // Restore ordinary native drawing and retry only on the next run.
+      this.nativeRenderBanks.reset();
+      this.nativePresentationFailure = error && error.message || String(error);
     }
   }
 

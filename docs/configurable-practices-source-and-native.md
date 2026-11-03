@@ -36,17 +36,34 @@ or automatic wrappers behind manually labelled controls. Manual film application
 uses a floor support and a human operation, rather than an automatically driven
 wrapper.
 
-There is an explicit distinction between `canConfigure` and `ready`. A finite,
-recognisable native montage does not prove a completed material workflow. The
-non-receiving practices retain their actual source BOM, layouts and six stages,
-but their specialized material/quality/BOM adapters are not certified by a
-generic Source → Processor pipeline. Their `materialFixture.status` is
-`source-recipe-only`, and evaluated execution rejects before creating stock.
+There is an explicit distinction between `canConfigure` and `ready`. Every
+practice now has finite authored native products with original reference and
+lot identities: `materialFixture.status` is `native-seeded`. This proves the
+initial stock, not execution of a complete material workflow. `VERIFIED_MATERIAL`
+in `Recipes.cjs` lists the prepared manual/base combinations that have passed
+their native end-to-end regression and identifies the corresponding test.
 
-Readiness is restricted to the prepared CEDI-01/manual/base combination. Custom
-equipment or positions stay in configuration mode until that alternative has
-its own contact, route and material proof. A saved alias or port reference is
-not presented as a completed physical connection.
+Only those prepared manual case-A baselines can start an evaluated attempt.
+Custom equipment, edited positions, cases B/C and assisted/automatic configurations
+stay in consultation mode until that exact alternative has its own contact,
+route and material proof. Their scene and source documentation remain available.
+A saved alias, an illustrated route or an equipment count does not establish a
+physical connection or authorize a scored result.
+
+`PracticeMaterialFixtures` owns finite initial stock and real native seats.
+`MaterialPracticeRuntime` observes unique custody and balances by original SKU;
+`PracticeMaterialOperations` supplies typed kit, assembly and carton recipes to
+the native timed processor. A kit or finished carton is one handling unit with
+original component members, rather than a sum of incompatible raw-unit counts.
+The native processor verifies both the original component identities and mass
+before committing an output. Native hands, conveyors and vehicles perform all
+transport; workflow forms cannot change a cargo transform or ownership.
+
+`PracticeCycleInterlock` grants one manually requested native cycle. The real
+processor clock, operator condition and pause determine completion; the permit
+is removed before the next input can start. SF-03 additionally requires the
+history order fixture → machining → measurement. A wrongly loaded idle machine
+can return the same original body to preparation without creating another unit.
 
 ## CEDI-01 material model
 
@@ -117,10 +134,24 @@ the vehicle or cargo transforms, joint pose or inventory ownership directly.
 The complete prepared receiving regression passed with all six original pallets
 in six actual released queues: source 0 boxes, released 48, total 48, no missing,
 foreign or duplicated custody, all six stages accepted and score 100. It used
-168,948 native input ticks over 2,815.9 simulated seconds and 578.8 driven metres,
+161,978 native input ticks over 2,699.6 simulated seconds and 578.8 driven metres,
 with zero contacts. This is a manual operator proof, not a claim of autonomous
 truck unloading, certified travel time or headset FPS. The native result receipt
 is `data/qa-studio/configurable-practices/receiving-six-pallets.json`.
 The ten-minute physical integration test lives separately at
 `tests/native/configurable-practice-receiving-native.test.mjs`; ordinary framework
 unit checks do not repeat that drive.
+
+Other native regressions include six identified rack putaways across three levels
+and replenishment of the same pallet (CEDI-02), twelve picked cartons with twelve
+remaining in stock (CEDI-03), two physical truck deliveries (CEDI-05), two mixed
+raw-material deliveries (SF-01), three BOM kits (SF-02), twelve bodies through
+fixture/machining/measurement (SF-03), twelve tested assemblies (SF-04), and real
+carton/pallet formation and transfer (CEDI-04/SF-05). Readiness is enabled only
+after the relevant complete regression passes, not after construction alone.
+
+These proofs exercise engine geometry, native controls, collision sweeps,
+custody, machine time, component balances and six-stage evidence. They do not
+certify physical headset frame rate, human reach or a safety PLC. The prepared
+reach-truck has actual straddle clearance for a 1.20 m pallet; this is a geometry
+correction, not an exemption from collision or pallet-pocket checks.

@@ -17,7 +17,7 @@ module.exports=function renderCosts(roots,options={}){
   residentMeshes++;residentGeometries.add(node.geometry);
   const list=Array.isArray(node.material)?node.material:[node.material];
   for(const material of list)if(material){residentMaterials.add(material);textureSet(material,residentTextures);}
-  if(!visible(node))return;
+  if(!visible(node)||node.layers&&node.layers.mask===0)return;
   validate(node.matrixWorld.elements.every(Number.isFinite),'Visible native world transform is finite.');
   const geometry=node.geometry,position=geometry.attributes&&geometry.attributes.position;
   validate(!!position&&position.count>0,'A visible native mesh needs finite vertices.');

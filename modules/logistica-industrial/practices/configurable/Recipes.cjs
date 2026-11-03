@@ -3,6 +3,13 @@ const source=require('./data/source.json');
 const MODES=['manual','semiautomatic','automatic'];
 const GUARDS=['identify','prepare','operate','inspect','deliver','close'];
 const MODULE_ID='sector.logistics-industrial';
+// Only a bounded native end-to-end regression can add a prepared baseline.
+// Alternative machines, positions, cases and automation need their own proof.
+const VERIFIED_MATERIAL=Object.freeze({
+ 'CEDI-01':'tests/native/configurable-practice-receiving-native.test.mjs','CEDI-02':'tests/native/practice-putaway-native.test.mjs','CEDI-03':'tests/framework/configurable-practice-material-fixtures.test.mjs','CEDI-04':'tests/framework/practice-packing-native.test.mjs','CEDI-05':'tests/framework/practice-dispatch-native.test.mjs',
+ 'SF-01':'tests/native/configurable-practice-raw-receiving-native.test.mjs','SF-02':'tests/framework/practice-kit-native.test.mjs','SF-03':'tests/native/practice-machining-native.test.mjs',
+ 'SF-04':'tests/framework/practice-assembly-native.test.mjs','SF-05':'tests/framework/practice-packing-native.test.mjs'
+});
 const clone=value=>JSON.parse(JSON.stringify(value));
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value)&&[Object.prototype,null].includes(Object.getPrototypeOf(value));
 const MODE_ALIAS={M:'manual',S:'semiautomatic',A:'automatic'};
@@ -18,25 +25,14 @@ const FIXTURES={
  'SF-04':{machinedBodies:12,lids:12,screws:48,sets:12},
  'SF-05':{finishedSets:12,cartons:12,boxLabels:12,emptyPallets:1,palletLabels:1,boxesPerPallet:12}
 };
-const UNVERIFIED={
- 'CEDI-02':'Falta validar la ubicación de seis pallets y la reposición de ocho cajas con las mismas identidades y el saldo de picking.',
- 'CEDI-03':'Falta enlazar el picking real de 12 de las 24 cajas, las tres órdenes y la consolidación por pedido.',
- 'CEDI-04':'Falta validar consumo de empaque/etiquetas y formación de dos pallets de seis cajas sin crear existencias.',
- 'CEDI-05':'Falta validar la secuencia de carga, la retención del muelle y la conciliación de dos pallets en el camión.',
- 'SF-01':'Falta enlazar las dos cargas multirreferencia (cuerpos, tapas y tornillos) con calidad y disponibilidad por lote.',
- 'SF-02':'Falta validar tres kits con cuatro cuerpos, cuatro tapas y dieciséis tornillos por kit y su entrega al consumo.',
- 'SF-03':'Falta validar carga, fixture/herramienta, ciclo de mecanizado y liberación de doce cuerpos por esta celda.',
- 'SF-04':'Falta enlazar el consumo de la BOM real y la genealogía de doce ensambles con ensayos y retrabajo sin duplicación.',
- 'SF-05':'Falta validar consumo de empaque, doce cajas en un pallet y el destino excluyente CEDI o camión.'
-};
 function entry(id){const row=source.records.find(row=>row.id===id);if(!row)throw Error('Práctica configurable no disponible: '+id);return row;}
 function availability(id,mode='manual',options={}){
  const row=entry(id);mode=MODE_ALIAS[mode]||mode;if(!MODES.includes(mode))throw Error('Modalidad de práctica inválida.');
  const caseId=options.caseId||'A';
  const selections=options.equipmentSelections||{},layout=options.layout||{preset:'prepared',overrides:[]};
- const ready=id==='CEDI-01'&&mode==='manual'&&caseId==='A'&&Object.keys(selections).length===0&&layout.preset==='prepared'&&!(layout.overrides||[]).length;
- const reasons=ready?[]:[id==='CEDI-01'?'El montaje está disponible para configurar. El flujo evaluado de transferencia y excepciones de esta combinación todavía no ha sido validado fin a fin.':UNVERIFIED[id]];
- return {practiceId:id,mode,sourceMode:row.modes[mode].name,canConfigure:true,ready,reasons,scope:ready?'native-six-pallet-receiving':'source-faithful-native-configuration',humanResponsibilities:row.modes[mode].actorsText};
+ const ready=!!VERIFIED_MATERIAL[id]&&mode==='manual'&&caseId==='A'&&Object.keys(selections).length===0&&layout.preset==='prepared'&&!(layout.overrides||[]).length;
+ const reasons=ready?[]:[VERIFIED_MATERIAL[id]?'El caso A manual preparado tiene una operación material comprobada. Esta selección de caso, automatización, equipos o posiciones requiere su propia validación fin a fin antes de evaluarse.':'Esta práctica conserva el montaje y los materiales de referencia; su operación completa requiere validación nativa antes de evaluarse.'];
+ return {practiceId:id,mode,sourceMode:row.modes[mode].name,canConfigure:true,ready,reasons,scope:ready?(id==='CEDI-01'?'native-six-pallet-receiving':'native-material-workflow'):'source-faithful-native-configuration',evidence:ready?VERIFIED_MATERIAL[id]:null,humanResponsibilities:row.modes[mode].actorsText};
 }
 function normalizedOptions(options){
  if(!plain(options))throw Error('La configuración debe ser un objeto de selectores.');
@@ -66,4 +62,4 @@ function plan(id,options={}){
 }
 function workflowRequirements(value){const p=typeof value==='string'?plan(value):value,aliases=p.layoutBindings.map(row=>row.alias);return p.steps.map((step,index)=>({id:step.id,guard:step.guard,title:step.title,action:step.action,eventId:p.id.toLowerCase()+'-stage-'+(index+1),requiredEvent:p.id.toLowerCase()+'-stage-'+(index+1),actorAliases:(p.id==='CEDI-01'?[['E01','E02','E08'],['E01','E02','E03'],['E03','E04'],['E04','E05','E07'],['E04','E08'],['E07','E08']]:Array(6).fill(aliases))[index]}));}
 function list(){return source.records.map(row=>({id:row.id,key:row.key,title:row.title,domain:row.domain,objective:row.objective,moduleId:MODULE_ID,cases:['A','B','C'],modes:MODES.slice(),availability:MODES.map(mode=>availability(row.id,mode)),steps:row.steps.map((step,index)=>Object.assign({},step,{guard:GUARDS[index]})),fixtureText:row.fixtureText,diagrams:clone(row.diagrams)}));}
-module.exports={version:2,MODES,GUARDS,MODULE_ID,FIXTURES,entry,list,plan,availability,workflowRequirements,matrix:()=>list().map(row=>({id:row.id,modes:row.availability})),normalizedOptions};
+module.exports={version:2,MODES,GUARDS,MODULE_ID,FIXTURES,VERIFIED_MATERIAL,entry,list,plan,availability,workflowRequirements,matrix:()=>list().map(row=>({id:row.id,modes:row.availability})),normalizedOptions};

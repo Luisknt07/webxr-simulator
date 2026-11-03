@@ -13,7 +13,7 @@ module.exports=function manualDriver(h,f,record){
    const remaining=sign*(target-record.object.position[axis]);if(remaining<.025){stop();return;}
    const error=wrap(heading-yaw()),steer=-direction*error*8;
    tick({throttle:direction*Math.min(.75,Math.max(.16,remaining*1.2)),steer:Math.max(-.3,Math.min(.3,steer))});
-   if(v.blocked)throw Error('Physical contact while driving '+axis+' towards '+target+' at '+record.object.position.toArray());
+   if(v.blocked){if(process.env.PRACTICE_DRIVER_DEBUG){const world=f.ctx.collisionWorld,boxes=[api.bodyBox(record),...api.mechanismBoxes(record).forks];if(v.entry)boxes.push(v.entry.product.item.box);const near=new Set();for(const box of boxes){world.triangles(box.clone().expandByScalar(.08),api.collisionOptions(record,v.entry&&v.entry.product),(triangle,object)=>{if(box.clone().expandByScalar(.08).intersectsTriangle(triangle)){const chain=[];for(let node=object;node;node=node.parent){chain.push(node.name||node.userData.editorId||node.type);if(node===f.root)break;}near.add(chain.join(' / '));}return false;});}console.log('contact-candidates',Array.from(near));}throw Error('Physical contact while driving '+axis+' towards '+target+' at '+record.object.position.toArray());}
    if(Math.abs(record.object.position[other]-cross)>.15)throw Error('Test operator drifted from a straight corridor.');
   }throw Error('Timed out driving a straight corridor.');
  };
@@ -28,14 +28,15 @@ module.exports=function manualDriver(h,f,record){
  };
  const lift=height=>{stop();for(let n=0;n<3000;n++){const input={brake:1};if(api.heightInput(record,input,height)){stop();return;}tick(input);if(v.blocked)throw Error('Physical contact while adjusting fork height.');}throw Error('Timed out adjusting fork height.');};
  const dock=(kind,targetId,approach)=>{
-  stop();v.route=[{position:new THREE.Vector3(approach.x,0,approach.z),action:kind,targetId,yaw:Math.PI,speed:.35}];v.routeIndex=0;v.missionStage='prepare';v.missionDock=null;v.missionCandidate=null;v.missionDelivery=null;v.missionElapsed=0;
+  stop();v.route=[{position:new THREE.Vector3(approach.x,0,approach.z),action:kind,targetId,yaw:approach.yaw===undefined?Math.PI:approach.yaw,speed:.35}];v.routeIndex=0;v.missionStage='prepare';v.missionDock=null;v.missionCandidate=null;v.missionDelivery=null;v.missionElapsed=0;
   for(let n=0;n<18000;n++){
    const destination=kind==='drop'&&(v.missionDelivery||f.runtime.vehicleTraining.destination(record));
    if(process.env.PRACTICE_DRIVER_DEBUG&&n%600===0)console.log('dock',kind,n/60,record.object.position.toArray(),v.missionStage,v.missionStatus,v.pose.lift,api.releasePlan(record,destination).reason,v.missionDock&&{position:v.missionDock.position.toArray(),yaw:v.missionDock.yaw},destination&&new THREE.Vector3().setFromMatrixPosition(destination.matrix).toArray());
    const ready=kind==='pickup'?api.pickupPlan(record).ready:api.releasePlan(record,destination).ready;
-   if(v.missionStage==='dock'&&ready){stop();const accepted=kind==='pickup'?api.pickup(record):api.release(record,destination);if(!accepted)throw Error('Native '+kind+' refused after its own plan was ready: '+v.warning);return;}
+   const jackSeated=kind!=='pickup'||v.config.family!=='pallet-truck'||v.missionDock&&Math.abs(record.object.position.clone().sub(v.missionDock.position).dot(new THREE.Vector3(Math.sin(v.missionDock.yaw),0,Math.cos(v.missionDock.yaw))))<.015;
+   if(v.missionStage==='dock'&&ready&&jackSeated){stop();const accepted=kind==='pickup'?api.pickup(record):api.release(record,destination);if(!accepted)throw Error('Native '+kind+' refused after its own plan was ready: '+v.warning);return;}
    let input=api.automatic(record,1/60);if(input.throttle)input.throttle*=.15;
-   if(kind==='drop'&&v.missionStage==='dock'&&v.missionDock){const goal=v.missionDock;if(Math.abs(record.object.position.x-goal.position.x)>.12)throw Error('The test operator did not align the drop approach.');if(record.object.position.z<goal.position.z-.08)throw Error('The test operator overshot the drop support: '+api.releasePlan(record,destination).reason);input={throttle:.08,steer:Math.max(-.2,Math.min(.2,-wrap(goal.yaw-yaw())*8))};}
+   if(v.missionStage==='dock'&&v.missionDock){const goal=v.missionDock,delta=record.object.position.clone().sub(goal.position),forward=new THREE.Vector3(Math.sin(goal.yaw),0,Math.cos(goal.yaw)),right=new THREE.Vector3(Math.cos(goal.yaw),0,-Math.sin(goal.yaw));if(Math.abs(delta.dot(right))>.12)throw Error('The test operator did not align the '+kind+' approach.');if(delta.dot(forward)>.08)throw Error('The test operator overshot the '+kind+' support: '+(kind==='drop'?api.releasePlan(record,destination):api.pickupPlan(record)).reason);input={throttle:.08,steer:Math.max(-.2,Math.min(.2,-wrap(goal.yaw-yaw())*8))};}
    tick(input);
    if(kind==='pickup'?!!v.entry:!v.entry){stop();return;}
    if(v.blocked){const plan=kind==='pickup'?api.pickupPlan(record):api.releasePlan(record);if(!plan.ready)throw Error('Physical contact while docking: '+plan.reason);}

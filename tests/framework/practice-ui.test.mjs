@@ -18,6 +18,14 @@ const load=(name)=>{const source=fs.readFileSync(new URL('../../modules/logistic
 const Browser=load('PracticeBrowser'),Panel=load('PracticePanel');
 const byText=(root,text)=>all(root).find(n=>n.tagName==='BUTTON'&&n.textContent===text),cards=browser=>all(browser.root).filter(n=>n.className==='st-practice-card');
 
+test('source readout uses physical stock independently of order counters and preserves legacy fallback',()=>{
+ const world={sourceUnits:12,stockSourceUnits:24,orderRemainingUnits:12,totalUnits:12,initialUnits:12},state={plan:{title:'Picking',expectedUnits:12},session:{},world,step:{guard:'identify'}};
+ const panel=new Panel({host:new Element('div'),controller:{state:()=>state,perform(){}}});
+ assert.equal(panel.countValues.sourceUnits.textContent,'24');assert.equal(panel.countValues.expectedUnits.textContent,'12');
+ world.stockSourceUnits=12;world.orderRemainingUnits=0;panel.update();assert.equal(panel.countValues.sourceUnits.textContent,'12');assert.equal(world.totalUnits,12);
+ delete world.stockSourceUnits;world.sourceUnits=6;panel.update();assert.equal(panel.countValues.sourceUnits.textContent,'6');panel.dispose();
+});
+
 
 
 test('learner actions delegate native evidence without fake completion, diagnosis answers or changed observations',async()=>{

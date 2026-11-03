@@ -1,3 +1,5 @@
+import MaterialPracticeRuntime from './MaterialPracticeRuntime.js';
+
 const GUARDS=['identify','prepare','operate','inspect','deliver','close'];
 const copy=value=>JSON.parse(JSON.stringify(value));
 const options=values=>values.map(value=>({value,label:String(value)}));
@@ -8,6 +10,7 @@ const options=values=>values.map(value=>({value,label:String(value)}));
  */
 export default class ConfigurablePracticeRuntime{
  constructor(editor,manifest){
+  if(manifest.materialRecipe)return new MaterialPracticeRuntime(editor,manifest);
   this.editor=editor;this.runtime=editor.simulation;this.manifest=manifest;this.lastMessage='Revisa la orden y el muelle; conduce con los controles nativos.';this.disposed=false;
   const restored=manifest.workflowState;
   this.state=restored&&restored.version===1?copy(restored):{version:1,arrival:null,secured:false,inspections:{},dispositions:{},registrations:{},unloaded:[],closed:false};

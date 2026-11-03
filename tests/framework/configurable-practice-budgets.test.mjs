@@ -49,8 +49,13 @@ test('ten source practices produce thirty separately selected native configurati
      if(Math.abs(object.position.x-binding.sourceCenter[0])>1e-6||Math.abs(object.position.z-binding.sourceCenter[2])>1e-6)assert(built.manifest.layoutAdjustments.some(a=>a.alias===authored.alias&&a.reason),'Relocation requires an explicit technical adaptation.');
      assert(binding.actualFootprint.length===3&&binding.actualFootprint.every(v=>Number.isFinite(v)&&v>0));mappings++;
     }
-    const unique=[...new Set(built.objects)],physicalMesh=n=>fixture.ctx.collisionWorld.physicalMesh(n),measured=costs(unique,{validate:(ok,message)=>assert(ok,message),physicalMesh});
-    Object.assign(row,measured,{actorCount:unique.length,sourceAliases:aliases.length,adjustments:built.manifest.layoutAdjustments});
+    const unique=[...new Set(built.objects)],physicalMesh=n=>fixture.ctx.collisionWorld.physicalMesh(n),authored=costs(unique);
+    // The exact production presentation helper submits its real bank geometry;
+    // native sources remain physical/raycast targets at render-only mask zero.
+    fixture.runtime.nativeRenderBanks.sync(unique,{staticObjects:(built.manifest.facility.objects||[]).filter(row=>['envelope','detail'].includes(row.role)).map(row=>fixture.document.getObject(row.objectId))});
+    const measured=costs(unique.concat(fixture.runtime.nativeRenderBanks.banks),{validate:(ok,message)=>assert(ok,message),physicalMesh});
+    assert.equal(measured.triangles,authored.triangles,'Rigid banking must not simplify the visible native topology.');
+    Object.assign(row,measured,{authored,presentation:fixture.runtime.nativeRenderBanks.getStats(),actorCount:unique.length,sourceAliases:aliases.length,adjustments:built.manifest.layoutAdjustments});
     row.byActor=unique.map(object=>({id:object.userData.editorId,alias:object.userData.configurablePracticeAlias||'',name:object.name,...costs([object])})).sort((a,b)=>b.drawCalls-a.drawCalls);
     row.drawCallReview=measured.drawCalls>budgets.drawCallReviewTarget;
     assert(measured.triangles<=budgets.triangleLimit,'Configuration exceeds 200k drawn triangles.');assert(measured.drawCalls<=budgets.drawCallRegressionLimit,'Configuration exceeds the measured 400-draw regression envelope; see the explicit 250-draw review.');
@@ -68,6 +73,6 @@ test('ten source practices produce thirty separately selected native configurati
   const report={format:'smarttwin.configurable-native-configuration-audit',version:1,startedAt,completedAt:new Date().toISOString(),loadedSourceHashes,finishedSourceHashes:hashes(),sourcePractices:10,configurations:rows.length,mappedAliases:mappings,executionReady:readyCount,configurationOnly:rows.length-readyCount,budgets,worst:{triangles:rows.filter(r=>r.triangles!==undefined).sort((a,b)=>b.triangles-a.triangles).slice(0,3).map(({byActor,...r})=>r),drawCalls:rows.filter(r=>r.drawCalls!==undefined).sort((a,b)=>b.drawCalls-a.drawCalls).slice(0,3).map(({byActor,...r})=>r)},review:rows.filter(r=>r.drawCallReview).map(r=>({id:r.id,mode:r.mode,drawCalls:r.drawCalls,top:r.byActor.slice(0,4)})),failures,rows,limits:'Configuration and visible native geometry audit only. Counts supplied authored roots, not unrelated fixture content; material groups only count for material arrays, two-pass transparent double-sided materials counted. Resident hidden allocations are separate. No frustum culling, shadows, physical headset FPS, full runtime or actor-contact certification.'};
   fs.mkdirSync(path.dirname(OUTPUT),{recursive:true});fs.writeFileSync(OUTPUT,JSON.stringify(report,null,2));
  }
- assert.equal(rows.length,30);assert.equal(mappings,255);assert.equal(readyCount,1,'Only the verified receiving/manual/A run is advertised ready.');assert.equal(failures.length,0,JSON.stringify(failures));
+ assert.equal(rows.length,30);assert.equal(mappings,255);assert.equal(readyCount,Object.keys(native.configurableRecipes.VERIFIED_MATERIAL).length,'Only a natively verified prepared/manual/A baseline is advertised ready.');assert.equal(failures.length,0,JSON.stringify(failures));
  console.log('30 native configurations / 255 mapped aliases; '+rows.filter(r=>r.drawCallReview).length+' configurations require draw-call review. Receipt '+path.relative(ROOT,OUTPUT));
 });

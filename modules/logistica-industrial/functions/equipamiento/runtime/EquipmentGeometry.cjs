@@ -505,8 +505,21 @@ function createCatalogueStorageVisual(THREE,cfg,layout){
  else{const rows=cells.map(cell=>({text:cell.code,position:[cell.position[0],cell.position[1]-.065,cell.position[2]+cell.depth/2+.018],width:Math.min(.78,cell.width*.93),height:.055}));const labels=labelFactory(THREE,rows);labels.userData.equipmentComponentId=def.id+'.addresses';root.add(labels);}
  rig.syncMotion=sync;root.userData.warehouseRackLocationCodes=cells.map(cell=>cell.code);root.userData.warehouseRackVisualStats={profiles:0,bolts:0,connectionPlates:0,labels:Math.min(128,cells.length),slotsLabeled:Math.min(128,cells.length)};sync();return root;
 }
+function retireCarrierTemplateMeshes(nativeRoot,def){
+ // Non-articulated carriers use a native robot record for its existing API,
+ // not the gantry that happened to provide those joint/TCP anchors. Preserve
+ // that graph while retiring its unrelated meshes and collision caches. This
+ // also runs on a same-signature refresh, since native refresh rebuilds its rig.
+ if(def.role!=='vehicle'||def.nativeKind!=='robot'||keepNative(def))return 0;
+ const meshes=[],resources=new Set();
+ for(const child of nativeRoot.children)if(child.userData.robotVisual)child.traverse(node=>{if(node.isMesh)meshes.push(node);});
+ for(const node of meshes){if(node.geometry)resources.add(node.geometry);for(const material of Array.isArray(node.material)?node.material:node.material?[node.material]:[]){resources.add(material);for(const texture of Object.values(material))if(texture&&texture.isTexture&&!(texture.userData&&texture.userData.sharedIndustrialTexture))resources.add(texture);}if(node.parent)node.parent.remove(node);}
+ resources.forEach(resource=>resource.dispose());
+ const rig=nativeRoot.userData.robotRig;if(rig){rig.collisionBodies=[];rig.collisionGroups=[];}
+ return meshes.length;
+}
 function applyEquipmentGeometry(nativeRoot,def,cfg,deps={}){
- if(!nativeRoot)return false;const signature=JSON.stringify([VERSION,def.id,cfg.length,cfg.width,cfg.depth,cfg.height,cfg.supportHeight,cfg.radius,cfg.rise,cfg.frameColor,cfg.accentColor,cfg.detail,cfg.wear,deps.layout&&deps.layout.floor,deps.layout&&deps.layout.path&&deps.layout.path.points]);
+ if(!nativeRoot)return false;retireCarrierTemplateMeshes(nativeRoot,def);const signature=JSON.stringify([VERSION,def.id,cfg.length,cfg.width,cfg.depth,cfg.height,cfg.supportHeight,cfg.radius,cfg.rise,cfg.frameColor,cfg.accentColor,cfg.detail,cfg.wear,deps.layout&&deps.layout.floor,deps.layout&&deps.layout.path&&deps.layout.path.points]);
  if(nativeRoot.userData.catalogueGeometrySignature===signature)return false;
  const geometry=createEquipmentGeometry(def,cfg,deps);if(!geometry){nativeRoot.userData.catalogueGeometrySignature=signature;return false;}
  const old=nativeRoot.children.find(n=>n.userData.catalogueGeometryBody);if(old){nativeRoot.remove(old);disposeGeometry(old);}

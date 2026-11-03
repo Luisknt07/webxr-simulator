@@ -14,6 +14,14 @@ export default class ProcessorRuntime {
     this.archive = new Map();
     this.visibility = new Map();
     this.sequence = 0;
+    this.materialAdapters = new Map();
+  }
+
+  registerMaterialAdapter(recordId, adapter) {
+    const record=this.runtime.records.get(recordId);
+    if(!record||!record.components.processor||!adapter||typeof adapter.prepare!=='function'||this.materialAdapters.has(recordId))throw Error('Adaptador material inválido o ya registrado.');
+    this.materialAdapters.set(recordId,adapter);
+    return()=>{if(this.materialAdapters.get(recordId)===adapter)this.materialAdapters.delete(recordId);};
   }
 
   attach(record, component) {
@@ -60,6 +68,8 @@ export default class ProcessorRuntime {
 
   canReceive(record, entry, manual = false, reserved = 0) {
     const processor = record && record.components.processor;
+    const adapter=record&&this.materialAdapters.get(record.id);
+    if(adapter&&typeof adapter.accepts==='function'&&!adapter.accepts((processor&&processor.input.queue||[]).concat(entry)))return false;
     return !!processor && processor.enabled && (manual || this.operational(processor)) && visible(record.object) &&
       processor.input.queue.length + reserved < processor.config.capacity && !processor.input.queue.includes(entry) &&
       !processor.jobs.some(job => job.inputs.includes(entry)) && this.fits(record, entry);
@@ -125,15 +135,17 @@ export default class ProcessorRuntime {
 
   canPickup(product) {
     const entry = product && product.sourceEntry, record = entry && this.runtime.records.get(entry.ownerId), processor = record && record.components.processor;
-    return !processor || processor.output.queue[0] === entry;
+    return !processor || processor.output.queue[0] === entry ||
+      (!processor.running || processor.paused || !processor.powered) && !processor.jobs.length && processor.input.queue[0] === entry;
   }
 
   picked(product) {
     const entry = product && product.sourceEntry, record = entry && this.runtime.records.get(entry.ownerId), processor = record && record.components.processor;
-    if (!processor || processor.output.queue[0] !== entry) return;
-    this.runtime.sourceRuntime.remove(record, entry, 'manual', processor.output);
+    if (!processor || !this.canPickup(product) || processor.output.queue[0] !== entry && processor.input.queue[0] !== entry) return;
+    const inventory=processor.output.queue.includes(entry)?processor.output:processor.input;
+    this.runtime.sourceRuntime.remove(record, entry, 'manual', inventory);
     product.processorOwnerId = ''; product.processorLocked = false;
-    this.showFront(record, processor.output);
+    this.showFront(record, inventory);
     processor.blocked = processor.blocked || processor.output.blocked;
   }
 
@@ -184,7 +196,20 @@ export default class ProcessorRuntime {
         continue;
       }
       if (processor.input.queue.length < count) break;
-      const inputs = processor.input.queue.slice(0, count), outputCount = this.expectedOutputs(processor, inputs), reservation = Math.max(0, outputCount - inputs.length);
+      const inputs = processor.input.queue.slice(0, count), adapter=this.materialAdapters.get(record.id);
+      let materialOperation;
+      if(adapter){
+        try{
+          const conversion=require('../schema/materialConversion.cjs'),outputs=adapter.prepare(inputs);
+          const balance=conversion.validate(inputs,outputs);
+          materialOperation={outputs,balance,signature:conversion.signature(inputs)};processor.recipeError='';
+        }catch(error){
+          processor.blocked=true;const message=String(error.message||error);
+          if(processor.recipeError!==message)this.runtime.event(record.id,'material-recipe-rejected',message);
+          processor.recipeError=message;break;
+        }
+      }
+      const outputCount = materialOperation?materialOperation.outputs.length:this.expectedOutputs(processor, inputs), reservation = Math.max(0, outputCount - inputs.length);
       if (this.runtime.sourceRuntime.liveLoads() + reservation > MAX_LOADS || this.leaves(inputs).length > MAX_MEMBERS) { processor.blocked = true; break; }
       processor.input.queue.splice(0, count);
       const slot = processor.slots[slotIndex], signature = this.signature(inputs);
@@ -193,6 +218,7 @@ export default class ProcessorRuntime {
       slot.started = true; slot.signature = signature;
       const job = {slotIndex, inputs, reservation, phase: setup ? 'setup' : 'process', elapsed: 0, results: null,
         setupTime: processor.setupTime, processTime: processor.processTime};
+      if(materialOperation)job.materialOperation=materialOperation;
       processor.jobs.push(job);
       inputs.forEach(entry => {
         if (entry.product) { this.remember(entry.product); processor.work.add(entry.product.object); entry.product.object.visible = false; entry.product.processorLocked = true; }
@@ -287,7 +313,17 @@ export default class ProcessorRuntime {
 
   finish(record, job) {
     const processor = record.components.processor;
-    if (processor.config.mode === 'combiner') job.results = this.combine(record, job.inputs);
+    if(job.materialOperation){
+      const conversion=require('../schema/materialConversion.cjs'),operation=job.materialOperation;
+      try{
+        if(conversion.signature(job.inputs)!==operation.signature)throw Error('La BOM cambió durante el ciclo; revisa las entradas.');
+        conversion.validate(job.inputs,operation.outputs);
+      }catch(error){processor.recipeError=String(error.message||error);processor.running=false;this.runtime.event(record.id,'material-recipe-rejected',processor.recipeError);return;}
+      job.inputs.forEach(entry=>this.consume(entry));
+      job.results=operation.outputs.map(output=>this.newEntry(record,job.inputs,output.members,output.units,output.spec,output.load));
+      job.results.forEach(entry=>{entry.spec.materialBalance=Object.assign({},operation.balance);});
+    }
+    else if (processor.config.mode === 'combiner') job.results = this.combine(record, job.inputs);
     else if (processor.config.mode === 'separator') job.results = this.split(record, job.inputs[0], this.expectedOutputs(processor, job.inputs));
     else if (processor.config.catalogueEquipmentId) {
       job.results = require('../../equipamiento/schema/operationSpec.cjs').applyOperation(processor.config, job.inputs, {recordId: record.id, runSequence: this.runtime.runSequence}).entries;
@@ -424,6 +460,6 @@ export default class ProcessorRuntime {
       [processor.input.helper, processor.output.helper, processor.work].forEach(helper => { if (helper.parent) helper.parent.remove(helper); });
       processor.input.queue = []; processor.output.queue = []; processor.jobs = [];
     });
-    this.archive.clear(); this.visibility.clear();
+    this.archive.clear(); this.visibility.clear(); this.materialAdapters.clear();
   }
 }

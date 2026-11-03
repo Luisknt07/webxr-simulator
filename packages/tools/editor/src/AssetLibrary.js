@@ -312,9 +312,15 @@ export default class AssetLibrary {
       if (/^(data:|blob:)/i.test(url)) return url;
       if (batch.some(item => item.url === url)) return storedAssetURL(url);
       // Decoder code belongs to this application, rather than to the imported bundle.
-      if (url.indexOf("packages/render-three/vendor/") === 0) return url;
+      if (/^packages\/render-three\/vendor\/(?:basis_transcoder\.(?:js|wasm)|draco_decoder\.(?:js|wasm)|draco_wasm_wrapper\.js)$/.test(url)) return url;
       let decoded;
       try { decoded = decodeURIComponent(url); } catch (error) { decoded = url; }
+      // An imported glTF/OBJ/FBX may reference auxiliary files, but must not
+      // make arbitrary remote requests or escape the application's asset set.
+      // This is a browser resource boundary; decoders above are app-owned.
+      if (/^(?:[a-z][a-z0-9+.-]*:|[\\/]{2})/i.test(decoded)) {
+        throw new Error('El modelo importado solo puede usar recursos de su mismo lote. Importa sus texturas y archivos .bin.');
+      }
       const decodedPrefix = 'editor-imports/' + record.batchId + '/';
       const offset = decoded.indexOf(decodedPrefix);
       const requested = normalizedPath(offset === -1 ? decoded : decoded.slice(offset + decodedPrefix.length));
@@ -324,10 +330,7 @@ export default class AssetLibrary {
       // Permit an unambiguous filename match in the same import batch.
       const candidates = batch.filter(item => item.name === requested.split('/').pop());
       if (candidates.length === 1) return urlFor(candidates[0]);
-      if (offset !== -1 || !/^[a-z]+:/i.test(url)) {
-        throw new Error('Falta el recurso "' + requested + '". Importa el modelo junto con sus texturas y archivos .bin.');
-      }
-      return url;
+      throw new Error('Falta el recurso "' + requested + '". Importa el modelo junto con sus texturas y archivos .bin.');
     });
     return manager;
   }

@@ -318,7 +318,17 @@ async function run() {
   assert.equal(manager.resolveURL(prefix + 'pack/buffer.bin'), records[1].dataUrl);
   assert.equal(manager.resolveURL(prefix + 'pack/textures/color.png'), records[2].dataUrl);
   assert.equal(manager.resolveURL(prefix + 'elsewhere/color.png'), records[2].dataUrl);
-  assert.equal(manager.resolveURL("packages/render-three/vendor/draco_decoder.js"), "packages/render-three/vendor/draco_decoder.js");
+  for (const file of ['draco_decoder.js', 'draco_decoder.wasm', 'draco_wasm_wrapper.js', 'basis_transcoder.js', 'basis_transcoder.wasm']) {
+    const url = 'packages/render-three/vendor/' + file;
+    assert.equal(manager.resolveURL(url), url, 'Application-owned decoder remains available.');
+  }
+  for (const url of ['https://tracker.invalid/asset.png', 'https://tracker.invalid/color.png', '//tracker.invalid/color.png', 'file:///private/secret.png', 'javascript:alert(1)', 'https%3A%2F%2Ftracker.invalid%2Fcolor.png', '\\\\tracker.invalid\\color.png']) {
+    assert.throws(() => manager.resolveURL(url), /mismo lote/, 'Imported resource cannot fetch an external address: ' + url);
+  }
+  for (const url of ['packages/render-three/vendor/../../api/projects', 'packages/render-three/vendor/%2e%2e/private.js', 'packages/render-three/vendor/draco_decoder.js?remote=1']) {
+    assert.throws(() => manager.resolveURL(url), /Falta el recurso/, 'Decoder prefix is not a generic resource escape.');
+  }
+  for (const url of ['data:image/png;base64,cG5n', 'blob:https://example.invalid/local-loader-id']) assert.equal(manager.resolveURL(url), url);
   assert.throws(() => manager.resolveURL(prefix + 'pack/missing.bin'), /Falta el recurso/);
   const restored = new AssetLibrary({});
   restored.restoreImports(JSON.parse(JSON.stringify(library.exportImports())));

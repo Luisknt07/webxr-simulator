@@ -345,7 +345,8 @@ export default class ProductSourceRuntime {
       const authored = product.record && product.record.components.product && product.record.components.product.config || {};
       const totalUnits = classification.units || 1, palletMode = classification.loadMode === 'pallet';
       const load = Object.assign({loadMode: palletMode ? 'pallet' : 'individual', palletColumns: 1, palletRows: 1, palletLayers: 1}, metadata || {}, authored);
-      const tare = palletMode ? Math.min(classification.mass, behaviorSchema.productSources.pallets.dimensions(load, true).tare) : 0;
+      const declaredTare=Number.isFinite(authored.palletTareKg)&&authored.palletTareKg>=0?authored.palletTareKg:behaviorSchema.productSources.pallets.dimensions(load,true).tare;
+      const tare = palletMode ? Math.min(classification.mass,declaredTare) : 0;
       load.palletTare = tare;
       entry = {id: record.id + ':' + this.runtime.runSequence + ':' + (++this.sequence), originId: record.id, ownerId: '',
         spec: {id: classification.sku, name: metadata && metadata.label || product.object.name || 'Caja', type: classification.productType,

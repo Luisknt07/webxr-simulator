@@ -22,7 +22,10 @@ const VARIANTS = [
   variant('forklift-electric-3w','counterbalance','Contrabalanceado eléctrico · 3 ruedas',{length:2.05,width:1.12,wheelbase:1.42,track:.93,payloadKg:1400,steerLimit:1.05}),
   variant('forklift-electric-4w','counterbalance','Contrabalanceado eléctrico · 4 ruedas'),
   variant('forklift-ic','counterbalance','Contrabalanceado térmico',{length:2.7,width:1.38,wheelbase:1.85,wheelRadius:.34,payloadKg:2500,frameColor:'#cf7935'}),
-  variant('reach-truck','reach','Retráctil de mástil móvil',{length:1.9,width:1.5,wheelbase:1.35,wheelRadius:.19,mastHeight:2.5,maxLift:6,maxReach:.65,maxSideShift:.18,payloadKg:1600,frameColor:'#c89f2c'}),
+  // The straddle arms are 0.13 m wide and inset 0.08 m from each side.
+  // 1.65 m overall leaves a real 1.36 m opening around a 1.20 m pallet,
+  // including a few centimetres of ordinary approach displacement.
+  variant('reach-truck','reach','Retráctil de mástil móvil',{length:1.9,width:1.65,wheelbase:1.35,wheelRadius:.19,mastHeight:2.5,maxLift:6,maxReach:.65,maxSideShift:.18,payloadKg:1600,frameColor:'#c89f2c'}),
   variant('stacker','stacker','Apilador eléctrico acompañante · patas abiertas',{length:1.35,width:1.55,height:1.85,wheelbase:1.0,track:1.05,wheelRadius:.13,mastHeight:1.85,maxLift:3,speed:1.2,reverseSpeed:.9,payloadKg:1000,tiltLimit:0,frameColor:'#bd413d'}),
   variant('order-picker','order-picker','Preparador de pedidos · cabina elevable',{length:1.7,width:1.05,height:2.1,wheelbase:1.15,wheelRadius:.2,maxLift:4.5,payloadKg:800,tiltLimit:0,maxSideShift:0,frameColor:'#5c92b4'}),
   variant('vna-turret','turret','Trilateral VNA · horquilla giratoria',{length:2.6,width:1.4,wheelbase:1.65,mastHeight:2.75,maxLift:7,maxReach:.4,turretLimit:Math.PI/2,payloadKg:1200,tiltLimit:0,frameColor:'#d8ad36'}),

@@ -1035,20 +1035,29 @@ export default class SceneDocument {
 
   _validateCADAttachment(roomId, descriptor) {
     if (!descriptor.attachment) return;
-    const target = this.getObject(descriptor.attachment.targetId);
-    if (!target || target.userData.editorRoom !== roomId || target.userData.editorPrefabKey !== 'vehicle') throw new Error('Vincula la pieza a un vehículo de este nivel.');
+    if (!this._cadAttachmentTarget(roomId, descriptor.attachment)) throw new Error('Vincula la pieza al bastidor de un equipo de este nivel; cabina y horquillas requieren un vehículo.');
+  }
+
+  _cadAttachmentTarget(roomId, attachment) {
+    const target = attachment && this.getObject(attachment.targetId);
+    // Only registered native roots may own parts: no CAD chains, imported
+    // descendants or cross-level anchors, so attachments cannot form cycles.
+    const entry = target && this.additions.get(attachment.targetId);
+    if (!target || !entry || !entry.descriptor.prefab || target.userData.editorRoom !== roomId) return null;
+    if (attachment.part !== 'frame' && target.userData.editorPrefabKey !== 'vehicle') return null;
+    return target;
   }
 
   syncCADAttachments() {
     this.additions.forEach(entry => {
       if (entry.descriptor.type !== 'cad') return;
       const object = entry.object, attachment = entry.descriptor.attachment;
-      const target = attachment && this.getObject(attachment.targetId);
-      if (!target || target.userData.editorRoom !== entry.roomId || target.userData.editorPrefabKey !== 'vehicle') {
+      const target = this._cadAttachmentTarget(entry.roomId, attachment);
+      if (!target) {
         if (attachment && !object.matrixAutoUpdate) object.matrix.decompose(object.position,object.quaternion,object.scale);
         object.matrixAutoUpdate = true; object.updateMatrix(); return;
       }
-      let rig; target.traverse(child => { if (child.userData.vehicleRig) rig = child.userData.vehicleRig; });
+      let rig; if (target.userData.editorPrefabKey === 'vehicle') target.traverse(child => { if (child.userData.vehicleRig) rig = child.userData.vehicleRig; });
       const anchor = rig && (attachment.part === 'forks' ? rig.forks : attachment.part === 'cabin' ? rig.cabin || rig.driverSeat : null) || target;
       anchor.updateWorldMatrix(true, false); object.parent.updateWorldMatrix(true, false);
       object.matrixAutoUpdate = false;

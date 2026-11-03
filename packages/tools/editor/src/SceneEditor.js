@@ -944,6 +944,7 @@ export default class SceneEditor {
     this.simulationPanel.tick();
     if(this.practiceController)this.practiceController.update();
     if (this.performance.syncPresentation) this.performance.syncPresentation(false);
+    this.simulation.syncNativePresentation();
   }
 
   resize() {

@@ -6,7 +6,7 @@ const PRODUCT_TYPES = [
   ['drum', 'Tambor'], ['sack', 'Saco'], ['cylinder', 'Cilindro'], ['reel', 'Bobina'], ['pallet', 'Pallet'], ['cage', 'Jaula / contenedor metálico']
 ].map(([value, label]) => ({value, label}));
 const BASE = {variant: '', productType: 'box', width: .3, height: .25, depth: .4, mass: 2, color: '#b48a52', labelColor: '#ece9d9', capColor: '#384b5c',
-  sku: 'product', quality: 'good', defect: 'none', base: 'flat', units: 1, loadMode: 'individual', palletType: 'euro-1200x800', palletMaterial: 'wood', contents: 'boxes'};
+  sku: 'product', quality: 'good', defect: 'none', base: 'flat', units: 1, loadMode: 'individual', palletType: 'euro-1200x800', palletMaterial: 'wood', palletTareKg: -1, contents: 'boxes'};
 const recipe = (id, name, changes) => ({id, name, status: 'ready', family: 'cargo', preset: Object.assign({}, BASE, changes, {variant: id, sku: id}),
   description: name + ' paramétrico, con masa, dimensiones y atributos de clasificación editables.'});
 const VARIANTS = [
@@ -38,6 +38,7 @@ function fields() {
     n('units', 'Unidades contenidas', 1, 64, 1), c('loadMode', 'Unidad de manipulación', [{value: 'individual', label: 'Individual / paquete'}, {value: 'pallet', label: 'Pallet completo'}]),
     c('palletType', 'Formato de pallet', [{value: 'euro-1200x800', label: '1200 × 800 mm'}, {value: 'industrial-1200x1000', label: '1200 × 1000 mm'}, {value: 'half-800x600', label: '800 × 600 mm'}, {value: 'custom', label: 'Personalizado'}]),
     c('palletMaterial', 'Material del pallet', [{value: 'wood', label: 'Madera'}, {value: 'plastic', label: 'Plástico'}]),
+    n('palletTareKg', 'Tara declarada del pallet · kg (-1 = formato)', -1, 3000, .1),
     c('contents', 'Contenido visual del pallet', [{value: 'boxes', label: 'Cajas'}, {value: 'crates', label: 'Cajas plásticas'}, {value: 'bottles', label: 'Botellas'}]),
     color('color', 'Color del cuerpo / clasificación'), color('labelColor', 'Color de etiqueta'), color('capColor', 'Color de tapa / fleje')];
 }
@@ -57,6 +58,7 @@ function normalize(value = {}, id) {
   if (!['good', 'defective'].includes(result.quality) || !['none', 'damaged', 'surface', 'dimension', 'incomplete'].includes(result.defect) || result.quality === 'good' && result.defect !== 'none') throw new Error('Calidad o defecto del producto inválido.');
   if (result.quality === 'defective' && result.defect === 'none') result.defect = 'damaged';
   if (result.loadMode === 'pallet') result.base = 'runners';
+  if (result.palletTareKg !== -1 && (result.palletTareKg < 0 || result.palletTareKg > result.mass)) throw new Error('La tara del pallet debe estar entre cero y la masa total, o -1 para usar el formato.');
   return result;
 }
 function forkPockets(height = .144) { return {bottom: height * .22, top: height * .74, deck: height * .74, minSpread: .28, maxSpread: .75, entryAxes: ['x', 'z']}; }

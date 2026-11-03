@@ -7,6 +7,7 @@ module.exports = function loadProcessorRuntime(THREE, behaviorSchema) {
     .replace(/^\uFEFF/, '').replace(/^import .*;\r?\n/gm, '').replace('export default class ProcessorRuntime', 'return class ProcessorRuntime');
   const resolve = id => {
     if (id === '../../equipamiento/schema/operationSpec.cjs') return require('../../modules/logistica-industrial/functions/equipamiento/schema/operationSpec.cjs');
+    if (id === '../schema/materialConversion.cjs') return require('../../modules/logistica-industrial/functions/procesamiento/schema/materialConversion.cjs');
     throw new Error('Processor fixture does not support module: ' + id);
   };
   return new Function('THREE', 'behaviorSchema', 'require', source)(THREE, behaviorSchema, resolve);

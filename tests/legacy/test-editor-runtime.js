@@ -23,7 +23,7 @@ class Element {
     this.tagName = tag.toUpperCase(); this.children = []; this.parentNode = null;
     this.listeners = {}; this.attributes = {}; this.value = ''; this.files = [];
     this.hidden = false; this.clientWidth = 960; this.clientHeight = 600;
-    this.style = {setProperty: (key, value) => { this.style[key] = value; }};
+    this.style = {setProperty: (key, value) => { this.style[key] = value; }, removeProperty:key=>{delete this.style[key];delete this.style[key.replace(/-([a-z])/g,(_,letter)=>letter.toUpperCase())];}};
     const classes = new Set();
     this.classList = {
       add: value => classes.add(value), remove: value => classes.delete(value), contains: value => classes.has(value),
@@ -51,6 +51,8 @@ class Element {
   remove() { if (this.parentNode) this.parentNode.removeChild(this); }
   setAttribute(key, value) { this.attributes[key] = String(value); }
   getAttribute(key) { return this.attributes[key]; }
+  hasAttribute(key) { return Object.prototype.hasOwnProperty.call(this.attributes,key); }
+  removeAttribute(key) { delete this.attributes[key]; }
   addEventListener(type, callback) { (this.listeners[type] || (this.listeners[type] = [])).push(callback); }
   removeEventListener(type, callback) { this.listeners[type] = (this.listeners[type] || []).filter(value => value !== callback); }
   async fire(type, event = {}) {
@@ -70,6 +72,8 @@ dom.body = new Element('body'); dom.activeElement = dom.body;
 dom.createElement = tag => new Element(tag);
 const browserWindow = new Element('window');
 Object.assign(browserWindow, {location: 'https://editor.test/editor', innerWidth: 1280, innerHeight: 720});
+dom.documentElement = new Element('html');
+Object.defineProperties(dom.documentElement,{clientWidth:{get:()=>browserWindow.innerWidth},clientHeight:{get:()=>browserWindow.innerHeight}});
 const storage = new Map();
 const localStorage = {
   getItem: key => storage.get(key) || null,

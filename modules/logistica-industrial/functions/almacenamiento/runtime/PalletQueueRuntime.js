@@ -751,12 +751,12 @@ export default class PalletQueueRuntime {
           const region = new THREE.Box3(new THREE.Vector3(bay.position[0] - config.width / 2, layout.palletTop, bay.position[2] - config.depth / 2),
             new THREE.Vector3(bay.position[0] + config.width / 2, Math.max(layout.palletTop + .2, height + .5), bay.position[2] + config.depth / 2)).applyMatrix4(record.object.matrixWorld);
           const distance = center.distanceTo(region.clampPoint(center, new THREE.Vector3()));
-          if (distance <= tolerance && (!best || distance < best.distance)) best = {record, target: record.object, distance, palletIndex: bay.index, accepted: false, kind: 'top', normal: up};
+          if (distance <= tolerance && (!best || best.accepted === false && distance < best.distance)) best = {record, target: record.object, distance, palletIndex: bay.index, accepted: false, kind: 'top', normal: up};
         });
         return;
       }
       const distance = center.distanceTo(candidate.bounds.getCenter(new THREE.Vector3()));
-      if (distance > tolerance || best && best.distance <= distance) return;
+      if (distance > tolerance || best && best.accepted && best.distance <= distance) return;
       best = Object.assign({}, candidate, {record, target: record.object, kind: 'top', distance, snapped: distance <= .22, accepted: true,
         normal: new THREE.Vector3(0, 1, 0).transformDirection(record.object.matrixWorld), point: candidate.bounds.getCenter(new THREE.Vector3()).setY(candidate.bounds.min.y)});
     });

@@ -32,6 +32,12 @@ La zona E07 sólo ofrece dos posiciones. El montaje declara su continuación fí
 
 Cada montaje anuncia su disponibilidad de ejecución. **Preparar montaje** permite estudiar una configuración nativa todavía no evaluable. **Iniciar práctica** requiere un adaptador y una combinación comprobados. Una representación visual de WMS, OCR, AS/RS o flota no demuestra una integración externa ni una operación autónoma.
 
+Las existencias de las diez prácticas se materializan desde el inicio, con identidad, lote y cantidad finitos. El picking conserva las cajas que permanecen en origen; los kits y ensambles consumen sus componentes originales; el empaque utiliza las mismas cajas hasta formar el pallet real. Los formularios solicitan ciclos o registran comprobaciones y nunca mueven una carga ni acreditan una entrega por sí solos. Cada ciclo manual retira su permiso al terminar y espera una solicitud nueva. En mecanizado se exige el orden sujeción, transformación y medida.
+
+Las combinaciones preparadas que ya superaron su regresión completa se habilitan únicamente en **manual · caso A**, con sus equipos y posiciones predeterminados. Los modos asistidos y automáticos, casos alternativos y montajes editados permanecen disponibles como consulta hasta validar su propia ejecución. La dificultad y las ayudas pueden cambiar sin generar otro escenario ni convertir una modalidad pendiente en evaluable.
+
+La guía de cada práctica incluye instrucciones de operación nativa. Al retirar del camión o entrar a un nivel de rack, ajusta la altura antes de acercarte a la estructura. Circula con la carga baja y retira las uñas en línea recta después del depósito. Las flechas orientan; una ruta alternativa conducida y físicamente segura también es válida. El plano en vivo representa las mismas ubicaciones e identidades utilizadas por las misiones.
+
 ## Progreso, guardado y aislamiento
 
 Los resultados se guardan por cuenta, intento y edición de fuente. La API revalida los selectores, seis etapas, aliases, cantidad, evidencia y secuencia. Sólo campaña con evaluación aprobada desbloquea la siguiente práctica. Aislado y consulta no alteran ese avance. Los intentos transitorios no crean proyectos ni usan su cuota. Las evidencias parciales son un registro; no se anuncian como reanudación de la simulación física.

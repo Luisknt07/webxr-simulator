@@ -107,9 +107,23 @@ export default class VehicleRuntime {
     // Preview the same physical engagement used by pickup, without touching
     // inventory, warnings, counters, authored state or the live pose object.
     const before=v.pose,previous=this.mechanismBoxes(record);let clear;
-    try{v.pose=pose;updateVehiclePose(v.visualRoot,pose);const world=this.runtime.ctx.collisionWorld;clear=this.mechanismClear(record,previous)&&!(world&&(world.testBox(product.bounds.clone().applyMatrix4(product.object.matrixWorld),this.cargoCollisionOptions(record,product))||this.carrierIntersects(record,product,product.object.matrixWorld)))&&!(c.family==='telehandler'&&this.rig(record).forks.getWorldPosition(new THREE.Vector3()).y-v.originWorld.y>c.maxLift+c.forkBaseHeight+.001);}
+    try{v.pose=pose;updateVehiclePose(v.visualRoot,pose);const world=this.runtime.ctx.collisionWorld;clear=this.mechanismClear(record,previous)&&!(world&&(world.testBox(product.bounds.clone().applyMatrix4(product.object.matrixWorld),this.cargoCollisionOptions(record,product))||this.carrierIntersects(record,product,product.object.matrixWorld)))&&!(c.family==='telehandler'&&this.rig(record).forks.getWorldPosition(new THREE.Vector3()).y-v.originWorld.y>c.maxLift+c.forkBaseHeight+.001);
+      // A pallet jack's ground rollers must pass the pallet's lower boards
+      // before lifting. Tine insertion alone accepted a shallow position that
+      // became trapped on the first hydraulic movement. Preview the actual
+      // wood/roller triangles at a small transport lift; retain every body and
+      // pocket collision and leave both the load and live pose untouched.
+      if(clear&&(this.rig(record).loadRollers||[]).length){
+        const forks=this.rig(record).forks,relative=new THREE.Matrix4().getInverse(forks.matrixWorld).multiply(product.object.matrixWorld),top=Math.min(c.maxLift,pose.lift+Math.max(.035,Math.min(.15,c.carryLift))),samples=Math.min(12,Math.max(1,Math.ceil((top-pose.lift)/.012)));
+        for(let sample=1;sample<=samples;sample++){
+          const raised=Object.assign({},pose,{lift:pose.lift+(top-pose.lift)*sample/samples});v.pose=raised;updateVehiclePose(v.visualRoot,raised);
+          const matrix=new THREE.Matrix4().multiplyMatrices(forks.matrixWorld,relative);
+          if(this.carrierIntersects(record,product,matrix)){clear=false;plan.reason='Introduce más las uñas hasta que los rodillos pasen los travesaños inferiores del pallet.';break;}
+        }
+      }
+    }
     finally{v.pose=before;updateVehiclePose(v.visualRoot,before);}
-    plan.ready=clear;plan.reason=clear?'Ambas uñas insertadas; centro de carga apoyado.':'No hay espacio para apoyar la carga sobre las horquillas.';return plan;
+    plan.ready=clear;plan.reason=clear?'Ambas uñas insertadas; centro de carga apoyado.':plan.reason||'No hay espacio para apoyar la carga sobre las horquillas.';return plan;
   }
   pickup(record,selectedProduct,explicit=false){const v=record.components.vehicle,c=v.config,plan=this.pickupPlan(record,selectedProduct),refuse=reason=>{if(explicit&&this.runtime.vehicleTraining&&this.runtime.vehicleTraining.onAttemptFailed)this.runtime.vehicleTraining.onAttemptFailed(record,'pickup',Object.assign({},plan,{reason}));return this.warn(record,reason);};if(!plan.ready)return refuse(plan.reason);const candidate=plan.candidate,{product,metadata}=candidate,existing=product.sourceEntry,owner=existing&&this.runtime.records.get(existing.ownerId),inventory=owner&&(owner.components.source||owner.components.processor&&owner.components.processor.output);
     if(!this.applyPose(record,plan.pose,true))return refuse('No hay espacio para apoyar la carga sobre las horquillas.');
