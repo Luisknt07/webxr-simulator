@@ -322,6 +322,7 @@ export default class SceneEditor {
     });
     window.addEventListener('blur', () => { this.clearNavigation(); this.wearBrushTool.cancelStroke(); });
     window.addEventListener('resize', () => this.resize());
+    window.addEventListener('smarttwin-practice-layout', () => this.resize());
     window.addEventListener('beforeunload', event => {
       if (!this.dirty && !this.importingFiles && !(this.projectTabs && this.projectTabs.hasUnsaved())) return;
       event.preventDefault();
@@ -950,12 +951,28 @@ export default class SceneEditor {
     // mobile. Measure the document viewport to avoid preserving that overflow.
     const screenWidth = Math.max(1, document.documentElement.clientWidth || window.innerWidth);
     const screenHeight = Math.max(1, document.documentElement.clientHeight || window.innerHeight);
-    const width = this.active ? Math.max(1, this.viewport.clientWidth) : screenWidth;
-    const height = this.active ? Math.max(1, this.viewport.clientHeight) : screenHeight;
+    const frame = !this.active && !this.ctx.vrMode && document.querySelector ? document.querySelector('[data-practice-scene-viewport]') : null;
+    const candidate = frame && !frame.hidden && frame.getBoundingClientRect ? frame.getBoundingClientRect() : null;
+    const rect = candidate && candidate.width >= 64 && candidate.height >= 64 ? candidate : null;
+    const width = this.active ? Math.max(1, this.viewport.clientWidth) : rect ? Math.round(rect.width) : screenWidth;
+    const height = this.active ? Math.max(1, this.viewport.clientHeight) : rect ? Math.round(rect.height) : screenHeight;
+    const canvas = this.ctx.renderer.domElement;
+    const reticle = document.getElementById && document.getElementById('desktop-reticle');
+    if (canvas && canvas.style) {
+      if (rect) {
+        canvas.setAttribute('data-practice-render-viewport', '');
+        Object.assign(canvas.style, {position:'fixed',left:rect.left+'px',top:rect.top+'px',borderRadius:'12px'});
+        if (reticle) Object.assign(reticle.style, {left:(rect.left+rect.width/2)+'px',top:(rect.top+rect.height/2)+'px'});
+      } else if (canvas.hasAttribute('data-practice-render-viewport')) {
+        canvas.removeAttribute('data-practice-render-viewport');
+        for (const key of ['position','left','top','border-radius']) canvas.style.removeProperty(key);
+        if (reticle) {reticle.style.removeProperty('left');reticle.style.removeProperty('top');}
+      }
+    }
     if (this.ctx.graphics && this.ctx.graphics.setViewport) this.ctx.graphics.setViewport(width, height, window.devicePixelRatio || 1);
     this.ctx.renderer.setSize(width, height);
     this.camera.aspect = width / height; this.camera.updateProjectionMatrix();
-    this.ctx.camera.aspect = screenWidth / screenHeight; this.ctx.camera.updateProjectionMatrix();
+    this.ctx.camera.aspect = rect ? width / height : screenWidth / screenHeight; this.ctx.camera.updateProjectionMatrix();
   }
 
   home() {

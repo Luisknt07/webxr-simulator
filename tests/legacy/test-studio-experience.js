@@ -5,6 +5,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const THREE = require('three');
 const VehicleMissionOverlay = require('../support/load-vehicle-mission-overlay')();
+const {setEditorIcon}=require('../support/load-editor-icons.cjs')();
+const practiceHostSource=fs.readFileSync(path.resolve(__dirname,'../../modules/logistica-industrial/practices/runtime/PracticeCampaignHost.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export default class PracticeCampaignHost','return class PracticeCampaignHost');
+const PracticeCampaignHost=new Function(practiceHostSource)();
 const code = fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-studio-experience.js"), '../src/studio/StudioExperience.js')), 'utf8')
   .replace(/^import .*;\r?\n/gm, '').replace('export default class StudioExperience', 'class StudioExperience');
 const captures = [], restores = [], calls = [];
@@ -13,10 +16,10 @@ const windowListeners = new Map();
 const createAvatar = config => { const avatar = new THREE.Group(); avatar.userData.dispose = () => { avatar.userData.disposed = true; }; return avatar; };
 class ImmersiveMenuMock { constructor(studio) { this.studio = studio; } open(page) { calls.push(['immersiveOpen', page]); } close() { calls.push(['immersiveClose']); } setVR(active) { calls.push(['immersiveVR', active]); } identityChanged() { calls.push(['immersiveIdentity']); } }
 class AdministrationMock { close() { calls.push(['administrationClose']); } }
-const Experience = new Function('THREE', 'StudioClient', 'StudioRoomConnection', 'StudioTools', 'EducationRuntime', 'SharedGrabs', 'RemotePresentation', 'createAvatar', 'avatarBadge', 'DEFAULT_AVATAR', 'captureSimulation', 'restoreSimulation', 'window', 'AdminWorkspace', 'ImmersiveStudioMenu', 'document', 'VehicleMissionOverlay',
+const Experience = new Function('THREE', 'StudioClient', 'StudioRoomConnection', 'StudioTools', 'EducationRuntime', 'SharedGrabs', 'RemotePresentation', 'createAvatar', 'avatarBadge', 'DEFAULT_AVATAR', 'captureSimulation', 'restoreSimulation', 'window', 'AdminWorkspace', 'ImmersiveStudioMenu', 'document', 'VehicleMissionOverlay', 'PracticeCampaignHost', 'setEditorIcon',
   code + '\nreturn StudioExperience;')(THREE, class {}, class {}, class {}, class {}, class {}, class {}, createAvatar, () => ({}), {},
   (runtime, options) => { captures.push(options); if (runtime.held && !options.allowHeld) throw new Error('Suelta las cargas'); return {version: 1, time: runtime.time}; },
-  (runtime, state, options) => { restores.push({runtime, state, options}); }, {location, addEventListener(type, listener) { windowListeners.set(type, listener); }}, AdministrationMock, ImmersiveMenuMock, {querySelectorAll() { return []; }}, VehicleMissionOverlay);
+  (runtime, state, options) => { restores.push({runtime, state, options}); }, {location, addEventListener(type, listener) { windowListeners.set(type, listener); }}, AdministrationMock, ImmersiveMenuMock, {querySelectorAll() { return []; }}, VehicleMissionOverlay, PracticeCampaignHost, setEditorIcon);
 
 function setup() {
   const experience = Object.create(Experience.prototype), cameraRig = new THREE.Group(), camera = new THREE.PerspectiveCamera();
@@ -48,6 +51,8 @@ async function run() {
   const lifecycle = [], constructorCtx = {}, constructorEditor = {ctx: constructorCtx, projectClient: {}, enter() {}, startRuntime() {}, async applyServerProject() {}};
   constructorCtx.editor = constructorEditor;
   const constructed = new ConstructorExperience(constructorEditor); await constructed.ready;
+  assert(constructed.practiceCampaign instanceof PracticeCampaignHost, 'The stripped-import legacy loader must supply the real practice host constructor.');
+  assert.strictEqual(constructed.practiceCampaign.editor,constructorEditor);
   assert(constructed.missionOverlay instanceof VehicleMissionOverlay, 'The Studio loader must provide the actual lazily mounted mission overlay constructor.');
   assert.equal(constructed.missionOverlay.panel, undefined, 'Ordinary Studio startup mounts no extra mission surface.');
   const overlayUpdate = constructed.missionOverlay.update.bind(constructed.missionOverlay);

@@ -10,10 +10,12 @@ import AdminWorkspace from './AdminWorkspace.js';
 import ImmersiveStudioMenu from './ImmersiveStudioMenu.js';
 import VehicleMissionOverlay from '../../../packages/tools/editor/src/VehicleMissionOverlay.js';
 import PracticeCampaignHost from '../../../modules/logistica-industrial/practices/runtime/PracticeCampaignHost.js';
+import {setEditorIcon} from '../../../packages/tools/editor/src/EditorIcons.js';
 
 const ROOM_IDS = ['hall', 'sound', 'photogrammetry', 'vertigo', 'panoramastereo', 'panorama1', 'panorama2', 'panorama3', 'panorama4', 'panorama5'];
 function el(tag, text, parent, className) { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; if (parent) parent.appendChild(node); return node; }
 function button(parent, text, action, className) { const node = el('button', text, parent, className); node.type = 'button'; node.addEventListener('click', action); return node; }
+function studioIcon(element,name) { if(typeof setEditorIcon==='function')setEditorIcon(element,name);return element; }
 function input(parent, label, type = 'text', value = '') { const row = el('label', label, parent), node = el('input', undefined, row); node.type = type; node.value = value; return node; }
 function select(parent, label, options, value) { const row = el('label', label, parent), node = el('select', undefined, row); options.forEach(option => { const item = el('option', option.label || option, node); item.value = option.value || option; }); node.value = value; return node; }
 
@@ -170,15 +172,18 @@ export default class StudioExperience {
     this.header = el('nav', undefined, document.body, 'studio-header'); this.header.setAttribute('aria-label', 'SMART-TWIN Simulator');
     const brand = el('a', undefined, this.header, 'studio-brand'); brand.href = '/'; brand.title = 'Volver al inicio de SmartTwin'; brand.setAttribute('aria-label', 'SmartTwin · Volver al inicio'); el('i',undefined,brand,'studio-cube'); const brandText=el('span',undefined,brand,'studio-brand-copy');el('strong', 'SMART-TWIN Simulator', brandText);el('small','Simulación industrial y logística',brandText);
     const actions = el('div', undefined, this.header, 'studio-header-actions');
-    this.practicesButton=button(actions,'Prácticas',()=>this.open('scenes'),'studio-practices');
+    this.practicesButton=button(actions,'Prácticas',()=>this.editor.editorEnabled&&this.practiceCampaign.openCatalogue?this.practiceCampaign.openCatalogue():this.open('scenes'),'studio-practices');
+    studioIcon(this.practicesButton,'practice');
     this.guideButton=button(actions,'Guía',()=>this.editor.practiceController?this.practiceCampaign.openGuide('guide'):this.editor.shell.openDocumentation(),'studio-guide');
+    studioIcon(this.guideButton,'guide');
     this.resultsButton=button(actions,'Resultados',()=>this.open('progress'),'studio-results');
+    studioIcon(this.resultsButton,'rows');
     this.accountButton = button(actions, 'Iniciar sesión', () => this.open(this.client.user ? 'personal' : 'account'), 'studio-account');
     this.flightButton = button(actions, 'Vuelo dron', () => this.setDesktopFlight(!this.ctx.desktopFlight), 'studio-flight');
     this.flightButton.setAttribute('aria-pressed', 'false'); this.flightButton.title = 'Volar en escritorio · WASD · Q subir · E bajar · Ctrl acelerar';
     if (this.editor.appendAudioControls) this.editor.appendAudioControls(actions);
     actions.appendChild(vrButton); vrButton.classList.add('studio-vr');
-    this.menuButton = button(actions, 'Menú ☰', () => this.drawer.hidden ? this.open('personal') : this.close()); this.menuButton.setAttribute('aria-expanded', 'false');
+    this.menuButton = button(actions, 'Menú', () => this.drawer.hidden ? this.open('personal') : this.close(),'studio-menu'); this.menuButton.setAttribute('aria-expanded', 'false');studioIcon(this.menuButton,'rows');
     this.shade = el('div', undefined, document.body, 'studio-shade'); this.shade.hidden = true; this.shade.addEventListener('click', () => this.close());
     this.drawer = el('aside', undefined, document.body, 'studio-drawer'); this.drawer.hidden = true; this.drawer.setAttribute('role', 'dialog'); this.drawer.setAttribute('aria-label', 'Mi espacio'); this.drawer.setAttribute('aria-modal', 'true');
     this.drawer.addEventListener('keydown', event => { event.stopPropagation(); if (event.key === 'Escape') this.close(); if (event.key === 'Tab') { const buttons = Array.from(this.drawer.querySelectorAll('button,input,select,a')).filter(node => !node.disabled && !node.hidden && (!node.getClientRects || node.getClientRects().length)); const first = buttons[0], last = buttons[buttons.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } } });
@@ -224,6 +229,7 @@ export default class StudioExperience {
     button(content, '⌂   Inicio   ›', () => this.goHome(), 'studio-action');
     if (user && this.editor.simulationPaused && !this.room) button(content, '▶ Reanudar simulación', () => { this.editor.simulationPaused = false; this.close(); }, 'studio-primary');
     button(content, '▦   Escenarios   ›', () => this.open('scenes'), 'studio-action');
+    const flight=button(content,this.ctx.desktopFlight?'Desactivar vuelo dron':'Activar vuelo dron',()=>{this.setDesktopFlight(!this.ctx.desktopFlight);this.open('personal');},'studio-action');studioIcon(flight,'move');
     if(this.ctx.voicePanel)button(content,'Voz e instrucciones   ›',()=>{this.close();this.ctx.voicePanel.open();},'studio-action');
     if(this.ctx.assistantWorkspace)button(content,'Asistente   ›',()=>{this.close();this.ctx.assistantWorkspace.open();},'studio-action');
     if(this.editor.industrialAudio)button(content,this.editor.industrialAudio.muted?'Activar sonido de equipos':'Silenciar sonido de equipos',()=>this.guard(async()=>{if(this.editor.industrialAudio.muted)await this.editor.industrialAudio.activate();else this.editor.industrialAudio.setMuted(true);this.editor.refreshAudioControls();this.open('personal');}),'studio-action');

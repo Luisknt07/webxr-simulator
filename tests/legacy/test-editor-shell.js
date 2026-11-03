@@ -77,6 +77,10 @@ shell.selectButton.click(); assert(called.some(call => call[0] === 'tool' && cal
 shell.accountButton.click(); assert(called.some(call => call[0] === 'account'));
 assert(editor.ui.classList.contains('ed-light'),'The authoring palette is scoped to the existing editor root.');
 assert(shell.transformBar.children.includes(editor.undoButton));assert(shell.transformBar.children.includes(editor.redoButton));assert(all(shell.transformBar).includes(editor.toolButtons.translate),'Context tools retain the original controls and event owners.');
+assert.equal(shell.selectButton.getAttribute('data-ed-icon'),'select');assert.equal(editor.toolButtons.translate.getAttribute('data-ed-icon'),'move');assert.equal(editor.undoButton.getAttribute('data-ed-icon'),'undo');
+assert.equal(shell.sceneNavigation.parentNode,shell.contextStrip,'Project context is outside the viewport.');assert.equal(shell.contextStrip.parentNode,editor.ui);assert(!editor.viewport.children.includes(shell.sceneNavigation),'Navigation must not cover the equipment.');
+const existingTabs=element('nav'),existingTab=element('button');let tabActivated=0;existingTab.textContent='Draft with unsaved changes';existingTab.addEventListener('click',()=>tabActivated++);existingTabs.appendChild(existingTab);editor.ui.appendChild(existingTabs);editor.projectTabs={bar:existingTabs,hasUnsaved:()=>true};shell.refresh();assert.equal(existingTabs.parentNode,shell.contextStrip);assert.equal(existingTabs.children[0],existingTab,'The original tab and its dirty draft are retained.');existingTab.click();assert.equal(tabActivated,1);assert.equal(editor.projectTabs.hasUnsaved(),true);shell.refresh();assert.equal(existingTabs.parentNode,shell.contextStrip);assert.equal(existingTab.events.click.length,1);
+let practiceCatalogueOpened=0;editor.ctx.studio.practiceCampaign={openCatalogue:()=>practiceCatalogueOpened++};shell.practiceLaunch.click();assert.equal(practiceCatalogueOpened,1,'Practicar invokes the real campaign host and preserves the current draft.');assert.equal(editor.projectTabs.hasUnsaved(),true);
 assert.equal(shell.voiceButton,null);assert.equal(shell.assistantButton,null,'Unavailable services do not expose inert proxy actions.');
 editor.ctx.voicePanel={open:()=>called.push(['voice-open'])};editor.ctx.assistantWorkspace={open:()=>called.push(['assistant-open'])};shell.refresh();assert.equal(shell.voiceButton,null,'A service can initialize before mounting its real launcher.');
 const nativeVoice=element('button'),nativeMicrophone=element('button'),nativeAssistant=element('button');nativeVoice.textContent='Voz';nativeMicrophone.textContent='Mic';nativeAssistant.textContent='Asistente';
@@ -100,21 +104,21 @@ shell.openMenu(0); find(shell.menus[0].popup, 'Guardar como…').click(); assert
 // Separators persist bounded dimensions and expose keyboard operations.
 const left = shell.splitters.left;
 left.fire('pointerdown', {button: 0, clientX: 238, clientY: 100}); left.fire('pointermove', {clientX: 310, clientY: 100}); left.fire('pointerup');
-assert.equal(shell.layout.left, 472); assert.equal(editor.ui.style['--ed-left'], '472px');
-const key = left.fire('keydown', {code: 'ArrowRight'}); assert(key.prevented && key.stopped); assert.equal(shell.layout.left, 496);
+assert.equal(shell.layout.left, 552); assert.equal(editor.ui.style['--ed-left'], '552px');
+const key = left.fire('keydown', {code: 'ArrowRight'}); assert(key.prevented && key.stopped); assert.equal(shell.layout.left, 560);
 shell.setPanel('hierarchy', true); assert.equal(editor.hierarchy.hidden, false); assert.equal(editor.inspectorTab, 'hierarchy');
-shell.setPanel('hierarchy', false); assert.equal(editor.hierarchy.hidden, true); assert.equal(editor.inspectorTab, 'object'); assert.equal(editor.ui.style['--ed-left'], '496px', 'Hierarchy visibility never collapses the separate Library column.');
+shell.setPanel('hierarchy', false); assert.equal(editor.hierarchy.hidden, true); assert.equal(editor.inspectorTab, 'object'); assert.equal(editor.ui.style['--ed-left'], '560px', 'Hierarchy visibility never collapses the separate Library column.');
 shell.setPanel('resources', false); assert.equal(editor.assets.hidden, true); assert.equal(editor.ui.style['--ed-left'], '0px');
 shell.reopen.children.find(control => control.getAttribute('data-panel') === 'resources' || control.dataset.panel === 'resources').click(); assert.equal(editor.assets.hidden, false);
 assert.equal(shell.splitters.bottom.hidden, true); assert.equal(shell.splitters.bottom.tabIndex, -1); assert.equal(editor.ui.style['--ed-bottom'], '0px', 'No retired lower Library track remains.');
 shell.layout.right = 90000; shell.applyLayout(); assert.equal(shell.layout.right, 489.6);
-const restored = harness(); assert.equal(restored.shell.layout.left, 496); assert.equal(restored.shell.layout.right, 489.6);
-shell.restoreLayout(); assert.equal(shell.layout.left, 400); assert.equal(shell.layout.right, 304);
+const restored = harness(); assert.equal(restored.shell.layout.left, 560); assert.equal(restored.shell.layout.right, 489.6);
+shell.restoreLayout(); assert.equal(shell.layout.left, 480); assert.equal(shell.layout.right, 304);
 // An old hidden hierarchy/bottom-dock preference must not hide the new Library.
 const savedPreferences = new Map(storage);
 try {
   storage.clear(); storage.set('hello-studio-layout-v1', JSON.stringify({left:155,right:382,bottom:700,hierarchy:false,inspector:false,resources:false}));
-  const migrated=harness(); assert.equal(migrated.shell.layout.left,400); assert.equal(migrated.shell.layout.right,382); assert.equal(migrated.shell.layout.resources,true); assert.equal(migrated.shell.layout.inspector,false); assert.equal(migrated.editor.assets.hidden,false); assert(storage.has('hello-studio-layout-v2'));
+  const migrated=harness(); assert.equal(migrated.shell.layout.left,480); assert.equal(migrated.shell.layout.right,382); assert.equal(migrated.shell.layout.resources,true); assert.equal(migrated.shell.layout.inspector,false); assert.equal(migrated.editor.assets.hidden,false); assert(storage.has('hello-studio-layout-v2'));
   browserWindow.innerWidth=390;
   migrated.shell.showPanel('resources'); assert.equal(migrated.shell.mobilePanel,'resources'); assert.equal(migrated.editor.assets.hidden,false); assert.equal(migrated.editor.inspector.hidden,true);
   migrated.shell.showPanel('hierarchy'); assert.equal(migrated.shell.mobilePanel,'inspector'); assert.equal(migrated.editor.inspectorTab,'hierarchy'); assert.equal(migrated.editor.hierarchy.hidden,false); assert.equal(migrated.editor.assets.hidden,true);

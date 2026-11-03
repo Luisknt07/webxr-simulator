@@ -5,8 +5,8 @@ const text=value=>typeof value==='string'?value:value&&value.text||'';
 const choices=rows=>(rows||[]).map((row,index)=>typeof row==='string'?{id:['A','B','C'][index]||String(index),title:row}:{id:row.id||row.value,title:row.name||row.title||row.label||row.id});
 /** One complete attempt form. It configures data; the host validates real assets. */
 export default class PracticeSetupForm{
- constructor(host,{record,definition,index,settings,capability,access,plan,onStart,onDocumentation,onChange}={}){
-  this.record=record;this.definition=definition||record;this.index=index||{};this.options={capability,access,plan,onStart,onDocumentation,onChange};this.disposed=false;this.busy=false;
+ constructor(host,{record,definition,index,settings,capability,access,plan,onStart,onDocumentation,onChange,purpose='play'}={}){
+  this.record=record;this.definition=definition||record;this.index=index||{};this.options={capability,access,plan,onStart,onDocumentation,onChange,purpose};this.disposed=false;this.busy=false;
   this.settings=Object.assign({caseId:'A',difficulty:1,mode:'manual',executionMode:'campaign',equipmentSelections:{},layout:{preset:'prepared',overrides:[]},helps:{text:true,voice:false,hints:'guided'},evaluation:'assessed',device:'desktop'},settings||{});
   this.settings.equipmentSelections=Object.assign({},this.settings.equipmentSelections);this.settings.layout=clone(this.settings.layout);this.settings.helps=Object.assign({},this.settings.helps);
   this.root=node('section','st-practice-setup');this.root.setAttribute('aria-label','Configurar intento de '+record.id);host.appendChild(this.root);
@@ -62,7 +62,7 @@ export default class PracticeSetupForm{
   this.responsibilities.textContent='Responsabilidades · '+text(mode.actorsText||mode.actors||mode.responsibilities||description&&description.actions||'La automatización sólo afecta los subprocesos configurados; las tareas humanas se mantienen indicadas en las misiones.');
   const availability=this.options.capability?this.options.capability(this.settings.mode,this.settings):{ready:false,reasons:['Falta comprobar las capacidades reales.']},access=this.options.access?this.options.access(this.settings):{allowed:true};this.previewOnly=availability.ready!==true&&availability.canConfigure===true;this.allowed=(availability.ready===true||this.previewOnly)&&access.allowed!==false;
   this.status.textContent=!access.allowed?access.reason:!availability.ready?(availability.reasons||['Modalidad no disponible.']).join(' · '):'Revisaremos compatibilidad, insumos, espacio y rutas antes de comenzar.';
-  this.start.disabled=this.busy||!this.allowed;this.start.textContent=this.busy?'Preparando escenario…':this.previewOnly?'Preparar montaje · sin evaluación':this.settings.executionMode==='campaign'?'Iniciar práctica en campaña':'Iniciar caso aislado';if(this.options.onChange)this.options.onChange(this.settings);
+  this.start.disabled=this.busy||!this.allowed;this.start.textContent=this.busy?'Preparando escenario…':this.options.purpose==='author'?'Crear montaje editable':this.previewOnly?'Preparar montaje · sin evaluación':this.settings.executionMode==='campaign'?'Iniciar práctica en campaña':'Iniciar caso aislado';if(this.options.onChange)this.options.onChange(this.settings);
  }
  async submit(){if(this.disposed||this.busy||!this.options.onStart)return;this.changed();if(!this.allowed)return;this.busy=true;this.changed();try{await this.options.onStart(clone(this.settings));}catch(error){if(!this.disposed)this.status.textContent=error.message||String(error);}finally{this.busy=false;if(!this.disposed){this.start.disabled=!this.allowed;this.changed();}}}
  dispose(){this.disposed=true;this.previewImage.removeAttribute('src');this.root.remove();}

@@ -262,7 +262,7 @@ export default class AssetThumbnails {
       if (generation !== this.generation) return {};
       const renderer = this._getRenderer();
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x1c2636);
+      scene.background = new THREE.Color(0xf1f5f9);
       scene.add(new THREE.HemisphereLight(0xffffff, 0x60708a, 1.5));
       const light = new THREE.DirectionalLight(0xffffff, 1.4);
       light.position.set(4, 8, 6);
@@ -299,7 +299,7 @@ export default class AssetThumbnails {
       const image = texture.image || {};
       const aspect = Math.max((image.width || 1) / (image.height || 1), 0.0001);
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x1c2636);
+      scene.background = new THREE.Color(0xf1f5f9);
       geometry = new THREE.PlaneBufferGeometry(Math.min(2, 2 * aspect / (WIDTH / HEIGHT)), Math.min(2, 2 * (WIDTH / HEIGHT) / aspect));
       material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
       scene.add(new THREE.Mesh(geometry, material));

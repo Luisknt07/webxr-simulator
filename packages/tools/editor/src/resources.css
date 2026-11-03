@@ -159,3 +159,63 @@
 .xr-editor.ed-studio.ed-light>.ed-assets .studio-resource-body{grid-template-columns:minmax(136px,40%) minmax(0,1fr)}
 @media(max-width:950px){.xr-editor.ed-light .studio-resource-domain{font-size:12px;min-height:36px}.xr-editor.ed-light .studio-resource-card-actions>.ed-button{min-height:38px}}
 @media(max-width:1050px) { .studio-resources.studio-resource-docked .studio-resource-body { grid-template-columns:145px minmax(0,1fr); } }
+
+/* Compact resource cards and a bounded, keyboard-accessible filter popover. */
+.studio-resource-subfamilies{display:none}
+.xr-editor.ed-studio.ed-light>.ed-assets{container-type:inline-size;container-name:editor-library}
+.xr-editor.ed-studio.ed-light>.ed-assets .studio-resource-header{display:grid;grid-template-columns:minmax(0,1fr) 34px 34px 34px;grid-auto-rows:auto;gap:7px 6px;padding:10px;overflow:visible;position:relative;z-index:15;background:#fff}
+.xr-editor.ed-studio.ed-light>.ed-assets .studio-resource-tabs{grid-column:1/-1;grid-row:1;display:flex;gap:3px;padding-bottom:7px;border-bottom:1px solid #e4eaf1;width:100%}
+.xr-editor.ed-light .studio-resource-tabs>.ed-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:6px 8px;border:0!important;border-radius:7px;background:transparent;color:#324b64;font-size:12px;font-weight:600;box-shadow:none}
+.xr-editor.ed-light .studio-resource-tabs>.ed-button.active{background:#008a7b;color:#fff}
+.xr-editor.ed-studio.ed-light>.ed-assets .studio-resource-search{grid-column:1/-1;grid-row:2;width:100%;min-height:35px;background:#fbfcfe;color:#233b53;border-color:#d9e3ee;order:initial;font-size:12px;padding:8px 11px}
+.xr-editor.ed-studio.ed-light>.ed-assets .studio-resource-domains{grid-column:1/-1;grid-row:3;display:flex;gap:5px;width:100%;padding:0 0 3px;margin:0;order:initial;flex:none}
+.xr-editor.ed-light .studio-resource-domains>.ed-button{display:flex;justify-content:center;min-height:29px;border:1px solid #dce5ee;border-radius:15px;background:#fff;color:#4c637b;font-size:11px;padding:5px 7px;font-weight:500;box-shadow:none}
+.xr-editor.ed-light .studio-resource-domains>.ed-button.active{background:#d9f3eb;border-color:#b3e1d3;color:#006d60;font-weight:650}
+.xr-editor.ed-studio.ed-light>.ed-assets .studio-resource-header>select{grid-row:4;grid-column:1;min-height:32px;font-size:12px;max-width:100%;width:100%;padding:5px 8px;order:initial}
+.xr-editor.ed-studio.ed-light>.ed-assets .studio-resource-header>.studio-resource-view{grid-row:4;width:34px;height:32px;min-height:32px;padding:6px!important;order:initial;border:1px solid #dce5ed;color:#4e657b;background:#fff;box-shadow:none}
+.xr-editor.ed-studio.ed-light>.ed-assets .studio-resource-header>.studio-resource-view.active{background:#d8f4ec;color:#00776b;border-color:#bee3d7}
+.xr-editor.ed-light .studio-resource-filter-menu{position:relative;grid-column:4;grid-row:4;min-width:0}
+.xr-editor.ed-light .studio-resource-filter-menu>summary{list-style:none;width:34px;height:32px;min-height:32px;cursor:pointer;color:#405b73;padding:6px!important;box-shadow:none}
+.xr-editor.ed-light .studio-resource-filter-menu>summary::-webkit-details-marker{display:none}
+.xr-editor.ed-light .studio-resource-filter-menu[open]>summary{background:#e0f4ed;border-color:#a5d9ca;color:#007969}
+.xr-editor.ed-light .studio-resource-filter-panel{display:grid;grid-template-columns:1fr 1fr;gap:8px;position:absolute;right:0;top:calc(100% + 6px);z-index:30;width:260px;max-width:calc(100vw - 30px);padding:13px;background:#fff;border:1px solid #d5e0eb;border-radius:10px;box-shadow:0 10px 32px #19334b26;color:#263e55}
+.xr-editor.ed-light .studio-resource-filter-menu:not([open])>.studio-resource-filter-panel{display:none}
+.xr-editor.ed-light .studio-resource-filter-panel>strong,.xr-editor.ed-light .studio-resource-filter-panel>select{grid-column:1/-1;color:#243c53;font-size:12px;max-width:100%;width:100%}
+.xr-editor.ed-light .studio-resource-filter-panel>.ed-button{justify-content:center;font-size:11px;min-height:33px}
+.xr-editor.ed-studio.ed-light>.ed-assets .studio-resource-body{grid-template-columns:minmax(160px,40%) minmax(0,1fr);background:#fff}
+.xr-editor.ed-light .studio-resource-grid{padding:10px!important;gap:9px!important;background:#fbfcfe!important;grid-template-columns:minmax(0,1fr)!important;align-content:start;grid-auto-rows:max-content}
+.xr-editor.ed-light .studio-resource-grid .studio-library-group-title{margin:0 0 1px;padding:6px 0 9px;font-size:12px;color:#29435c;line-height:1.4;border-color:#e0e8f0;gap:6px}
+.xr-editor.ed-light .studio-resource-card{display:flex;flex-direction:column;min-height:0!important;height:auto!important;border:1px solid #dbe4ed;border-radius:9px;background:#fff;box-shadow:0 1px 3px #1a3a5105;overflow:hidden}
+.xr-editor.ed-light .studio-resource-card.selected{border-color:#20a78d;box-shadow:0 0 0 2px #159d8214}
+.xr-editor.ed-light .studio-resource-card .studio-resource-choose{position:static!important;display:grid!important;grid-template-columns:68px minmax(0,1fr)!important;grid-template-rows:auto auto auto;gap:3px 9px!important;align-content:center;align-items:center;min-height:93px;height:auto!important;padding:10px 24px 6px 8px!important;background:transparent;border:0!important;box-shadow:none;text-align:left;color:#1a3049;flex:0 0 auto}
+.xr-editor.ed-light .studio-resource-card .studio-resource-thumbnail{position:static;grid-column:1!important;grid-row:1/4!important;width:68px!important;height:68px!important;flex-basis:68px;margin:0!important;border:0!important;border-radius:7px;background:#f0f4f8;overflow:hidden}
+.xr-editor.ed-light .studio-resource-thumbnail img,.xr-editor.ed-light .studio-resource-thumbnail canvas{object-fit:contain;width:100%;height:100%}
+.xr-editor.ed-light .studio-resource-thumbnail .editor-asset-thumbnail-type{display:grid;place-items:center;width:100%;height:100%;color:#638096}.xr-editor.ed-light .studio-resource-thumbnail .editor-asset-thumbnail-type::before{width:30px;height:30px}
+.xr-editor.ed-light .studio-resource-card .ed-file-name{grid-column:2!important;grid-row:auto!important;min-width:0;max-width:100%;margin:0!important;padding:0!important;display:block!important;white-space:normal!important;overflow-wrap:break-word;font-size:12px!important;font-weight:650;line-height:1.35;color:#172d44}
+.xr-editor.ed-light .studio-resource-card .studio-resource-type{grid-column:2!important;grid-row:auto!important;white-space:normal;min-width:0;font-size:10px!important;line-height:1.3;color:#63788b;margin:0}
+.xr-editor.ed-light .studio-resource-card .studio-resource-status{grid-column:2!important;grid-row:auto!important;justify-self:start;display:inline-block;max-width:100%;width:fit-content;margin:1px 0 0;padding:2px 6px;border-radius:4px;line-height:1.2;font-size:9px!important;color:#00756b;background:#e0f7f0;border-color:#c2e9dd}
+.xr-editor.ed-light .studio-resource-card .studio-resource-description{display:none}
+.xr-editor.ed-light .studio-resource-card .studio-resource-star{position:absolute;top:6px;right:5px;width:23px;min-width:23px;height:24px;min-height:24px;padding:3px!important;color:#74879b;border:0;background:#fff;box-shadow:none}
+.xr-editor.ed-light .studio-resource-star::before{width:15px!important;height:15px!important;flex-basis:15px!important}.xr-editor.ed-light .studio-resource-star.active{color:#c68c25;background:#fffaf0}
+.xr-editor.ed-light .studio-resource-card .studio-resource-card-actions{position:static!important;display:flex;gap:2px;width:auto;padding:0 7px 7px 80px!important;margin:0!important;border:0;align-items:center;justify-content:flex-start;flex:0 0 auto;min-height:27px}
+.xr-editor.ed-light .studio-resource-card .studio-resource-card-actions>.ed-button{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:25px!important;font-size:10px!important;font-weight:500;line-height:1.3;padding:3px 5px!important;min-width:0;flex:0 1 auto;background:transparent!important;color:#405d76!important;border:0!important;box-shadow:none}
+.xr-editor.ed-light .studio-resource-card-actions>.ed-button::before{width:13px;height:13px;flex-basis:13px}
+.xr-editor.ed-light .studio-resource-card-actions>.ed-button:hover{background:#e7f5f0!important;color:#007b6a!important}
+.xr-editor.ed-light .studio-resource-grid--list .studio-resource-card .studio-resource-choose{min-height:70px;grid-template-columns:48px minmax(0,1fr)!important;padding-top:7px!important}.xr-editor.ed-light .studio-resource-grid--list .studio-resource-card .studio-resource-thumbnail{width:48px!important;height:48px!important;flex-basis:48px!important}.xr-editor.ed-light .studio-resource-grid--list .studio-resource-card .studio-resource-card-actions{padding-left:60px!important}
+.xr-editor.ed-light .studio-resource-caption{color:#536b7e;background:#fff;border-color:#e1e8ef;font-size:10px;padding:7px 10px;max-height:36px}
+@container editor-library (min-width:540px){
+ .xr-editor.ed-studio.ed-light>.ed-assets .studio-resource-body{grid-template-columns:170px 116px minmax(0,1fr)!important}
+ .xr-editor.ed-light .studio-resource-subfamilies:not([hidden]){display:block;overflow:auto;min-width:0;padding:11px 6px;border-right:1px solid #e0e7ef;background:#fff}
+ .xr-editor.ed-light .studio-resource-folders .studio-library-category>*:not(summary){display:none!important}
+ .xr-editor.ed-light .studio-resource-folders .studio-library-category{margin:0;border-bottom:1px solid #edf1f6;padding:2px 0}
+ .xr-editor.ed-light .studio-resource-grid{padding:10px 8px!important}
+ .xr-editor.ed-light .studio-resource-card .studio-resource-choose{grid-template-columns:55px minmax(0,1fr)!important;gap:3px 7px!important;padding-left:7px!important}
+ .xr-editor.ed-light .studio-resource-card .studio-resource-thumbnail{width:55px!important;height:62px!important;flex-basis:55px!important}
+ .xr-editor.ed-light .studio-resource-card .studio-resource-card-actions{padding-left:67px!important}
+}
+@container editor-library (max-width:430px){
+ .xr-editor.ed-light .studio-resource-card .studio-resource-choose{grid-template-columns:44px minmax(0,1fr)!important;gap:3px 7px!important}
+ .xr-editor.ed-light .studio-resource-card .studio-resource-thumbnail{width:44px!important;height:56px!important;flex-basis:44px!important}
+ .xr-editor.ed-light .studio-resource-card .studio-resource-card-actions{padding-left:59px!important}
+}
+@media(max-width:950px){.xr-editor.ed-light .studio-resource-filter-panel>.ed-button{min-height:40px}.xr-editor.ed-light .studio-resource-card .studio-resource-choose{min-height:100px}.xr-editor.ed-light .studio-resource-card .studio-resource-card-actions>.ed-button{min-height:33px!important;font-size:11px!important}.xr-editor.ed-light .studio-resource-tabs>.ed-button{min-height:36px}}

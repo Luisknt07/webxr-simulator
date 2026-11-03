@@ -36,3 +36,21 @@
 .ed-studio .ed-practice-catalog .ed-scene-catalog-footer>span{flex:1 1 100%;min-width:0}
 .ed-studio .ed-practice-catalog .ed-scene-catalog-footer>.ed-button{min-width:0;max-width:100%;white-space:normal;text-align:center;text-decoration:none}
 @media(max-width:700px){.ed-studio .ed-scene-catalog.ed-practice-catalog{width:calc(100vw - 16px);max-width:calc(100vw - 16px);height:calc(100dvh - 20px);max-height:calc(100dvh - 20px);margin:10px auto}.ed-studio .ed-practice-catalog .ed-scene-catalog-header{padding:12px 14px;gap:10px;align-items:start}.ed-studio .ed-practice-catalog .ed-scene-catalog-header h2{font-size:20px;line-height:1.25;margin:0 0 8px}.ed-studio .ed-practice-catalog .ed-scene-catalog-header p{font-size:11px;line-height:1.45;margin:0}.ed-studio .ed-practice-catalog .ed-scene-catalog-filters{padding:6px 14px;gap:6px}.ed-studio .ed-practice-catalog .ed-scene-catalog-filters button{font-size:11px;padding:8px 10px;min-width:0}.ed-studio .ed-practice-catalog .ed-scene-library-summary{margin:5px 14px;padding:8px;font-size:10px}.ed-studio .ed-practice-catalog .ed-scene-catalog-feedback{font-size:10px;line-height:1.4;padding:5px 14px;margin:0}.ed-studio .ed-practice-catalog .ed-scene-catalog-footer{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:10px 14px;gap:6px;flex:none}.ed-studio .ed-practice-catalog .ed-scene-catalog-footer>span{grid-column:1/-1;font-size:10px;line-height:1.4}.ed-studio .ed-practice-catalog .ed-scene-catalog-footer>.ed-button{font-size:11px;min-height:36px;padding:8px;min-width:0;box-sizing:border-box}.ed-studio .ed-practice-catalog .ed-scene-catalog-grid{min-height:120px;max-width:100%;overflow-x:hidden}}
+
+/* One readable command language for the player and authoring interfaces. */
+.studio-header{background:#fff;border-color:#dce4ed;box-shadow:0 1px 8px #0f172a08;padding:0 20px}
+.studio-header .studio-brand{color:#12223b;letter-spacing:-.4px}.studio-header .studio-brand-copy strong{font:700 17px/1.2 "Segoe UI",Arial,sans-serif}.studio-header .studio-brand-copy small{color:#465b72;letter-spacing:.55px}
+.studio-header button,.studio-header a.studio-vr{color:#182b44!important;background:#fff!important;border-color:#d9e2ec!important;box-shadow:0 1px 2px #0f172a08;font-family:"Segoe UI",Arial,sans-serif!important}
+.studio-header .studio-practices{color:#fff!important;background:#008577!important;border-color:#008577!important}
+.studio-header .ed-iconized{display:inline-flex;align-items:center;gap:8px}
+.studio-header [data-ed-icon]::before,.studio-drawer [data-ed-icon]::before{content:'';display:inline-block;width:18px;height:18px;flex:0 0 18px;background:currentColor;mask:var(--ed-command-icon) center/contain no-repeat;-webkit-mask:var(--ed-command-icon) center/contain no-repeat;vertical-align:middle}
+.studio-header .studio-flight,.studio-header .ed-toolbar-group{display:none!important}
+.studio-header .studio-account{max-width:165px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.studio-header .studio-account svg{width:24px;height:24px;flex:0 0 24px}
+.studio-drawer label,.studio-drawer dt,.studio-drawer h4{color:#334b63}.studio-drawer .studio-error{color:#a62d3d}.studio-drawer .studio-muted{color:#52667a}
+.studio-drawer .studio-primary{background:#008577;color:#fff;border-color:#008577}.studio-drawer .studio-action{color:#20334d;font-size:14px!important;min-height:44px;display:flex;align-items:center;gap:10px}
+@media(max-width:1250px){.studio-header{padding:0 14px}.studio-header-actions{gap:5px}.studio-header .studio-account{max-width:120px}.studio-header .studio-brand-copy strong{font-size:15px}}
+@media(max-width:600px){.studio-header{padding:0 10px}.studio-header .studio-brand-copy strong{font-size:11px}.studio-header .studio-menu{font-size:0!important;min-width:36px;padding:7px!important}.studio-header .studio-menu::before{margin:0}.studio-header .studio-practices{gap:5px;font-size:10px!important}.studio-header .studio-account{display:none!important}}
+@media(max-width:1050px){
+ body:has(.st-practice-panel[data-presentation=workspace]) .equipment-study-trigger{bottom:76px}
+ body:has(.st-practice-panel[data-presentation=workspace]:not([data-practice-pane=scene])) .equipment-study-trigger{display:none!important}
+}

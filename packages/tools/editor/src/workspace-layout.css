@@ -66,3 +66,36 @@
  .ed-studio .ed-menu{flex-shrink:0}
  .ed-studio .ed-menu-popup,.ed-studio .ed-menu:nth-last-child(-n+2) .ed-menu-popup{position:fixed;top:34px;left:8px;right:auto;width:calc(100vw - 16px);min-width:0;max-width:390px;max-height:calc(100dvh - 80px)}
 }
+
+/* Project context is a real grid row, never an overlay over the 3D scene.
+   The existing project-tab nodes are reparented, preserving drafts and handlers. */
+.xr-editor.ed-studio.ed-light,.xr-editor.ed-studio.ed-light.ed-has-project-tabs{grid-template-rows:30px 60px 42px minmax(140px,1fr) 0 25px}
+.xr-editor.ed-studio.ed-light>.ed-context-strip{grid-column:1/-1;grid-row:3;z-index:10}
+.xr-editor.ed-studio.ed-light>.ed-assets{grid-row:4/6}.xr-editor.ed-studio.ed-light>.ed-viewport,.xr-editor.ed-studio.ed-light>.ed-workspace{grid-row:4}
+.xr-editor.ed-studio.ed-light>.ed-inspector{grid-row:4/6}.xr-editor.ed-studio.ed-light>.ed-status{grid-row:6}
+.xr-editor.ed-studio.ed-light>.ed-splitter-left,.xr-editor.ed-studio.ed-light>.ed-splitter-right{grid-row:4/6}
+.xr-editor.ed-light .ed-context-strip>.ed-project-tabs{position:static;inset:auto;display:flex;flex:0 1 auto;align-items:center;min-height:0;max-width:42%;width:auto;padding:0 0 0 14px;border:0;border-left:1px solid #e0e7ee;background:transparent;box-shadow:none;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.xr-editor.ed-light .ed-context-strip>.ed-project-tabs[hidden]{display:none!important}
+.xr-editor.ed-light .ed-context-strip .ed-project-tabs-caption{display:none}
+.xr-editor.ed-light .ed-context-strip .ed-project-tab{display:inline-flex;align-items:center;gap:2px;min-width:0;max-width:180px;border:1px solid transparent;border-radius:6px;background:#f3f6fa;color:#30475f}
+.xr-editor.ed-light .ed-context-strip .ed-project-tab.is-active{background:#e2f4ee;border-color:#b1ddd0;color:#006c61}
+.xr-editor.ed-light .ed-context-strip .ed-project-tab button{font-size:11px!important;font-weight:500;line-height:1.35;background:transparent!important;color:inherit!important;border:0!important;min-height:28px;padding:5px 7px;max-width:155px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xr-editor.ed-light .ed-context-strip .ed-project-tab button+button{font-size:16px!important;padding:3px 5px;min-width:22px}
+.xr-editor.ed-light .ed-context-strip .ed-project-tabs-open{border:0!important;background:transparent!important;color:#3b5870!important;font-size:11px;white-space:nowrap;padding:6px 8px;min-height:29px}
+.xr-editor.ed-light .ed-workspace-content h1,.xr-editor.ed-light .ed-workspace-content h2,.xr-editor.ed-light .ed-workspace-content h3,.xr-editor.ed-light .ed-workspace-content h4{color:#14243b}
+/* The source browser header has a local popover layer. A covering workspace
+   must form its own higher context so that header cannot intercept practice
+   cards or documentation links beneath it. */
+.xr-editor.ed-studio.ed-light>.ed-workspace-documentation,.xr-editor.ed-studio.ed-light>.ed-workspace-practices{grid-column:1/-1;grid-row:4/6;position:relative;z-index:35;isolation:isolate;min-width:0;min-height:0}
+.xr-editor.ed-studio.ed-light>.ed-assets .studio-resource-folders .studio-library-category>summary,.xr-editor.ed-studio.ed-light>.ed-assets .studio-resource-folders .studio-resource-folder,.xr-editor.ed-studio.ed-light>.ed-assets .studio-library-group-title{overflow-wrap:normal;word-break:normal;hyphens:none}
+.xr-editor.ed-studio.ed-light>.ed-assets .studio-library-category-label{overflow-wrap:normal;word-break:normal;hyphens:none;min-width:0}
+@media(max-width:1200px){.xr-editor.ed-light .ed-context-strip>.ed-project-tabs{max-width:30%;padding-left:6px}.xr-editor.ed-light .ed-context-strip .ed-project-tab{max-width:130px}.xr-editor.ed-light .ed-context-strip .ed-project-tabs-open{font-size:0;width:25px;padding:4px}.xr-editor.ed-light .ed-context-strip .ed-project-tabs-open::before{content:'+';font-size:18px}}
+@media(max-width:950px){
+ .xr-editor.ed-studio.ed-light,.xr-editor.ed-studio.ed-light.ed-has-project-tabs{grid-template-rows:30px 52px 40px minmax(0,1fr) 0 44px 24px}
+ .xr-editor.ed-studio.ed-light>.ed-assets,.xr-editor.ed-studio.ed-light>.ed-inspector{grid-row:4/6}
+ .xr-editor.ed-studio.ed-light>.ed-workspace,.xr-editor.ed-studio.ed-light>.ed-viewport{grid-row:4}
+ .xr-editor.ed-studio.ed-light>.ed-panel-dock{grid-row:6}.xr-editor.ed-studio.ed-light>.ed-status{grid-row:7}
+ .xr-editor.ed-light .ed-context-strip>.ed-project-tabs{display:none!important}
+ .xr-editor.ed-light .ed-context-strip .ed-scene-navigation{width:100%}
+ .xr-editor.ed-studio.ed-light>.ed-assets .studio-resource-grid{grid-template-columns:minmax(0,1fr)}
+}

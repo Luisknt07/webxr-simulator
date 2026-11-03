@@ -11,9 +11,13 @@ export default class PracticeCampaignHost {
  constructor(studio){this.studio=studio;this.editor=studio.editor;this.client=studio.client;this.generation=0;this.attempt=null;this.progress=null;this.userId='';this.busy=false;this.browsers=new Set();this.preview=null;}
  identity(){return this.client.user&&this.client.user.id||'';}
  assertIdentity(owner,generation){if(!owner||owner!==this.identity()||generation!==this.generation)throw Error("La cuenta o el intento cambió durante la operación.");}
- identityChanged(){const owner=this.identity();if(owner===this.userId)return;const hadPractice=!!(this.attempt||this.preview);this.generation++;this.progress=null;this.userId=owner;this.closeGuide();if(this.previewBanner)this.previewBanner.remove();this.preview=null;if(hadPractice){this.revoked=true;this.attempt=null;this.editor.stopRuntime();this.editor.document.rooms.forEach(entry=>{entry.root.visible=false;});}for(const browser of this.browsers)if(browser.setProgress)browser.setProgress(null,owner);}
+ identityChanged(){const owner=this.identity();if(owner===this.userId)return;const hadPractice=!!(this.attempt||this.preview);this.generation++;this.progress=null;this.userId=owner;this.closeGuide();if(this.previewBanner)this.previewBanner.remove();this.preview=null;if(hadPractice){this.revoked=true;this.attempt=null;this.editor.stopRuntime();this.editor.document.rooms.forEach(entry=>{entry.root.visible=false;});}for(const browser of this.browsers)if(browser.setProgress)browser.setProgress(null,owner);if(hadPractice)this.notifyLayout();}
  async refresh(){const owner=this.identity(),generation=this.generation;if(!owner)throw Error("Inicia sesión para consultar las prácticas y conservar resultados.");const result=await this.client.request('GET','/practices/progress');this.assertIdentity(owner,generation);this.progress=progressSchema.normalize(result.progress,owner);this.capabilities=result.capabilities||[];for(const browser of this.browsers)browser.setProgress(this.progress,owner);return this.progress;}
  availability(id,mode,settings={}){return recipes.availability(id,mode,settings);}
+ openCatalogue(){
+  if(this.editor.editorEnabled){const url=new URL('/play',window.location.origin);return window.open(url.href,'_blank','noopener');}
+  return this.studio.open('scenes');
+ }
  async catalogue(host,options={}){
   const owner=this.identity(),generation=this.generation;host.textContent="Cargando CEDI y Smart Factory…";
   if(!owner){host.textContent="Inicia sesión para consultar y guardar las prácticas.";const login=node('button',"Iniciar sesión",host);login.addEventListener('click',()=>this.studio.open('account'));return null;}
@@ -32,14 +36,47 @@ export default class PracticeCampaignHost {
    const chosen=result?result.attempt.settings:canonical,compiler=await import(/* webpackChunkName: "logistics-practice-scenes" */ './PracticeSceneBuilder.js');this.assertIdentity(owner,generation);const prepared=await compiler.compilePracticeProject(id,Object.assign({},chosen,{nativeDocument:this.editor.document}));this.assertIdentity(owner,generation);
    if(this.previewBanner){this.previewBanner.remove();this.previewBanner=null;}this.editor.projectSync.stop();this.editor.stopRuntime();this.attempt=result&&result.attempt||null;this.preview=result?null:{practiceId:id,settings:chosen,availability};if(result){this.progress=progressSchema.normalize(result.progress,owner);this.capabilities=result.capabilities||this.capabilities||[];}
    await this.editor.applyServerProject({id:'practice-'+(result?result.attempt.id:'preview-'+id),name:prepared.name,revision:0,document:prepared.document,transientPractice:true,access:{canEdit:false,canView:true,role:'viewer'},allowedRoomIds:['hall']},{roomId:'hall',accessGeneration:this.editor.accessView&&this.editor.accessView.identityGeneration});this.assertIdentity(owner,generation);
-   this.studio.close();this.closeGuide();this.revoked=false;this.editor.home();this.editor.hooks.unlock();this.editor.clearNavigation();
+   this.studio.close();this.closeGuide();this.revoked=false;this.editor.home();this.editor.hooks.unlock();this.editor.clearNavigation();this.frameInitialView();
    const url=new URL(window.location.href);url.searchParams.set('practice',id);url.searchParams.set('settings',JSON.stringify(sessionSchema.normalizeAttemptSettings(chosen)));for(const key of ['mode','caseId','difficulty'])url.searchParams.set(key,String(chosen[key]));for(const key of ['project','libraryScene','units','cycleTime'])url.searchParams.delete(key);history.replaceState(null,'',url);
-   if(this.preview)this.previewNotice();return{attempt:this.attempt,previewOnly:!!this.preview,reports:prepared.reports};
+   if(this.preview)this.previewNotice();this.notifyLayout();return{attempt:this.attempt,previewOnly:!!this.preview,reports:prepared.reports};
   }catch(error){if(owner===this.identity()&&generation===this.generation){this.attempt=previousAttempt;this.preview=previousPreview;}throw error;}finally{this.busy=false;}
  }
  activeManifest(){if(this.revoked)return null;const studio=this.editor.document&&this.editor.document.studio,data=studio&&studio.moduleData&&studio.moduleData['sector.logistics-industrial'];return data&&(data.levels||[]).find(row=>row.roomId===this.editor.roomId);}
+ frameInitialView(){
+  const editor=this.editor,ctx=editor&&editor.ctx,manifest=this.activeManifest(),doc=editor&&editor.document;
+  if(!ctx||editor.active||ctx.vrMode||!manifest||manifest.practiceId!=='CEDI-01'||!doc||typeof doc.getObject!=='function')return false;
+  const camera=ctx.camera,rig=ctx.cameraRig;if(!camera||!rig||!camera.position||!rig.position||typeof camera.lookAt!=='function'||typeof camera.position.set!=='function'||typeof rig.position.set!=='function')return false;
+  const aliases=manifest.aliases||[],vehicleId=manifest.vehicleIds&&manifest.vehicleIds[0],truckId=manifest.receiving&&manifest.receiving.truckId||(aliases.find(row=>row.alias==='E01')||{}).objectId;
+  const vehicle=vehicleId&&doc.getObject(vehicleId),truck=truckId&&doc.getObject(truckId);
+  const position=actor=>{if(!actor||!actor.position)return null;if(typeof actor.updateWorldMatrix==='function')actor.updateWorldMatrix(true,false);const point=typeof actor.position.clone==='function'?actor.position.clone():{x:actor.position.x,y:actor.position.y,z:actor.position.z};if(typeof actor.getWorldPosition==='function'&&typeof point.setFromMatrixPosition==='function')actor.getWorldPosition(point);return[point.x,point.y,point.z].every(Number.isFinite)?point:null;};
+  const from=position(vehicle),target=position(truck);if(!from||!target)return false;
+  // Present the receiving patio at walking height; actors, cargo and their
+  // physical custody stay untouched. XR keeps its tracked reference pose.
+  rig.position.set(from.x-4.5,0,from.z+3);if(rig.quaternion&&typeof rig.quaternion.set==='function')rig.quaternion.set(0,0,0,1);
+  camera.position.set(0,1.65,0);if(typeof rig.updateWorldMatrix==='function')rig.updateWorldMatrix(true,true);
+  camera.lookAt((from.x+target.x)/2,1.3,(from.z+target.z)/2);if(typeof camera.updateWorldMatrix==='function')camera.updateWorldMatrix(true,false);
+  if(typeof ctx.resetCollisionPose==='function')ctx.resetCollisionPose();if(ctx.desktopLook&&typeof ctx.desktopLook.reset==='function')ctx.desktopLook.reset();return true;
+ }
  context(){if(this.revoked)return null;if(this.editor.practiceController)return this.editor.practiceController;const manifest=this.activeManifest();if(!manifest||!manifest.plan)return null;return{editor:this.editor,runtime:this.editor.simulation,manifest,plan:manifest.plan,config:manifest.settings||manifest.plan,current:()=>this.activeManifest()===manifest,session:{done:[]}};}
- previewNotice(){if(this.previewBanner)this.previewBanner.remove();const banner=node('aside');banner.className='st-practice-preview-notice';node('strong',"Montaje de consulta · evaluación pendiente",banner);node('span',"No desbloquea prácticas. Explora los equipos y contrasta el layout documental.",banner);for(const [id,title]of[['guide',"Guía"],['layout','Layout'],['documentation',"Documentación"]]){const button=node('button',title,banner);button.addEventListener('click',()=>this.openGuide(id));}const configure=node('button','Configurar montaje',banner);configure.addEventListener('click',()=>this.configure());this.previewBanner=banner;document.body.appendChild(banner);}
+ previewNotice(){
+  if(this.previewBanner)this.previewBanner.remove();
+  const context=this.context(),plan=context&&context.plan;if(!plan)return;
+  const banner=node('section');banner.className='st-practice-panel st-practice-preview-notice st-practice-preview-workspace';banner.setAttribute('data-presentation','workspace');banner.setAttribute('data-practice-pane','missions');banner.setAttribute('data-scene-focus','false');banner.setAttribute('aria-label','Práctica · montaje de consulta');
+  const card=(parent,title,className='')=>{const element=node('section',undefined,parent);element.className='st-practice-learning-card '+className;node('h3',title,element);return element;};
+  const left=node('aside',undefined,banner);left.className='st-practice-learning-left';const heading=node('div',undefined,left);heading.className='st-practice-learning-heading';node('h2','Prácticas',heading);node('strong',plan.id+' · '+plan.title,left);
+  const missions=card(left,'Misiones del proceso','st-practice-missions'),list=node('ol',undefined,missions);list.className='st-practice-stage-list';for(const[index,step]of plan.steps.entries()){const row=node('li',undefined,list);row.setAttribute('data-state','pending');const number=node('span',String(index+1),row);number.className='st-practice-stage-number';node('strong',step.title,row);}
+  const configuration=card(left,'Configuración de la práctica');node('p','Caso '+plan.caseId+' · D'+plan.difficulty+' · '+({manual:'Manual / mecanizada',semiautomatic:'Semiautomatizada',automatic:'Automatizada'})[plan.mode],configuration);const configure=node('button','Cambiar configuración',configuration);configure.setAttribute('data-practice-open-configuration','');configure.addEventListener('click',()=>this.configure());
+  const tools=node('div',undefined,left);tools.className='st-practice-guide-actions';for(const[id,title]of[['guide','Guía de la tarea'],['diagram','Diagrama'],['layout','Layout en vivo'],['documentation','Documentación']]){const control=node('button',title,tools);control.setAttribute('data-practice-view',id);control.addEventListener('click',()=>this.openGuide(id));}
+  const mission=node('div',undefined,banner);mission.className='st-practice-active-mission';node('span','Vista de montaje',mission);node('p',plan.objective,mission);const focus=node('button','Escena completa',mission);focus.className='st-practice-viewport-toggle';focus.setAttribute('data-practice-focus','');focus.addEventListener('click',()=>{const active=banner.getAttribute('data-scene-focus')!=='true';banner.setAttribute('data-scene-focus',String(active));focus.textContent=active?'Mostrar paneles':'Escena completa';this.notifyLayout();});
+  const frame=node('div',undefined,banner);frame.className='st-practice-scene-frame';frame.setAttribute('data-practice-scene-viewport','');frame.setAttribute('aria-hidden','true');
+  const right=node('aside',undefined,banner);right.className='st-practice-learning-right';const instructions=card(right,'Instrucciones','st-practice-instructions');node('p','Recorre el montaje, consulta los componentes y contrasta la distribución con la guía. Puedes cambiar el caso, la dificultad y la automatización desde Configuración.',instructions);
+  const evaluation=card(right,'Estado de esta configuración','st-practice-evaluation');node('strong','Montaje de consulta · evaluación pendiente',evaluation);node('p','No inicia un intento, no concede puntuación y no desbloquea prácticas. Las seis misiones describen el proceso; su verificación material no está disponible en esta combinación.',evaluation);
+  const equipment=card(right,'Equipamiento del montaje','st-practice-indicators');node('p',String((plan.layoutBindings||[]).length)+' equipos o puntos del proceso',equipment);node('p',plan.fixtureText||'',equipment);
+  const browse=node('button','Elegir otra práctica',right);browse.addEventListener('click',()=>this.openCatalogue());
+  const navigation=node('nav',undefined,banner);navigation.className='st-practice-learning-navigation';navigation.setAttribute('aria-label','Paneles de aprendizaje');for(const[id,title]of[['scene','Escena'],['missions','Misiones'],['instructions','Instrucciones']]){const control=node('button',title,navigation);control.setAttribute('data-practice-pane',id);control.setAttribute('aria-pressed',String(id==='missions'));control.addEventListener('click',()=>{banner.setAttribute('data-practice-pane',id);for(const button of navigation.children)button.setAttribute('aria-pressed',String(button===control));this.notifyLayout();});}
+  this.previewBanner=banner;document.body.appendChild(banner);this.notifyLayout();
+ }
+ notifyLayout(){if(typeof window!=='undefined'&&typeof window.dispatchEvent==='function'&&typeof Event==='function')window.dispatchEvent(new Event('smarttwin-practice-layout'));}
  controllerOptions(manifest){
   if(!this.attempt||manifest.practiceId!==this.attempt.practiceId)return{onGuide:section=>this.openGuide(section),onConfigure:()=>this.configure()};
   const attempt=this.attempt,owner=this.identity(),generation=this.generation;
@@ -74,5 +111,5 @@ export default class PracticeCampaignHost {
   if(c&&c.manifest.layoutAdjustments&&c.manifest.layoutAdjustments.length){node('h3','Ajustes registrados del montaje',content);const list=node('ul',undefined,content);for(const row of c.manifest.layoutAdjustments)node('li',typeof row==='string'?row:row.reason||row.adjustmentReason||JSON.stringify(row),list);}
  }
  async index(){const data=await import(/* webpackChunkName: "logistics-practice-index" */ '../configurable/index.cjs');return data.default||data;}
- dispose(){this.closeGuide();if(this.previewBanner)this.previewBanner.remove();for(const browser of this.browsers)browser.dispose();this.browsers.clear();}
+ dispose(){this.closeGuide();if(this.previewBanner)this.previewBanner.remove();for(const browser of this.browsers)browser.dispose();this.browsers.clear();this.notifyLayout();}
 }

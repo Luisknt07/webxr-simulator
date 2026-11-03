@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "52cd842c7a2d54b5db96a2b0b6186c571c298888",
-  "bundleSha256": "05cec6b5262772628a9e907c258765667c66bd70ed6b3485f610dc7632457981",
+  "revision": "538208e5e102bf3d4066cda5e9bbf6ef4849f9d6",
+  "bundleSha256": "c6f19630c8b2eb93d4b4629035bfdf7513b7f40311ccafd45c8f585bb6cd56bf",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -44,7 +44,7 @@
   "files": [
     {
       "path": "0.bundle.js",
-      "sha256": "42f59dc2f93553751e53c53f57178325c691d71dd77f58177f2b1d412a68e59f"
+      "sha256": "01e259dd5ddfdb9714f43481bba26fee75daa044ff7f84f6a82571e1833447fc"
     },
     {
       "path": "1.bundle.js",
@@ -100,7 +100,7 @@
     },
     {
       "path": "apps/workspace/studio/interface.css",
-      "sha256": "36b9c5c11c190380275a020e27213552b7d92f77cced70bc2b12f6dc054f3559"
+      "sha256": "61ade631e44ffc3c4ea98cc129b1aaa11b6c357d94100dff6b9723a7a8b528de"
     },
     {
       "path": "apps/workspace/studio/studio.css",
@@ -108,7 +108,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "05cec6b5262772628a9e907c258765667c66bd70ed6b3485f610dc7632457981"
+      "sha256": "c6f19630c8b2eb93d4b4629035bfdf7513b7f40311ccafd45c8f585bb6cd56bf"
     },
     {
       "path": "cad-worker.js",
@@ -124,7 +124,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "887afd20c88b8ccb24347a539cc2615fe1f9cc980b6c67d467e958daa77f130a"
+      "sha256": "8360755d3e45cdca0a00da88fc956b8610673831d05fc442d650fd82063bf639"
     },
     {
       "path": "mesh-optimizer-worker.js",
@@ -2876,7 +2876,7 @@
     },
     {
       "path": "modules/logistica-industrial/practices/ui/practice.css",
-      "sha256": "319e522521a5c27e6d31dee01a30267886ed0b87b46002db75bb8552fb00a1d1"
+      "sha256": "569b2097f847b2083f59ad8a010f71b3c8fa67ade86eb3d0459a0185b163ef46"
     },
     {
       "path": "modules/turismo/assets/angel.basis",
@@ -3408,7 +3408,7 @@
     },
     {
       "path": "packages/tools/editor/src/editor.css",
-      "sha256": "d65c8421683e9acea778200608a97ee3724e330820e82338e1524c23e5371845"
+      "sha256": "37907e30af73efb2785a79ee74d6860de85225938baccf0ef90278e061b69067"
     },
     {
       "path": "packages/tools/editor/src/floor-plan-editor.css",
@@ -3416,7 +3416,7 @@
     },
     {
       "path": "packages/tools/editor/src/library-navigation.css",
-      "sha256": "eaddd65d54bdcafd1dd83e4c057a1ae2cbd367584f91809d28ed62cb1ff1beb6"
+      "sha256": "90b0f11534a85c6caa112aa1d75ccc220e6325392e50e8166e4d7562bdcaa81b"
     },
     {
       "path": "packages/tools/editor/src/project-content.css",
@@ -3428,7 +3428,7 @@
     },
     {
       "path": "packages/tools/editor/src/resources.css",
-      "sha256": "f57088dad49af3fb42f95f0a7ebd873393061084de1c490d71bff3c0f59f8b1c"
+      "sha256": "947934e067cdd71fbbd46bc2b34a1b1a28bb09b3b09e9d9d1fa648f525c47566"
     },
     {
       "path": "packages/tools/editor/src/scene-guide.css",
@@ -3436,11 +3436,11 @@
     },
     {
       "path": "packages/tools/editor/src/scene-workspace.css",
-      "sha256": "62c455c3b9813f5d39236442d39b8ea291898ee066d823596575adb6971478b4"
+      "sha256": "99b152bb432b84661ae67ec81d634da85d2078bb9c5371c975bc54f6d2f6a319"
     },
     {
       "path": "packages/tools/editor/src/workspace-layout.css",
-      "sha256": "e9c7da5a1e401f159a605729c8486e6dee43d6117a2890d31e5f93f7fcaa8cae"
+      "sha256": "b7d820e8bf3b89cf4993432c314ec51009402d004a8595788530372f978a63d0"
     },
     {
       "path": "packages/voice-assistant/assets/README.md",
@@ -3817,12 +3817,12 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "6c68fa48b26f4d7347c8",
-    "statsSha256": "83af3358e5bc9833f0caf4982621535ab479002b1e767ee8b607bef36cd1a5e4",
+    "hash": "7cc9df9ad80edfc8fbe7",
+    "statsSha256": "535ffc20f61135ddc5b18978368044b13f6864d665d269cba300483f5241fef0",
     "assets": [
       {
         "path": "0.bundle.js",
-        "size": 8823
+        "size": 9348
       },
       {
         "path": "1.bundle.js",
@@ -3874,7 +3874,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 6761919
+        "size": 6782595
       }
     ]
   }

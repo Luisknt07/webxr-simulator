@@ -12,7 +12,7 @@ const document = {createElement: tag => new Element(tag), createTextNode: text =
 let navigated; const location = new URL('https://localhost:8080/'); location.assign = value => { navigated = new URL(value); };
 class ImmersiveMenuMock { open(page) { this.page = page; } identityChanged() { this.identities = (this.identities || 0) + 1; } setVR(active) { this.active = active; } }
 class AdministrationMock { close() { this.closed = true; } async openModal() { this.modalOpened = true; } }
-const Experience = new Function('THREE', 'document', 'window', 'localStorage', 'avatarBadge', 'DEFAULT_AVATAR', 'AdminWorkspace', 'ImmersiveStudioMenu', 'VehicleMissionOverlay', code)(THREE, document, {location}, {getItem() { return null; }}, () => new Element('avatar'), {}, AdministrationMock, ImmersiveMenuMock, require('../support/load-vehicle-mission-overlay')());
+const Experience = new Function('THREE', 'document', 'window', 'localStorage', 'avatarBadge', 'DEFAULT_AVATAR', 'AdminWorkspace', 'ImmersiveStudioMenu', 'VehicleMissionOverlay', 'setEditorIcon', code)(THREE, document, {location}, {getItem() { return null; }}, () => new Element('avatar'), {}, AdministrationMock, ImmersiveMenuMock, require('../support/load-vehicle-mission-overlay')(), require('../support/load-editor-icons.cjs')().setEditorIcon);
 const walk = root => [root].concat(root.children.flatMap(walk));
 const labels = root => walk(root).filter(value => value.tag === 'button').map(value => value.textContent);
 const account = {id: 'u1', displayName: 'Ana', avatar: {}, permissions: {editor: true, manageUsers: true}};
@@ -29,7 +29,8 @@ function fixture(user = null) {
 }
 async function run() {
   const guest = fixture(); guest.personal(); const guestLabels = labels(guest.content);
-  assert.equal(guestLabels.length, 5); for (const text of ['Inicio', 'Escenarios', 'Ajustes', 'Controles y ayuda', 'Iniciar sesión']) assert(guestLabels.some(value => value.includes(text)));
+  for (const text of ['Inicio', 'Escenarios', 'Activar vuelo dron', 'Ajustes', 'Controles y ayuda', 'Iniciar sesión']) assert.equal(guestLabels.filter(value=>value.includes(text)).length,1,'Each available guest action has one clear entry: '+text);
+  const flight=walk(guest.content).find(value=>value.tag==='button'&&value.textContent==='Activar vuelo dron');assert.equal(flight.attributes['data-ed-icon'],'move');flight.listeners.click();assert.equal(guest.ctx.desktopFlight,true);assert.equal(guest.lastPage,'personal','The moved flight action refreshes its menu state.');
   walk(guest.content).find(value => value.tag === 'button' && value.textContent.includes('Inicio')).listeners.click(); assert.equal(navigated.href, 'https://localhost:8080/', 'The home action works without account or editor privileges.');
   assert(!guestLabels.some(value => /avatar|multiusuario|editor|Nuevo escenario|Mis proyectos/.test(value)));
   const signed = fixture(account); signed.personal(); const signedLabels = labels(signed.content);

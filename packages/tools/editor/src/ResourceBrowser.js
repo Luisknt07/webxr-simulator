@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import catalog from '../../../../modules/logistica-industrial/contracts/resourceCatalog.js';
 import {createIndustrialPrefab} from '../../../../modules/logistica-industrial/functions/presentacion/runtime/IndustrialPrefabs.js';
+import {setEditorIcon} from './EditorIcons.js';
 
 const MIME = 'application/x-hello-studio-resource';
 const TABS = [['library', 'Biblioteca'], ['project', 'Proyecto'], ['favorites', 'Favoritos']];
@@ -10,6 +11,12 @@ const ICONS = {model: '◇', image: '▧', audio: '♫', video: '▶', text: '{ 
 const TYPE_NAMES = {model: 'Modelo 3D', image: 'Imagen', audio: 'Audio', video: 'Vídeo', text: 'Datos', source: 'Blender', template: 'Plantilla', scene: 'Escenario', simulationtool: 'Herramienta de simulación'};
 const DOMAINS=[['all','Todos'],['logistics','Logística'],['industrial','Industrial'],['shared','Compartidos']];
 const DOMAIN_GROUPS={logistics:new Set(['VE','AL','MU','PI','EM']),industrial:new Set(['RO','EO','MA']),shared:new Set(['TR','UC','SE','SI','FLOW','COMMON','FILES'])};
+const GROUP_ICONS={TR:'conveyor',VE:'vehicle',RO:'robot',AL:'rack',EO:'machine',MA:'machine',MU:'machine',PI:'person',EM:'product',UC:'product',SE:'safety',SI:'chip',FLOW:'chip',COMMON:'environment',FILES:'folder'};
+function icon(element,name,label,compact=false){
+  if(typeof setEditorIcon==='function')return setEditorIcon(element,name,label,compact);
+  element.setAttribute('data-ed-icon',name);if(label!==undefined)element.textContent=label;
+  if(compact){element.classList.add('ed-icon-only');element.setAttribute('aria-label',label||element.title||element.textContent);}return element;
+}
 function node(tag, className, text) {
   const element = document.createElement(tag);
   if (className) element.className = className;
@@ -104,6 +111,7 @@ export default class ResourceBrowser {
     this.tabButtons = new Map();
     TABS.forEach(([id, label]) => {
       const tab = button(label, 'Abrir ' + label, () => this.openTab(id), 'studio-resource-tab');
+      icon(tab,{library:'library',project:'project',favorites:'favorite'}[id]);
       tab.setAttribute('role', 'tab'); tab.id = 'studio-resource-tab-' + id;
       tab.addEventListener('keydown', event => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -116,7 +124,7 @@ export default class ResourceBrowser {
     });
     header.appendChild(tabs);
     const domainBar=node('nav','studio-resource-domains');domainBar.setAttribute('aria-label','Ámbito de los recursos');this.domainButtons=new Map();DOMAINS.forEach(([id,label])=>{const control=button(label,'Recursos para '+label.toLowerCase(),()=>{this.state.domain=id;this.state.folder='';this.state.scroll=0;this._stateChanged();},'studio-resource-domain');control.setAttribute('data-resource-domain',id);domainBar.appendChild(control);this.domainButtons.set(id,control);});header.appendChild(domainBar);
-    this.scenesButton = button('Escenas', 'Abrir el catálogo de escenarios completos y las escenas del proyecto', () => this._call('onScenes'), 'studio-resource-scenes');
+    this.scenesButton = button('Escenarios', 'Abrir el catálogo de escenarios completos y las escenas del proyecto', () => this._call('onScenes'), 'studio-resource-scenes');icon(this.scenesButton,'cube');
     header.appendChild(this.scenesButton);
     this.scopeFilter = node('select', 'studio-resource-scope'); this.scopeFilter.setAttribute('aria-label', 'Archivos de la escena o de todo el proyecto');
     [['scene', 'Escena actual'], ['project', 'Todo el proyecto']].forEach(([value, label]) => { const option = node('option', '', label); option.value = value; this.scopeFilter.appendChild(option); });
@@ -130,12 +138,16 @@ export default class ResourceBrowser {
     this.statusFilter = node('select'); this.statusFilter.setAttribute('aria-label', 'Filtrar por estado funcional');
     [['all', 'Todos los estados']].concat(Object.entries(catalog.STATUS)).forEach(([value, label]) => { const option = node('option', '', label); option.value = value; this.statusFilter.appendChild(option); });
     this.statusFilter.addEventListener('change', () => { this.state.status = this.statusFilter.value; this.state.scroll = 0; this._stateChanged(); }); header.appendChild(this.statusFilter);
-    this.cardView = button('▦', 'Vista de tarjetas', () => this._setView('cards'), 'studio-resource-view');
-    this.listView = button('☷', 'Vista de lista', () => this._setView('list'), 'studio-resource-view'); header.appendChild(this.cardView); header.appendChild(this.listView);
-    this.expandGroups = button('⊞', 'Expandir todas las categorías de la biblioteca', () => this._expandLibrary(true), 'studio-resource-view');
-    this.collapseGroups = button('⊟', 'Contraer todas las categorías de la biblioteca', () => this._expandLibrary(false), 'studio-resource-view');
+    this.cardView = button('Tarjetas', 'Vista de tarjetas', () => this._setView('cards'), 'studio-resource-view');icon(this.cardView,'grid','Tarjetas',true);
+    this.listView = button('Lista', 'Vista de lista', () => this._setView('list'), 'studio-resource-view');icon(this.listView,'rows','Lista',true);header.appendChild(this.cardView); header.appendChild(this.listView);
+    this.expandGroups = button('Expandir', 'Expandir todas las categorías de la biblioteca', () => this._expandLibrary(true), 'studio-resource-view');icon(this.expandGroups,'expand','Expandir',true);
+    this.collapseGroups = button('Contraer', 'Contraer todas las categorías de la biblioteca', () => this._expandLibrary(false), 'studio-resource-view');icon(this.collapseGroups,'collapse','Contraer',true);
     header.appendChild(this.expandGroups); header.appendChild(this.collapseGroups);
-    this.importButton = button('↑ Importar', 'Importar archivos al proyecto conservando sus dependencias', () => { this.showProjectFiles(); this._call('onImport'); }, 'studio-resource-import'); header.appendChild(this.importButton);
+    this.importButton = button('Importar', 'Importar archivos al proyecto conservando sus dependencias', () => { this.showProjectFiles(); this._call('onImport'); }, 'studio-resource-import');icon(this.importButton,'folder'); header.appendChild(this.importButton);
+    const filterMenu=node('details','studio-resource-filter-menu');
+    const filterToggle=node('summary','ed-button','Filtros y opciones');icon(filterToggle,'filter','Filtros y opciones',true);filterToggle.title='Filtros y opciones de la biblioteca';filterMenu.appendChild(filterToggle);
+    const filterPanel=node('div','studio-resource-filter-panel');filterPanel.appendChild(node('strong','','Opciones de la biblioteca'));
+    [this.statusFilter,this.scopeFilter,this.expandGroups,this.collapseGroups,this.importButton,this.scenesButton].forEach(control=>filterPanel.appendChild(control));filterMenu.appendChild(filterPanel);header.appendChild(filterMenu);
     this.host.appendChild(header);
     const body = node('div', 'ed-assets-body studio-resource-body');
     this.folderList.setAttribute('aria-label', 'Categorías y carpetas de recursos'); this.folderList.classList.add('studio-resource-folders');
@@ -143,7 +155,8 @@ export default class ResourceBrowser {
     this.grid.setAttribute('role', 'tabpanel'); this.grid.classList.add('studio-resource-grid');
     this.grid.addEventListener('scroll', () => { this.state.scroll = this.grid.scrollTop; this._saveState(); }, {passive: true});
     this.preview.classList.add('studio-resource-preview'); this.preview.setAttribute('aria-label', 'Detalles y vista previa del recurso');
-    body.appendChild(this.folderList); body.appendChild(this.grid); body.appendChild(this.preview); this.host.appendChild(body);
+    this.subfamilyList=node('nav','studio-resource-subfamilies');this.subfamilyList.setAttribute('aria-label','Subfamilias de la categoría');
+    body.appendChild(this.folderList);body.appendChild(this.subfamilyList);body.appendChild(this.grid); body.appendChild(this.preview); this.host.appendChild(body);
     this.previewHome = body;
     this.caption = node('div', 'studio-resource-caption'); this.caption.setAttribute('aria-live', 'polite'); this.host.appendChild(this.caption);
     this.editDialog = node('div', 'studio-resource-dialog'); this.editDialog.hidden = true; this.editDialog.setAttribute('role', 'dialog'); this.editDialog.setAttribute('aria-modal', 'true'); this.host.appendChild(this.editDialog);
@@ -338,7 +351,7 @@ export default class ResourceBrowser {
   }
   refresh() { this.renderSignature = ''; return this.render(); }
   _renderFolders() {
-    this.folderList.textContent = '';
+    this.folderList.textContent = '';this.subfamilyList.textContent='';this.subfamilyList.hidden=this.tab!=='library';
     const addFolder = (parent, id, label, count) => {
       const row = button(label, 'Ver ' + label, () => { this.state.folder = id; this.state.scroll = 0; this._stateChanged(); }, 'studio-resource-folder' + (this.state.folder === id ? ' active' : ''));
       row.setAttribute('aria-pressed', String(this.state.folder === id));
@@ -350,7 +363,7 @@ export default class ResourceBrowser {
       }
       parent.appendChild(row); return row;
     };
-    addFolder(this.folderList, '', this.tab === 'favorites' ? 'Todos los favoritos' : this.tab === 'project' ? this.state.scope === 'scene' && this.sceneScope ? 'Recursos de esta escena' : 'Todo el proyecto' : 'Toda la biblioteca');
+    const all=addFolder(this.folderList, '', this.tab === 'favorites' ? 'Todos los favoritos' : this.tab === 'project' ? this.state.scope === 'scene' && this.sceneScope ? 'Recursos de esta escena' : 'Todo el proyecto' : 'Toda la biblioteca');icon(all,'library');
     if (this.tab === 'library') {
       const included = this.resources.filter(resource => resource.origin === 'library'&&this._matchesDomain(resource));
       taxonomy.GROUPS.forEach(category => {
@@ -359,11 +372,20 @@ export default class ResourceBrowser {
         const group = node('details', 'studio-resource-category studio-library-category'); group.dataset.category = category.id;
         group.open = Object.prototype.hasOwnProperty.call(this.state.expanded, category.id) ? this.state.expanded[category.id] : category.id === 'TR' || this.state.folder.startsWith(path);
         group.addEventListener('toggle', () => {this.states.library.expanded[category.id] = group.open; this._saveState();});
-        const title = node('summary', '', category.name); title.appendChild(node('span', 'studio-resource-folder-count', String(rows.length))); group.appendChild(title);
+        const title = node('summary');title.appendChild(node('span','studio-library-category-label',category.name));icon(title,GROUP_ICONS[category.id]||'cube');title.setAttribute('data-library-category',category.id);title.appendChild(node('span', 'studio-resource-folder-count', String(rows.length))); group.appendChild(title);
+        if(this.state.folder===path||this.state.folder.startsWith(path+'/'))group.classList.add('is-selected');
+        title.addEventListener('click',event=>{event.preventDefault();if(this.state.folder===path){group.open=!group.open;this.states.library.expanded[category.id]=group.open;this._saveState();}else{this.state.folder=path;this.state.scroll=0;this.states.library.expanded[category.id]=true;this._stateChanged();}});
         addFolder(group, path, 'Todos en esta categoría', rows.length);
         category.children.forEach(([id, name]) => {const family = category.id === 'TR' && (catalog.CONVEYOR_FAMILIES || []).find(family => family.id === id); const subpath = path + '/' + id, count = rows.filter(resource => taxonomy.matchesPath(resource, subpath)).length; if (count) {const row = addFolder(group, subpath, family && family.name || name, count); row.classList.add('studio-library-subcategory');}});
         this.folderList.appendChild(group);
       });
+      const selectedCategory=taxonomy.GROUPS.find(category=>this.state.folder==='group:'+category.id||this.state.folder.startsWith('group:'+category.id+'/'))||taxonomy.GROUPS.find(category=>included.some(resource=>taxonomy.matchesPath(resource,'group:'+category.id)));
+      if(selectedCategory){
+        this.subfamilyList.appendChild(node('strong','studio-resource-subfamily-title','Subfamilias'));
+        const parent='group:'+selectedCategory.id,rows=included.filter(resource=>taxonomy.matchesPath(resource,parent));
+        addFolder(this.subfamilyList,parent,'Todas',rows.length);
+        selectedCategory.children.forEach(([id,name])=>{const family=selectedCategory.id==='TR'&&(catalog.CONVEYOR_FAMILIES||[]).find(row=>row.id===id),path=parent+'/'+id,count=rows.filter(resource=>taxonomy.matchesPath(resource,path)).length;if(count)addFolder(this.subfamilyList,path,family&&family.name||name,count);});
+      }
     } else if (this.tab === 'favorites') {
       addFolder(this.folderList, 'origin:library', 'De Biblioteca'); addFolder(this.folderList, 'origin:project', 'De Proyecto');
     } else {
@@ -411,14 +433,14 @@ export default class ResourceBrowser {
     }
     card.appendChild(choose);
     const favorite = this.organization.favorites.includes(resource.id);
-    const star = button(favorite ? '★' : '☆', favorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos', () => this.toggleFavorite(resource.id), 'studio-resource-star' + (favorite ? ' active' : ''));
+    const star = button('Favorito', favorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos', () => this.toggleFavorite(resource.id), 'studio-resource-star' + (favorite ? ' active' : ''));icon(star,'favorite','Favorito',true);
     star.setAttribute('aria-label', (favorite ? 'Quitar ' : 'Añadir ') + resource.name + (favorite ? ' de Favoritos' : ' a Favoritos')); star.setAttribute('aria-pressed', String(favorite)); card.appendChild(star);
-    const actions=node('div','studio-resource-card-actions');const ficha=button('Ficha','Ver modelo, propiedades y opciones de '+resource.name,()=>this.select(resource),'studio-resource-sheet-link');ficha.setAttribute('data-resource-sheet',resource.id);actions.appendChild(ficha);
-    if (this.options.onDocumentation && (resource.articleId || resource.documentationLinks && resource.documentationLinks.length)) {const docs = button('Doc', 'Abrir la documentación de ' + resource.name, () => this._documentation(resource), 'studio-library-doc-link'); docs.setAttribute('data-resource-documentation', resource.articleId || resource.documentationLinks[0].articleId); actions.appendChild(docs);}card.appendChild(actions);
+    const actions=node('div','studio-resource-card-actions');const ficha=button('Ficha','Ver modelo, propiedades y opciones de '+resource.name,()=>this.select(resource),'studio-resource-sheet-link');icon(ficha,'info');ficha.setAttribute('data-resource-sheet',resource.id);actions.appendChild(ficha);
+    if (this.options.onDocumentation && (resource.articleId || resource.documentationLinks && resource.documentationLinks.length)) {const docs = button('Doc', 'Abrir la documentación de ' + resource.name, () => this._documentation(resource), 'studio-library-doc-link');icon(docs,'book'); docs.setAttribute('data-resource-documentation', resource.articleId || resource.documentationLinks[0].articleId); actions.appendChild(docs);}card.appendChild(actions);
     this.grid.appendChild(card); this.cards.set(resource.id, choose);
     if (resource.thumbnail && resource.thumbnail.type === 'documentation' && /^modules\/logistica-industrial\/documentation\/assets\/[A-Z]{2}-\d{2}\.png$/.test(resource.thumbnail.src || '')) {const image = node('img', 'studio-library-concept-image'); image.src = resource.thumbnail.src; image.alt = resource.thumbnail.alt || 'Esquema conceptual'; image.loading = 'lazy'; thumbnail.appendChild(image);}
     else if (this.active && this.listingVisible && this._moduleAvailable(resource) && this.thumbnails && (resource.asset || resource.thumbnail && resource.thumbnail.type === 'procedural')) this.thumbnails.attach(resource.asset || {path: this._thumbnailKey(resource), name: resource.name, extension: '3d', kind: 'model'}, thumbnail);
-    else { thumbnail.appendChild(node('span', 'editor-asset-thumbnail-type', ICONS[resource.kind || resource.asset && resource.asset.kind] || (resource.status === 'development' ? '◌' : resource.action && resource.action.type === 'decal' ? '▧' : '◇'))); }
+    else {const placeholder=node('span','editor-asset-thumbnail-type');icon(placeholder,resource.kind==='scene'?'environment':resource.asset&&resource.asset.kind==='audio'?'sound':'cube');thumbnail.appendChild(placeholder);}
   }
   _thumbnailKey(resource) { return 'studio-resource/' + resource.id; }
   select(resource) {

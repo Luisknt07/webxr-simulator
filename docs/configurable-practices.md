@@ -14,6 +14,10 @@ La guía actual sustituye la navegación de 64 operaciones por diez experiencias
 
 El inicio público utiliza una portada estática y no arranca WebGL hasta abrir la demostración. El editor presenta biblioteca a la izquierda, escena central e inspector a la derecha; la jerarquía es una pestaña del inspector. Los botones Ficha y Doc consultan el recurso existente. Las fichas teóricas sin modelo permanecen en Documentación y no se duplican como objetos insertables.
 
+El botón **Prácticas** del editor abre las diez fichas. **Practicar** abre el visualizador de aprendizaje en otra pestaña y conserva el proyecto que se está editando. **Crear montaje editable** prepara una copia para diseñar; no inicia una evaluación ni acredita un resultado.
+
+En el visualizador, las misiones, configuración y objetivos están a la izquierda; las instrucciones, registros, indicadores y evaluación están a la derecha. La escena usa un área central real de renderizado: su cámara y puntero se ajustan a ese rectángulo. **Escena completa** amplía la vista; al conducir se libera espacio para los mandos nativos. En móvil se alternan Escena, Misiones e Instrucciones. El visor XR conserva su interfaz inmersiva propia. Los montajes de consulta muestran esta misma organización, con la evaluación pendiente explícita.
+
 En `/play`, el formulario de la misma tarjeta permite elegir caso, dificultad, automatización, equipos compatibles, layout, ayudas, evaluación, dispositivo y ejecución aislada o en campaña. La dificultad no obliga a una automatización ni a un caso concreto. Las alternativas no cargan simultáneamente sus equipos en la escena.
 
 Los nombres canónicos de configuración son `caseId`, `mode`, `difficulty`, `executionMode`, `equipmentSelections`, `layout`, `helps`, `evaluation` y `device`. La cantidad de producto procede del fixture de la guía; no de un control genérico de lote. El layout permite posiciones y orientaciones acotadas por alias, sin escalar la máquina para encajar en una huella hipotética. Cambiar una selección invalida cualquier afirmación de evaluación que no se haya verificado para esa configuración.
