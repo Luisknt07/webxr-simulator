@@ -1,0 +1,45 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),read=name=>fs.readFileSync('modules/logistica-industrial/practices/ui/'+name,'utf8'),tick=()=>new Promise(resolve=>setTimeout(resolve,8));
+class Node{
+ constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.listeners={};this.attributes={};this.style={};this.hidden=false;}
+ set textContent(value){this.text=String(value);this.children.forEach(node=>node.parentNode=null);this.children=[];}get textContent(){return(this.text||'')+this.children.map(node=>node.textContent).join('');}
+ appendChild(node){node.parentNode=this;this.children.push(node);return node;}remove(){if(this.parentNode)this.parentNode.children=this.parentNode.children.filter(node=>node!==this);this.parentNode=null;}setAttribute(key,value){this.attributes[key]=String(value);}getAttribute(key){return this.attributes[key];}addEventListener(key,fn){this.listeners[key]=fn;}click(){this.listeners.click?.({});}
+}
+const document={createElement:tag=>new Node(tag)},Preview=new Function('document',read('PracticeConfigurationPreview.js').replace('export default class PracticeConfigurationPreview','return class PracticeConfigurationPreview'))(document);
+test('native dependencies remain lazy, settings coalesce and close during import cannot create a WebGL owner',async()=>{
+ let release,loads=0,created=0;const pending=new Promise(resolve=>release=resolve),host=new Node('div'),Engine=class{constructor(){created++;}setView(){}setRoof(){}async update(){}dispose(){}};
+ const preview=new Preview(host,{record:{id:'CEDI-01'},load:()=>{loads++;return pending;},debounceMs:0});assert.equal(loads,0);preview.update({mode:'manual',cediData:{name:'initial'}});preview.update({mode:'automatic',cediData:{name:'latest'}});await tick();assert.equal(loads,1);assert.equal(created,0);preview.dispose();release({default:Engine});await tick();assert.equal(created,0);assert.equal(host.children.length,0);
+});
+test('one preview owner receives latest detached data and view controls; suspend disposes before an actual start',async()=>{
+ const updates=[],engines=[];class Engine{constructor(host,options){this.options=options;engines.push(this);}setView(value){this.view=value;}setRoof(value){this.roof=value;}fit(){this.fitted=true;}zoomBy(value){this.zoom=value;}requestRender(){}async update(value){updates.push(structuredClone(value));this.options.onStatus('native','ready');}dispose(){this.disposes=(this.disposes||0)+1;}}
+ const preview=new Preview(new Node('div'),{record:{id:'CEDI-02'},load:async()=>({default:Engine}),debounceMs:0}),book={mode:'manual',cediData:{products:[{sku:'A',name:'A safe <script> string'}]}};preview.update(book);book.cediData.products[0].name='later outside mutation';await tick();assert.equal(engines.length,1);assert.equal(updates[0].cediData.products[0].name,'A safe <script> string');preview.views['3d'].click();assert.equal(engines[0].view,'3d');preview.roofButton.click();assert.equal(engines[0].roof,true);preview.update({mode:'automatic'});await tick();assert.equal(engines.length,1);assert.equal(updates.at(-1).mode,'automatic');preview.suspend();assert.equal(engines[0].disposes,1);preview.dispose();assert.equal(engines[0].disposes,1);
+});
+
+const native=require('../support/load-practice-scenes.cjs')(),THREE=native.THREE,workspaces=[],surfaceOwners=[];
+function studyWorkspace(){const scene=new THREE.Scene(),root=new THREE.Group(),document=new native.SceneDocument({});scene.add(root);document.registerRoom('hall',root);const result={scene,document,roots:{hall:root}};workspaces.push(result);return result;}
+class Surfaces{constructor(){surfaceOwners.push(this);}async sync(){}dispose(){this.disposed=true;}}
+const source=read('PracticeConfigurationScene.js').replace(/^import .*;\r?\n/gm,'').replace('export default class PracticeConfigurationScene','class PracticeConfigurationScene').replace(/^export /gm,''),api=new Function('THREE','studyWorkspace','buildConfigurablePracticeScene','SurfaceMaterialSystem',source+'\nreturn{buildConfigurationScene,disposePreviewGeometry,configurationFitBounds,previewCutawayObject};')(THREE,studyWorkspace,native.buildConfigurablePracticeScene,Surfaces);
+test('preview builds the actual five CEDI facilities, stock and selected native actors without constructing a runtime',async()=>{
+ const book=require('../../modules/logistica-industrial/practices/configurable/CediOperatingData.cjs').defaults();book.products[0].name='Preview native record';book.products[0].unitMassKg=4;
+ for(let i=1;i<=5;i++){
+  const id='CEDI-0'+i,result=await api.buildConfigurationScene(id,{mode:'manual',cediData:book,executionMode:'isolated'});assert.equal(result.manifest.practiceId,id);assert.equal(result.manifest.settings.cediData.products[0].name,'Preview native record');assert.equal(result.manifest.settings.cediData.products[0].unitMassKg,4);assert.equal(result.manifest.facility.layoutId,require('../../modules/logistica-industrial/practices/configurable/CediLayout.cjs').ID);assert.equal(result.manifest.facility.openings.filter(row=>/^(REC|DES)-/.test(row.id)).length,4);assert.equal(result.labels.length,result.manifest.aliases.length);assert(result.labels.length>0);assert(result.manifest.productIds.length>0);assert(result.manifest.validation.rv.triangles<600000,'A single configuration preview exceeds its native geometry budget.');assert(result.manifest.validation.rv.drawCalls<1200);assert(!('runtime'in result)&&!('controller'in result));assert(result.roofs.length>0);
+  const fit=api.configurationFitBounds(result),size=fit.getSize(new THREE.Vector3()),layout=result.manifest.facility.sharedLayout;assert(size.x<120&&size.z<100,'Distant terrain or navigation fencing dominates the useful installation.');assert(fit.min.x<=layout.annexes.maintenance.ramp.rect[0]&&fit.max.x>=layout.annexes.administration.rect[2]);for(const row of result.manifest.aliases)assert(fit.containsBox(new THREE.Box3().setFromObject(result.document.getObject(row.objectId))),'An actual active actor is clipped by the installation fit.');
+  const owners=surfaceOwners.at(-1);result.dispose();assert(owners.disposed);
+ }
+});
+test('superseded configuration preparation releases its private geometry instead of installing a stale model',async()=>{
+ const before=surfaceOwners.length,result=await api.buildConfigurationScene('CEDI-01',{mode:'manual'},{isCurrent:()=>false});assert.equal(result,null);assert.equal(surfaceOwners.length,before,'An obsolete generation must stop before adding surface owners.');
+});
+test('preview cleanup owns its geometry/material and private maps but never invalidates the global industrial atlas',()=>{
+ const shared=new THREE.Texture(),owned=new THREE.Texture();shared.userData={sharedIndustrialTexture:true};const geometry=new THREE.BoxBufferGeometry(),material=new THREE.MeshBasicMaterial({map:shared});material.roughnessMap=owned;const group=new THREE.Group();group.add(new THREE.Mesh(geometry,material));const disposed={shared:0,owned:0,geometry:0,material:0};for(const[key,value]of Object.entries({shared,owned,geometry,material}))value.addEventListener('dispose',()=>disposed[key]++);api.disposePreviewGeometry(group);assert.deepEqual(disposed,{shared:0,owned:1,geometry:1,material:1});
+});
+test('the preview is a named lazy chunk with resolvable native imports and no execution/session dependency',()=>{
+ const shell=read('PracticeConfigurationPreview.js'),scene=read('PracticeConfigurationScene.js');assert.match(shell,/import\(\/\* webpackChunkName: "practice-configuration-preview" \*\/ '\.\/PracticeConfigurationScene\.js'\)/);assert.doesNotMatch(shell,/import .* from ['"]three/);assert.equal((scene.match(/new THREE\.WebGLRenderer\(/g)||[]).length,1);assert.doesNotMatch(scene,/new (?:MaterialFlowRuntime|PracticeController|ConfigurablePracticeRuntime|PracticeSession)/);for(const name of ['PracticeConfigurationPreview.js','PracticeConfigurationScene.js'])for(const match of read(name).matchAll(/(?:from\s*|import\([^']*)['"](\.[^'"]+)['"]/g))assert(fs.existsSync(path.resolve('modules/logistica-industrial/practices/ui',match[1])),'Missing native preview import: '+match[1]);
+});
+test('cutaway removes only semantic roofs or a fully dedicated upper bank; low mixed geometry and real machinery stay intact',()=>{
+ const bank=new THREE.Group();bank.userData.practiceFacility={role:'detail',layoutId:'test'};const upper=new THREE.Mesh(new THREE.BoxBufferGeometry(3,.2,3));upper.position.y=9.5;bank.add(upper);assert.equal(api.previewCutawayObject(bank),true);const low=new THREE.Mesh(new THREE.BoxBufferGeometry(1,1,1));low.position.y=1;bank.add(low);assert.equal(api.previewCutawayObject(bank),false);const actor=upper.clone();delete actor.userData.practiceFacility;assert.equal(api.previewCutawayObject(actor),false);bank.userData.practiceFacility.role='roof';assert.equal(api.previewCutawayObject(bank),true);api.disposePreviewGeometry(bank);
+});

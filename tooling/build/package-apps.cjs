@@ -117,6 +117,19 @@ function practiceCardAssets(root) {
     return name;
   });
 }
+function cediProductAssets(root) {
+  const folder='modules/logistica-industrial/practices/configurable/assets/products',receipt=folder+'/provenance.json';
+  if(!safePath(root,receipt,false))return[];
+  const bytes=read(root,receipt);if(bytes.length>32*1024)error('product_assets','Product provenance exceeds its budget.');
+  const data=JSON.parse(bytes),ids=['dry-food','bottled-drinks','hygiene','electronics','spares','farm-goods','workwear','paper-goods'];
+  if(data.format!=='smarttwin.product-photo-provenance'||data.version!==1||!Array.isArray(data.assets)||data.assets.length!==ids.length)error('product_assets','Invalid product photo receipt.');
+  let total=0;const names=data.assets.map((row,index)=>{
+    if(!row||row.id!==ids[index]||row.file!==row.id+'.webp'||row.referenceOnly!==true||!Number.isSafeInteger(row.bytes)||row.bytes<20||row.bytes>180*1024||row.width!==960||!Number.isInteger(row.height)||row.height<240||row.height>960||!/^[a-f0-9]{64}$/.test(row.sha256||''))error('product_assets','Invalid product photo.');
+    const name=folder+'/'+row.file,image=read(root,name);total+=image.length;
+    if(total>1024*1024||image.length!==row.bytes||digest(image)!==row.sha256||image.toString('ascii',0,4)!=='RIFF'||image.toString('ascii',8,12)!=='WEBP'||image.readUInt32LE(4)!==image.length-8)error('product_assets','Product photo differs from its reviewed receipt.');
+    return name;
+  });return names.concat(receipt);
+}
 function makePlan(root, application, compilation) {
   const files = new Map(), add = (output, source, bytes) => {
     relative(output); if (files.has(output)) { if (files.get(output).source !== source) error('duplicate_output', 'Conflicting publication output: ' + output); return; }
@@ -169,6 +182,7 @@ function makePlan(root, application, compilation) {
     practiceAssets(root).forEach(name=>add(name,name));
     configurablePracticeAssets(root).forEach(name=>add(name,name));
     practiceCardAssets(root).forEach(name=>add(name,name));
+    cediProductAssets(root).forEach(name=>add(name,name));
     ASSET_ROOTS.forEach(folder => walk(root, folder, name => { if (allowedAsset(name)) add(name, name); }, {skipPrivate: true}));
     const moduleMetadata=safePath(root,'data/build/workspace-catalog.json',false);
     if(fs.existsSync(moduleMetadata)){

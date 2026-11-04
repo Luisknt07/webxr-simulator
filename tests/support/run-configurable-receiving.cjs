@@ -3,7 +3,7 @@
 // the shared CEDI. No actor transform, inventory or completion is assigned.
 module.exports=function runReceiving(h,f,built,onProgress=()=>{}){
  const assert=require('node:assert/strict'),ops=require('./cedi-dock-operator.cjs')(h),record=f.runtime.records.get(built.vehicleIds[0]),v=record.components.vehicle,api=f.runtime.vehicleRuntime,w=new h.ConfigurablePracticeRuntime({simulation:f.runtime,document:f.document},built.manifest),d=ops.boundedDriver(f,record,{maxSimSeconds:3600}),shipments=[],layout=built.manifest.facility.sharedLayout;
- assert(layout&&layout.id==='cedi-unified-u-v1','The receiving operator must use the current shared U facility.');
+ assert(layout&&layout.id==='cedi-unified-u-v2','The receiving operator must use the current shared U facility.');
  const arcRadius=v.config.wheelbase/Math.tan(v.config.steerLimit*.8),forwardSide=arcRadius+v.config.wheelbase/2,reverseSide=arcRadius-v.config.wheelbase/2,inspection=built.manifest.receiving.inspectionCenter,travelX=layout.aisles.safePolyline[1][0];
  const verifyCustody=()=>{const world=w.snapshot();assert.deepEqual(world.criticalReasons,[]);assert.equal(world.totalUnits,48);return world;};
  const shiftWhileForward=(targetX,heading)=>{

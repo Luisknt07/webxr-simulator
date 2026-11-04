@@ -328,3 +328,84 @@
  body:has(.st-practice-panel[data-presentation=workspace]:not([data-driving=true]):not([data-scene-focus=true]):not([data-practice-pane=scene]))>.mobile-navigation,
  body:has(.st-practice-panel[data-presentation=workspace]:not([data-driving=true]):not([data-scene-focus=true]):not([data-practice-pane=scene]))>.xr-browser-touch{display:none!important}
 }
+
+/* Configuration is one accessible modal. Only the selected form pane scrolls;
+   the actual native preview and launch footer remain in the viewport. */
+.st-practice-setup-dialog{width:min(94vw,1840px);height:92dvh;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);padding:0;margin:auto;border:1px solid #b7d7d2;border-radius:16px;background:#f8fbfc;color:#17384b;box-shadow:0 22px 100px #102f4655;overflow:hidden;font-family:"Segoe UI",Arial,sans-serif}
+.st-practice-setup-dialog[open]{display:flex;flex-direction:column}
+.st-practice-setup-dialog::backdrop{background:#16334788;backdrop-filter:blur(2px)}
+.st-practice-setup-dialog *{box-sizing:border-box}
+.st-practice-setup-dialog button,.st-practice-setup-dialog input,.st-practice-setup-dialog select{font:inherit;color:#173b4d;background:white;border:1px solid #b9d3da;border-radius:7px;max-width:100%}
+.st-practice-setup-dialog button{cursor:pointer;min-height:44px;padding:9px 12px;font-size:12px;font-weight:650}
+.st-practice-setup-dialog button:disabled{opacity:.55;cursor:default}
+.st-practice-setup-dialog button:focus-visible,.st-practice-setup-dialog input:focus-visible,.st-practice-setup-dialog select:focus-visible,.st-practice-setup-dialog summary:focus-visible{outline:3px solid #24b9a2;outline-offset:2px}
+.st-practice-setup-dialog-head{position:static!important;inset:auto!important;flex:none;display:flex!important;align-items:center;justify-content:space-between;gap:18px;padding:14px 20px!important;border-bottom:1px solid #d2e3e4;background:#fff;color:#17384b;min-height:68px;width:auto!important;z-index:2}
+.st-practice-setup-dialog-head h2{margin:0;font-size:19px;line-height:1.35;color:#163e4c}
+.st-practice-setup-dialog-head .st-practice-setup-close{flex:none;background:#edf8f4;color:#006b5d;border-color:#b9ddd2}
+.st-practice-setup-dialog-body{flex:1;min-height:0;overflow:hidden}
+.st-practice-setup-dialog .st-practice-setup[data-live-preview=true]{height:100%;max-height:none;display:grid;grid-template-columns:minmax(300px,42fr) minmax(0,58fr);grid-template-rows:minmax(0,1fr) auto;gap:0;overflow:hidden}
+.st-practice-setup-editor{grid-column:1;grid-row:1;display:grid;grid-template-rows:auto minmax(0,1fr);min-width:0;min-height:0;overflow:hidden;background:#f6fafc}
+.st-practice-setup[data-live-preview=true] .st-practice-setup-tabs{display:flex;grid-column:1;grid-row:1;position:static;padding:8px;gap:5px;border-bottom:1px solid #d5e2e9;background:white;overflow-x:auto;scrollbar-width:thin}
+.st-practice-setup[data-live-preview=true] .st-practice-setup-tabs button{flex:1 0 auto;min-height:44px;font-size:12px;padding:8px 10px;white-space:nowrap}
+.st-practice-setup[data-live-preview=true] .st-practice-setup-tabs button[aria-pressed=true]{background:#087e6b!important;color:#fff!important;border-color:#087e6b!important}
+.st-practice-setup[data-live-preview=true]>.st-practice-setup-editor>.st-practice-setup-configuration,.st-practice-setup[data-live-preview=true]>.st-practice-setup-editor>.st-practice-setup-data,.st-practice-setup[data-live-preview=true]>.st-practice-setup-editor>.st-practice-setup-guide{display:none;grid-row:2;grid-column:1;min-width:0;min-height:0;max-height:none;overflow:auto;overscroll-behavior:contain;padding:18px;border:0}
+.st-practice-setup[data-live-preview=true][data-setup-pane=configuration]>.st-practice-setup-editor>.st-practice-setup-configuration,.st-practice-setup[data-live-preview=true][data-setup-pane=data]>.st-practice-setup-editor>.st-practice-setup-data,.st-practice-setup[data-live-preview=true][data-setup-pane=guide]>.st-practice-setup-editor>.st-practice-setup-guide{display:block}
+.st-practice-setup[data-live-preview=true]>.st-practice-setup-preview{display:block!important;grid-column:2;grid-row:1;min-width:0;min-height:0;overflow:hidden;padding:0;border-left:1px solid #cddfe2;background:#edf5f4}
+.st-practice-setup[data-live-preview=true]>.st-practice-setup-footer{grid-column:1/-1;grid-row:2;min-height:78px;padding:12px 20px;gap:12px;background:#fff;border-top:1px solid #ccdfdf;z-index:2}
+.st-practice-setup-dialog .st-practice-suggested{margin:0 0 15px;background:#e9f7f0;color:#0a705b;border-color:#b7ddcc;width:100%}
+.st-practice-live-preview{height:100%;min-height:0;min-width:0;display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto auto auto auto;padding:12px;overflow:hidden;color:#1b4850}
+.st-practice-preview-heading{padding:2px 2px 6px;font-size:16px}.st-practice-preview-status{font-size:11px;line-height:1.4;margin:0 2px 7px;color:#477168}
+.st-practice-live-preview[data-state=error] .st-practice-preview-status{color:#943e2b}
+.st-practice-preview-toolbar{display:flex;gap:5px;flex-wrap:wrap;padding-bottom:9px;min-width:0}
+.st-practice-live-preview .st-practice-preview-toolbar button{min-height:44px;padding:8px 10px;font-size:11px;flex:none}
+.st-practice-preview-toolbar button[aria-pressed=true]{background:#087e6b;color:white;border-color:#087e6b}
+.st-practice-preview-viewport{position:relative;min-width:0;min-height:80px;overflow:hidden;border:1px solid #c3dbd8;border-radius:10px;background:#eaf3f3}
+.st-practice-preview-viewport canvas{display:block;width:100%!important;height:100%!important;touch-action:none;cursor:grab}
+.st-practice-preview-viewport canvas:active{cursor:grabbing}
+.st-practice-preview-labels{position:absolute;inset:0;z-index:2;pointer-events:none}.st-practice-preview-label{position:absolute;transform:translate(-50%,-100%);font:700 10px/1.3 "Segoe UI",Arial,sans-serif!important;color:#fff;background:#0a665ce8;padding:2px 4px;border:1px solid #d9f7ee;border-radius:3px;white-space:nowrap}
+.st-practice-preview-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;margin:0;background:#edf6f4f5;color:#35625a;text-align:center;line-height:1.6;font-size:13px;z-index:3}
+.st-practice-preview-loading[hidden]{display:none}
+.st-practice-preview-hint,.st-practice-preview-summary,.st-practice-preview-scope{margin:6px 2px 0;font-size:11px;line-height:1.5;color:#52706e}
+.st-practice-preview-summary{font-weight:650;color:#24564c}
+.st-practice-preview-legend{font-size:11px;color:#356358;padding:7px 2px 0;max-height:110px;overflow:auto}.st-practice-preview-legend summary{cursor:pointer;font-weight:650;min-height:25px}.st-practice-preview-legend ol{padding-left:19px;margin:3px 0;line-height:1.7}
+.st-practice-setup[data-preview-expanded=true]>.st-practice-setup-editor{display:none}.st-practice-setup[data-preview-expanded=true]>.st-practice-setup-preview{grid-column:1/-1}
+.st-cedi-quick-start{padding:13px;background:#edf9f1;border:1px solid #bddfcc;border-radius:10px;margin-bottom:16px;line-height:1.5}.st-cedi-quick-start h3,.st-cedi-quick-start h4{margin:0 0 8px!important}.st-cedi-preset-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}.st-cedi-preset-card{white-space:normal;text-align:left;line-height:1.4}.st-cedi-preset-card strong,.st-cedi-preset-card span{display:block}.st-cedi-preset-card span{font-size:11px;font-weight:400;margin-top:4px}
+.st-cedi-product-catalog{margin:16px 0}.st-cedi-product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.st-cedi-product-card{min-width:0;background:#fff;border:1px solid #c9ded5;border-radius:9px;overflow:hidden;padding:9px;display:flex;flex-direction:column;gap:7px}.st-cedi-product-image{display:block;width:100%;height:108px;object-fit:contain;background:#fff;border-radius:6px}.st-cedi-product-meta{font-size:11px;line-height:1.5;color:#476a5e}.st-cedi-product-card strong{font-size:13px;color:#174e40}.st-cedi-product-card button{margin-top:auto;width:100%}.st-cedi-advanced{border:1px solid #cbded6;border-radius:9px;padding:11px;margin:15px 0;background:#fff}.st-cedi-advanced>summary{min-height:44px;cursor:pointer;font-size:13px;font-weight:650;color:#245c4c}
+.st-cedi-preset-card{padding:11px;border:1px solid #c8e0d3;border-radius:8px;background:#fff;display:flex;flex-direction:column}.st-cedi-preset-card p{font-size:11px;line-height:1.5;flex:1}.st-cedi-preset-card button{width:100%;margin-top:auto}
+.st-cedi-selected-products{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px}
+.st-cedi-product-card figure.st-cedi-product-image{height:auto;margin:0;min-width:0;overflow:hidden}
+.st-cedi-product-image img{display:block;width:100%;height:108px;object-fit:contain;background:white}
+.st-cedi-product-image figcaption{font-size:9px;line-height:1.4;color:#5a756d;margin:3px 0 0}
+.st-cedi-product-meta strong{display:block;overflow-wrap:anywhere}.st-cedi-product-meta p{margin:7px 0}.st-cedi-product-meta .st-cedi-data-field{margin:8px 0;font-size:11px}.st-cedi-product-meta small{display:block;font-size:10px;line-height:1.5;color:#5c796e}
+.st-cedi-product-catalog>summary{min-height:44px;padding:10px;background:#eaf6f0;border:1px solid #c5dfd1;border-radius:8px;color:#235a47;cursor:pointer;font-size:12px;font-weight:650;margin-bottom:10px}
+.st-cedi-product-recommendation{margin-top:12px;padding-top:10px;border-top:1px solid #c7e2d2;font-size:12px}.st-cedi-product-recommendation p{font-size:11px;line-height:1.5}.st-cedi-product-recommendation button{width:100%}
+.st-cedi-quick-records{display:grid;gap:10px}.st-cedi-quick-order{display:grid;gap:10px;min-width:0;margin:0;padding:12px;background:white;border:1px solid #c6ded3;border-radius:8px}.st-cedi-quick-order legend{font-size:12px;font-weight:650;color:#285f4c}.st-cedi-advanced-body{padding-top:10px}
+@media(max-width:700px){
+ .st-practice-setup-dialog{width:calc(100vw - 12px);height:calc(100dvh - 12px);max-width:none;max-height:none;border-radius:11px}
+ .st-practice-setup-dialog-head{padding:9px 12px!important;min-height:60px;gap:8px}.st-practice-setup-dialog-head h2{font-size:14px;line-height:1.35}.st-practice-setup-dialog-head .st-practice-setup-close{font-size:0;padding:8px 11px;width:44px;height:44px;flex:0 0 44px}.st-practice-setup-close::after{content:'×';font-size:24px;line-height:1}
+ .st-practice-setup-dialog .st-practice-setup[data-live-preview=true]{grid-template-columns:minmax(0,1fr);grid-template-rows:300px minmax(0,1fr) auto}
+ .st-practice-setup[data-live-preview=true]>.st-practice-setup-preview{grid-column:1;grid-row:1;border-left:0;border-bottom:1px solid #c6ddda}
+ .st-practice-setup-editor{grid-column:1;grid-row:2}
+ .st-practice-setup[data-live-preview=true]>.st-practice-setup-footer{grid-row:3;min-height:0;padding:9px 12px;gap:7px;grid-template-columns:minmax(0,1fr)}
+ .st-practice-setup[data-live-preview=true] .st-practice-setup-tabs{padding:6px;gap:4px}.st-practice-setup[data-live-preview=true] .st-practice-setup-tabs button{font-size:11px;padding:8px}
+ .st-practice-setup[data-live-preview=true]>.st-practice-setup-editor>.st-practice-setup-configuration,.st-practice-setup[data-live-preview=true]>.st-practice-setup-editor>.st-practice-setup-data,.st-practice-setup[data-live-preview=true]>.st-practice-setup-editor>.st-practice-setup-guide{padding:12px}
+ .st-practice-live-preview{padding:6px;grid-template-rows:auto auto minmax(0,1fr) auto}
+ .st-practice-preview-heading,.st-practice-preview-hint,.st-practice-preview-scope,.st-practice-preview-legend{display:none}.st-practice-preview-status{margin:0 2px 4px;font-size:10px;min-height:14px}
+ .st-practice-preview-toolbar{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior:contain;padding-bottom:5px;scrollbar-width:thin}.st-practice-live-preview .st-practice-preview-toolbar button{font-size:10px;padding:7px 9px}
+ .st-practice-preview-summary{font-size:10px;line-height:1.35;margin:4px 2px 0;max-height:28px;overflow:auto}
+ .st-practice-setup[data-live-preview=true][data-preview-expanded=true]{grid-template-rows:minmax(0,1fr) auto}.st-practice-setup[data-preview-expanded=true]>.st-practice-setup-preview{grid-row:1}.st-practice-setup[data-preview-expanded=true]>.st-practice-setup-footer{grid-row:2}
+ .st-practice-setup[data-preview-expanded=true] .st-practice-preview-heading,.st-practice-setup[data-preview-expanded=true] .st-practice-preview-legend{display:block}
+ .st-practice-setup[data-preview-expanded=true] .st-practice-live-preview{grid-template-rows:auto auto auto minmax(0,1fr) auto auto}
+ .st-cedi-product-grid{gap:8px}.st-cedi-product-card{padding:7px}.st-cedi-product-image{height:100px}
+}
+@media(min-width:701px) and (max-height:600px){
+ .st-practice-setup-dialog{height:calc(100dvh - 12px)}
+ .st-practice-setup-dialog-head{padding:8px 14px!important;min-height:54px}.st-practice-setup-dialog-head h2{font-size:15px}
+ .st-practice-live-preview{grid-template-rows:auto auto minmax(0,1fr) auto;padding:7px}
+ .st-practice-preview-heading,.st-practice-preview-hint,.st-practice-preview-scope,.st-practice-preview-legend{display:none}
+ .st-practice-preview-toolbar{flex-wrap:nowrap;overflow-x:auto;padding-bottom:5px;scrollbar-width:thin}
+ .st-practice-preview-summary{font-size:10px;max-height:28px;overflow:auto}
+ .st-practice-setup[data-live-preview=true]>.st-practice-setup-footer{min-height:64px;padding:8px 14px}
+}
+.st-practice-setup[data-live-preview=true] .st-practice-create{min-height:44px}
+@media(max-width:700px){.st-practice-setup[data-live-preview=true] .st-practice-field select,.st-practice-setup[data-live-preview=true] .st-practice-field input{min-height:44px}}

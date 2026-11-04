@@ -39,9 +39,28 @@ function fixture(){
 const pointer=id=>({pointerId:id,button:0});
 const near=(actual,expected)=>assert(Math.abs(actual-expected)<1e-8,actual+' != '+expected);
 
+test('desktop and touch walking settle down the physical ramp while flight and vehicle guards retain their own control',()=>{
+ for(const touch of [false,true]){
+  const f=fixture();f.wall.visible=false;f.room.remove(f.floor);f.floor.geometry.dispose();f.floor.material.dispose();
+  const add=(size,p)=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(...size),new THREE.MeshBasicMaterial());mesh.position.fromArray(p);f.room.add(mesh);};
+  add([4,.24,2],[0,-.12,-1]);add([4,.24,2],[0,-1.27,13]);
+  const p=[[-2,0,0],[2,0,0],[2,-1.15,12],[-2,-1.15,12],[-2,-1.4,0],[2,-1.4,0],[2,-1.4,12],[-2,-1.4,12]],faces=[[0,3,2],[0,2,1],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[3,7,6],[3,6,2],[0,4,7],[0,7,3],[1,2,6],[1,6,5]],buffer=new THREE.BufferGeometry();buffer.setAttribute('position',new THREE.Float32BufferAttribute(faces.flatMap(face=>face.flatMap(i=>p[i])),3));const geometry=new THREE.Geometry().fromBufferGeometry(buffer);buffer.dispose();f.room.add(new THREE.Mesh(geometry,new THREE.MeshBasicMaterial()));
+  f.ctx.cameraRig.position.z=-.5;
+  if(touch)f.input.axes.y=-1;else f.key('KeyS');
+  for(let i=0;i<65;i++){f.world.beginFrame();f.input.step(.1);f.world.endFrame();}
+  assert(Math.abs(f.position().y-.502)<.008,'Walking input must follow the actual depressed apron.');assert(f.position().z>12.4);
+  f.ctx.drivingVehicle='fork-1';const stopped=f.position();f.input.step(.1);assert(f.position().equals(stopped),'Pedestrian floor following cannot overwrite vehicle seating.');
+  f.input.dispose();f.world.dispose();
+ }
+});
+
 test('walking uses the real capsule collision world while enabled desktop flight crosses it in native Three coordinates',()=>{
  const f=fixture();f.key('KeyW');for(let i=0;i<10;i++)f.input.step(.1);assert(f.capsules()>=10);assert(f.position().z>-.8,'Walking cannot cross the real wall.');assert(Math.abs(f.position().y-1.65)<.003,'Native floor skin keeps the walking eye at ground height.');
  f.input.reset();f.ctx.desktopFlight=true;f.key('KeyW');const count=f.capsules(),before=f.position();f.input.step(.1);assert.equal(f.capsules(),count,'Flight does not run ground capsule resolution.');near(f.position().distanceTo(before),.3);for(let i=0;i<5;i++)f.input.step(.1);assert(f.position().z<-1.1,'Flight reaches the other side of the actual wall.');f.input.dispose();f.world.dispose();
+});
+
+test('a resumed or non-finite desktop walking frame cannot create an unbounded surface-follow sweep',()=>{
+ const f=fixture();f.wall.visible=false;f.key('KeyS');let before=f.position();f.input.step(1000);assert(Math.abs(f.position().z-before.z-.2)<.0001);before=f.position();f.input.step(Infinity);assert(f.position().equals(before));f.input.dispose();f.world.dispose();
 });
 
 test('flight follows the real look vector, normalizes diagonals, supports Ctrl boost and clamps world altitude/delta',()=>{

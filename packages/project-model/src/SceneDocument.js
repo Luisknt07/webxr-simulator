@@ -988,8 +988,9 @@ export default class SceneDocument {
 
   _cadVisual(descriptor) {
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(descriptor.mesh.positions, 3));
-    const positions=descriptor.mesh.positions,normals=require('../../tools/cad/schema/cad').vertexNormals(positions,descriptor.smoothingAngle===undefined?45:descriptor.smoothingAngle),uv=new Float32Array(positions.length/3*2);
+    const cad=require('../../tools/cad/schema/cad'),positions=cad.normalizePositions(descriptor.mesh.positions);
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    const normals=cad.vertexNormals(positions,descriptor.smoothingAngle===undefined?45:descriptor.smoothingAngle),uv=new Float32Array(positions.length/3*2);
     geometry.setAttribute('normal',new THREE.BufferAttribute(normals,3));
     for(let i=0;i<positions.length;i+=9){const nx=Math.abs(normals[i]),ny=Math.abs(normals[i+1]),nz=Math.abs(normals[i+2]);for(let k=0;k<3;k++){const p=i+k*3,j=p/3*2;uv[j]=(ny>=nx&&ny>=nz?positions[p]:nz>=nx?positions[p]:positions[p+2])*2;uv[j+1]=(ny>=nx&&ny>=nz?positions[p+2]:positions[p+1])*2;}}
     geometry.setAttribute('uv',new THREE.BufferAttribute(uv,2));geometry.computeBoundingBox(); geometry.computeBoundingSphere();

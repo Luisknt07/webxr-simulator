@@ -1,6 +1,7 @@
 'use strict';
 // Declarative modelling recipes; no user JavaScript is ever evaluated.
 const VERSION = 1, MAX_STEPS = 48, MAX_TRIANGLES = 60000;
+const positionCodec=require('./position-codec.cjs');
 const categories = [['solid','Sólidos'],['profile','Bocetos y perfiles'],['modify','Transformación'],['boolean','Cortes y uniones'],['extrude','Extrusión y revolución'],['pattern','Patrones'],['part','Piezas mecánicas'],['measure','Medición']].map(([id,name])=>({id,name}));
 const tools=[];
 function group(category, names, input='none') { names.forEach(([id,name])=>tools.push({id:category+'.'+id,name,category,input,output:category==='profile'?'2d':'3d'})); }
@@ -53,7 +54,7 @@ function normalizeRecipe(value={}){
  const ids=new Set(),steps=value.steps.map((step,index)=>{if(!plain(step)||!tools.some(tool=>tool.id===step.op)||typeof step.id!=='string'||!/^s[0-9]{1,4}$/.test(step.id)||ids.has(step.id))throw Error('Operación CAD inválida.');
  const inputs=step.inputs===undefined?[]:step.inputs;if(!Array.isArray(inputs)||inputs.length>8||inputs.some(id=>typeof id!=='string'||!ids.has(id)))throw Error('La operación debe usar cuerpos anteriores del historial.');
  if(step.params!==undefined&&!plain(step.params))throw Error('Parámetros CAD inválidos.');const params={};Object.entries(step.params||{}).forEach(([key,n])=>{if(numeric[key]){const [min,max]=numeric[key];if(typeof n!=='number'||!Number.isFinite(n)||n<min||n>max||['count','segments','teeth','sides','pathSegments'].includes(key)&&!Number.isInteger(n))throw Error('Parámetro CAD fuera de rango: '+key);params[key]=n;}
- else if(key==='positions'){if(step.op!=='primitive.mesh')throw Error('La malla sólo corresponde a una entrada de geometría.');params.positions=normalizePositions(n);}
+ else if(key==='positions'){if(step.op!=='primitive.mesh')throw Error('La malla sólo corresponde a una entrada de geometría.');params.positions=positionCodec.normalize(n,MAX_TRIANGLES*9);}
  else if(key==='text'){if(typeof n!=='string'||n.length>32||/[\x00-\x1f<>]/.test(n))throw Error('Texto CAD inválido.');params.text=n;}
  else if(key==='points'){const path=['extrude.sweep','part.hose'].includes(step.op);if(!Array.isArray(n)||n.length<(path?2:3)||n.length>64||Array.from(n).some(p=>!Array.isArray(p)||p.length<2||p.length>3||Array.from(p).some(v=>!Number.isFinite(v)||Math.abs(v)>20)))throw Error('Perfil CAD inválido.');if(path&&n.some(point=>point.length!==3))throw Error('La trayectoria necesita puntos XYZ tridimensionales.');if(path&&n.some((point,index)=>index>0&&Math.hypot(...point.map((value,axis)=>value-n[index-1][axis]))<1e-8))throw Error('La trayectoria contiene puntos consecutivos repetidos.');params.points=n.map(p=>p.slice());}
  else if(key==='smoothPath'){if(typeof n!=='boolean')throw Error('La suavidad de trayectoria debe ser booleana.');params.smoothPath=n;}
@@ -64,7 +65,8 @@ function normalizeRecipe(value={}){
  const output=value.output||steps.length&&steps[steps.length-1].id||'';if(output&&!ids.has(output))throw Error('Cuerpo CAD de salida inválido.');
  return {version:VERSION,steps,output};
 }
-function normalizePositions(value){if(!Array.isArray(value)||value.length<9||value.length>MAX_TRIANGLES*9||value.length%9)throw Error('Malla CAD fuera del límite.');const positions=Array.from(value);if(positions.some(v=>typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)>100))throw Error('Malla CAD fuera del límite.');let surface=false;for(let i=0;i<positions.length&&!surface;i+=9){const ax=positions[i+3]-positions[i],ay=positions[i+4]-positions[i+1],az=positions[i+5]-positions[i+2],bx=positions[i+6]-positions[i],by=positions[i+7]-positions[i+1],bz=positions[i+8]-positions[i+2];surface=Math.hypot(ay*bz-az*by,az*bx-ax*bz,ax*by-ay*bx)>1e-12;}if(!surface)throw Error('La malla CAD no tiene superficies válidas.');return positions;}
+function normalizePositions(value){return positionCodec.decode(value,MAX_TRIANGLES*9);}
+function encodePositions(value){return positionCodec.encode(value,MAX_TRIANGLES*9);}
 const MAX_SOURCE_BYTES=16*1024*1024;
 function normalizeSourceData(value){
  if(!plain(value)||Object.keys(Object.getOwnPropertyDescriptors(value)).some(key=>!['tool','version','assemblyId','partId','document'].includes(key)||Object.getOwnPropertyDescriptor(value,key).get||Object.getOwnPropertyDescriptor(value,key).set)||typeof value.tool!=='string'||!/^[a-z][a-z0-9_-]{0,63}$/.test(value.tool)||!Number.isInteger(value.version)||value.version<1||value.version>100||!plain(value.document))throw Error('Datos de origen CAD inválidos.');
@@ -75,9 +77,8 @@ function normalizeSourceData(value){
 }
 function normalizeDescriptor(value){if(!plain(value)||value.type!=='cad')throw Error('Pieza CAD inválida.');const recipe=normalizeRecipe(value.recipe),mesh=value.mesh;
  if(!recipe.steps.length||!recipe.output)throw Error('La pieza CAD necesita un historial y una salida reconstruibles.');
- if(!plain(mesh)||!Array.isArray(mesh.positions)||mesh.positions.length<9||mesh.positions.length>MAX_TRIANGLES*9||mesh.positions.length%9)throw Error('Malla CAD fuera del límite.');
- const positions=Array.from(mesh.positions);if(positions.some(v=>!Number.isFinite(v)||Math.abs(v)>100))throw Error('Malla CAD fuera del límite.');
- let surface=false;for(let i=0;i<positions.length&&!surface;i+=9){const ax=positions[i+3]-positions[i],ay=positions[i+4]-positions[i+1],az=positions[i+5]-positions[i+2],bx=positions[i+6]-positions[i],by=positions[i+7]-positions[i+1],bz=positions[i+8]-positions[i+2];surface=Math.hypot(ay*bz-az*by,az*bx-ax*bz,ax*by-ay*bx)>1e-12;}if(!surface)throw Error('La malla CAD no tiene superficies válidas.');
+ if(!plain(mesh))throw Error('Malla CAD fuera del límite.');
+ const positions=positionCodec.normalize(mesh.positions,MAX_TRIANGLES*9);
  const color=value.color||'#b6c4cc';if(typeof color!=='string'||!/^#[a-f0-9]{6}$/i.test(color))throw Error('Color CAD inválido.');
  const result={type:'cad',recipe,mesh:{positions},color:color.toLowerCase()};
  if(value.smoothingAngle!==undefined){if(typeof value.smoothingAngle!=='number'||!Number.isFinite(value.smoothingAngle)||value.smoothingAngle<0||value.smoothingAngle>80)throw Error('Ángulo de suavizado inválido.');result.smoothingAngle=value.smoothingAngle;}
@@ -102,4 +103,4 @@ const presets=[
  {id:'seat-shell',name:'Carcasa ergonómica de asiento',description:'Perfil redondeado con curvatura lateral y respaldo, sin malla pesada.',steps:[['profile.roundedRectangle',{width:.42,depth:.024,round:.01,segments:16}],['extrude.sweep',{points:[[0,.20,.05],[0,.10,0],[0,-.12,0],[0,-.21,.08],[0,-.23,.28],[0,-.27,.43]],smoothPath:true,pathSegments:48},[0]]]}
 ];
 function preset(id){const item=presets.find(row=>row.id===id);if(!item)throw Error('Pieza inicial CAD desconocida.');return normalizeRecipe({steps:item.steps.map(([op,params,inputs=[]],i)=>({id:'s'+(i+1),op,params:JSON.parse(JSON.stringify(params)),inputs:inputs.map(index=>'s'+(index+1))}))});}
-module.exports={VERSION,MAX_STEPS,MAX_TRIANGLES,MAX_SOURCE_BYTES,categories,tools,numeric,defaults,fields,normalizeRecipe,normalizeDescriptor,normalizePositions,normalizeSourceData,vertexNormals,presets,preset};
+module.exports={VERSION,MAX_STEPS,MAX_TRIANGLES,MAX_SOURCE_BYTES,categories,tools,numeric,defaults,fields,normalizeRecipe,normalizeDescriptor,normalizePositions,encodePositions,normalizeSourceData,vertexNormals,presets,preset};

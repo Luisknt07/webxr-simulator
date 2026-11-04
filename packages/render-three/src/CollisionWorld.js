@@ -473,6 +473,66 @@ export default class CollisionWorld {
     return this.moveCapsule(start, desired, Object.assign({}, options, {radius, height: radius * 2, eyeHeight: radius}));
   }
 
+  // Only pedestrian locomotion follows nearby load-bearing surfaces. Raw
+  // capsule/sphere sweeps retain their original semantics for flying cameras,
+  // tracked head correction, equipment and authoring tools.
+  walkingSupport(eye, options = {}) {
+    this._ensureFresh();
+    const eyeHeight = options.eyeHeight === undefined ? Math.max((options.radius === undefined ? .25 : options.radius) * 2,
+      options.height === undefined ? 1.6 : options.height) : options.eyeHeight;
+    const up = options.maxStepUp === undefined ? .24 : Math.max(0, Math.min(.4, options.maxStepUp));
+    const down = options.maxStepDown === undefined ? .32 : Math.max(0, Math.min(.5, options.maxStepDown));
+    const foot = eye.y - eyeHeight, origin = new THREE.Vector3(eye.x, foot + up + SKIN, eye.z);
+    const ray = new THREE.Ray(origin, new THREE.Vector3(0, -1, 0));
+    const bounds = new THREE.Box3(new THREE.Vector3(eye.x - SKIN, foot - down - SKIN, eye.z - SKIN),
+      new THREE.Vector3(eye.x + SKIN, origin.y, eye.z + SKIN));
+    const point = new THREE.Vector3(), normal = new THREE.Vector3();
+    let highest = null;
+    this.triangles(bounds, options, triangle => {
+      // Upper faces of floors, treads and ramps qualify; walls, risers and the
+      // underside of a mezzanine cannot pull a visitor through the ceiling.
+      if (triangle.getNormal(normal).y < .65) return false;
+      const hit = ray.intersectTriangle(triangle.a, triangle.b, triangle.c, false, point);
+      if (hit && hit.y >= foot - down - SKIN && hit.y <= foot + up + SKIN && (highest === null || hit.y > highest)) highest = hit.y;
+      return false;
+    });
+    return highest;
+  }
+
+  moveWalkingCapsule(start, desired, options = {}) {
+    if (![start.x, start.y, start.z, desired.x, desired.y, desired.z].every(Number.isFinite)) return start.clone();
+    const eyeHeight = options.eyeHeight === undefined ? Math.max((options.radius === undefined ? .25 : options.radius) * 2,
+      options.height === undefined ? 1.6 : options.height) : options.eyeHeight;
+    const distance = Math.hypot(desired.x - start.x, desired.z - start.z);
+    if (!Number.isFinite(distance) || distance > 64) return start.clone();
+    // Small surface queries along the actual horizontal sweep cannot jump a
+    // narrow gap between two supported endpoints during a delayed frame.
+    const steps = Math.max(1, Math.ceil(distance / .08)), movement = desired.clone().sub(start).divideScalar(steps);
+    let position = start.clone();
+    for (let index = 0; index < steps; index++) {
+      const support = this.walkingSupport(position, options), wanted = position.clone().add(movement);
+      let resolved = this.moveCapsule(position, wanted, options);
+      const floor = this.walkingSupport(resolved, options);
+      if (support !== null && floor === null) break; // physical ledge, not an invisible horizontal floor.
+      if (floor !== null) {
+        const grounded = resolved.clone(); grounded.y = floor + eyeHeight + SKIN;
+        // Full-height collision remains authoritative, including the adjacent
+        // stair riser and office ceiling. Do not snap through either surface.
+        // The rounded capsule starts lifting on a riser before its centre
+        // reaches the tread. Snapping to the old lower floor on each input
+        // frame would cancel that genuine collision response and trap it.
+        const risingOnRiser = resolved.y > position.y + 1e-6 && grounded.y < resolved.y - SKIN;
+        if (!risingOnRiser) {
+          const settled = this.moveCapsule(resolved, grounded, options);
+          if (Math.hypot(settled.x - resolved.x, settled.z - resolved.z) < .025 &&
+              Math.abs(settled.y - grounded.y) < SKIN * 2 && this.canOccupyCapsule(settled, options)) resolved = settled;
+        }
+      }
+      position = resolved;
+    }
+    return position;
+  }
+
   moveCapsule(start, desired, options = {}) {
     this._ensureFresh();
     const position = start.clone(), total = desired.clone().sub(start);

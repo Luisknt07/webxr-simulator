@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "f8eed32928840b7e2dcb09a8d305c1e5649cfd30",
-  "bundleSha256": "4e0a9543a6e500ae416d835a2c68b444cfa6e08301a33094ce1be001b3eaec29",
+  "revision": "45068bf03122e36ce2b79589fa9b926601df7e76",
+  "bundleSha256": "93db48656fabdca577c91c3d6d8d2f55f67219e1bac187289efeca2e026bf007",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -43,32 +43,32 @@
   ],
   "files": [
     {
-      "path": "11.js",
-      "sha256": "5dd4720b3ed0033c062c3e4b5f781b22b964ac560073fa8fbf5cc5ba2cac8fca"
-    },
-    {
       "path": "12.js",
-      "sha256": "5ad24377023349095bc97bc9ad20499f87bd3698ff633e35bae24b72d1dce429"
+      "sha256": "05dd9e8c05137192f93d8f6ac183012e9db8a631b994fcd9fd582163800b7d1d"
     },
     {
       "path": "13.js",
-      "sha256": "3a8615fb925906f64da9dfaa9cb152c125ffc93b190dc843a51af050f5da3697"
+      "sha256": "c2072822f7088d824d1db8d2d8a5c2cfdcb5ab432a2aa9f85bb559102f333d98"
     },
     {
       "path": "14.js",
-      "sha256": "10be20d85016b63a5d8740c0b76daf0b74ea46f1e978fb7f633d34d0a4937b31"
+      "sha256": "39b61991077aa8212f0dddfd446105e49114a2fe9cc8308eac01be21dc4a9943"
     },
     {
       "path": "15.js",
-      "sha256": "79c267fc6edea6589b41181735a23977d519ce5a2e0f2971c53479ed4ef36e3f"
+      "sha256": "4cae736b7d3fd46d6f972a4103fb4c67bc364deffd7dfb4c39d8cba24e770db6"
     },
     {
       "path": "16.js",
-      "sha256": "67472cac4c629a4bd19c77f10e60b4ee589bdffc81180c47faa47b0a732de7ca"
+      "sha256": "f6213c07d6e18992cd09073a1aa901bcee1a7456c62c1c6500a07064036ab9ff"
+    },
+    {
+      "path": "17.js",
+      "sha256": "c13dbe201c583d468b0892caa88ceb23d8974a8e6a8cb6aaa6be407a888bdccf"
     },
     {
       "path": "3.js",
-      "sha256": "86b727d53d12329f91666f97aa91f352e812d8a923bd7166bfb137d534d6d746"
+      "sha256": "9b538390bbdcd4df4dc4ee75d40a2d20712eae82fc804068a0ea80fe0f940596"
     },
     {
       "path": "apps/workspace/scenario-library.css",
@@ -88,11 +88,11 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "4e0a9543a6e500ae416d835a2c68b444cfa6e08301a33094ce1be001b3eaec29"
+      "sha256": "93db48656fabdca577c91c3d6d8d2f55f67219e1bac187289efeca2e026bf007"
     },
     {
       "path": "cad-worker.js",
-      "sha256": "2b8ea4701174222b172ecefb0d072ff0c9e5324abcb88cb83858341c447516ce"
+      "sha256": "3f0e53f736154c1b25cbe770fd7e09fc12dc84c898abc4e9ed80d6aed4c29d9c"
     },
     {
       "path": "catalogue.html",
@@ -100,11 +100,11 @@
     },
     {
       "path": "collision-worker.js",
-      "sha256": "85574d4efe07fbb87ce1ce6e1ae14b349024addf288100e4dd95ac76cfe352da"
+      "sha256": "15342ff0fa39e77341d2daee8e73b394f53f63d4ba96f5bcd9088d1e31cc5e08"
     },
     {
       "path": "configurable-practice-reference.js",
-      "sha256": "2b0dd82cf28fbd45efbb905845dcb6dbb60809dcbc2713cfc67e2f3657334d4a"
+      "sha256": "0d1543742d73cd4770d2ac3e27ab5b0601163ba4cb2c041f79c4a6f0c5440d25"
     },
     {
       "path": "editor-tools.json",
@@ -116,27 +116,27 @@
     },
     {
       "path": "logistics-documentation.js",
-      "sha256": "d260395888369cb937f2e33f4d8e9bc0c3366c87754b6d2d82d376b1dabf89e3"
+      "sha256": "2fe55fe375c2b6925feaf5b8a063771c95e9df810b7ec227ce4d3a3c2c04b7d3"
     },
     {
       "path": "logistics-equipment-workspace.js",
-      "sha256": "bceab897f041c88bf0edb53b1d38b3e819f5adcfb8b67c096677dd4f6360abb5"
+      "sha256": "ba7bc42180de5c0d70d9672de1ea3048381d9a021266fc75b1c59d82ae05093b"
     },
     {
       "path": "logistics-practice-browser.js",
-      "sha256": "48bdb06d2c422077e14775ed05f9cc0bc406ccf3658e13e745b0c476b9d62b37"
+      "sha256": "b1ae1a24f046570580693a1011a6178853d3c3fcb41bead9983f8a5dc107b18a"
     },
     {
       "path": "logistics-practice-index.js",
-      "sha256": "2c2dcd033b6ed2233e11cb90abc370c91888e1a690259abef8e60059c9ca61f3"
+      "sha256": "b91c525a41824c6fc279bbfb81ceb32fdada25710621e5c435f99c41822a36b2"
     },
     {
       "path": "logistics-practice-scenes.js",
-      "sha256": "fca04d54552dbea85cc359cd0146d9fed53cba8ec6d1cb9c3b699d7ad75d29c5"
+      "sha256": "69eb5de25dd7cc5268aeba923fe6eb233a21265d19b83cb5c8bd9009870b6c4c"
     },
     {
       "path": "mesh-optimizer-worker.js",
-      "sha256": "d8a06b39f7520a52df392037642c121f61e72a3e1b94f321074e681e861b96af"
+      "sha256": "e7c904085c2dce95771ba3b769efe4e111dc429ab4b2707bd1e4c214aac3d2ad"
     },
     {
       "path": "modules/logistica-industrial/assets/blender/angel.blend",
@@ -2919,12 +2919,48 @@
       "sha256": "ac427543d1756ebe94791e8e3704fb74d9b161cd1c0a72d19e8f44abced621b2"
     },
     {
+      "path": "modules/logistica-industrial/practices/configurable/assets/products/bottled-drinks.webp",
+      "sha256": "7e65abfd3705732e95549c8ccb4e14f2ded679c7762d7fbaa7f7e6383799fded"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/products/dry-food.webp",
+      "sha256": "8181bb489de3bb9830f069350116967ac37d68c452f587b577d1ac8c91d9406a"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/products/electronics.webp",
+      "sha256": "c90cb0b115a7a888fcbde191b26f2cc312b9f9346f292b31ce20d2dee6ed6b78"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/products/farm-goods.webp",
+      "sha256": "ac1a0c30bff2a74640023248c84aefb4a3b58d57607ce4489d4dd9beda2948b7"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/products/hygiene.webp",
+      "sha256": "27b39ab5ac390f264d67071263952a0c27fc971f7ab9591820ba11fcebf6dc97"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/products/paper-goods.webp",
+      "sha256": "cbdb3575d4a554729713c76280a50720e55e1fb16e217f54da4d3fb1db9f66a7"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/products/provenance.json",
+      "sha256": "1b99807f1251ef686307bb8835c988572c27e01840d66d3e64fde8c0a5788ab6"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/products/spares.webp",
+      "sha256": "ac55a9511971044c1b16c6198ac1cfb2636619f462df57c75dce2c0732cd4b6b"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/configurable/assets/products/workwear.webp",
+      "sha256": "a0f001eef283a34729c694ddcc4f831d1b02cd67a8392b25f190fdf563db1cc8"
+    },
+    {
       "path": "modules/logistica-industrial/practices/ui/campaign.css",
       "sha256": "e737e1a1a1858b53e802a5890a2bab56faba8c84f62c28f35e4d003a9e142208"
     },
     {
       "path": "modules/logistica-industrial/practices/ui/practice.css",
-      "sha256": "3de15040ed3699e52ba9a750b560986eab8f6ec9422195c33fa4cf4e4c1468de"
+      "sha256": "69049b79c3713cbf52c767e6ae0342b2a055bb16c1e1616b5134f20f00964b97"
     },
     {
       "path": "modules/turismo/assets/angel.basis",
@@ -3284,11 +3320,11 @@
     },
     {
       "path": "nexus-equipment-reference.js",
-      "sha256": "d17f5de4a50fcb93878fdab306245e3629a05b89f970f1e8312f2451343e0afd"
+      "sha256": "057dd0d1ba7886b271f5daedb8cdcaec5de967d6dae5cf91c983e7986e4ba39d"
     },
     {
       "path": "nexus-practices-reference.js",
-      "sha256": "1c9d7fd9368815f470a220c793d6fa508cf76b63c82652a311c891064c2cd97e"
+      "sha256": "6c8517b1cb44b88f0adac4b5fa51d4d983cb23ef46479c4a78e3448c8fa1222f"
     },
     {
       "path": "packages/assistant-ui/assistant-workspace.css",
@@ -3537,6 +3573,10 @@
     {
       "path": "packages/voice-assistant/voice-assistant.css",
       "sha256": "151a3a7e8fee12ebcd565043906ab178800249b440ff38ba44f502bd3858d28d"
+    },
+    {
+      "path": "practice-configuration-preview.js",
+      "sha256": "dc18501f24ad20d38959710f6be2ca355fa1ae1fd9462e9851214840fb7461c9"
     },
     {
       "path": "projects/smarttwin/branding/apple-touch-icon-114x114.png",
@@ -3876,36 +3916,36 @@
     },
     {
       "path": "scenario-library.js",
-      "sha256": "dc42dcefbbc0be71cec92455c8865df1dd1d709489be0b41d12e102b35eeeaa9"
+      "sha256": "c91117afb2016d3e169087d66a88d1804be194f03ae75cc4cf47d8425ff43760"
     }
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "5195760e70fc24ffc90c",
-    "statsSha256": "162b871b069e3ee7e7e064482146370d658758f459932d07fe51df10ce14db74",
+    "hash": "14f08d5c8c4aa08c3d97",
+    "statsSha256": "0123af679c9e409db1c1cf963616160e3ca21c79d38f46b7dbd5e87a92264aa4",
     "assets": [
       {
-        "path": "11.js",
-        "size": 47794
-      },
-      {
         "path": "12.js",
-        "size": 17353
+        "size": 61456
       },
       {
         "path": "13.js",
-        "size": 2047
+        "size": 17353
       },
       {
         "path": "14.js",
-        "size": 2050
+        "size": 2047
       },
       {
         "path": "15.js",
-        "size": 3390
+        "size": 2050
       },
       {
         "path": "16.js",
+        "size": 3390
+      },
+      {
+        "path": "17.js",
         "size": 3313
       },
       {
@@ -3914,7 +3954,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 6964963
+        "size": 6990554
       },
       {
         "path": "configurable-practice-reference.js",
@@ -3930,7 +3970,7 @@
       },
       {
         "path": "logistics-practice-browser.js",
-        "size": 14439
+        "size": 15992
       },
       {
         "path": "logistics-practice-index.js",
@@ -3938,7 +3978,7 @@
       },
       {
         "path": "logistics-practice-scenes.js",
-        "size": 705831
+        "size": 724423
       },
       {
         "path": "nexus-equipment-reference.js",
@@ -3949,8 +3989,12 @@
         "size": 4014891
       },
       {
+        "path": "practice-configuration-preview.js",
+        "size": 3135155
+      },
+      {
         "path": "scenario-library.js",
-        "size": 832275
+        "size": 845896
       }
     ]
   }

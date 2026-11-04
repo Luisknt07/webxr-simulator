@@ -60,7 +60,8 @@ export default class XRLocomotion {
       .addScaledVector(this.right, x / directionLength * strength * this.speed * delta);
     rig.getWorldPosition(this.rigPosition);
     const eyeHeight = THREE.Math.clamp(this.head.y - this.rigPosition.y, .6, 2.3);
-    const resolved = ctx.collisionWorld ? ctx.collisionWorld.moveCapsule(this.head, this.desired, {radius: .25, height: eyeHeight, eyeHeight}) : this.desired;
+    const world = ctx.collisionWorld;
+    const resolved = world ? (world.moveWalkingCapsule || world.moveCapsule).call(world, this.head, this.desired, {radius: .25, height: eyeHeight, eyeHeight}) : this.desired;
     if (!resolved || !Number.isFinite(resolved.x) || !Number.isFinite(resolved.y) || !Number.isFinite(resolved.z)) return false;
     this.offset.copy(resolved).sub(this.head); if (this.offset.lengthSq() < 1e-14) return false;
     this.rigPosition.add(this.offset); this.placeRig(this.rigPosition); return true;

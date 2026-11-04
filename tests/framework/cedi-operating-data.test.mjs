@@ -34,11 +34,11 @@ test('all five CEDI stages share one deterministic operating book and conserve a
  assert.deepEqual(plans.map(p=>p.operatingData.stage.sourcePallets.length),[6,6,0,0,2]);
  assert.equal(plans[2].operatingData.stage.sourceBundles.length,6);assert.equal(plans[3].operatingData.stage.sourceBoxes.length,12);
  assert.deepEqual(plans.map(p=>p.operatingData.inboundBoxes),Array(5).fill(first.inboundBoxes));
- assert.deepEqual(first.summary.site,{width:64,depth:44,areaM2:2816});assert.equal(first.summary.capacity.requiredPalletPositions,9);assert.equal(first.summary.capacity.freeAfterReceiving,3);
+ assert.equal(first.summary.site.width,64);assert.equal(first.summary.site.depth,60);assert.equal(first.summary.site.areaM2,3840);assert.deepEqual(first.summary.site.annexes.map(row=>[row.id,row.footprintM2,row.floors,row.floorAreaM2]),[['administration',209,2,418],['maintenance',132,1,132]]);assert.equal(first.summary.capacity.requiredPalletPositions,9);assert.equal(first.summary.capacity.freeAfterReceiving,3);
 });
 
 test('editable profiles propagate their real lot, dimensions, colour and mass into the bounded physical seed',()=>{
- const input=data.defaults();input.name='Operación regional mixta';input.products[0].unitMassKg=2;input.products[1].unitMassKg=3;input.products[2].unitMassKg=2;input.products[1].color='#1144aa';input.products[1].width=.28;input.inboundOrders[0].lotId='LOTE-2026-A';
+ const input=data.defaults();input.name='Operación regional mixta';input.products[0].unitMassKg=2;input.products[1].unitMassKg=3;input.products[2].unitMassKg=2;input.products[1].handling='fragile';input.products[1].color='#1144aa';input.products[1].width=.28;input.inboundOrders[0].lotId='LOTE-2026-A';
  const manifest=data.manifest(input,'CEDI-01');
  assert.deepEqual(manifest.inboundPallets.map(row=>row.massKg),[36,36,36,44,44,36]);
  for(const pallet of manifest.inboundPallets)assert.equal(pallet.massKg,pallet.palletTareKg+pallet.boxes.reduce((sum,box)=>sum+box.unitMassKg,0));

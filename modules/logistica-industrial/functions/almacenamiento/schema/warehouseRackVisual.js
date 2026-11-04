@@ -95,6 +95,10 @@ function bounds(cells, closed) {
 }
 
 function createBuilder(THREE, config) {
+  // Whole-installation context uses the same load seats, folded profiles and
+  // mechanisms. Only sub-centimetre fixings and long printed addresses are
+  // omitted; the operational/editor rack keeps every original detail.
+  const contextLOD = config.rackContextLOD === true;
   const unitBox = new THREE.BoxBufferGeometry(1, 1, 1), unitPlane = new THREE.PlaneBufferGeometry(1, 1), cylinders = new Map(), profiles = new Map(), banks = new Map(), materials = new Map(), motionBanks = [], textures = new Map();
   const detail = {profiles: 0, bolts: 0, connectionPlates: 0, labels: 0, slotsLabeled: 0, textureBytes: 0};
   const texture = kind => {
@@ -167,6 +171,7 @@ function createBuilder(THREE, config) {
     const item=profiles.get(id);append(parent,role,item.geometry,p,[1,1,1],item.q);
   };
   const bolt = (parent, p, radius = .012, axis = 'z') => {
+    if (contextLOD) return;
     const q = axis === 'z' ? new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2) : new THREE.Quaternion();
     append(parent, 'steel', unit(radius, 6), p, [radius, .012, radius], q); detail.bolts++;
   };
@@ -175,6 +180,7 @@ function createBuilder(THREE, config) {
     for (const sign of [-1, 1]) bolt(parent, [p[0], p[1] + sign * size[1] * .29, p[2] + size[2] / 2 + .004]);
   };
   const label = (parent, text, p, width, height, reverse = false) => {
+    if (contextLOD && String(text || '').length > 14) return;
     text = String(text || '').replace(/[^\x20-\x7e]/g, '?'); if (!text) return;
     const q = reverse ? new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI) : undefined;
     append(parent,'ink',unitPlane,p,[width,height,1],q,undefined,[0,0,1/16,1/8],new THREE.Color('#162d38').convertSRGBToLinear());
@@ -256,7 +262,7 @@ function frame(THREE, b, parent, cells, config, options = {}) {
     b.profile(parent, 'guard', [x, FLOOR + .2, z], [.1, .36, .1], 'y');
     // Repeated fixing slots sit on the steel web. They are recessed dark marks,
     // not extra draw calls or coplanar duplicate faces on every perforation.
-    for (let y = FLOOR + .48; y < top - .12; y += .24) b.box(parent,'dark',[x,y,z-thickness/2-.0008],[.014,.038,.001]);
+    if (!config.rackContextLOD) for (let y = FLOOR + .48; y < top - .12; y += .24) b.box(parent,'dark',[x,y,z-thickness/2-.0008],[.014,.038,.001]);
   }));
   // Each front/back pair is one real braced frame. Bay interiors stay open.
   postXs.forEach(x => {

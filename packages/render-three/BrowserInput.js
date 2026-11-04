@@ -185,8 +185,10 @@ export default class BrowserInput {
         ctx.cameraRig.position.add(this.to.sub(this.from));
       } else if (x || y) {
         ctx.camera.getWorldDirection(this.forward); this.forward.y = 0; this.forward.normalize(); this.right.crossVectors(this.forward, UP).normalize();
-        ctx.camera.getWorldPosition(this.from); this.to.copy(this.from).addScaledVector(this.forward, clamp(y) * delta * 2).addScaledVector(this.right, clamp(x) * delta * 2);
-        const resolved = ctx.collisionWorld ? ctx.collisionWorld.moveCapsule(this.from, this.to, {radius: .25, height: 1.65, eyeHeight: 1.65}) : this.to;
+        const seconds = Number.isFinite(delta) ? Math.min(.1, Math.max(0, delta)) : 0;
+        ctx.camera.getWorldPosition(this.from); this.to.copy(this.from).addScaledVector(this.forward, clamp(y) * seconds * 2).addScaledVector(this.right, clamp(x) * seconds * 2);
+        const world = ctx.collisionWorld;
+        const resolved = seconds > 0 && world ? (world.moveWalkingCapsule || world.moveCapsule).call(world, this.from, this.to, {radius: .25, height: 1.65, eyeHeight: 1.65}) : this.to;
         ctx.cameraRig.position.add(resolved.clone().sub(this.from));
       }
     }

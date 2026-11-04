@@ -742,7 +742,7 @@ function updateKeyboardMovement(delta) {
     const resolved = context.collisionWorld ? context.collisionWorld.moveSphere(previous, desired, .25) : desired;
     camera.position.copy(camera.parent ? camera.parent.worldToLocal(resolved.clone()) : resolved); context.cameraRig.updateMatrixWorld(true); return;
   }
-  const distance = keyboardMoveSpeed * Math.min(delta, 0.1) /
+  const distance = keyboardMoveSpeed * (Number.isFinite(delta) ? Math.max(0, Math.min(delta, 0.1)) : 0) /
     Math.max(1, Math.hypot(forward, right));
   controls.moveForward(forward * distance);
   controls.moveRight(right * distance);
@@ -750,7 +750,9 @@ function updateKeyboardMovement(delta) {
   if (context.collisionWorld) {
     context.cameraRig.updateMatrixWorld(true);
     const desired = camera.getWorldPosition(new THREE.Vector3());
-    const resolved = context.collisionWorld.moveCapsule(previous, desired, {radius: 0.25, height: 1.6, eyeHeight: 1.6});
+    const world = context.collisionWorld;
+    const resolved = (world.moveWalkingCapsule || world.moveCapsule).call(world, previous, desired,
+      {radius: 0.25, height: 1.6, eyeHeight: 1.6});
     camera.position.copy(camera.parent ? camera.parent.worldToLocal(resolved.clone()) : resolved);
     context.cameraRig.updateMatrixWorld(true);
   }

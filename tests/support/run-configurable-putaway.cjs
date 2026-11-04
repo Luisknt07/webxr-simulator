@@ -1,7 +1,7 @@
 'use strict';
 module.exports=function runPutaway(h,f,built,onProgress=()=>{}){
  const assert=require('node:assert/strict'),record=f.runtime.records.get(built.vehicleIds[0]),v=record.components.vehicle,api=f.runtime.vehicleRuntime,w=new h.ConfigurablePracticeRuntime({simulation:f.runtime,document:f.document},built.manifest),d=require('./cedi-dock-operator.cjs')(h).boundedDriver(f,record,{maxSimSeconds:7200}),shipments=[],originalIds=[...f.runtime.products.keys()].sort();
- assert.equal(built.manifest.facility.sharedLayout.id,'cedi-unified-u-v1');assert.equal(originalIds.length,6);
+ assert.equal(built.manifest.facility.sharedLayout.id,'cedi-unified-u-v2');assert.equal(originalIds.length,6);
  const verify=()=>{w.update();const world=w.snapshot();assert.deepEqual(world.criticalReasons,[]);assert.equal(world.totalUnits,48);assert.deepEqual(world.materialBalance.actual,{box:48});assert.deepEqual([...f.runtime.products.keys()].sort(),originalIds,'The seven native transfers must conserve the six original products.');return world;};
  w.command('material-order',{orderId:built.materialRecipe.orderId,quantity:48});w.command('material-prepare',{method:'ruta-y-capacidad-verificadas'});
  for(const task of built.tasks.slice(0,6)){const rack=f.runtime.records.get(task.destinationId),cell=f.runtime.palletQueueRuntime.locations(rack).find(row=>row.index===task.destinationSlot);w.command('assign-stock-location',{palletId:task.productId,locationCode:cell.code});}
