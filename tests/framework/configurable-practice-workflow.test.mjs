@@ -18,8 +18,20 @@ test('workflow decisions cannot inspect remote stock, duplicate stock, or fabric
  const f=native.fixture();try{
   const built=native.buildConfigurablePracticeScene(f.document,'hall','CEDI-01',{scene:f.scene});f.runtime.start('hall');native.advance(f,.1);
   const w=new native.ConfigurablePracticeRuntime({simulation:f.runtime,document:f.document},built.manifest),palletId=built.palletIds[0],orderId=built.manifest.receiving.orderId;
+  const vehicle=f.runtime.records.get(built.vehicleIds[0]).components.vehicle;
+  assert.equal(vehicle.enabled,false);assert.equal(vehicle.operatorInterlock.actionId,'arrival-check');
+  assert.match(vehicle.operatorInterlock.instruction,/48 cajas/);
+  assert.throws(()=>w.command('secure-dock',{secured:'checked'}),/Revisa/);
+  assert.equal(vehicle.enabled,false,'The cockpit route never bypasses the actual order and dock preconditions.');
   assert.throws(()=>w.command('arrival-check',{orderId,boxes:47,dockId:'E02'}),/48 cajas/);
-  w.command('arrival-check',{orderId,boxes:48,dockId:'E02'});w.command('secure-dock',{secured:'checked'});
+  w.command('arrival-check',{orderId,boxes:48,dockId:'E02'});
+  assert.equal(vehicle.enabled,false);assert.equal(vehicle.operatorInterlock.actionId,'secure-dock');
+  assert.throws(()=>w.command('secure-dock',{secured:'not-checked'}),/Revisa/);
+  assert.equal(vehicle.enabled,false);
+  w.command('secure-dock',{secured:'checked'});
+  assert.equal(vehicle.enabled,true);assert.equal(vehicle.operatorInterlock,undefined);
+  f.runtime.setVariable(built.vehicleIds[0],'enabled',false);w.syncVehicleInterlock();
+  assert.equal(vehicle.enabled,false,'Refreshing the explanation does not reenable a later operator-disabled vehicle.');
   assert.throws(()=>w.command('inspect-pallet',{palletId,boxes:8,massKg:60,lotId:built.manifest.receiving.lotId}),/Traslada/);
   assert.throws(()=>w.command('disposition',{palletId,decision:'released'}),/Inspecciona/);
   assert.throws(()=>w.command('register-pallet',{palletId,orderId}),/Relaciona/);

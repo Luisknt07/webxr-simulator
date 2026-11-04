@@ -53,6 +53,79 @@ function firstAt(f, local, camera) {
 }
 function isFork(f, hit) { let object = hit && hit.object; const forks = f.api.rig(f.record).forks; while (object && object !== forks) object = object.parent; return object === forks; }
 
+// A native elevated pickup is already in the horizontal inspection zone while
+// the stricter three-dimensional raw docking probe has no candidate yet.
+// The selected, physically eligible guide target must still be the real load.
+{
+ const f=mounted(),camera=f.feed,guide=f.driving.holographicGuide,product=f.runtime.products.get(f.pallet),originalPosition=f.pallet.position.clone();
+ const support=new THREE.Mesh(new THREE.BoxBufferGeometry(1.8,2,1.5),new THREE.MeshBasicMaterial());support.position.set(0,1,3.15);f.root.add(support);
+ f.pallet.position.set(0,2,3.15);f.scene.updateMatrixWorld(true);guide.update(true);assert(guide.setTarget('pickup:'+product.record.id));
+ const raw=f.api.getDockingState(f.record);assert(!raw.geometry.target,'The actual raw docking probe has not identified the elevated pallet.');assert(guide.currentTarget.allowed);
+ const forks=f.api.rig(f.record).forks,from=forks.getWorldPosition(new THREE.Vector3()),to=product.bounds.getCenter(new THREE.Vector3()).applyMatrix4(product.object.matrixWorld);
+ assert(Math.hypot(from.x-to.x,from.z-to.z)<2,'The genuine pallet is already inside the automatic camera entry radius.');
+ const custody=()=>({pose:JSON.stringify(f.v.pose),vehicle:f.object.matrixWorld.toArray(),product:product.object.matrixWorld.toArray(),parent:product.object.parent,entry:f.v.entry,owner:product.vehicleOwnerId,reserved:product.vehicleReservedBy,population:f.runtime.products.size});
+ const initial=custody();
+ for(const mode of ['isometric','entry','tips']){
+  camera.setMode(mode);const frame=camera.frame(raw);assert.equal(frame.product,product);assert.equal(frame.approach,1,'Approach framing includes the elevated receiver before insertion.');assert(camera.camera.isOrthographicCamera);
+  for(const x of [product.bounds.min.x,product.bounds.max.x])for(const y of [product.bounds.min.y,product.bounds.max.y])for(const z of [product.bounds.min.z,product.bounds.max.z]){
+   const projected=new THREE.Vector3(x,y,z).applyMatrix4(product.object.matrixWorld).project(camera.camera);assert(Math.abs(projected.x)<1&&Math.abs(projected.y)<1&&Math.abs(projected.z)<1,'Every real load corner is inside the approach camera frustum.');
+  }
+  for(const side of [-1,1])for(const fraction of [.12,.94]){
+   const point=new THREE.Vector3(side*f.config.forkSpread/2,0,f.config.forkLength*fraction).applyMatrix4(forks.matrixWorld).project(camera.camera);assert(Math.abs(point.x)<1&&Math.abs(point.y)<1&&Math.abs(point.z)<1,'Both physical insertion tines stay visible beside the approached load.');
+  }
+  assert.deepEqual(custody(),initial,'Framing cannot reposition cargo, change mechanism pose or acquire custody.');
+ }
+ camera.setMode('isometric');camera.setAvailable(true);assert(camera.renderBefore(f.scene,.2));assert(camera.hasCurrentFrame());
+ const firstKey=camera.frameKey(),secondObject=f.pallet.clone(true);secondObject.position.x=1.8;secondObject.userData.editorId='camera-second-pallet';f.root.add(secondObject);
+ const secondRecord=Object.assign({},product.record,{id:secondObject.userData.editorId,object:secondObject});f.runtime.records.set(secondRecord.id,secondRecord);
+ const second=f.runtime.registerProduct(secondObject,secondRecord,null);f.scene.updateMatrixWorld(true);guide.update(true);assert(guide.setTarget('pickup:'+secondRecord.id));
+ assert.notEqual(camera.frameKey(),firstKey);assert(!camera.hasCurrentFrame(),'Changing the actual selected pickup invalidates the previous camera frame immediately.');assert.equal(camera.product(f.record,raw),second);
+ assert(camera.renderBefore(f.scene,.001),'A new target renders immediately rather than waiting for the auxiliary FPS timer.');assert.equal(camera.framing.product,second);assert(camera.hasCurrentFrame());
+ // Reusing a snapshot cannot keep displaying a load that another agent took,
+ // reserved, hid, removed or placed under an incompatible mission selection.
+ for(const flag of ['heldBy','robotOwnerId','robotReservedBy','vehicleReservedBy','vehicleOwnerId']){second[flag]='other-owner';assert.equal(camera.product(f.record,raw),null,flag+' is checked against live custody.');delete second[flag];}
+ secondObject.visible=false;assert.equal(camera.product(f.record,raw),null);secondObject.visible=true;
+ f.runtime.products.delete(secondObject);assert.equal(camera.product(f.record,raw),null);f.runtime.products.set(secondObject,second);
+ const Training=require('../../modules/logistica-industrial/functions/montacargas/runtime/VehicleTrainingRuntime.js').default;
+ f.v.config.trainingTasksJson=JSON.stringify([{id:'camera-assigned-load',name:'Inspect assigned load',productId:product.record.id,sourceId:product.record.id,destinationId:'camera-destination',destinationSlot:0}]);
+ f.v.training={index:0,completed:[]};const training=f.runtime.vehicleTraining=new Training(f.runtime);training.beginRoute(f.record,'pickup');
+ const lesson=JSON.stringify(f.v.training);assert.equal(camera.product(f.record,raw),null,'A stale selected target cannot override the actual mission product.');guide.update(true);assert.equal(camera.product(f.record,raw),product);assert.equal(JSON.stringify(f.v.training),lesson,'The camera grants no route, mission or score credit.');
+ delete f.runtime.vehicleTraining;delete f.v.training;f.pallet.position.copy(originalPosition);f.scene.updateMatrixWorld(true);assert(f.api.pickup(f.record),f.v.warning);
+ assert.equal(camera.product(f.record,raw),product,'Actual held cargo remains authoritative after the physical pickup.');assert.equal(f.v.entry.product,product);
+ f.driving.dispose();f.runtime.stop();support.geometry.dispose();support.material.dispose();
+}
+
+// Use the actual receiving installation and native shipment pallet, not just
+// a synthetic elevated load. Place this fixture at the camera's entry boundary;
+// framing itself must leave the real mechanism, material and mission untouched.
+{
+ const native=require('../support/load-practice-scenes.cjs')(),f=native.fixture();let guide,camera;
+ try{
+  const built=native.buildConfigurablePracticeScene(f.document,'hall','CEDI-01',{scene:f.scene,mode:'manual'});f.runtime.start('hall');native.advance(f,.1);
+  const record=f.runtime.records.get(built.vehicleIds[0]),v=record.components.vehicle,rig=f.runtime.vehicleRuntime.rig(record);
+  const driving={ctx:f.ctx,simulation:f.runtime,record:()=>record,visualRoot:v.visualRoot,blocked:()=>false,document:null};
+  const Guide=require('../../modules/logistica-industrial/functions/montacargas/runtime/VehicleHolographicGuide.js').default;
+  const {ForkCamera}=require('../support/load-vehicle-driving')(THREE);
+  guide=driving.holographicGuide=new Guide(driving);guide.mount(record);assert(guide.currentTarget&&guide.currentTarget.allowed);
+  const product=guide.currentTarget.product,from=rig.forks.getWorldPosition(new THREE.Vector3()),to=product.bounds.getCenter(new THREE.Vector3()).applyMatrix4(product.object.matrixWorld),offset=to.clone().sub(from);offset.y=0;
+  const distance=offset.length(),world=record.object.getWorldPosition(new THREE.Vector3()).addScaledVector(offset.normalize(),Math.max(0,distance-1.99));
+  record.object.position.copy(record.object.parent.worldToLocal(world));record.object.updateMatrix();f.scene.updateMatrixWorld(true);guide.update(true);
+  const actualFrom=rig.forks.getWorldPosition(new THREE.Vector3());near(Math.hypot(actualFrom.x-to.x,actualFrom.z-to.z),1.99,1e-5);
+  camera=new ForkCamera(driving);const raw=f.runtime.vehicleRuntime.getDockingState(record),before={vehicle:record.object.matrixWorld.toArray(),product:product.object.matrixWorld.toArray(),pose:JSON.stringify(v.pose),entry:v.entry,training:JSON.stringify(v.training)};
+  for(const mode of ['isometric','entry','tips']){
+   camera.setMode(mode);const frame=camera.frame(raw);assert.equal(frame.product,product,'The actual CEDI receiving load is selected before insertion.');
+   assert.equal(frame.approach,1,'At automatic activation the pallet must be fully framed, rather than left beyond the fixed insertion crop.');
+   for(const x of [product.bounds.min.x,product.bounds.max.x])for(const y of [product.bounds.min.y,product.bounds.max.y])for(const z of [product.bounds.min.z,product.bounds.max.z]){
+    const point=new THREE.Vector3(x,y,z).applyMatrix4(product.object.matrixWorld).project(camera.camera);assert(Math.abs(point.x)<1&&Math.abs(point.y)<1&&Math.abs(point.z)<1,'All actual CEDI pallet corners are in the camera frustum.');
+   }
+   for(const side of [-1,1])for(const fraction of [.12,.94]){
+    const point=new THREE.Vector3(side*v.config.forkSpread/2,0,v.config.forkLength*fraction).applyMatrix4(rig.forks.matrixWorld).project(camera.camera);assert(Math.abs(point.x)<1&&Math.abs(point.y)<1&&Math.abs(point.z)<1,'Actual CEDI fork tips and heels remain in view.');
+   }
+   assert.deepEqual({vehicle:record.object.matrixWorld.toArray(),product:product.object.matrixWorld.toArray(),pose:JSON.stringify(v.pose),entry:v.entry,training:JSON.stringify(v.training)},before);
+  }
+ }finally{if(camera)camera.dispose();if(guide)guide.dispose();if(f.runtime.active)f.runtime.stop();native.releaseGeometry(f);}
+}
+
 const desktop = setup(false, true);
 const r = desktop.screen = renderer(desktop); desktop.ctx.graphics = {getLimits: () => ({tier: 'balanced'})}; assert(desktop.driving.mount(desktop.record.id));
 const feed = desktop.feed = desktop.driving.docking.forkCamera, monitor = desktop.driving.docking;
@@ -128,7 +201,7 @@ for(const definition of h.vehicles.VARIANTS.filter(value=>h.vehicles.supports(va
  const originalPosition=f.pallet.position.clone();
  for(const mode of ['isometric','entry','tips']){
   camera.setMode(mode);let crop=null;
-  for(const gap of [.6,.1,.05,.01,0,-.12]){
+  for(const gap of [.1,.05,.01,0,-.12]){
    f.scene.updateMatrixWorld(true);const local=product.bounds.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(new THREE.Matrix4().getInverse(rig.forks.matrixWorld),product.object.matrixWorld));
    f.pallet.position.z+=f.config.forkLength+gap-local.min.z;f.scene.updateMatrixWorld(true);
    const before=product.object.matrixWorld.toArray(),frame=camera.frame(f.api.getDockingState(f.record)),view=camera.camera;

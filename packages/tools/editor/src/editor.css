@@ -437,6 +437,9 @@ body.editor-mode { overflow: hidden; }
 .vehicle-next-step-text { min-width: 0; color: #e3edf3; font-size: 12px; line-height: 1.4; }
 .vehicle-next-step[data-tone="warning"] { border-left-color: #e5c177; }
 .vehicle-next-step[data-tone="danger"] { border-left-color: #ec9ba5; }
+.vehicle-preparation-action:not([hidden]){display:block;width:100%;min-height:44px!important;margin:0 0 8px;border:1px solid #e7c16a!important;background:#50421f!important;color:#fff1bc!important;font-weight:700;white-space:normal}
+.vehicle-driving-hud[data-controls][data-interlocked=true] .vehicle-next-step{display:block!important;max-height:none!important;overflow:visible!important}
+.vehicle-driving-hud[data-controls][data-interlocked=true] .vehicle-next-step-text{display:block!important}
 .vehicle-driving-actions, .vehicle-control-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); align-items: start; gap: 9px; }
 .vehicle-control-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 6px; min-width: 0; padding: 8px; border: 1px solid #2e4857; border-radius: 8px; background: #122832; }
 .vehicle-control-group-title { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 0 0 2px; color: #a8c0ce; font-size: 10px; line-height: 1.4; letter-spacing: .045em; text-transform: uppercase; font-weight: 650; }

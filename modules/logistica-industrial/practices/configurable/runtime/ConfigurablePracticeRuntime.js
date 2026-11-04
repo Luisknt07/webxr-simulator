@@ -15,7 +15,22 @@ export default class ConfigurablePracticeRuntime{
   const restored=manifest.workflowState;
   this.state=restored&&restored.version===1?copy(restored):{version:1,arrival:null,secured:false,inspections:{},dispositions:{},registrations:{},unloaded:[],closed:false};
   this.ids=(manifest.palletIds||manifest.productIds||[]).slice();this.receiving=manifest.receiving||{};
-  if(manifest.practiceId==='CEDI-01'&&manifest.availability&&manifest.availability.ready&&this.runtime.setVariable)(manifest.vehicleIds||[]).forEach(id=>this.runtime.setVariable(id,'enabled',this.state.secured===true));
+  this.syncVehicleInterlock(true);
+ }
+ syncVehicleInterlock(refreshPermission=false){
+  if(this.manifest.practiceId!=='CEDI-01'||!this.manifest.availability||!this.manifest.availability.ready||!this.runtime.setVariable)return;
+  const prepared=this.state.secured===true,arrival=!!this.state.arrival,boxes=Number(this.manifest.expectedUnits)||this.ids.length*(Number(this.receiving.unitsPerPallet)||8),dock=this.receiving.dockAlias||'E02';
+  for(const id of this.manifest.vehicleIds||[]){
+   const record=this.runtime.records.get(id),vehicle=record&&record.components.vehicle;if(!vehicle)continue;
+   if(refreshPermission)this.runtime.setVariable(id,'enabled',prepared);
+   // Ephemeral cockpit context. This explains the existing dock interlock;
+   // it neither changes the order nor accepts its documentary evidence.
+   if(prepared)delete vehicle.operatorInterlock;
+   else vehicle.operatorInterlock={kind:'practice-dock',actionId:arrival?'secure-dock':'arrival-check',
+    title:arrival?'Verificar el muelle antes de conducir':'Contrastar la orden antes de conducir',
+    instruction:arrival?'Comprueba calzos, borde y acceso en '+dock+'. Abre la comprobación del muelle y confirma lo observado para habilitar el montacargas.':'Revisa la cita, el vehículo, las '+boxes+' cajas y el muelle '+dock+'. Registra la orden; después comprueba calzos, borde y acceso.',
+    label:arrival?'Comprobar muelle '+dock:'Revisar orden de recepción'};
+  }
  }
  live(){if(this.disposed||this.runtime.active===false)throw Error('El intento ya no está activo.');}
  alias(alias){const row=(this.manifest.aliases||[]).find(row=>row.alias===alias),record=row&&this.runtime.records.get(row.objectId);return record&&record.object&&record.object.parent?record:null;}
@@ -65,7 +80,7 @@ export default class ConfigurablePracticeRuntime{
    this.state.arrival={orderId:payload.orderId,truckId:this.alias('E01').id,dockId:this.alias('E02').id,boxes:48,time:this.runtime.time};this.lastMessage='Orden de 48 cajas asociada al camión y al muelle E02.';
   }else if(type==='secure-dock'){
    if(!this.state.arrival||payload.secured!=='checked')throw Error('Revisa la retención, el borde y la disponibilidad del muelle antes de descargar.');
-   this.state.secured=true;(this.manifest.vehicleIds||[]).forEach(id=>this.runtime.setVariable(id,'enabled',true));this.lastMessage='Muelle verificado. Descarga cada pallet con el montacargas nativo hacia E04.';
+   this.state.secured=true;this.lastMessage='Muelle verificado. Descarga cada pallet con el montacargas nativo hacia E04. Libera Freno P y mantén W para avanzar; S retrocede.';
   }else if(type==='inspect-pallet'){
    if(!this.state.secured||!pallet||pallet.inSource||!pallet.inInspection)throw Error('Traslada y detén ese pallet en la zona real E04; no se inspecciona desde el camión ni en marcha.');
    if(Number(payload.boxes)!==pallet.units||Number(payload.massKg)!==pallet.massKg||payload.lotId!==pallet.lotId)throw Error('El conteo, la masa con tara o el lote no coinciden con la carga observada.');
@@ -82,7 +97,7 @@ export default class ConfigurablePracticeRuntime{
    if(Number(payload.boxes)!==48||this.ids.some(id=>!this.state.registrations[id])||observation.units.some(row=>this.state.dispositions[row.id].decision==='released'?!row.inReleased:!row.inQuarantine))throw Error('Deposita todas las cargas en sus destinos reales y concilia las 48 cajas antes del cierre.');
    this.state.closed=true;this.lastMessage='Las 48 cajas están conciliadas en destinos físicos; recepción cerrada.';
   }else throw Error('Acción de práctica no admitida.');
-  const actor=this.alias(type==='arrival-check'||type==='register-pallet'?'E08':type==='confirm-handover'?'E07':type==='secure-dock'?'E02':'E04');if(actor)this.runtime.event(actor.id,'configurable-'+type,this.manifest.practiceId+' · '+(pallet?pallet.sku:this.receiving.orderId));this.save();return{accepted:true,message:this.lastMessage};
+  this.syncVehicleInterlock(type==='secure-dock');const actor=this.alias(type==='arrival-check'||type==='register-pallet'?'E08':type==='confirm-handover'?'E07':type==='secure-dock'?'E02':'E04');if(actor)this.runtime.event(actor.id,'configurable-'+type,this.manifest.practiceId+' · '+(pallet?pallet.sku:this.receiving.orderId));this.save();return{accepted:true,message:this.lastMessage};
  }
  snapshot(){
   this.live();const o=this.observe(),conserved=!o.criticalReasons.length,all=map=>this.ids.length===6&&this.ids.every(id=>map[id]),prepared=!!(this.state.arrival&&this.state.secured),conditions=[!!this.state.arrival,prepared&&this.state.unloaded.length===6&&o.units.every(row=>!row.inSource),all(this.state.inspections),all(this.state.dispositions)&&o.units.every(row=>this.state.dispositions[row.id].decision===(row.quality==='good'?'released':'quarantine')),all(this.state.registrations),this.state.closed&&all(this.state.registrations)&&o.units.every(row=>this.state.dispositions[row.id].decision==='released'?row.inReleased:row.inQuarantine)];

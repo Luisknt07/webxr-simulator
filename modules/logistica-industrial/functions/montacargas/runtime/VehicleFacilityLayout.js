@@ -187,7 +187,7 @@ export default class VehicleFacilityLayout {
       const route = verified ? path.points.map(worldPoint).filter(Boolean).slice(0, 64) : [vehiclePosition].concat(raw).slice(0, 64);
       mission = Object.freeze({taskId: lesson.taskId || '', phase: lesson.phase, title: text(lesson.title, 100), locationCode: lesson.phase === 'pickup' ? lesson.sourceLocationCode || '' : lesson.locationCode || '',
         pickup: pickup && Object.freeze(pickup), destination: destination && Object.freeze(destination), target: lesson.phase === 'pickup' ? pickup : destination,
-        route: freezePoints(route), plannedRoute: freezePoints([vehiclePosition].concat(raw).slice(0, 64)), verified, blocked: !!(lesson.routeFault || path && path.blocked), stop: path && frozenWorldPoint(path.stop),
+        route: freezePoints(route), plannedRoute: freezePoints([vehiclePosition].concat(raw).slice(0, 64)), verified, blocked: !!(lesson.routeFault || path && path.blocked), dockingLimit:!!(path&&path.dockingLimit), stop: path && frozenWorldPoint(path.stop),
         index: lesson.waypointIndex || 0, total: Array.isArray(lesson.route) ? lesson.route.length : 0, completed: lesson.completed || 0, missionTotal: lesson.total || 0});
     } else if (guide && ['pickup', 'drop'].includes(guide.phase)) {
       // Reuse the guide's already chosen physical target. Do not call the
@@ -205,7 +205,7 @@ export default class VehicleFacilityLayout {
           mission = Object.freeze({taskId: '', manual: true, phase: current.kind, title: text(current.name || guide.targetName || guide.title, 100), locationCode: current.locationCode || '',
             pickup: current.kind === 'pickup' ? target : null, destination: current.kind === 'drop' ? target : null, target,
             route: freezePoints(verified ? path.points.map(worldPoint).filter(Boolean).slice(0, 64) : []), plannedRoute: Object.freeze([]), verified,
-            blocked: !!(path && path.blocked), unavailable: current.allowed === false, stop: path && frozenWorldPoint(path.stop), index: 0, total: 0, completed: 0, missionTotal: 0});
+            blocked: !!(path && path.blocked), dockingLimit:!!(path&&path.dockingLimit), unavailable: current.allowed === false, stop: path && frozenWorldPoint(path.stop), index: 0, total: 0, completed: 0, missionTotal: 0});
         }
       }
     }
@@ -313,7 +313,7 @@ export default class VehicleFacilityLayout {
     const y = height - footer + font;
     ctx.font = 'bold ' + font * .78 + 'px sans-serif'; ctx.fillStyle = C.pickup; ctx.fillText('R · Recogida', 14, y); ctx.fillStyle = C.drop; ctx.fillText('E · Entrega', width * .29, y); ctx.fillStyle = '#fff6cd'; ctx.fillText('▲ Tu montacargas', width * .57, y);
     ctx.font = font * .78 + 'px sans-serif'; ctx.fillStyle = mission && mission.blocked ? C.blocked : C.text;
-    const status = !mission ? 'Explora la instalación y selecciona una carga.' : mission.phase === 'complete' ? 'Práctica completada · todas las entregas verificadas.' : mission.blocked ? 'Ruta bloqueada · detente. Gris: referencia sin validar.' : mission.unavailable ? 'Objetivo no disponible · revisa la guía.' : mission.verified ? 'Sigue la ruta marcada hasta el objetivo activo.' : mission.manual ? 'Objetivo local · comprueba el acceso antes de acercarte.' : 'Ruta prevista sin validar · comprueba el pasillo.';
+    const status = !mission ? 'Explora la instalación y selecciona una carga.' : mission.phase === 'complete' ? 'Práctica completada · todas las entregas verificadas.' : mission.dockingLimit ? 'Final del tramo libre · ajusta las horquillas con la cámara antes de continuar.' : mission.blocked ? 'Ruta bloqueada · detente. Gris: referencia sin validar.' : mission.unavailable ? 'Objetivo no disponible · revisa la guía.' : mission.verified ? 'Sigue la ruta marcada hasta el objetivo activo.' : mission.manual ? 'Objetivo local · comprueba el acceso antes de acercarte.' : 'Ruta prevista sin validar · comprueba el pasillo.';
     ctx.fillText(fitText(status,width-28), 14, y + font * 1.25);
     ctx.fillStyle = C.muted; ctx.fillText(fitText(text(mission && (mission.locationCode || mission.title) || '', 100),width-28), 14, y + font * 2.5);
     ctx.restore(); return true;

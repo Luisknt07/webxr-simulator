@@ -59,10 +59,10 @@ function authoredRoute(){
  const driving={ctx:f.ctx,simulation:f.runtime,id:f.record.id,record:()=>f.record,blocked:()=>false,document:null},guide=new Guide(driving);driving.holographicGuide=guide;guide.setEnabled(false);guide.mount();
  let time=0;const map=new Facility(driving,{now:()=>time}),state=operatingState(f.runtime,f.record,product),read=()=>{time+=250;return map.update(f.record);};
  try{
-  assert.equal(guide.stats.allocations,0);assert(guide.route.clear);assert.equal(guide.getState().phase,'pickup');
+  assert.equal(guide.stats.allocations,1);assert(!guide.root.visible&&guide.routeRoot.visible&&guide.arrows.visible);assert(guide.route.clear);assert.equal(guide.getState().phase,'pickup');
   let model=read();assert(model.mission.verified);assert.deepEqual(model.mission.route,[[0,0],[0,8],[8,8]],'The hidden spatial helper retains the collision-verified authored corner.');
   const wall=new THREE.Mesh(new THREE.BoxBufferGeometry(6,2.5,.015),new THREE.MeshBasicMaterial());wall.position.set(0,1.25,4);f.root.add(wall);f.scene.updateMatrixWorld(true);f.ctx.collisionWorld.invalidate(wall);
-  guide.update(true);model=read();assert(guide.route.blocked&&!guide.route.clear);assert(model.mission.verified&&model.mission.blocked);assert.equal(model.mission.route.length,1,'A newly blocked path cannot keep stale safe arrows beyond the obstacle.');assert(model.mission.stop);assert.equal(guide.stats.allocations,0);
+  guide.update(true);model=read();assert(guide.route.blocked&&!guide.route.clear);assert(model.mission.verified&&model.mission.blocked);assert.equal(model.mission.route.length,1,'A newly blocked path cannot keep stale safe arrows beyond the obstacle.');assert(model.mission.stop);assert.equal(guide.stats.allocations,1);
   f.root.remove(wall);f.ctx.collisionWorld.invalidate(wall);const world=f.ctx.collisionWorld;f.ctx.collisionWorld=null;guide.update(true);model=read();assert.equal(model.mission.verified,false,'No physical checker means no verified route even with the hologram hidden.');assert.equal(guide.getState().routePath.points.length,0);f.ctx.collisionWorld=world;
   assert.deepEqual(operatingState(f.runtime,f.record,product),state,'Hidden route inspection never changes custody, pose, progress, configuration or simulation time.');
  }finally{map.dispose();guide.dispose();f.runtime.vehicleTraining=null;f.runtime.stop();}

@@ -5,7 +5,7 @@ import {buildDropPlacement,dropTargetGeometry} from './VehicleDropPlacement.js';
 const UP = new THREE.Vector3(0, 1, 0);
 const COLORS = {ready: 0x70e3b1, near: 0xefc563, blocked: 0xf17f87, target: 0x6bdbe8};
 const ROUTE_COLORS = {pickup: 0x39d9ed, drop: 0xffc34d};
-const ROUTE_SEGMENTS = 64, ROUTE_VERTICES = ROUTE_SEGMENTS * 6 + GUIDANCE_ROUTE_ARROWS * 3;
+const ROUTE_SEGMENTS = 64, ROUTE_VERTICES = ROUTE_SEGMENTS * 6 + GUIDANCE_ROUTE_ARROWS * 12;
 const EMPTY_PATH = Object.freeze({points: Object.freeze([]), blocked: false, stop: null});
 const targetColor = model => model.severity === 'ready' ? COLORS.ready : model.severity === 'blocked' ? COLORS.blocked : model.phase === 'pickup' ? ROUTE_COLORS.pickup : ROUTE_COLORS.drop;
 const now = () => typeof performance === 'undefined' ? Date.now() : performance.now();
@@ -45,6 +45,9 @@ export default class VehicleHolographicGuide {
     const parent = this.ctx.editor && this.ctx.editor.hooks && this.ctx.editor.hooks.renderScene || this.ctx.renderScene || this.ctx.scene;
     if (!parent || !parent.add) return;
     this.root = helper(new THREE.Group()); this.root.name = 'Guía holográfica de carga y descarga'; this.root.matrixAutoUpdate = false; parent.add(this.root);
+    // Floor navigation is independent of the near-pallet transparency mode.
+    // Hiding the chassis hologram must not erase the route to its next task.
+    this.routeRoot = helper(new THREE.Group()); this.routeRoot.name = 'Ruta manual · recogida y entrega'; this.routeRoot.matrixAutoUpdate = false; parent.add(this.routeRoot);
     this.geometries = new Set(); this.materials = new Set();
     const box = new THREE.BoxBufferGeometry(1, 1, 1), edges = new THREE.EdgesGeometry(box), plane = new THREE.PlaneBufferGeometry(1, 1);
     [box, edges, plane].forEach(value => this.geometries.add(value));
@@ -83,15 +86,15 @@ export default class VehicleHolographicGuide {
     this.dropCorners = [[-1,-1],[1,-1],[1,1],[-1,1]];this.dropArrow = ['stem','left','right'];
     this.dropTransform = new THREE.Matrix4();this.dropPosition = new THREE.Vector3();this.dropScale = new THREE.Vector3();this.dropRotation = new THREE.Quaternion();this.dropEuler = new THREE.Euler();
     const routeGeometry = colored => {const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(ROUTE_VERTICES * 3), 3)); if (colored) geometry.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(ROUTE_VERTICES * 3), 3)); geometry.setDrawRange(0, 0); this.geometries.add(geometry); return geometry;};
-    this.routeBorder = helper(new THREE.Mesh(routeGeometry(false), this.routeBorderMaterial)); this.root.add(this.routeBorder);
-    this.arrows = helper(new THREE.Mesh(routeGeometry(true), this.routeMaterial)); this.routeArrows = this.arrows; this.root.add(this.arrows);
+    this.routeBorder = helper(new THREE.Mesh(routeGeometry(false), this.routeBorderMaterial)); this.routeRoot.add(this.routeBorder);
+    this.arrows = helper(new THREE.Mesh(routeGeometry(true), this.routeMaterial)); this.routeArrows = this.arrows; this.routeRoot.add(this.arrows);
     const stopGeometry = new THREE.BufferGeometry(), stopVertices = [], stopColors = [], stopColor = new THREE.Color(COLORS.blocked).convertSRGBToLinear();
     for (const angle of [-Math.PI / 4, Math.PI / 4]) {
       const x = Math.cos(angle) * .42, z = Math.sin(angle) * .42, nx = -Math.sin(angle) * .065, nz = Math.cos(angle) * .065;
       for (const value of [[-x + nx, -z + nz], [x + nx, z + nz], [x - nx, z - nz], [-x + nx, -z + nz], [x - nx, z - nz], [-x - nx, -z - nz]]) {stopVertices.push(value[0], 0, value[1]); stopColors.push(stopColor.r, stopColor.g, stopColor.b);}
     }
     stopGeometry.setAttribute('position', new THREE.Float32BufferAttribute(stopVertices, 3)); stopGeometry.setAttribute('color', new THREE.Float32BufferAttribute(stopColors, 3)); this.geometries.add(stopGeometry);
-    this.stopMarker = helper(new THREE.Mesh(stopGeometry, this.routeMaterial)); this.stopMarker.visible = false; this.root.add(this.stopMarker);
+    this.stopMarker = helper(new THREE.Mesh(stopGeometry, this.routeMaterial)); this.stopMarker.visible = false; this.routeRoot.add(this.stopMarker);
     this.routeColors = {pickup: new THREE.Color(ROUTE_COLORS.pickup).convertSRGBToLinear(), drop: new THREE.Color(ROUTE_COLORS.drop).convertSRGBToLinear()};
     const dom = this.driving.document;
     if (dom && dom.createElement) {
@@ -161,11 +164,11 @@ export default class VehicleHolographicGuide {
   update(force = false, snapshot = null) {
     const record = this.driving.record && this.driving.record(), blocked = this.driving.blocked && this.driving.blocked();
     if (!record || record.id !== this.recordId || blocked || this.ctx.editor && this.ctx.editor.active) {
-      if (this.root) this.root.visible = false; this.stats.visible = false; this.stats.dropDrawCalls=0; return this.state;
+      if (this.root) this.root.visible = false; if (this.routeRoot) this.routeRoot.visible = false; this.stats.visible = false; this.stats.dropDrawCalls=0; return this.state;
     }
     const runtimeAPI = this.simulation && this.simulation.vehicleRuntime;
     if (!runtimeAPI || !['rig','capacity','getDockingState','operational','pickupDock','missionDestination','dropDock'].every(name => typeof runtimeAPI[name] === 'function') || !runtimeAPI.rig(record) || !runtimeAPI.rig(record).forks || record.components.vehicle.config.family === 'cart') {
-      if (this.root) this.root.visible = false; this.stats.visible = false; this.stats.dropDrawCalls=0;
+      if (this.root) this.root.visible = false; if (this.routeRoot) this.routeRoot.visible = false; this.stats.visible = false; this.stats.dropDrawCalls=0;
       this.state = Object.assign(empty(), {phase: 'unavailable', title: 'Guía de horquillas no disponible', instruction: 'Este equipo no dispone de un sistema de horquillas compatible.'}); return this.state;
     }
     // Hologram visibility is independent from the live navigation model used
@@ -209,7 +212,7 @@ export default class VehicleHolographicGuide {
     this.route = chosen && chosen.allowed && !this.withdraw && !this.depart && !dockedAdvisory ? guidanceRoute(this.driving, record, mission, chosen) : null;
     if (mission && mission.routeFault) this.route = Object.assign({distanceM: 0, index: mission.waypointIndex || 0, total: Array.isArray(mission.route) ? mission.route.length : 0}, this.route || {}, {
       arrows: [], points: [], blockedAt: point(record.object).setY(v.originWorld.y + .035), blocked: true, clear: false, note: mission.status || 'Vuelve al último punto válido y recorre las flechas conduciendo.'});
-    model.routePath = this.route ? Object.freeze({points: Object.freeze((this.route.points || []).map(value => Object.freeze(value.toArray()))), blocked: !!this.route.blocked, stop: this.route.blockedAt ? Object.freeze(this.route.blockedAt.toArray()) : null}) : EMPTY_PATH;
+    model.routePath = this.route ? Object.freeze({points: Object.freeze((this.route.points || []).map(value => Object.freeze(value.toArray()))), blocked: !!this.route.blocked, dockingLimit:!!this.route.dockingLimit, stop: this.route.blockedAt ? Object.freeze(this.route.blockedAt.toArray()) : null}) : EMPTY_PATH;
     if (!mission && this.route) Object.assign(model, {routeVerified: !!(this.route.clear && !this.route.blocked), routeNote: this.route.note, routeBlocked: !!this.route.blocked});
     if (mission) {
       const feedback = mission.feedback;
@@ -220,6 +223,7 @@ export default class VehicleHolographicGuide {
         locationCode: chosen && chosen.locationCode || mission.phase === 'pickup' && mission.sourceLocationCode || mission.locationCode || '',
         explicitTarget: true, routeProgress: Object.freeze({index: mission.waypointIndex || 0, total: Array.isArray(mission.route) ? mission.route.length : 0}),
         routeComplete: !!mission.routeComplete, routeDistanceM: this.route ? this.route.distanceM : 0, routeClear: !!(this.route && this.route.clear), routeBlocked: !!(this.route && this.route.blocked),
+        routeVerified:!!(this.route&&this.route.points&&this.route.points.length>1),
         routeNote: this.route ? this.route.note : 'Ruta guiada manual · sigue la misión y comprueba el entorno.'});
       if (mission.phase === 'complete') Object.assign(model, {phase: 'complete', title: 'Misiones completadas', instruction: mission.status || 'Todas las entregas y retiradas han sido comprobadas.', ready: false, severity: 'ready', targets: []});
       else if (mission.phase === 'error') Object.assign(model, {phase: 'error', title: 'Revisar la misión', instruction: mission.status || 'La misión no tiene una configuración válida.', ready: false, severity: 'blocked', targets: []});
@@ -228,12 +232,15 @@ export default class VehicleHolographicGuide {
     if (model.selectionLimited) model.routeNote = 'Selección local: hasta ' + selectionLimit + ' candidatos cercanos; acércate al equipo deseado. ' + model.routeNote;
     if ((!api.operational(v) || v.parkingBrake || v.emergency) && !['complete', 'error'].includes(model.phase) && !(mission && mission.routeFault)) {model.ready = false; model.severity = 'blocked'; model.instruction = v.emergency ? 'Rearma la emergencia y comprueba el entorno.' : !v.powered ? 'Enciende el vehículo para empezar.' : !v.running ? 'Habilita la marcha y revisa el pasillo.' : 'Libera el freno de estacionamiento cuando el pasillo esté libre.';}
     this.state = Object.freeze(model); this.lastTargetName = chosen && chosen.name || this.lastTargetName;
-    if (this.enabled && this.root) this.paint(record, chosen, model); return this.state;
+    // A cold, hidden hologram only allocates geometry when a real route needs
+    // drawing. Both layers share their bounded buffers and disposal lifecycle.
+    if (!this.root && this.route && (this.route.points && this.route.points.length > 1 || this.route.blockedAt)) this.create();
+    if (this.root) { this.root.visible = this.enabled; this.stats.visible = this.enabled; this.paint(record, chosen, model); } return this.state;
   }
   color(severity, phase) {if (!this.palette) return; const accent = ROUTE_COLORS[phase || this.state.phase] || ROUTE_COLORS.drop; this.palette.near.line.color.setHex(accent).convertSRGBToLinear(); this.palette.near.fill.color.setHex(accent).convertSRGBToLinear(); this.palette.target.line.color.setHex(accent).convertSRGBToLinear(); const palette = this.palette[severity] || this.palette.near; this.outline.material = palette.line; this.fill.material = palette.fill; this.forks.forEach(fork => {fork.material = palette.line;});}
   paintArrows(values, points = [], phase = 'pickup') {
     const arrows = values.slice(0, GUIDANCE_ROUTE_ARROWS), path = points.slice(0, ROUTE_SEGMENTS + 1), color = this.routeColors[phase] || this.routeColors.pickup;
-    const paint = (mesh, halfWidth, headWidth, headLength, offset) => {
+    const paint = (mesh, halfWidth, headWidth, headLength, thickness, offset) => {
       const geometry = mesh.geometry, attribute = geometry.attributes.position, colors = geometry.attributes.color; let count = 0;
       const vertex = (x, y, z) => {const at = count++ * 3; attribute.array[at] = x; attribute.array[at + 1] = y + offset; attribute.array[at + 2] = z; if (colors) {colors.array[at] = color.r; colors.array[at + 1] = color.g; colors.array[at + 2] = color.b;}};
       for (let i = 1; i < path.length; i++) {
@@ -242,10 +249,20 @@ export default class VehicleHolographicGuide {
         vertex(a.x + nx, a.y, a.z + nz); vertex(b.x + nx, b.y, b.z + nz); vertex(b.x - nx, b.y, b.z - nz);
         vertex(a.x + nx, a.y, a.z + nz); vertex(b.x - nx, b.y, b.z - nz); vertex(a.x - nx, a.y, a.z - nz);
       }
-      arrows.forEach(value => {const x = value.position.x, y = value.position.y, z = value.position.z, lx = Math.cos(value.yaw) * headWidth, lz = -Math.sin(value.yaw) * headWidth, fx = Math.sin(value.yaw), fz = Math.cos(value.yaw); vertex(x - lx - fx * .13, y, z - lz - fz * .13); vertex(x + fx * headLength, y, z + fz * headLength); vertex(x + lx - fx * .13, y, z + lz - fz * .13);});
+      // Open double-arm chevrons reveal the concrete between direction marks,
+      // unlike solid triangles or a broad ribbon masking floor signage.
+      arrows.forEach(value => {
+        const x = value.position.x, y = value.position.y, z = value.position.z, fx = Math.sin(value.yaw), fz = Math.cos(value.yaw), rx = Math.cos(value.yaw), rz = -Math.sin(value.yaw);
+        for (const side of [-1, 1]) {
+          const ax = x + rx * headWidth * side - fx * headLength / 2, az = z + rz * headWidth * side - fz * headLength / 2, bx = x + fx * headLength / 2, bz = z + fz * headLength / 2;
+          const dx = bx - ax, dz = bz - az, length = Math.hypot(dx, dz), nx = -dz / length * thickness, nz = dx / length * thickness;
+          vertex(ax + nx,y,az + nz); vertex(bx + nx,y,bz + nz); vertex(bx - nx,y,bz - nz);
+          vertex(ax + nx,y,az + nz); vertex(bx - nx,y,bz - nz); vertex(ax - nx,y,az - nz);
+        }
+      });
       attribute.needsUpdate = true; if (colors) colors.needsUpdate = true; geometry.setDrawRange(0, count); if (count) geometry.computeBoundingSphere(); mesh.visible = count > 0;
     };
-    paint(this.routeBorder, .15, .31, .46, 0); paint(this.arrows, .085, .23, .38, .004);
+    paint(this.routeBorder, .07, .32, .43, .073, 0); paint(this.arrows, .027, .28, .38, .037, .006);
     this.stats.routeArrows = arrows.length; this.stats.routeSegments = Math.max(0, path.length - 1); this.stats.routeDrawCalls = this.arrows.visible ? 2 : 0;
   }
   paintStatusLabel(record, model) {
@@ -278,6 +295,7 @@ export default class VehicleHolographicGuide {
   }
   paint(record, target, model) {
     const parent = this.root.parent; parent.updateWorldMatrix(true, false); this.root.matrix.getInverse(parent.matrixWorld); this.root.matrixWorldNeedsUpdate = true;
+    this.routeRoot.matrix.copy(this.root.matrix); this.routeRoot.matrixWorldNeedsUpdate = true; this.routeRoot.visible = true;
     this.markers.forEach((marker, index) => {
       const candidate = this.targets[index]; marker.visible = !!(candidate && candidate.allowed && candidate.matrix && candidate !== target && !this.withdraw && !this.depart);
       if (!marker.visible) return;
@@ -290,7 +308,11 @@ export default class VehicleHolographicGuide {
     // Desktop objectives live in their own panel; keep the work area clear.
     // An immersive headset still needs the spatial label because DOM is hidden.
     this.arrows.visible = this.routeBorder.visible = this.stopMarker.visible = false; this.arrows.geometry.setDrawRange(0, 0); this.routeBorder.geometry.setDrawRange(0, 0); this.stats.routeArrows = this.stats.routeSegments = this.stats.routeDrawCalls = 0; if (this.label) this.label.visible = this.selected.visible && !!this.ctx.vrMode;
-    if (!matrix || !bounds) {if(this.dropMarker)this.dropMarker.visible=false;this.stats.dropDrawCalls=0;this.paintStatusLabel(record, model); this.stats.targets = this.targets.length; this.root.updateWorldMatrix(true, true); return;}
+    // Route visibility never depends on the proximity/alignment ghost. It can
+    // also keep showing the clear leg when a target has no visible dock mesh.
+    if (this.route && (this.route.arrows.length || this.route.points && this.route.points.length > 1)) this.paintArrows(this.route.arrows, this.route.points || [], model.phase);
+    if (this.route && this.route.blocked && this.route.blockedAt) {this.stopMarker.visible = true; this.stopMarker.position.copy(this.route.blockedAt); this.stopMarker.position.y += .008; this.stats.routeDrawCalls++;}
+    if (!matrix || !bounds) {if(this.dropMarker)this.dropMarker.visible=false;this.stats.dropDrawCalls=0;this.paintStatusLabel(record, model); this.stats.targets = this.targets.length; this.root.updateWorldMatrix(true, true); this.routeRoot.updateWorldMatrix(true,true); return;}
     const center = bounds.getCenter(new THREE.Vector3()), size = bounds.getSize(new THREE.Vector3());
     this.selected.matrixAutoUpdate = false; this.selected.matrix.copy(matrix); this.selected.matrixWorldNeedsUpdate = true;
     this.outline.position.copy(center); this.outline.scale.copy(size).addScalar(.035); this.fill.visible = !this.depart; this.fill.position.set(center.x, bounds.min.y + .018, center.z); this.fill.scale.set(size.x + .05, size.z + .05, 1); this.color(model.severity, model.phase);
@@ -300,13 +322,10 @@ export default class VehicleHolographicGuide {
       const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)), lateral = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
       const heel = target.dock.position.clone().addScaledVector(forward, tool.z * Math.abs(scale.z)).addScaledVector(lateral, tool.x * Math.abs(scale.x)); heel.y = target.dock.toolY;
       this.forks.forEach((fork, index) => {fork.position.copy(heel).addScaledVector(lateral, (index ? 1 : -1) * c.forkSpread * Math.abs(scale.x) / 2).addScaledVector(forward, c.forkLength * Math.abs(scale.z) / 2); fork.position.y -= c.forkThickness / 2; fork.rotation.y = yaw; fork.scale.set(c.forkWidth * Math.abs(scale.x), Math.max(.018, c.forkThickness), c.forkLength * Math.abs(scale.z));});
-      if (this.route && (this.route.arrows.length || this.route.points && this.route.points.length > 1)) {
-        this.paintArrows(this.route.arrows, this.route.points || [], model.phase);
-      } else if (!this.route || model.routeComplete && !this.route.blocked) {
+      if ((!this.route || model.routeComplete && !this.route.blocked) && !this.arrows.visible) {
         const approach = guidanceApproach(this.driving, record, target);
         if (approach) this.paintArrows([-1.75, -1.10, -.45].map(z => ({position: target.dock.position.clone().addScaledVector(forward, z).setY(approach.y), yaw: approach.yaw})), [approach.start.clone().setY(approach.y), approach.end.clone().setY(approach.y)], model.phase);
       }
-      if (this.route && this.route.blocked && this.route.blockedAt) {this.stopMarker.visible = true; this.stopMarker.position.copy(this.route.blockedAt); this.stopMarker.position.y += .008; this.stats.routeDrawCalls++;}
     }
     if (this.label) {
       const labelPosition = center.clone(); labelPosition.y = bounds.max.y + .45; labelPosition.applyMatrix4(matrix); this.label.position.copy(labelPosition);
@@ -321,12 +340,12 @@ export default class VehicleHolographicGuide {
         c.font = '18px sans-serif'; c.fillText((feedback ? (feedback.points > 0 ? '+' : '') + feedback.points + ' pt · ' + feedback.message : model.routeBlocked ? 'Ruta bloqueada: frena y revisa el pasillo' : model.ready ? 'Posición confirmada · usa los controles' : /^withdraw/.test(model.phase) ? 'Retrocede hasta liberar ambas horquillas' : 'Conducción manual · comprueba el entorno').slice(0, 49), 18, 141); this.labelTexture.needsUpdate = true;
       }
     }
-    this.stats.targets = this.targets.length; this.root.updateWorldMatrix(true, true);
+    this.stats.targets = this.targets.length; this.root.updateWorldMatrix(true, true); this.routeRoot.updateWorldMatrix(true,true);
   }
   unmount() {
     for(const mesh of [this.dropBorder,this.dropAccent])if(mesh&&typeof mesh.dispose==='function')mesh.dispose();
-    if (this.root && this.root.parent) this.root.parent.remove(this.root); if (this.geometries) this.geometries.forEach(value => value.dispose()); if (this.materials) this.materials.forEach(value => value.dispose()); if (this.labelTexture) this.labelTexture.dispose();
-    this.root = null; this.label = null; this.labelTexture = null; this.labelText = ''; this.labelCanvas = this.labelContext = null; this.geometries = null; this.materials = null; this.markers = []; this.targets = []; this.state = empty(); this.dropSelection = this.dropPlacement = this.dropSnapshot = null;
+    if (this.root && this.root.parent) this.root.parent.remove(this.root); if (this.routeRoot && this.routeRoot.parent) this.routeRoot.parent.remove(this.routeRoot); if (this.geometries) this.geometries.forEach(value => value.dispose()); if (this.materials) this.materials.forEach(value => value.dispose()); if (this.labelTexture) this.labelTexture.dispose();
+    this.root = this.routeRoot = null; this.label = null; this.labelTexture = null; this.labelText = ''; this.labelCanvas = this.labelContext = null; this.geometries = null; this.materials = null; this.markers = []; this.targets = []; this.state = empty(); this.dropSelection = this.dropPlacement = this.dropSnapshot = null;
     this.recordId = ''; this.previousEntry = null; this.lastProduct = null; this.currentTarget = null; this.withdraw = null; this.depart = null; this.route = null; this.routeArrows = this.routeBorder = this.stopMarker = null; this.routeMaterial = this.routeBorderMaterial = this.routeColors = null; this.lastUpdate = -Infinity; this.selectedId = ''; this.stats.visible = false; this.stats.targets = this.stats.geometries = this.stats.materials = this.stats.routeArrows = this.stats.routeSegments = this.stats.routeDrawCalls = 0;
     this.dropMarker = this.dropArrow = this.dropMaterial = this.dropBorder = this.dropAccent = this.dropTransform = this.dropPosition = this.dropScale = this.dropRotation = this.dropEuler = null;this.dropCorners=[];this.stats.dropDrawCalls=0;
     this.feedbackId = null; this.feedbackUntil = 0;

@@ -48,12 +48,13 @@ visualRoot.userData.vehicleRig={forks,config:{family:'forklift'}};
 const record={id:'forklift',object:truck,components:{vehicle}},records=new Map([['forklift',record]]);
 const driving={ctx:{vrMode:false},id:'forklift',document,seat,holographicGuide:guide,visualRoot,simulation:{statePrefix:'qa-',roomId:'sound',document:{getRoot:()=>installation},records,products:new Map([['pallet-1',product]]),vehicleRuntime:{getDockingState:()=>snapshot}},record:()=>record,blocked:()=>blocked,
  cabPanelLayout:()=>({alignment:[-.8,-.34,1.1],front:{position:[.8,.08,1.1],width:.68,height:.3825},mirror:{position:[.8,.4,1.1],width:.36,height:.2}}),placeCabPanel:(plane,position)=>plane.position.fromArray(position),panelSelectable:()=>true,
- command(action){commands.push(action);if(action==='holographicGuide')guide.setEnabled(!guide.enabled);if(action==='guidanceNext')guide.nextTarget();},resetInput(){resets++;},updateHUD(){hudUpdates++;}};
+ command(action){commands.push(action);if(action==='holographicGuide')monitor.toggleHologramPreference();if(action==='guidanceNext')guide.nextTarget();},resetInput(){resets++;},updateHUD(){hudUpdates++;}};
 const monitor=new Monitor(driving);monitor.mount();
 assert.equal(monitor.element.dataset.expanded,'false','Driving starts with the compact navigation panel.');assert.equal(monitor.expandButton.getAttribute('aria-expanded'),'false');
 const beforeExpand=resets;monitor.expandButton.fire('click');assert.equal(monitor.expanded,true);assert.equal(monitor.element.dataset.expanded,'true');assert.equal(monitor.expandButton.getAttribute('aria-expanded'),'true');assert(resets>beforeExpand,'Changing panel size clears held driving inputs.');
 monitor.navigationKey({key:'Escape',stopPropagation(){}});assert.equal(monitor.expanded,false);assert.equal(monitor.expandButton.getAttribute('aria-expanded'),'false');
 assert.equal(monitor.cameraEnabled,true);assert.equal(monitor.mode,'layout');assert.equal(monitor.plan.hidden,false);assert.equal(monitor.feed.hidden,true);assert.equal(monitor.forkCamera.available,false);assert.equal(monitor.rear.hidden,true);assert.equal(monitor.rear.parentNode,undefined);
+assert.equal(guide.enabled,false,'The automatic hologram is off while travelling, together with the inspection camera.');
 assert.equal(monitor.panels.parentNode,document.body);assert.equal(monitor.guidancePanel.parentNode,monitor.operatorColumn);assert.equal(monitor.guidanceBar.parentNode,monitor.guidancePanel);assert.notEqual(monitor.coach.parentNode,monitor.element);assert.equal(monitor.metrics.hidden,true);assert(monitor.facilityLayout.model,'The far display uses the actual installation model.');
 assert(monitor.canvas.calls.some(call=>call[0]==='fillText'&&call[1].includes('EN VIVO')),'The map is painted while the camera is inactive.');
 monitor.rearButton.fire('click');assert.equal(monitor.mode,'rear');assert.equal(monitor.forkCamera.selectedFeed,'mirror');assert.equal(monitor.element.dataset.feed,'mirror');assert.equal(monitor.plan.hidden,true);assert.equal(monitor.feed.hidden,false);assert.equal(monitor.forkCamera.available,true);assert.match(monitor.rearButton.textContent,/Horquillas/);monitor.rearButton.fire('click');assert.equal(monitor.forkCamera.selectedFeed,'front');assert.equal(monitor.mode,'layout');
@@ -103,9 +104,12 @@ const initialPalletPosition=pallet.position.clone();
 guide.currentTarget={id:'drop:stock-1',targetId:'stock-1',allowed:true,kind:'drop',matrix:new THREE.Matrix4().makeTranslation(0,0,16),bounds:product.bounds};
 forks.attach(pallet);vehicle.entry={id:'custody-1',product};monitor.update(true);assert.equal(monitor.mode,'inspection');
 approach(9.2);monitor.update(true);assert.equal(monitor.mode,'layout','Carried cargo cannot keep the camera active throughout transport.');assert.equal(monitor.forkCamera.available,false);
+assert.equal(guide.enabled,false,'A carried pallet does not keep its own truck transparent after withdrawing.');
 approach(14.2);monitor.update(true);assert.equal(monitor.mode,'inspection','The receiving position activates unloading inspection.');
+assert.equal(guide.enabled,true,'The real receiver enables the camera and hologram together.');
 installation.attach(pallet);vehicle.entry=null;guide.currentTarget=null;monitor.update(true);assert.equal(monitor.mode,'inspection','Release keeps the fixed destination visible until the forks are withdrawn.');
 approach(13.5);monitor.update(true);assert.equal(monitor.mode,'inspection');approach(13.1);monitor.update(true);assert.equal(monitor.mode,'layout');
+assert.equal(guide.enabled,false,'Leaving the fixed unload point restores the original opaque vehicle.');
 pallet.position.copy(initialPalletPosition);approach(4.1);monitor.update(true);assert.equal(monitor.mode,'inspection');
 // The compact mission surface consumes verified engine state while retaining
 // the plan, real feed and all inspection controls beside it.
@@ -118,6 +122,9 @@ assert.equal(monitor.missionPanel.missionList.children[1].dataset.status,'locked
 assert.equal(monitor.targetSelect.disabled,true);assert.equal(monitor.plan.hidden,false);assert.equal(monitor.feed.hidden,true);assert.equal(monitor.mode,'layout','Without a recent physical custody transition, a completed withdrawal resumes the installation map.');assert.equal(monitor.forkCamera.selectedFeed,'front');
 lesson={...lesson,taskId:'mission-2',title:trainingTasks[1].name,completed:1,phase:'pickup',stage:'approach',stageTitle:'Acércate al pallet',instruction:'Sigue las flechas.',score:140};monitor.update(true);
 assert.equal(monitor.missionPanel.missionList.children[1].dataset.status,'active');assert.equal(monitor.missionPanel.score.textContent,'140 / 330 pts');
+vehicle.enabled=false;vehicle.operatorInterlock={title:'Contrastar la orden antes de conducir',instruction:'Revisa la cita y asegura el muelle.'};const lessonBefore=JSON.stringify(lesson);monitor.update(true);
+assert.equal(monitor.missionPanel.model.stage,'preparation');assert.match(monitor.missionPanel.instruction.textContent,/asegura el muelle/);assert.equal(JSON.stringify(lesson),lessonBefore,'The cockpit must not advance a physical mission while presenting its preparation prerequisite.');
+vehicle.enabled=true;delete vehicle.operatorInterlock;monitor.update(true);assert.equal(monitor.missionPanel.model.stage,'approach');
 assert.equal(monitor.mode,'inspection');assert.equal(monitor.feed.hidden,false);assert.equal(monitor.plan.hidden,false);assert.equal(monitor.forkCamera.available,true);
 assert.equal(monitor.cameraButton.disabled,false);assert.equal(monitor.rearButton.disabled,false);assert.deepEqual(snapshot,depositedSnapshot,'Mission presentation cannot mutate physical docking data.');
 // A short landscape display paints to the available slot, keeping readable map
@@ -129,6 +136,9 @@ assert.equal(monitor.canvas.width,500);assert.equal(monitor.canvas.height,154);a
 driving.ctx.vrMode=true;monitor.update(true);assert.equal(monitor.canvas.width,768);assert.equal(monitor.canvas.height,432,'A headset map always keeps the original 16:9 cab surface.');assert.equal(monitor.setExpanded(true),false,'Desktop enlargement cannot alter the headset cab layout.');
 driving.ctx.vrMode=false;monitor.canvas.ownerDocument.defaultView={innerWidth:1440,innerHeight:900,devicePixelRatio:2};monitor.update(true);assert.equal(monitor.canvas.width,1000);assert.equal(monitor.canvas.height,308,'An expanded/compact map retains slot proportions on high density screens.');
 monitor.forceLayout=false;monitor.update(true);
+monitor.visible=false;monitor.update(true);assert.equal(guide.enabled,false);assert.equal(monitor.forkCamera.available,false);
+monitor.toggleHologramPreference();monitor.update(true);assert.equal(guide.enabled,true,'Shift+G remains usable while the navigation panel is hidden.');assert.equal(monitor.forkCamera.available,false,'An independent manual hologram cannot secretly activate a hidden camera.');
+monitor.toggleHologramPreference();monitor.visible=true;monitor.update(true);
 blocked=true;monitor.update(true);const count=commands.length;monitor.hologramButton.fire('click');monitor.targetSelect.fire('change');assert.equal(commands.length,count);assert.equal(monitor.targetSelect.disabled,true);assert.equal(monitor.severity,'blocked');
 monitor.unmount();assert.equal(document.body.children.length,0);assert.equal(seat.children.length,0);assert.equal(monitor.targetSelect,null);assert.equal(monitor.forkCamera.options,null);assert.equal(monitor.missionPanel,null);
 for(const cssPath of ['packages/tools/editor/src/editor.css','apps/public-viewer/viewer.css']){

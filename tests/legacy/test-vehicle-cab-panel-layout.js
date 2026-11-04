@@ -4,7 +4,7 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), path = re
 const vehicles = require('../../modules/logistica-industrial/functions/montacargas/schema/vehicles'), {THREE} = require('./test-vehicle-runtime');
 const code = fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-vehicle-cab-panel-layout.js"), 'test-vehicle-driving.js')), 'utf8');
 const prefix = code.slice(0, code.indexOf('const desktop = setup();')).replace("h.fixture('forklift-electric-4w',", 'h.fixture(variant,');
-const make = variant => new Function('require', '__dirname', 'variant', prefix + '\nreturn setup;')(require, __dirname, variant)(true, false);
+const make = (variant,load=false) => new Function('require', '__dirname', 'variant', prefix + '\nreturn setup;')(require, __dirname, variant)(true, load);
 function points(plane) {
   const {width, height} = plane.geometry.parameters;
   return [[0, 0], [-.48, -.48], [.48, -.48], [-.48, .48], [.48, .48]].map(([x, y]) => new THREE.Vector3(width * x, height * y, 0).applyMatrix4(plane.matrixWorld));
@@ -16,8 +16,11 @@ function distanceToScreen(plane, point) {
 }
 function run() {
   const measured = [];
-  for (const variant of ['forklift-electric-3w', 'forklift-electric-4w', 'forklift-ic', 'reach-truck', 'stacker', 'order-picker', 'vna-turret', 'rough-terrain', 'telehandler']) {
-    const f = make(variant); assert(f.driving.mount(f.record.id)); const d = f.driving, rig = d.visualRoot.userData.vehicleRig;
+  for (const nearLoad of [false,true]) for (const variant of ['forklift-electric-3w', 'forklift-electric-4w', 'forklift-ic', 'reach-truck', 'stacker', 'order-picker', 'vna-turret', 'rough-terrain', 'telehandler']) {
+    const f = make(variant,nearLoad); assert(f.driving.mount(f.record.id)); const d = f.driving, rig = d.visualRoot.userData.vehicleRig;
+    assert.equal(d.docking.mode,nearLoad?'inspection':'layout',variant+': actual native pallet proximity selects the expected panel arrangement.');
+    if(d.holographicGuide.enabled)d.command('holographicGuide');
+    assert.equal(d.frontVisibility.active,false,'Visibility must be proved with the cab opaque, including during inspection.');
     const trackedPosition = f.camera.position.clone(), trackedQuaternion = f.camera.quaternion.clone();
     const panels = [d.worldPanel.plane, d.docking.plane];
     if (d.docking.forkCamera.plane) panels.push(d.docking.forkCamera.plane);
@@ -59,7 +62,7 @@ function run() {
     f.ctx.raycontrol.controllers.push({controller: future, grip});
     assert(!d.worldState.state.isSelectable(null, future), 'The first input frame also protects an uncached hand at the wheel.');
     f.ctx.raycontrol.controllers.length = 0; f.scene.remove(grip);
-    measured.push({variant, minimumControlDistance: Number(clearance.toFixed(3))}); d.dispose(); f.runtime.stop();
+    measured.push({variant, mode:nearLoad?'inspection':'layout',minimumControlDistance: Number(clearance.toFixed(3))}); d.dispose(); f.runtime.stop();
   }
   console.log('Cab panels: real wheel/lever hand envelopes, eye rays, compact/full menus, per-hand capture exclusion and unchanged XR tracking passed.');
   console.log(JSON.stringify(measured));

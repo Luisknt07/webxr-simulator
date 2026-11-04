@@ -7,6 +7,10 @@ class Element {
  get textContent(){return(this.text||'')+this.children.map(child=>child.textContent).join('');}
  set textContent(value){this.text=String(value);for(const child of this.children)child.parentNode=null;this.children=[];}
  appendChild(child){if(child.parentNode)child.parentNode.children=child.parentNode.children.filter(row=>row!==child);child.parentNode=this;this.children.push(child);return child;}
+ insertBefore(child,next){if(child.parentNode)child.parentNode.children=child.parentNode.children.filter(row=>row!==child);const index=this.children.indexOf(next);child.parentNode=this;if(index<0)this.children.push(child);else this.children.splice(index,0,child);return child;}
+ get nextSibling(){const siblings=this.parentNode&&this.parentNode.children;return siblings?siblings[siblings.indexOf(this)+1]||null:null;}
+ showModal(){this.open=true;}
+ close(){this.open=false;}
  setAttribute(key,value){this.attributes[key]=String(value);}
  getAttribute(key){return this.attributes[key];}
  addEventListener(type,listener){(this.listeners[type]||(this.listeners[type]=[])).push(listener);}
@@ -66,4 +70,30 @@ test('mobile reading releases held native touch input while scene focus and occu
  await p.sceneFocusButton.fire('click');await pane('missions').fire('click');assert.equal(resets.length,1,'Full-scene view does not revoke scene controls.');
  f.setDriving(true);p.update();await pane('instructions').fire('click');assert.equal(resets.length,1,'Occupied vehicle controls are not globally hidden or reset by reading-tab state.');
  p.dispose();assert.equal(resets.length,1,'Disposal must not reset another scene input owner.');
+});
+
+test('a mounted learner opens the real order forms, sees validation errors and resumes after dock verification',async()=>{
+ const f=fixture(),p=f.panel,commands=[],vehicle={enabled:false,operatorInterlock:{kind:'practice-dock',actionId:'arrival-check'}},ctx={vehiclePreparationOpen:false,vehicleDriving:{resetInput(){this.resets=(this.resets||0)+1;}}};
+ p.controller.editor={ctx};p.controller.manifest={vehicleIds:['forklift']};p.controller.runtime={records:new Map([['forklift',{components:{vehicle}}]])};
+ Object.assign(f.state,{evidenceKind:'workflow',order:{orderId:'ORD-048',lotId:'LOT-001',dockId:'E02',expectedPallets:6,expectedUnits:48,pallets:[]},workflowActions:[
+  {id:'arrival-check',title:'Contrastar orden',enabled:true,fields:[{key:'boxes',label:'Cajas observadas',type:'number'}]},
+  {id:'secure-dock',title:'Verificar muelle',enabled:false,reason:'Contrasta primero la orden.',fields:[{key:'secured',label:'Comprobación',type:'choice',options:[{value:'checked',label:'Calzos y borde revisados'}]}]}
+ ]});
+ p.controller.perform=(type,payload)=>{commands.push({type,payload});if(payload.command==='arrival-check'){
+  if(payload.values.boxes!==48)throw Error('Las cajas no coinciden con la orden.');
+  f.state.workflowActions[0].enabled=false;f.state.workflowActions[1].enabled=true;vehicle.operatorInterlock.actionId='secure-dock';return{message:'Orden verificada.'};
+ }assert.equal(payload.values.secured,'checked');vehicle.enabled=true;delete vehicle.operatorInterlock;return{message:'Muelle verificado.'};};
+ f.setDriving(true);p.update();const parent=p.workflow.parentNode,next=p.workflow.nextSibling,order=p.order,forms=p.workflow;
+ assert(p.openWorkflowAction('arrival-check'));assert.equal(commands.length,0,'Opening never accepts preconditions.');
+ assert.equal(ctx.vehiclePreparationOpen,true);assert.equal(p.workflow,forms);assert.equal(p.order,order);
+ assert.equal(forms.parentNode.parentNode,p.workflowDialog,'Reuse native forms instead of a duplicate UI with independent values.');
+ assert.equal(p.workflowWidgets.get('arrival-check').inputs.boxes.value,'','The observed count is not prefilled.');
+ p.workflowWidgets.get('arrival-check').inputs.boxes.value='47';await p.workflowWidgets.get('arrival-check').form.fire('submit');await new Promise(resolve=>setImmediate(resolve));
+ assert.match(p.workflowDialogStatus.textContent,/no coinciden/);assert.equal(vehicle.enabled,false);assert.equal(p.workflowChosen,'arrival-check');
+ p.workflowWidgets.get('arrival-check').inputs.boxes.value='48';await p.workflowWidgets.get('arrival-check').form.fire('submit');await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(p.workflowChosen,'secure-dock');assert.equal(vehicle.enabled,false);assert.equal(p.workflowWidgets.get('arrival-check').inputs.boxes.value,'48');
+ p.workflowWidgets.get('secure-dock').inputs.secured.value='checked';await p.workflowWidgets.get('secure-dock').form.fire('submit');await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(vehicle.enabled,true);assert.equal(p.workflowDialog,null);assert.equal(ctx.vehiclePreparationOpen,false);assert.equal(ctx.vehicleDriving.resets,1);
+ assert.equal(forms.parentNode,parent);assert.equal(forms.nextSibling,next);assert.equal(p.workflowWidgets.get('arrival-check').inputs.boxes.value,'48');
+ assert.deepEqual(commands.map(row=>row.payload.command),['arrival-check','arrival-check','secure-dock']);p.dispose();
 });

@@ -409,3 +409,16 @@
 }
 .st-practice-setup[data-live-preview=true] .st-practice-create{min-height:44px}
 @media(max-width:700px){.st-practice-setup[data-live-preview=true] .st-practice-field select,.st-practice-setup[data-live-preview=true] .st-practice-field input{min-height:44px}}
+
+/* A cockpit prerequisite opens the same native order/action controls. */
+.st-practice-vehicle-preparation{box-sizing:border-box;width:min(880px,calc(100vw - 24px));height:auto;max-height:calc(100dvh - 24px);padding:0;border:1px solid #adcac5;border-radius:16px;background:#f8fbfd;color:#17364d;box-shadow:0 20px 70px #0c242b66;overflow:hidden}
+.st-practice-vehicle-preparation::backdrop{background:#0d2431b8}
+.st-practice-vehicle-preparation>header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 22px;border-bottom:1px solid #d4e2e8;background:white}
+.st-practice-vehicle-preparation h2{margin:0;font:700 21px sans-serif;color:#17364d}
+.st-practice-vehicle-preparation button,.st-practice-vehicle-preparation input,.st-practice-vehicle-preparation select{font:inherit;box-sizing:border-box;min-height:44px;padding:10px 13px;border:1px solid #b7cdcf;border-radius:8px;background:white;color:#17364d}
+.st-practice-vehicle-preparation button{cursor:pointer}.st-practice-vehicle-preparation button[type=submit]{background:#087b69;color:white;border-color:#087b69;font-weight:700;width:100%;margin-top:12px}
+.st-practice-vehicle-preparation-body{max-height:calc(100dvh - 125px);padding:18px 22px;overflow:auto;overscroll-behavior:contain}
+.st-practice-vehicle-preparation .st-practice-field{display:grid;gap:7px;margin:13px 0;font-weight:600;color:#365366}.st-practice-vehicle-preparation .st-practice-field select,.st-practice-vehicle-preparation .st-practice-field input{width:100%;min-width:0}
+.st-practice-vehicle-preparation .st-practice-note{font:14px/1.5 sans-serif;color:#426575}.st-practice-vehicle-preparation .st-practice-order{padding:15px;background:#e9f5f0;border-radius:10px;margin-bottom:16px}
+.st-practice-vehicle-preparation [hidden]{display:none!important}.st-practice-vehicle-preparation :focus-visible{outline:3px solid #008a7d;outline-offset:2px}
+@media(max-width:600px){.st-practice-vehicle-preparation>header{padding:12px;align-items:flex-start}.st-practice-vehicle-preparation h2{font-size:18px}.st-practice-vehicle-preparation-body{padding:12px}.st-practice-vehicle-preparation>header button{max-width:45%}}

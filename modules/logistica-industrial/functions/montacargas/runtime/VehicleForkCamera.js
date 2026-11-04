@@ -124,7 +124,8 @@ export default class VehicleForkCamera {
   logicalPhase(record) {const guide = this.driving.holographicGuide, state = guide && typeof guide.getState === 'function' && guide.getState(); return state && state.phase || (record && record.components.vehicle.entry ? 'drop' : 'pickup');}
   frameKey() {
     const record = this.driving.record && this.driving.record(), entry = record && record.components.vehicle.entry, placement = this.selectedFeed === 'front' ? this.dropPlacement(record) : null;
-    return [record && record.id || '', this.logicalPhase(record), this.selectedFeed, this.mode, this.side, entry ? entry.id || entry.product && entry.product.object.uuid || 'loaded' : 'empty', placement && placement.selectionKey || '', placement && placement.targetId || '', placement && placement.locationCode || '', placement && placement.slotIndex !== undefined ? placement.slotIndex : ''].join('|');
+    const pickup = record && !entry && this.selectedFeed === 'front' ? this.pickupTarget(record) : null;
+    return [record && record.id || '', this.logicalPhase(record), this.selectedFeed, this.mode, this.side, entry ? entry.id || entry.product && entry.product.object.uuid || 'loaded' : 'empty', pickup && pickup.id || '', placement && placement.selectionKey || '', placement && placement.targetId || '', placement && placement.locationCode || '', placement && placement.slotIndex !== undefined ? placement.slotIndex : ''].join('|');
   }
   hasCurrentFrame() { return !!(this.active() && this.rendered.has(this.selectedFeed) && this.lastFrameKey === this.frameKey() && (this.selectedFeed === 'mirror' ? this.mirrorTarget : this.target)); }
   profile() {
@@ -221,11 +222,48 @@ export default class VehicleForkCamera {
     this.stats.antialias = profile.antialias; this.stats.samples = profile.samples; this.stats.pixelRatio = profile.pixelRatio; this.stats.gpuBudgetBytes = profile.gpuBudgetBytes;
     this.stats.estimatedGpuBytes = [this.target, this.mirrorTarget].filter(Boolean).reduce((sum, value) => sum + value.width * value.height * 8 * (value.isWebGLMultisampleRenderTarget ? value.samples + 1 : 1), 0); this.stats.allocations++;
   }
+  pickupAvailable(record, product) {
+    const runtime = this.driving.simulation, api = runtime && runtime.vehicleRuntime;
+    if (!product || !product.object || !product.object.parent || !product.bounds || product.bounds.isEmpty() || !runtime || !runtime.products || runtime.products.get(product.object) !== product || !shown(product.object)) return false;
+    // A guide is throttled to 5 Hz. Recheck live custody before displaying its
+    // selected load, even if the same docking snapshot is still cached.
+    if (product.heldBy || product.robotOwnerId || product.robotReservedBy || product.vehicleReservedBy && product.vehicleReservedBy !== record.id) return false;
+    if (api && (!api.compatible(product) || !api.transferableCart(record, product))) return false;
+    if (runtime.processorRuntime && !runtime.processorRuntime.canPickup(product) || runtime.palletQueueRuntime && !runtime.palletQueueRuntime.canPickup(product)) return false;
+    const existing = product.sourceEntry, ownerId = existing && existing.ownerId || product.item && (product.item.beltId || product.item.palletOwnerId) || product.record && product.record.id || '';
+    const owner = existing && runtime.records.get(existing.ownerId), inventory = owner && (owner.components.source || owner.components.processor && owner.components.processor.output);
+    if (inventory && inventory.queue[0] !== existing) return false;
+    const belt = product.item && runtime.records.get(product.item.beltId);
+    if (belt && belt.components.conveyor && Math.abs(belt.components.conveyor.actualSpeed) > .025) return false;
+    if (api) {const metadata = runtime.productMetadata(product); if (!finite(metadata.mass) || metadata.mass > api.capacity(record.components.vehicle, metadata) + 1e-6) return false;}
+    const training = runtime.vehicleTraining, mission = training && typeof training.guidance === 'function' && training.guidance(record);
+    if (mission) {
+      const identities = [product.record && product.record.id, product.object.userData.sourcePalletId, product.sourcePalletId, existing && existing.id, product.object.uuid];
+      if (runtime.palletQueueRuntime && runtime.palletQueueRuntime.palletIdentity) identities.push(runtime.palletQueueRuntime.palletIdentity(product));
+      if (mission.phase !== 'pickup' || mission.productId && !identities.includes(mission.productId) || mission.sourceId && mission.sourceId !== ownerId) return false;
+      if (mission.sourceLocationCode) {
+        const stock = product.item && runtime.records.get(product.item.palletOwnerId), queue = stock && stock.components.palletQueue;
+        const cell = queue && queue.rack && runtime.palletQueueRuntime.rackCell(queue, product.item.palletIndex);
+        if (!cell || cell.code !== mission.sourceLocationCode) return false;
+      }
+    }
+    return true;
+  }
+  pickupTarget(record) {
+    const guide = this.driving.holographicGuide, state = guide && guide.getState && guide.getState(), target = guide && guide.currentTarget;
+    if (!guide || guide.recordId !== record.id || !state || state.phase !== 'pickup' || !target || target.kind !== 'pickup' || target.allowed !== true || state.targetId !== target.id) return null;
+    return this.pickupAvailable(record, target.product) ? target : null;
+  }
   product(record, snapshot) {
-    const vehicle = record.components.vehicle; if (vehicle.entry && vehicle.entry.product) return vehicle.entry.product; if (snapshot === this.lastSnapshot) return this.lastProduct;
-    this.lastSnapshot = snapshot; this.lastProduct = null; const outline = snapshot && snapshot.geometry && snapshot.geometry.target; if (!Array.isArray(outline) || outline.length !== 4) return null;
-    const center = outline.reduce((point, value) => point.add(new THREE.Vector3().fromArray(value)), new THREE.Vector3()).multiplyScalar(.25); let distance = .06;
-    if (this.driving.simulation.products) this.driving.simulation.products.forEach(product => { if (!shown(product.object)) return; product.object.updateWorldMatrix(true, false); const bottom = product.bounds.getCenter(new THREE.Vector3()); bottom.y = product.bounds.min.y; bottom.applyMatrix4(product.object.matrixWorld); const next = bottom.distanceTo(center); if (next < distance) { distance = next; this.lastProduct = product; } }); return this.lastProduct;
+    const vehicle = record.components.vehicle; if (vehicle.entry && vehicle.entry.product) return vehicle.entry.product;
+    const selected = this.pickupTarget(record); if (selected) return selected.product;
+    const guide = this.driving.holographicGuide, state = guide && guide.getState && guide.getState();
+    // Never replace a blocked/stale chosen mission with another nearby pallet,
+    // or show the just-deposited load as a new pickup while withdrawing.
+    if (guide && guide.recordId === record.id && state && (state.phase !== 'pickup' || state.targetId || guide.selectedId || guide.currentTarget)) return null;
+    const outline = snapshot && snapshot.geometry && snapshot.geometry.target; if (!Array.isArray(outline) || outline.length !== 4 || !outline.every(vectorPoint)) return null;
+    const center = outline.reduce((point, value) => point.add(new THREE.Vector3().fromArray(value)), new THREE.Vector3()).multiplyScalar(.25); let distance = .06, chosen = null;
+    if (this.driving.simulation.products) this.driving.simulation.products.forEach(product => { if (!this.pickupAvailable(record, product)) return; product.object.updateWorldMatrix(true, false); const bottom = product.bounds.getCenter(new THREE.Vector3()); bottom.y = product.bounds.min.y; bottom.applyMatrix4(product.object.matrixWorld); const next = bottom.distanceTo(center); if (next < distance) { distance = next; chosen = product; } }); return chosen;
   }
   workArea(config) {
     const span = Math.max(.65, config.forkSpread / 2 + config.forkWidth / 2 + .17), points = [];
@@ -243,6 +281,25 @@ export default class VehicleForkCamera {
     camera.near = Math.max(.02, -box.max.z - .03); camera.far = Math.max(camera.near + 12, -box.min.z + 12);
     camera.updateProjectionMatrix(); return height;
   }
+  frameApproach(record, forks, product, load, frame) {
+    if (!product || !load || frame.phase !== 'pickup') return frame;
+    const config = record.components.vehicle.config, work = this.workArea(config), workBounds = new THREE.Box3().setFromPoints(work);
+    const horizontalGap = Math.max(0, load.min.z - config.forkLength, load.min.x - workBounds.max.x, workBounds.min.x - load.max.x);
+    const verticalGap = Math.max(0, load.min.y - workBounds.max.y, workBounds.min.y - load.max.y);
+    const progress = THREE.Math.clamp(Math.max((horizontalGap - .12) / .23, (verticalGap - .12) / .48), 0, 1), blend = progress * progress * (3 - 2 * progress);
+    if (!blend) return frame;
+    // During approach show the real destination and both physical tines. As
+    // insertion begins, smoothly return to the unchanged metric close-up.
+    // Only the orthographic camera moves; no load/fork proportions are edited.
+    const inverse = new THREE.Matrix4().getInverse(forks.matrixWorld), matrix = new THREE.Matrix4().multiplyMatrices(inverse, product.object.matrixWorld);
+    const destination = boxPoints(product.bounds, matrix), whole = work.concat(destination), bounds = new THREE.Box3().setFromPoints(whole), center = bounds.getCenter(new THREE.Vector3()), distance = Math.max(2, bounds.getSize(new THREE.Vector3()).length() + 1);
+    const visibleLocal = work.concat(destination.map(point => workBounds.clampPoint(point, new THREE.Vector3()).lerp(point, blend)));
+    const aimLocal = frame.aimLocal.clone().lerp(center, blend), approachEye = center.clone().add(new THREE.Vector3(this.mode === 'isometric' ? this.side * distance * .7 : 0, distance * .65, this.mode === 'tips' ? distance : -distance));
+    const eyeLocal = frame.eyeLocal.clone().lerp(approachEye, blend), eye = eyeLocal.clone().applyMatrix4(forks.matrixWorld), aim = aimLocal.clone().applyMatrix4(forks.matrixWorld);
+    this.camera.position.copy(eye); this.camera.up.copy(UP).transformDirection(forks.matrixWorld); this.camera.lookAt(aim); this.camera.updateMatrixWorld(true);
+    const visible = visibleLocal.map(point => point.applyMatrix4(forks.matrixWorld)), height = this.fit(this.camera, visible);
+    return this.framing = Object.assign(frame, {eyeLocal, aimLocal, eye, aim, visible, height, approach: blend});
+  }
   frameIsometric(record, forks, product, load) {
     const config = record.components.vehicle.config, center = new THREE.Vector3(0, .04, config.forkLength * .52), distance = Math.max(1.5, config.forkLength + .6, config.forkSpread + .6);
     // A low three-quarter angle exposes the entry mouths under the deck;
@@ -251,7 +308,7 @@ export default class VehicleForkCamera {
     const camera = this.camera = this.isometricCamera, eye = eyeLocal.clone().applyMatrix4(forks.matrixWorld), aim = aimLocal.clone().applyMatrix4(forks.matrixWorld);
     camera.position.copy(eye); camera.up.copy(UP).transformDirection(forks.matrixWorld); camera.lookAt(aim); camera.updateMatrixWorld(true);
     const visible = this.workArea(config).map(point => point.applyMatrix4(forks.matrixWorld)), height = this.fit(camera, visible);
-    this.framing = {phase: this.logicalPhase(record), eye, aim, eyeLocal, aimLocal, product, forks, localLoad: load, visible, height, mode: this.mode, side: this.side, direction: 'oblique'}; return this.framing;
+    this.framing = {phase: this.logicalPhase(record), eye, aim, eyeLocal, aimLocal, product, forks, localLoad: load, visible, height, mode: this.mode, side: this.side, direction: 'oblique'}; return this.frameApproach(record, forks, product, load, this.framing);
   }
   frameDrop(record, forks, product, load, placement) {
     const config = record.components.vehicle.config, desired = boxPoints(placement.bounds, placement.matrix), actual = boxPoints(product.bounds, product.object.matrixWorld), supportValues = Array.isArray(placement.support) ? placement.support : placement.support && Array.isArray(placement.support.corners) ? placement.support.corners.map(corner => corner.point) : [], support = supportValues.slice(0, 16).filter(vectorPoint).map(value => new THREE.Vector3().fromArray(value));
@@ -279,7 +336,7 @@ export default class VehicleForkCamera {
     const eye = eyeLocal.clone().applyMatrix4(forks.matrixWorld), aim = aimLocal.clone().applyMatrix4(forks.matrixWorld);
     this.camera.position.copy(eye); this.camera.up.copy(UP).transformDirection(forks.matrixWorld); this.camera.lookAt(aim); this.camera.updateMatrixWorld(true);
     const visible = this.workArea(config).map(point => point.applyMatrix4(forks.matrixWorld)), height = this.fit(this.camera, visible);
-    this.framing = {phase: this.logicalPhase(record), eye, aim, eyeLocal, aimLocal, product, forks, localLoad: load, visible, height, mode: this.mode, direction: entry ? 'forward' : 'rearward'}; return this.framing;
+    this.framing = {phase: this.logicalPhase(record), eye, aim, eyeLocal, aimLocal, product, forks, localLoad: load, visible, height, mode: this.mode, direction: entry ? 'forward' : 'rearward'}; return this.frameApproach(record, forks, product, load, this.framing);
   }
   dropOverlay(scene) {
     if (!this.dropVisual) {

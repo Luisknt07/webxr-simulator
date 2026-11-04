@@ -105,7 +105,9 @@ export default class VehicleControlGuide {
       if (action && definition(action) && !supported(definition(action), features, config)) {action = null; canAct = false;}
       return {stage, title, instruction, action, control: controls(action, xr, features), reason: String(reason || ''), canAct: !!canAct};
     };
-    if (!vehicle || vehicle.enabled === false || config.enabled === false) return model('unavailable', 'Sin vehículo disponible', 'Selecciona un vehículo operativo para mostrar sus controles.');
+    if (!vehicle) return model('unavailable', 'Sin vehículo disponible', 'Selecciona un vehículo operativo para mostrar sus controles.');
+    if (vehicle.enabled === false && vehicle.operatorInterlock && vehicle.operatorInterlock.kind === 'practice-dock') return model('practice-interlock', vehicle.operatorInterlock.title, vehicle.operatorInterlock.instruction, 'practicePreparation', 'P libera el freno de estacionamiento; no sustituye la comprobación del muelle.', true);
+    if (vehicle.enabled === false || config.enabled === false) return model('unavailable', 'Vehículo deshabilitado', 'Habilita este equipo en la configuración del escenario antes de conducir.');
     if (blocked) return model('blocked', 'Controles bloqueados', 'Cierra el menú o reanuda la simulación para continuar.', null, blockedReason || 'La sesión no permite conducir en este momento.');
     const speed = finite(vehicle.actualSpeed) ? Math.abs(vehicle.actualSpeed) : null, stopped = speed !== null && speed <= .06;
     if (vehicle.emergency) return model('emergency', 'Emergencia activa', stopped ? 'Comprueba el entorno y rearma; después habilita la marcha.' : 'Frena y espera a que el vehículo se detenga antes de rearmar.', 'resetEmergency', vehicle.warning, stopped);

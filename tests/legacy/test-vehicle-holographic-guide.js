@@ -11,7 +11,7 @@ function custody(f,product){return {pose:JSON.stringify(f.v.pose),entry:f.v.entr
 const f=fixture(),product=f.runtime.products.get(f.pallet),operator=driving(f);f.ctx.camera=new THREE.PerspectiveCamera();f.ctx.camera.position.set(3,2,8);f.ctx.camera.updateMatrixWorld(true);
 const camera=f.ctx.camera.matrixWorld.toArray(),snapshot=f.api.getDockingState(f.record),before=custody(f,product),guide=new Guide(operator);
 guide.mount();assert.equal(guide.getState().phase,'pickup');assert.equal(guide.getTargets().length,1);assert(guide.getTargets()[0].allowed);assert(guide.getState().ready,snapshot.reason);
-assert.equal(guide.getState().routeVerified,false);assert(/no es una ruta/i.test(guide.getState().routeNote));
+assert.equal(guide.getState().routeVerified,!!(guide.route&&guide.route.clear&&!guide.route.blocked));assert(/gu?a de aproximaci?n|ruta bloqueada|no es una ruta/i.test(guide.getState().routeNote));
 for(let query=0;query<12;query++)guide.update(true,snapshot);
 assert.deepEqual(custody(f,product),before,'Guidance planning leaves pose, parent, counters, reservation and custody unchanged.');assert.deepEqual(f.ctx.camera.matrixWorld.toArray(),camera,'Tracked/main camera is never overwritten.');
 assert.equal(guide.stats.allocations,1);assert(guide.stats.targets<=8);assert(guide.stats.geometries<=6);assert(guide.stats.materials<=11);

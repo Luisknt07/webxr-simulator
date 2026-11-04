@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "45068bf03122e36ce2b79589fa9b926601df7e76",
-  "bundleSha256": "93db48656fabdca577c91c3d6d8d2f55f67219e1bac187289efeca2e026bf007",
+  "revision": "aaa1ababa6d416c7b31cf2d03f02a92b1550d6bd",
+  "bundleSha256": "c0a05c8a185df08d935960e67641e01a71845080930d2cccdae654930cab1de9",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "93db48656fabdca577c91c3d6d8d2f55f67219e1bac187289efeca2e026bf007"
+      "sha256": "c0a05c8a185df08d935960e67641e01a71845080930d2cccdae654930cab1de9"
     },
     {
       "path": "cad-worker.js",
@@ -2960,7 +2960,7 @@
     },
     {
       "path": "modules/logistica-industrial/practices/ui/practice.css",
-      "sha256": "69049b79c3713cbf52c767e6ae0342b2a055bb16c1e1616b5134f20f00964b97"
+      "sha256": "0b6647f2940d907c6afe50881582c342fa02a81ad670c6fa1a33d4fb45e05107"
     },
     {
       "path": "modules/turismo/assets/angel.basis",
@@ -3504,7 +3504,7 @@
     },
     {
       "path": "packages/tools/editor/src/editor.css",
-      "sha256": "37907e30af73efb2785a79ee74d6860de85225938baccf0ef90278e061b69067"
+      "sha256": "38a6d488dc3aace89632083bd009da226a90abace89be686e8e617886bcb1f58"
     },
     {
       "path": "packages/tools/editor/src/floor-plan-editor.css",
@@ -3921,8 +3921,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "14f08d5c8c4aa08c3d97",
-    "statsSha256": "0123af679c9e409db1c1cf963616160e3ca21c79d38f46b7dbd5e87a92264aa4",
+    "hash": "b8e31b7b0cee45aa5c6b",
+    "statsSha256": "41ede18654b2cbc3868cb29a51b6128bd4c83f12fa62d3d2fa7851b25dc87c05",
     "assets": [
       {
         "path": "12.js",
@@ -3954,7 +3954,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 6990554
+        "size": 7009640
       },
       {
         "path": "configurable-practice-reference.js",

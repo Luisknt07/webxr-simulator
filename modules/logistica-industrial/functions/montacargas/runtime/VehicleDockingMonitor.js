@@ -38,6 +38,17 @@ export default class VehicleDockingMonitor {
   toggleCamera() { if (!this.cameraSupported) return false; const enabled = this.forkCamera.setEnabled(this.forceLayout || !this.forkCamera.enabled); this.forceLayout = false; this.update(true); return enabled; }
   toggleRearView() { if (!this.cameraSupported || this.driving.blocked()) return false; this.forceLayout = false; this.forkCamera.setEnabled(true); const rear = this.forkCamera.toggleRearView(); this.update(true); return rear; }
   guidance() { return this.driving.holographicGuide || null; }
+  applyHologramState(value) {
+    const guide=this.guidance();
+    if(guide&&typeof guide.setEnabled==='function'&&guide.enabled!==!!value)guide.setEnabled(!!value);
+    if(this.driving.frontVisibility)this.driving.frontVisibility.update();
+    return !!(guide&&guide.enabled);
+  }
+  resetAssistance() {this.inspectionMode.reset();return this.applyHologramState(false);}
+  toggleHologramPreference() {
+    const guide=this.guidance();if(!guide||this.driving.blocked())return false;
+    return this.applyHologramState(this.inspectionMode.setHologramOverride(!guide.enabled));
+  }
   guidanceModel() {
     const guide = this.guidance(), model = guide && guide.getState ? guide.getState() : null;
     const record = this.driving.record(), vehicle = record && record.components.vehicle, next = this.driving.nextStep;
@@ -49,7 +60,7 @@ export default class VehicleDockingMonitor {
   }
   toggleHologram() {
     const guide = this.guidance(); if (!guide || this.driving.blocked()) return false;
-    if (this.driving.command) this.driving.command('holographicGuide'); else guide.setEnabled(!guide.enabled);
+    if (this.driving.command) this.driving.command('holographicGuide'); else this.toggleHologramPreference();
     this.update(true); return guide.enabled;
   }
   renderBefore(scene, delta) { return this.forkCamera.renderBefore(scene, delta); }
@@ -179,7 +190,7 @@ export default class VehicleDockingMonitor {
   displayMode(record,data,lesson,available) {
     const rig=this.driving.visualRoot&&this.driving.visualRoot.userData.vehicleRig,forks=rig&&rig.forks;
     const position=forks&&forks.getWorldPosition?forks.getWorldPosition(new THREE.Vector3()).toArray():null;
-    return this.inspectionMode.update({available,automatic:this.cameraEnabled,forceLayout:this.forceLayout,mirror:this.forkCamera.selectedFeed==='mirror',position,target:this.targetForInspection(record,data,lesson),entryId:record.components.vehicle.entry&&record.components.vehicle.entry.id||''});
+    return this.inspectionMode.update({available,automatic:this.cameraEnabled&&this.visible,forceLayout:this.forceLayout,mirror:this.forkCamera.selectedFeed==='mirror',position,target:this.targetForInspection(record,data,lesson),entryId:record.components.vehicle.entry&&record.components.vehicle.entry.id||''});
   }
   select(x, y) {
     if(y>=15&&y<=57){
@@ -203,11 +214,11 @@ export default class VehicleDockingMonitor {
   }
   update(force = false) {
     if (!this.element) return;
-    const driving = this.driving, record = driving.record(), available = !!record && this.visible && !(this.ctx.editor && this.ctx.editor.active);
-    this.element.hidden = !available || !!this.ctx.vrMode;
-    if (this.guidancePanel) this.guidancePanel.hidden = !available || !!this.ctx.vrMode;
-    if (this.plane) this.plane.visible = available && !!this.ctx.vrMode && this.mode !== 'rear';
-    if(!available){this.forkCamera.setAvailable(false);this.inspectionMode.reset();return;}
+    const driving = this.driving, record = driving.record(), available = !!record && !(this.ctx.editor && this.ctx.editor.active),visible=available&&this.visible;
+    this.element.hidden = !visible || !!this.ctx.vrMode;
+    if (this.guidancePanel) this.guidancePanel.hidden = !visible || !!this.ctx.vrMode;
+    if (this.plane) this.plane.visible = visible && !!this.ctx.vrMode && this.mode !== 'rear';
+    if(!available){this.forkCamera.setAvailable(false);this.resetAssistance();return;}
     const now = typeof performance === 'undefined' ? Date.now() : performance.now();
     if (!force && now - this.lastUpdate < 100) return; this.lastUpdate = now;
     const runtime = driving.simulation.vehicleRuntime;
@@ -217,8 +228,9 @@ export default class VehicleDockingMonitor {
     this.dropPlacement=displayDrop&&dropGuide&&dropGuide.getDropPlacement?dropGuide.getDropPlacement():null;
     this.dropView=displayDrop?VehicleDockingMonitor.dropView(this.dropPlacement,data,record.components.vehicle,blocked):null;
     this.mode=this.displayMode(record,data,lesson,available);
+    this.applyHologramState(!blocked&&this.inspectionMode.hologram);
     this.page=this.mode==='layout'?'layout':'alignment';
-    this.forkCamera.setAvailable(available && !blocked && this.mode!=='layout');
+    this.forkCamera.setAvailable(visible && !blocked && this.mode!=='layout');
     this.feed.hidden = this.mode==='layout'; this.cameraButton.setAttribute('aria-pressed', String(!!this.cameraEnabled));
     this.cameraButton.textContent='Cámara auto '+(this.cameraEnabled?'ON':'OFF')+' · C';
     this.cameraButton.title='La cámara aparece cerca de la recogida o del destino; durante el trayecto se muestra el plano.';
@@ -234,7 +246,7 @@ export default class VehicleDockingMonitor {
     this.plan.hidden = !showPlan; this.element.dataset.plan = showPlan ? 'open' : 'closed'; this.planButton.setAttribute('aria-expanded', String(showPlan));
     this.plan.hidden=this.mode==='rear';
     if(this.planeMode!==this.mode&&this.plane){const layout=driving.cabPanelLayout();driving.placeCabPanel(this.plane,this.mode==='layout'?layout.front.position:layout.alignment);this.planeMode=this.mode;}
-    if(this.plane)this.plane.visible=available&&!!this.ctx.vrMode&&this.mode!=='rear';
+    if(this.plane)this.plane.visible=visible&&!!this.ctx.vrMode&&this.mode!=='rear';
     this.severity = data.ready && !blocked ? 'ready' : data.severity === 'near' && !blocked ? 'near' : 'blocked';
     let reason = blocked ? 'Controles bloqueados: cierra el menú o reanuda la simulación.' : data.reason || 'Ajusta la posición y la altura de las horquillas.';
     const guide = this.guidance(), guided = guide && guide.getState ? guide.getState() : null;
@@ -270,11 +282,15 @@ export default class VehicleDockingMonitor {
   updateGuidance(data, blocked) {
     const guide = this.guidance(), model = this.guidanceModel(), targets = guide && guide.getTargets ? guide.getTargets() : model && model.targets || [];
     const record = this.driving.record(), simulation = this.driving.simulation, training = simulation && simulation.vehicleTraining, lesson = training && training.guidance(record);
-    if (this.missionPanel) this.missionPanel.update(lesson, lesson ? training.tasks(record) : []);
+    const vehicle=record&&record.components.vehicle,interlock=vehicle&&vehicle.enabled===false&&vehicle.operatorInterlock;
+    const displayedLesson=lesson&&interlock?Object.assign({},lesson,{stage:'preparation',stageTitle:interlock.title,instruction:interlock.instruction,
+      hint:interlock.instruction,stages:[{id:'preparation',title:interlock.title,status:'active'}]}):lesson;
+    if (this.missionPanel) this.missionPanel.update(displayedLesson, lesson ? training.tasks(record) : []);
     this.guidancePanel.dataset.training = lesson ? 'active' : 'off';
     this.guidanceBar.hidden = !guide || !this.cameraSupported && !targets.length;
     this.hologramButton.setAttribute('aria-pressed', String(!!guide && guide.enabled)); this.hologramButton.disabled = blocked || !guide;
-    this.hologramButton.title = 'Shift+G muestra las flechas y el holograma en el escenario. El plano conserva el destino y la ruta al ocultarlos.';
+    this.hologramButton.title = 'Automático junto a un pallet o destino, con la cámara. Shift+G alterna la transparencia manualmente hasta entrar o salir de esa zona. Las flechas de ruta siguen visibles.';
+    this.hologramButton.dataset.assistanceMode=this.inspectionMode.hologramOverride===null?'auto':'manual';
     this.hologramButton.textContent = 'Holograma ' + (guide && guide.enabled ? 'ON' : 'OFF') + ' · Shift+G';
     const withdrawing = !!(guide && model && ['withdraw', 'withdraw-source'].includes(model.phase));
     const automaticText = targets.length ? 'Selección automática' : withdrawing ? 'Retira las horquillas' : 'Sin objetivo compatible';

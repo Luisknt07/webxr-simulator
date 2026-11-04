@@ -14,12 +14,12 @@ En pantallas estrechas las vistas se ajustan al abrir el plano, manteniendo la f
 
 | Control | Función |
 |---|---|
-| **C** | Activar o desactivar la cámara auxiliar. |
+| **C** | Activar o desactivar la cámara y el holograma automáticos por proximidad. |
 | **Shift+R** | Alternar horquillas y retrovisor. |
 | **Shift+C** | Recorrer **Isométrica**, **Frontal** y **Puntas**. |
 | **Shift+N** o **Lado** | Cambiar el costado de la vista isométrica. |
 | **Plano y medidas** | Contorno, altura, ángulo e inserción visibles de forma permanente. |
-| **Shift+G** o **Guía holográfica** | Mostrar u ocultar los indicadores en la instalación. |
+| **Shift+G** o **Guía holográfica** | Alternar la transparencia y contornos manualmente hasta la siguiente entrada/salida de proximidad. Las flechas de ruta permanecen independientes. |
 | **Shift+J** o selector **Objetivo** | Cambiar entre cargas o destinos compatibles. La selección automática sigue disponible. |
 
 La guía marca el pallet de recogida o la zona de descarga, dibuja referencias de las horquillas y muestra la siguiente indicación. Ámbar significa ajustar; rojo, revisar el impedimento; verde, comprobación física confirmada para ese objetivo. Si el equipo detecta otra carga distinta de la seleccionada, el monitor lo indica y no presenta esa lectura como confirmación del objetivo elegido.
@@ -31,7 +31,7 @@ La guía marca el pallet de recogida o la zona de descarga, dibuja referencias d
 5. **Preparar y depositar.** Usa **Shift+K** o baja la carga para preparar el depósito. Alinea, detente y baja hasta confirmar el apoyo. **Depositar (K)** conserva las comprobaciones de capacidad, ocupación y geometría.
 6. **Liberar las horquillas.** Después del depósito retrocede lentamente hasta sacar ambas uñas antes de girar o buscar otra carga.
 
-Al activar la guía holográfica, el mástil, los talones verticales, el respaldo y la estructura frontal del montacargas ocupado se vuelven transparentes. Sólo las hojas horizontales y sus puntas conservan el acabado opaco de acero gris satinado. La geometría y las colisiones permanecen activas; al desactivar la guía o bajar del vehículo se restauran los materiales originales, sin afectar a otros equipos. Los colores de horquilla personalizados se conservan.
+Al aproximarse a 2 m del objetivo real se activan la cámara y la guía holográfica. El mástil, los talones verticales, el respaldo y la estructura frontal del montacargas ocupado se vuelven transparentes. Sólo las hojas horizontales y sus puntas conservan el acabado opaco de acero gris satinado. Al alejarse más de 2,8 m, ambas ayudas automáticas se desactivan y vuelven los materiales originales. La geometría, colisiones y carga se conservan; la alternancia manual con Shift+G sigue disponible. La cámara encuadra el pallet real seleccionado antes de que exista una lectura de acople. Durante la aproximación muestra la carga y las uñas; al comenzar la inserción vuelve al detalle métrico, conservando la proporción de la imagen.
 
 En RV se usan los botones del monitor y los mandos físicos de volante y palancas; no se modifica la pose de la cabeza. La guía es **orientación local**, no una ruta automática: sus flechas no certifican todo el trayecto ni conducen el vehículo. No toma, mueve ni deposita pallets por sí sola.
 
