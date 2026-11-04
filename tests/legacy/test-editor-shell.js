@@ -103,28 +103,37 @@ shell.openMenu(0); find(shell.menus[0].popup, 'Guardar como…').click(); assert
 
 // Separators persist bounded dimensions and expose keyboard operations.
 const left = shell.splitters.left;
+shell.layout.left = 480; shell.applyLayout(false);
 left.fire('pointerdown', {button: 0, clientX: 238, clientY: 100}); left.fire('pointermove', {clientX: 310, clientY: 100}); left.fire('pointerup');
 assert.equal(shell.layout.left, 552); assert.equal(editor.ui.style['--ed-left'], '552px');
-const key = left.fire('keydown', {code: 'ArrowRight'}); assert(key.prevented && key.stopped); assert.equal(shell.layout.left, 560);
+const key = left.fire('keydown', {code: 'ArrowRight'}); assert(key.prevented && key.stopped); assert.equal(shell.layout.left, 576);
 shell.setPanel('hierarchy', true); assert.equal(editor.hierarchy.hidden, false); assert.equal(editor.inspectorTab, 'hierarchy');
-shell.setPanel('hierarchy', false); assert.equal(editor.hierarchy.hidden, true); assert.equal(editor.inspectorTab, 'object'); assert.equal(editor.ui.style['--ed-left'], '560px', 'Hierarchy visibility never collapses the separate Library column.');
+shell.setPanel('hierarchy', false); assert.equal(editor.hierarchy.hidden, true); assert.equal(editor.inspectorTab, 'object'); assert.equal(editor.ui.style['--ed-left'], '576px', 'Hierarchy visibility never collapses the separate Library column.');
 shell.setPanel('resources', false); assert.equal(editor.assets.hidden, true); assert.equal(editor.ui.style['--ed-left'], '0px');
 shell.reopen.children.find(control => control.getAttribute('data-panel') === 'resources' || control.dataset.panel === 'resources').click(); assert.equal(editor.assets.hidden, false);
 assert.equal(shell.splitters.bottom.hidden, true); assert.equal(shell.splitters.bottom.tabIndex, -1); assert.equal(editor.ui.style['--ed-bottom'], '0px', 'No retired lower Library track remains.');
 shell.layout.right = 90000; shell.applyLayout(); assert.equal(shell.layout.right, 489.6);
-const restored = harness(); assert.equal(restored.shell.layout.left, 560); assert.equal(restored.shell.layout.right, 489.6);
-shell.restoreLayout(); assert.equal(shell.layout.left, 480); assert.equal(shell.layout.right, 304);
+const restored = harness(); assert.equal(restored.shell.layout.left, 576); assert.equal(restored.shell.layout.right, 489.6);
+shell.restoreLayout(); assert.equal(shell.layout.left, 633.6); assert.equal(shell.layout.right, 304);
 // An old hidden hierarchy/bottom-dock preference must not hide the new Library.
 const savedPreferences = new Map(storage);
 try {
   storage.clear(); storage.set('hello-studio-layout-v1', JSON.stringify({left:155,right:382,bottom:700,hierarchy:false,inspector:false,resources:false}));
-  const migrated=harness(); assert.equal(migrated.shell.layout.left,480); assert.equal(migrated.shell.layout.right,382); assert.equal(migrated.shell.layout.resources,true); assert.equal(migrated.shell.layout.inspector,false); assert.equal(migrated.editor.assets.hidden,false); assert(storage.has('hello-studio-layout-v2'));
+  const migrated=harness(); assert.equal(migrated.shell.layout.left,633.6); assert.equal(migrated.shell.layout.right,382); assert.equal(migrated.shell.layout.resources,true); assert.equal(migrated.shell.layout.inspector,false); assert.equal(migrated.editor.assets.hidden,false); assert(storage.has('hello-studio-layout-v3'));
   browserWindow.innerWidth=390;
   migrated.shell.showPanel('resources'); assert.equal(migrated.shell.mobilePanel,'resources'); assert.equal(migrated.editor.assets.hidden,false); assert.equal(migrated.editor.inspector.hidden,true);
   migrated.shell.showPanel('hierarchy'); assert.equal(migrated.shell.mobilePanel,'inspector'); assert.equal(migrated.editor.inspectorTab,'hierarchy'); assert.equal(migrated.editor.hierarchy.hidden,false); assert.equal(migrated.editor.assets.hidden,true);
   migrated.shell.showPanel('scene'); assert.equal(migrated.shell.mobilePanel,'scene'); assert.equal(migrated.editor.inspector.hidden,true); assert.equal(migrated.editor.assets.hidden,true); assert.equal(migrated.shell.splitters.left.hidden,true); assert.equal(migrated.shell.splitters.right.hidden,true);
   migrated.shell.showPanel('object'); assert.equal(migrated.editor.inspectorTab,'object'); assert.equal(migrated.editor.hierarchy.hidden,true); assert.equal(migrated.editor.inspector.hidden,false);
 } finally { browserWindow.innerWidth=1440; storage.clear(); for(const [key,value]of savedPreferences)storage.set(key,value); }
+
+// Upgrade only the old cramped default, preserving custom widths and panels.
+try {
+  storage.clear();storage.set('hello-studio-layout-v2',JSON.stringify({left:480,right:350,inspector:false,resources:true}));
+  const widened=harness();assert.equal(widened.shell.layout.left,633.6);assert.equal(widened.shell.layout.right,350);assert.equal(widened.shell.layout.inspector,false);
+  storage.clear();storage.set('hello-studio-layout-v2',JSON.stringify({left:420,right:330,resources:true}));assert.equal(harness().shell.layout.left,420);
+  storage.clear();storage.set('hello-studio-layout-v3',JSON.stringify({left:480,right:330,resources:true}));assert.equal(harness().shell.layout.left,480);
+}finally{storage.clear();for(const [key,value]of savedPreferences)storage.set(key,value);}
 
 // Workspaces appear on demand, dispatch preview cleanup, and return to 3D.
 assert.equal(shell.workarea.hidden, true); assert(shell.workspaceTabs.get('logic').hidden);

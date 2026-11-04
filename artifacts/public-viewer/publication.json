@@ -2,7 +2,7 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "public-viewer",
-  "revision": "dfb4ec992b7f04b56a3e50a062d738132dfa4dd8",
+  "revision": "a237634bb410a483b7015a955943d14fcf0d87c1",
   "bundleSha256": "72d4fd706977ccb949bcb0350a5e027955fc8638f978891dea4bcc62242ce762",
   "scenes": [
     "vr-robot-dispatch"

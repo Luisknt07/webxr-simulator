@@ -21,6 +21,22 @@ const SUBGROUPS={
  FILES:[['model','Modelos 3D'],['image','Imágenes'],['audio','Audio'],['video','Vídeo'],['source','Originales Blender'],['text','Datos y código'],['material','Materiales'],['other','Otros archivos']]
 };
 const GROUPS=knowledge.FAMILIES.map(f=>({id:f.id,name:f.title,children:SUBGROUPS[f.id]||[],moduleId:MODULE_ID})).concat([{id:'FLOW',name:'Flujo de simulación',children:SUBGROUPS.FLOW,moduleId:MODULE_ID},{id:'COMMON',name:'Recursos comunes',children:SUBGROUPS.COMMON},{id:'FILES',name:'Archivos incluidos',children:SUBGROUPS.FILES}]);
+// Navigation branches organize the existing filters. They never become new
+// equipment categories, resources or model families in saved projects.
+const NAVIGATION_BRANCHES={
+ TR:[{id:'continuous',label:'Cintas y rodillos',subgroups:['straight','curved','inclined','accumulation']},{id:'transfers',label:'Transferencias',subgroups:['transfer','elevator','loading','guides']},'diverter',{id:'mechanisms',label:'Mecanismos de transporte',subgroups:['overhead','spiral','vibratory','screw','bucket','pneumatic']}],
+ AL:[{id:'pallet-racks',label:'Racks para pallets',subgroups:['palletized','compact','dynamic','cantilever','mobile']},{id:'picking-racks',label:'Picking y entrepisos',subgroups:['picking','carton-flow','mezzanine']},{id:'automatic-storage',label:'Almacenamiento automático',subgroups:['shuttle','pallet-asrs','miniload','cube','vertical-lift','carousel']},'floor','bins']
+};
+const NAVIGATION_LABELS={
+ TR:{straight:'Rectos y rodillos',curved:'Curvos',inclined:'Inclinados',accumulation:'Acumuladores',transfer:'Transferencias y mesas',elevator:'Elevadores',loading:'Carga y descarga',guides:'Guías y topes',overhead:'Aéreo',spiral:'Espiral',vibratory:'Vibratorio',screw:'Tornillo sinfín',bucket:'Cangilones',pneumatic:'Neumático'},
+ VE:{lifting:'Grúas y plataformas',manipulators:'Manipuladores',freight:'Camiones y remolques',inventory:'Inventario móvil'},
+ AL:{palletized:'Acceso directo',compact:'Drive-In / Drive-Through',dynamic:'Pallet Flow y Push-Back',cantilever:'Cantilever',mobile:'Bases móviles',picking:'Baldas de picking','carton-flow':'Carton Flow',mezzanine:'Entrepisos',shuttle:'Shuttles','pallet-asrs':'AS/RS para pallets',miniload:'Miniload',cube:'Cúbico','vertical-lift':'Módulos VLM'},
+ MU:{docks:'Muelles y rampas',receiving:'Recepción e inspección',identification:'Identificación y RF',weighing:'Pesaje y dimensionado',transfer:'Transferencia de cargas'},
+ PI:{automated:'Goods-to-person / robot',consolidation:'Consolidación'},
+ RO:{articulated:'Articulados de seis ejes',palletizing:'Paletizadores',collaborative:'Colaborativos',parallel:'Delta / paralelos',cartesian:'Cartesianos y pórticos',cylindrical:'Cilíndricos RPP',polar:'Polares RRP',positioners:'Ejes y posicionadores',applications:'Aplicaciones de proceso'},
+ SI:{enterprise:'ERP, WMS y gestión',execution:'Ejecución y flotas',analysis:'Analítica y simulación'},
+ COMMON:{extension:'Extensiones'},FILES:{source:'Originales Blender'}
+};
 const FILE_ALIASES=new Map([['models','model'],['images','image'],['data','text'],['json','text'],['script','text']]);
 const COMMON_CATEGORIES=new Map([['interface','interface'],['education','education'],['signage','signage'],['environment','environment'],['scenes','scene'],['templates','template'],['materials','material']]);
 const entries=knowledge.entries||knowledge.ENTRIES,byArticle=new Map(entries.map(row=>[row.id,row])),linksByResource=new Map();
@@ -91,5 +107,18 @@ function normalizedPath(path){return PATH_ALIASES.get(path)||String(path||'');}
 function matchesPath(resource,path){path=normalizedPath(path);if(!path.startsWith('group:'))return false;const [group,subgroup]=path.slice(6).split('/');return memberships(resource).some(row=>row.group===group&&(!subgroup||row.subgroup===subgroup));}
 function location(resource,path=''){const rows=memberships(resource),row=path.startsWith('group:')?rows.find(row=>row.group===path.slice(6).split('/')[0])||rows[0]:rows[0],group=row&&GROUPS.find(g=>g.id===row.group),sub=group&&group.children.find(c=>c[0]===row.subgroup);return{group:row&&row.group||'COMMON',subgroup:row&&row.subgroup||'',label:group?group.name:'Otros recursos',sublabel:sub&&sub[1]||'Otros recursos'};}
 function title(path){const [id,sub]=normalizedPath(path).replace(/^group:/,'').split('/'),group=GROUPS.find(g=>g.id===id),child=group&&group.children.find(row=>row[0]===sub);return group?[group.name,child&&child[1]].filter(Boolean).join(' / '):'';}
+function navigationTree(groupId,resources){
+ const group=GROUPS.find(row=>row.id===groupId);if(!group)return[];
+ const labels=NAVIGATION_LABELS[group.id]||{},leaves=new Map(group.children.map(([id,name])=>[id,{id:'group:'+group.id+'/'+id,label:labels[id]||name,path:'group:'+group.id+'/'+id,children:[]}])) ,used=new Set();
+ const leaf=id=>{const node=leaves.get(id);if(node)used.add(id);return node;};
+ const nodes=(NAVIGATION_BRANCHES[group.id]||group.children.map(row=>row[0])).map(spec=>typeof spec==='string'?leaf(spec):{id:'branch:'+group.id+'/'+spec.id,label:spec.label,children:spec.subgroups.map(leaf).filter(Boolean)}).filter(Boolean);
+ // A newly registered subgroup remains visible until its navigation branch is
+ // explicitly chosen. It cannot disappear behind an incomplete tree spec.
+ for(const[id,node]of leaves)if(!used.has(id))nodes.push(node);
+ if(!Array.isArray(resources))return nodes;
+ const paths=node=>node.path?[node.path]:node.children.flatMap(paths);
+ const counted=node=>{const children=node.children.map(counted).filter(Boolean),filters=paths(node),count=new Set(resources.filter(resource=>filters.some(path=>matchesPath(resource,path))).map(resource=>resource.id)).size;return count?{...node,children,count}:null;};
+ return nodes.map(counted).filter(Boolean);
+}
 function article(id){return byArticle.get(id)||null;}
-module.exports={MODULE_ID,GROUPS,SUBGROUPS,decorate,pendingResources,memberships,matchesPath,normalizedPath,location,title,article,documentationLinks,cataloguePath};
+module.exports={MODULE_ID,GROUPS,SUBGROUPS,decorate,pendingResources,memberships,matchesPath,normalizedPath,location,title,navigationTree,article,documentationLinks,cataloguePath};

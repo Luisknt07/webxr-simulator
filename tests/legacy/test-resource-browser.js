@@ -89,7 +89,7 @@ async function run() {
   browser.state.folder = 'industrial/conveyors'; browser.refresh();
   const mechanicalFamilyCount=rows=>catalog.resourceFamilies.listFamilies(rows).length+rows.filter(resource=>!catalog.resourceFamilies.familyFor(resource)).length;
   assert.equal(browser.cards.size, mechanicalFamilyCount(browser.resources.filter(resource => resource.subcategory === 'conveyors')), 'The conveyor root groups closely related mechanical variants without merging different transport mechanisms.');
-  catalog.CONVEYOR_FAMILIES.forEach(family => assert(browser.folderList.textContent.includes(family.name), 'Every family must be discoverable.'));
+  const navigationLeaves=rows=>rows.flatMap(row=>row.path?[row]:navigationLeaves(row.children||[]));navigationLeaves(catalog.libraryTaxonomy.navigationTree('TR',browser.resources)).forEach(leaf=>assert(browser.folderList.querySelectorAll('button').some(row=>row.getAttribute('data-library-path')===leaf.path),'Every actual transport subcategory remains reachable in the vertical tree.'));
   browser.state.folder = 'industrial/conveyors/straight'; browser.refresh();
   assert.equal(browser.cards.size, mechanicalFamilyCount(browser.resources.filter(resource=>resource.subcategory==='conveyors'&&resource.family==='straight')), 'A subcategory keeps one card per mechanical family; its real variants remain in the resource selector.');
   browser.state.folder = ''; browser.refresh();

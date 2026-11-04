@@ -3,9 +3,10 @@ import FloorPlanEditor from './FloorPlanEditor.js';
 import DocumentationBrowser from '../../../documentation/DocumentationBrowser.js';
 import {setEditorIcon} from './EditorIcons.js';
 
-const LAYOUT_KEY = 'hello-studio-layout-v2';
+const LAYOUT_KEY = 'hello-studio-layout-v3';
+const PREVIOUS_LAYOUT_KEY = 'hello-studio-layout-v2';
 const LEGACY_LAYOUT_KEY = 'hello-studio-layout-v1';
-const DEFAULT_LAYOUT = {left: 480, right: 304, bottom: 248, hierarchy: true, inspector: true, resources: true};
+const DEFAULT_LAYOUT = {left: 640, right: 304, bottom: 248, hierarchy: true, inspector: true, resources: true};
 
 function node(tag, className, text) {
   const result = document.createElement(tag);
@@ -36,7 +37,16 @@ export default class EditorShell {
     this.ui = editor.ui;
     this.layout = Object.assign({}, DEFAULT_LAYOUT);
     try {
-      const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null');
+      let saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null');
+      if (!saved) {
+        const previous = JSON.parse(localStorage.getItem(PREVIOUS_LAYOUT_KEY) || 'null');
+        if (previous && typeof previous === 'object') {
+          saved = Object.assign({}, previous);
+          // The old default squeezed a tree and model into two narrow columns.
+          // Carry custom dock widths forward; widen only the prior default.
+          if (saved.left === 480) saved.left = DEFAULT_LAYOUT.left;
+        }
+      }
       if(!saved){const legacy=JSON.parse(localStorage.getItem(LEGACY_LAYOUT_KEY)||'null');if(legacy&&typeof legacy==='object'){if(typeof legacy.right==='number')this.layout.right=legacy.right;if(typeof legacy.inspector==='boolean')this.layout.inspector=legacy.inspector;}}
       if (saved && typeof saved === 'object') Object.keys(DEFAULT_LAYOUT).forEach(key => {
         if (typeof saved[key] === typeof DEFAULT_LAYOUT[key]) this.layout[key] = saved[key];
@@ -506,7 +516,7 @@ export default class EditorShell {
   restoreLayout() { this.layout=Object.assign({},DEFAULT_LAYOUT);this.mobilePanel='scene';this.closeWorkspace();this.applyLayout(); }
   applyLayout(persist = true) {
     const width=window.innerWidth||1280,narrow=width<=950,available=narrow?1280:width;
-    this.layout.left=clamp(this.layout.left,300,Math.max(300,Math.min(560,available*.44)));
+    this.layout.left=clamp(this.layout.left,300,Math.max(300,Math.min(680,available*.44)));
     this.layout.right=clamp(this.layout.right,230,Math.max(240,Math.min(490,available*.34)));
     this.ui.setAttribute('data-editor-panel',this.mobilePanel);
     this.ui.style.setProperty('--ed-left',this.layout.resources?this.layout.left+'px':'0px');

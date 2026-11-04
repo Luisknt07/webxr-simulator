@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "dfb4ec992b7f04b56a3e50a062d738132dfa4dd8",
-  "bundleSha256": "274ee71832bab9600ab03485a74e6fd71d4c11768fd382ba38f9fba17841c8c9",
+  "revision": "a237634bb410a483b7015a955943d14fcf0d87c1",
+  "bundleSha256": "b3e5fe1cf420808bd69ffdd22031fb4fb33e198bb5d7245ce8b1bb3c0b55aea1",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "274ee71832bab9600ab03485a74e6fd71d4c11768fd382ba38f9fba17841c8c9"
+      "sha256": "b3e5fe1cf420808bd69ffdd22031fb4fb33e198bb5d7245ce8b1bb3c0b55aea1"
     },
     {
       "path": "cad-worker.js",
@@ -3476,7 +3476,7 @@
     },
     {
       "path": "packages/tools/editor/src/library-navigation.css",
-      "sha256": "b7c25ac4659868e4ae6d652e65df0a025f57acdde0bf46ac7c04f181e39b0424"
+      "sha256": "ea753c8f8e453ef0ce6bc62942ea39a8986dd44f68120f274698b2b2b19cf0c7"
     },
     {
       "path": "packages/tools/editor/src/project-content.css",
@@ -3488,7 +3488,7 @@
     },
     {
       "path": "packages/tools/editor/src/resources.css",
-      "sha256": "fcadf079c39520d0f7835715ff75e2a31a392f7dcc883506acba821edb5eab7c"
+      "sha256": "069887f7d0c0f114d4488e2c675549f476fe4084cdcc3aa5ada156cb80fa6d01"
     },
     {
       "path": "packages/tools/editor/src/scene-guide.css",
@@ -3881,8 +3881,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "63f92b7da4ed6663b953",
-    "statsSha256": "1945ac265b73dd8bf126d0d801693672494e3e38d3d0f19f9e4faa32afd6c7f2",
+    "hash": "0bbae8ae0bbfa745c276",
+    "statsSha256": "37f1137f51137cf86b27fb56c8e5dfd210f26651828060b5074c7348653da8e3",
     "assets": [
       {
         "path": "11.js",
@@ -3914,7 +3914,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 6900704
+        "size": 6907165
       },
       {
         "path": "configurable-practice-reference.js",

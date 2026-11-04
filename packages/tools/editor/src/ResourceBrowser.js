@@ -31,6 +31,9 @@ function button(text, title, action, className = '') {
 }
 function tabState() { return {query: '', selected: '', folder: '', scroll: 0, navScroll: 0, navScrollX:0, expanded: {}, view: 'cards', kind: 'all', status: 'all', domain:'all', scope: 'scene'}; }
 function allStates() { return {library: tabState(), project: tabState(), favorites: tabState()}; }
+function navigationNodes(category, resources) {
+  return typeof taxonomy.navigationTree==='function' ? taxonomy.navigationTree(category.id,resources) : category.children.map(([id,label])=>({id:'group:'+category.id+'/'+id,label,path:'group:'+category.id+'/'+id,children:[]}));
+}
 function size(bytes) {
   if (!Number.isFinite(bytes)) return '';
   if (bytes < 1024) return bytes + ' B';
@@ -46,7 +49,7 @@ function disposeObject(object) {
       Object.keys(material).forEach(key => { if (material[key] && material[key].isTexture) textures.add(material[key]); });
     });
   });
-  textures.forEach(texture => texture.dispose()); materials.forEach(material => material.dispose()); geometries.forEach(geometry => geometry.dispose());
+  textures.forEach(texture => {if(!(texture.userData&&texture.userData.sharedIndustrialTexture))texture.dispose();}); materials.forEach(material => material.dispose()); geometries.forEach(geometry => geometry.dispose());
 }
 function procedural(resource) {
   const action = resource && resource.action;
@@ -112,7 +115,7 @@ export default class ResourceBrowser {
 
   _build() {
     this.host.textContent = '';
-    this.host.classList.add('studio-resources');
+    this.host.classList.add('studio-resources','studio-resource-browser');
     const header = node('div', 'studio-resource-header');
     const tabs = node('div', 'studio-resource-tabs'); tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Origen de recursos');
     this.tabButtons = new Map();
@@ -157,13 +160,24 @@ export default class ResourceBrowser {
     [this.statusFilter,this.scopeFilter,this.expandGroups,this.collapseGroups,this.importButton,this.scenesButton].forEach(control=>filterPanel.appendChild(control));filterMenu.appendChild(filterPanel);header.appendChild(filterMenu);
     this.host.appendChild(header);
     const body = node('div', 'ed-assets-body studio-resource-body');
-    this.folderList.setAttribute('aria-label', 'Categorías y carpetas de recursos'); this.folderList.classList.add('studio-resource-folders');
+    this.folderList.setAttribute('aria-label', 'Categorías y carpetas de recursos'); this.folderList.classList.add('studio-resource-folders','studio-resource-tree','studio-library-category-tree');
     this.folderList.addEventListener('scroll', () => { this.state.navScroll = this.folderList.scrollTop;this.state.navScrollX=this.folderList.scrollLeft||0; this._saveState(); }, {passive: true});
     this.grid.setAttribute('role', 'tabpanel'); this.grid.classList.add('studio-resource-grid');
     this.grid.addEventListener('scroll', () => { this.state.scroll = this.grid.scrollTop; this._saveState(); }, {passive: true});
     this.preview.classList.add('studio-resource-preview'); this.preview.setAttribute('aria-label', 'Detalles y vista previa del recurso');
     this.subfamilyList=node('nav','studio-resource-subfamilies');this.subfamilyList.setAttribute('aria-label','Subfamilias de la categoría');
-    body.appendChild(this.folderList);body.appendChild(this.subfamilyList);body.appendChild(this.grid); body.appendChild(this.preview); this.host.appendChild(body);
+    this.subfamilyList.hidden=true;
+    this.categoryPicker=node('details','studio-resource-category-picker');this.categoryPicker.open=true;
+    this.categoryPickerSummary=node('summary','studio-resource-category-picker-summary studio-library-category-toggle');icon(this.categoryPickerSummary,'folder');
+    this.categoryPickerLabel=node('span','studio-library-category-picker-label','Categorías y subcategorías');this.categoryPickerSummary.appendChild(this.categoryPickerLabel);
+    this.categoryPickerCurrent=node('small','studio-library-category-current','Toda la biblioteca');this.categoryPickerSummary.appendChild(this.categoryPickerCurrent);
+    this.categoryPicker.appendChild(this.categoryPickerSummary);this.categoryPicker.appendChild(this.folderList);
+    this.categoryPicker.addEventListener('toggle',()=>{this.host.setAttribute('data-navigation-open',String(this.categoryPicker.open));});
+    this.navigationOutside=event=>{if(!this.navigationCompact||!this.categoryPicker.open)return;let target=event.target;while(target&&target!==this.categoryPicker)target=target.parentNode;if(target!==this.categoryPicker)this._closeNavigation(false);};
+    this.navigationKey=event=>{if(event.key==='Escape'&&this.navigationCompact&&this.categoryPicker.open){event.preventDefault();event.stopPropagation();this._closeNavigation(true);}};
+    if(document.addEventListener)document.addEventListener('pointerdown',this.navigationOutside);
+    this.categoryPicker.addEventListener('keydown',this.navigationKey);
+    body.appendChild(this.categoryPicker);body.appendChild(this.subfamilyList);body.appendChild(this.grid); body.appendChild(this.preview); this.host.appendChild(body);
     this.previewHome = body;
     this.caption = node('div', 'studio-resource-caption'); this.caption.setAttribute('aria-live', 'polite'); this.host.appendChild(this.caption);
     this.editDialog = node('div', 'studio-resource-dialog'); this.editDialog.hidden = true; this.editDialog.setAttribute('role', 'dialog'); this.editDialog.setAttribute('aria-modal', 'true'); this.host.appendChild(this.editDialog);
@@ -214,7 +228,7 @@ export default class ResourceBrowser {
     active = Boolean(active);
     if (active === this.active) return;
     this.active = active; this.renderSignature = '';
-    if (!active) { this.clearPreview(); if (this.thumbnails) this.thumbnails.reset(); }
+    if (!active) { this.clearPreview();this._closeNavigation(false); if (this.thumbnails) this.thumbnails.reset(); }
   }
   openTab(tab) {
     if (!TABS.some(item => item[0] === tab)) return;
@@ -248,7 +262,10 @@ export default class ResourceBrowser {
         state.domain=DOMAINS.some(row=>row[0]===value.domain)?value.domain:'all';
         state.navScroll = Number.isFinite(value.navScroll) ? Math.max(0, value.navScroll) : 0;
         state.navScrollX=Number.isFinite(value.navScrollX)?Math.max(0,value.navScrollX):0;
-        if (value.expanded && typeof value.expanded === 'object') catalog.CATEGORIES.concat(taxonomy.GROUPS).forEach(category => { if (typeof value.expanded[category.id] === 'boolean') state.expanded[category.id] = value.expanded[category.id]; });
+        if (value.expanded && typeof value.expanded === 'object') {
+          const ids=new Set(catalog.CATEGORIES.concat(taxonomy.GROUPS).map(category=>category.id)),collect=rows=>rows.forEach(row=>{if(row.children&&row.children.length){ids.add(row.id);collect(row.children);}});taxonomy.GROUPS.forEach(category=>collect(navigationNodes(category)));
+          ids.forEach(id=>{if(typeof value.expanded[id]==='boolean')state.expanded[id]=value.expanded[id];});
+        }
       });
     } catch (error) { /* Storage may be unavailable; navigation remains usable. */ }
   }
@@ -280,7 +297,7 @@ export default class ResourceBrowser {
   _moduleAvailable(resource) {try {return !resource.moduleId || !this.options.isModuleAvailable || this.options.isModuleAvailable(resource.moduleId) === true;} catch (_) {return false;}}
   _insertionPermitted() {try {return !!(this.active && (!this.options.canInsert || this.options.canInsert()));} catch (_) {return false;}}
   _canInsert(resource) {return !!(this._moduleAvailable(resource) && resource.action && resource.status !== 'development' && (resource.action.type === 'scene' || this._insertionPermitted()));}
-  _expandLibrary(expand) {taxonomy.GROUPS.forEach(group => {this.states.library.expanded[group.id] = expand;}); this._stateChanged();}
+  _expandLibrary(expand) {const visit=rows=>rows.forEach(row=>{if(row.children&&row.children.length){this.states.library.expanded[row.id]=expand;visit(row.children);}});taxonomy.GROUPS.forEach(group => {this.states.library.expanded[group.id] = expand;visit(navigationNodes(group));}); this._stateChanged();}
   _family(resource) {return resource && resource.origin === 'library' && catalog.resourceFamilies ? catalog.resourceFamilies.familyFor(resource) : null;}
   _variants(resource) {const family=this._family(resource);return family ? catalog.resourceFamilies.listVariants(family.id,this.resources) : [];}
   _familyRows(resources) {
@@ -383,24 +400,32 @@ export default class ResourceBrowser {
     return true;
   }
   refresh() { this.renderSignature = ''; return this.render(); }
+  _closeNavigation(focus=false) {
+    if(!this.navigationCompact)return;
+    this.categoryPicker.open=false;this.host.setAttribute('data-navigation-open','false');
+    if(focus&&this.categoryPickerSummary.focus)this.categoryPickerSummary.focus();
+  }
   _syncNavigationLayout(force = false) {
-    if (this.navigationDisposed || !this.active || !this.listingVisible || this.tab !== 'library') return;
+    if (this.navigationDisposed || !this.active || !this.listingVisible) return;
     const width = Math.round(Number(this.host.clientWidth || (this.host.getBoundingClientRect && this.host.getBoundingClientRect().width) || 0));
     if (!width || !force && width === this.navigationWidth) return;
-    this.navigationWidth = width;
-    // A vertical scroll offset from the wide tree has no meaning in the compact
-    // horizontal category rail. Keep both real selected controls visible when
-    // the user changes panel width; never reorder or replace catalogue items.
-    if (width <= 430) this.folderList.scrollTop = 0;
-    const category = this.folderList.querySelector('.studio-library-category.is-selected > summary');
-    const selected = (width <= 430 ? this.subfamilyList : this.folderList).querySelector('.studio-resource-folder.active');
-    [category, selected].forEach(control => {if (control && control.scrollIntoView) control.scrollIntoView({block:'nearest', inline:'nearest'});});
+    const compact=width<600,changed=this.navigationCompact!==compact;this.navigationWidth=width;this.navigationCompact=compact;
+    this.host.setAttribute('data-navigation-mode',compact?'compact':'tree');
+    if(!compact)this.categoryPicker.open=true;else if(changed)this.categoryPicker.open=false;
+    this.host.setAttribute('data-navigation-open',String(this.categoryPicker.open));
+    // Both layouts use the same vertical tree. Never carry a horizontal rail
+    // offset into it; resizing must not alter filters, selection or expansion.
+    this.folderList.scrollLeft=0;
+    const selected=this.folderList.querySelector('.studio-resource-folder.active');
+    if(this.categoryPicker.open&&selected&&selected.scrollIntoView)selected.scrollIntoView({block:'nearest',inline:'nearest'});
   }
   _renderFolders() {
-    this.folderList.textContent = '';this.subfamilyList.textContent='';this.subfamilyList.hidden=this.tab!=='library';
+    this.folderList.textContent = '';this.subfamilyList.textContent='';this.subfamilyList.hidden=true;
     const addFolder = (parent, id, label, count) => {
-      const row = button(label, 'Ver ' + label, () => { this.state.folder = id; this.state.scroll = 0; this._stateChanged(); }, 'studio-resource-folder' + (this.state.folder === id ? ' active' : ''));
+      const row = button('', 'Ver ' + label, () => { this.state.folder = id; this.state.scroll = 0; this._stateChanged();this._closeNavigation(true); }, 'studio-resource-folder studio-library-tree-leaf' + (this.state.folder === id ? ' active' : ''));
+      row.appendChild(node('span','studio-library-node-label',label));row.setAttribute('data-library-path',id);
       row.setAttribute('aria-pressed', String(this.state.folder === id));
+      if(this.state.folder===id)row.setAttribute('aria-current','page');
       if (count !== undefined) row.appendChild(node('span', 'studio-resource-folder-count', String(count)));
       if (this.tab === 'project') {
         row.addEventListener('dragover', event => { if (event.dataTransfer.types && Array.from(event.dataTransfer.types).includes(MIME)) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; } });
@@ -410,6 +435,9 @@ export default class ResourceBrowser {
       parent.appendChild(row); return row;
     };
     const all=addFolder(this.folderList, '', this.tab === 'favorites' ? 'Todos los favoritos' : this.tab === 'project' ? this.state.scope === 'scene' && this.sceneScope ? 'Recursos de esta escena' : 'Todo el proyecto' : 'Toda la biblioteca');icon(all,'library');
+    const currentFolder=catalog.foldersFor(this.organization).find(folder=>folder.id===this.state.folder);
+    this.categoryPickerLabel.textContent=this.tab==='library'?'Categorías y subcategorías':this.tab==='project'?'Carpetas del proyecto':'Origen de favoritos';
+    this.categoryPickerCurrent.textContent=this.tab==='library'?taxonomy.title(this.state.folder)||'Toda la biblioteca':this.tab==='favorites'?'Favoritos':currentFolder&&currentFolder.name||'Todo el proyecto';
     if (this.tab === 'library') {
       const included = this.resources.filter(resource => resource.origin === 'library'&&this._matchesDomain(resource));
       taxonomy.GROUPS.forEach(category => {
@@ -418,20 +446,23 @@ export default class ResourceBrowser {
         const group = node('details', 'studio-resource-category studio-library-category'); group.dataset.category = category.id;
         group.open = Object.prototype.hasOwnProperty.call(this.state.expanded, category.id) ? this.state.expanded[category.id] : category.id === 'TR' || this.state.folder.startsWith(path);
         group.addEventListener('toggle', () => {this.states.library.expanded[category.id] = group.open; this._saveState();});
-        const title = node('summary');title.appendChild(node('span','studio-library-category-label',category.name));icon(title,GROUP_ICONS[category.id]||'cube');title.setAttribute('data-library-category',category.id);title.appendChild(node('span', 'studio-resource-folder-count', String(rows.length))); group.appendChild(title);
+        const title = node('summary');title.appendChild(node('span','studio-library-category-label',category.name));icon(title,GROUP_ICONS[category.id]||'cube');title.setAttribute('data-library-category',category.id);title.setAttribute('data-library-path',path);title.appendChild(node('span', 'studio-resource-folder-count', String(rows.length))); group.appendChild(title);
         if(this.state.folder===path||this.state.folder.startsWith(path+'/'))group.classList.add('is-selected');
         title.addEventListener('click',event=>{event.preventDefault();if(this.state.folder===path){group.open=!group.open;this.states.library.expanded[category.id]=group.open;this._saveState();}else{this.state.folder=path;this.state.scroll=0;this.states.library.expanded[category.id]=true;this._stateChanged();}});
-        addFolder(group, path, 'Todos en esta categoría', rows.length);
-        category.children.forEach(([id, name]) => {const family = category.id === 'TR' && (catalog.CONVEYOR_FAMILIES || []).find(family => family.id === id); const subpath = path + '/' + id, count = rows.filter(resource => taxonomy.matchesPath(resource, subpath)).length; if (count) {const row = addFolder(group, subpath, family && family.name || name, count); row.classList.add('studio-library-subcategory');}});
+        const children=node('div','studio-library-tree-children');group.appendChild(children);addFolder(children,path,'Todos en esta categoría',rows.length);
+        const active=entry=>entry.path===this.state.folder||(entry.children||[]).some(active);
+        const appendNodes=(parent,entries,depth=0)=>entries.forEach(entry=>{
+          if(depth>8)return;
+          const descendants=entry.children||[],count=Number.isFinite(entry.count)?entry.count:rows.filter(resource=>{const matches=node=>node.path&&taxonomy.matchesPath(resource,node.path)||(node.children||[]).some(matches);return matches(entry);}).length;
+          if(!count)return;
+          if(!descendants.length&&entry.path){const row=addFolder(parent,entry.path,entry.label,count);row.classList.add('studio-library-subcategory');return;}
+          const branch=node('details','studio-library-branch');branch.setAttribute('data-library-node',entry.id);branch.open=Object.prototype.hasOwnProperty.call(this.state.expanded,entry.id)?this.state.expanded[entry.id]:active(entry);
+          branch.addEventListener('toggle',event=>{if(event.target&&event.target!==branch)return;this.states.library.expanded[entry.id]=branch.open;this._saveState();});
+          const summary=node('summary');summary.appendChild(node('span','studio-library-node-label',entry.label));summary.appendChild(node('span','studio-resource-folder-count',String(count)));branch.appendChild(summary);
+          const nested=node('div','studio-library-tree-children');branch.appendChild(nested);appendNodes(nested,descendants,depth+1);parent.appendChild(branch);
+        });appendNodes(children,navigationNodes(category,rows));
         this.folderList.appendChild(group);
       });
-      const selectedCategory=taxonomy.GROUPS.find(category=>this.state.folder==='group:'+category.id||this.state.folder.startsWith('group:'+category.id+'/'))||taxonomy.GROUPS.find(category=>included.some(resource=>taxonomy.matchesPath(resource,'group:'+category.id)));
-      if(selectedCategory){
-        this.subfamilyList.appendChild(node('strong','studio-resource-subfamily-title','Subfamilias'));
-        const parent='group:'+selectedCategory.id,rows=included.filter(resource=>taxonomy.matchesPath(resource,parent));
-        addFolder(this.subfamilyList,parent,'Todas',rows.length);
-        selectedCategory.children.forEach(([id,name])=>{const family=selectedCategory.id==='TR'&&(catalog.CONVEYOR_FAMILIES||[]).find(row=>row.id===id),path=parent+'/'+id,count=rows.filter(resource=>taxonomy.matchesPath(resource,path)).length;if(count)addFolder(this.subfamilyList,path,family&&family.name||name,count);});
-      }
     } else if (this.tab === 'favorites') {
       addFolder(this.folderList, 'origin:library', 'De Biblioteca'); addFolder(this.folderList, 'origin:project', 'De Proyecto');
     } else {
@@ -453,7 +484,8 @@ export default class ResourceBrowser {
       if (this.options.onCaptureTemplate) this.folderList.appendChild(button('▣ Guardar selección', 'Guardar la selección como plantilla reutilizable', () => this._call('onCaptureTemplate')));
     }
     this.folderList.scrollTop = this.state.navScroll;
-    this.folderList.scrollLeft=this.state.navScrollX||0;
+    this.folderList.scrollLeft=0;
+    this.state.navScrollX=0;
     this._syncNavigationLayout(true);
   }
   _renderCard(resource) {
@@ -721,6 +753,7 @@ export default class ResourceBrowser {
   dispose() {
     this.navigationDisposed = true;
     if (this.navigationObserver) {this.navigationObserver.disconnect(); this.navigationObserver = null;}
+    if(document.removeEventListener)document.removeEventListener('pointerdown',this.navigationOutside);
     this._saveState(); this.clearPreview();
     this.configurationDrafts.clear();this.familySelections.clear();this.invalidConfigurations.clear();
     this.setPreviewHost(null);
