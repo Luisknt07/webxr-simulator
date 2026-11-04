@@ -28,7 +28,7 @@ test('new material workflow rejects remote inspection, wrong orders, missing sto
    const built=native.buildConfigurablePracticeScene(f.document,'hall',id,{scene:f.scene});f.runtime.start('hall');native.advance(f,.1);w=new native.ConfigurablePracticeRuntime({simulation:f.runtime,document:f.document},built.manifest);
    assert.throws(()=>w.command('material-order',{orderId:'ORD-OTHER',quantity:built.plan.expectedUnits}),/orden/i);
    w.command('material-order',{orderId:built.materialRecipe.orderId,quantity:built.plan.expectedUnits});
-   const method=id==='CEDI-03'?'bulto-cuatro-cajas':id==='SF-03'?'mecanizado-con-sujecion':'ruta-y-capacidad-verificadas';w.command('material-prepare',{method});
+   const method=id==='CEDI-03'?'picking-por-sku':id==='SF-03'?'mecanizado-con-sujecion':'ruta-y-capacidad-verificadas';w.command('material-prepare',{method});
    assert.throws(()=>w.command('material-inspect',{quantity:built.plan.expectedUnits,quality:'conforme'}),/cantidad|posición|inspección/i);assert.throws(()=>w.command('material-close',{quantity:built.plan.expectedUnits}),/entrega|concili/i);
    const initial=w.observe(),entry=initial.entries[0].entry,original=entry.units;entry.units=original-1;assert(w.observe().criticalReasons.length>0);entry.units=original;
    const owner=f.runtime.records.get(entry.ownerId).components.palletQueue;owner.queue.push(entry);assert(w.observe().materialBalance.duplicates.length>0);owner.queue.pop();assert.deepEqual(w.observe().criticalReasons,[]);
@@ -36,15 +36,20 @@ test('new material workflow rejects remote inspection, wrong orders, missing sto
  }
 });
 
-test('three actual four-carton bundles follow native hand sweeps into three order seats; the other twelve cartons remain in source',()=>{
+test('twelve individual cartons follow native hand sweeps into three mixed-SKU orders; twelve cartons remain in source',()=>{
  const f=native.fixture();let w,operator;try{
   const built=native.buildConfigurablePracticeScene(f.document,'hall','CEDI-03',{scene:f.scene});f.runtime.start('hall');native.advance(f,.1);w=new native.ConfigurablePracticeRuntime({simulation:f.runtime,document:f.document},built.manifest);operator=require('../support/practice-hand-operator.cjs')(native,f,w);
   assert.equal(w.snapshot().stockSourceUnits,24);assert.equal(w.snapshot().orderRemainingUnits,12);
-  w.command('material-order',{orderId:built.materialRecipe.orderId,quantity:12});w.command('material-prepare',{method:'bulto-cuatro-cajas'});
-  for(let index=0;index<3;index++){
-   const product=w.product(built.materialRecipe.stock[index].objectId),record=f.runtime.records.get(built.receiverIds[index]),from=product.object.getWorldPosition(new native.THREE.Vector3()),target=operator.target(record,product);
-   operator.pickup(product);operator.move([from.x,from.y,from.z+1.25]);operator.move([from.x,Math.max(1.05,from.y),from.z+1.25]);operator.move([-3.5,Math.max(1.05,from.y),from.z+1.25]);operator.move([-3.5,1.05,0]);operator.move([target.x,1.05,0]);operator.move([target.x,1.05,target.z+1.2]);operator.move([target.x,target.y,target.z+1.2]);operator.move(target.toArray());operator.release();
-   assert.equal(product.sourceEntry.ownerId,record.id);assert.deepEqual(w.observe().criticalReasons,[]);assert.equal(w.snapshot().stockSourceUnits,24-4*(index+1));
+  w.command('material-order',{orderId:built.materialRecipe.orderId,quantity:12});w.command('material-prepare',{method:'picking-por-sku'});
+  let transferred=0;
+  for(const order of built.manifest.operatingData.orders){
+   const destination=built.materialRecipe.destinations.find(row=>row.orderId===order.id),record=f.runtime.records.get(destination.objectId);
+   for(const box of order.boxes){
+    const stock=built.materialRecipe.stock.find(row=>row.cediLoad.boxIds.includes(box.boxId)),product=w.product(stock.objectId),from=product.object.getWorldPosition(new native.THREE.Vector3()),target=operator.target(record,product),height=Math.max(1.1,from.y);
+    operator.pickup(product);operator.move([from.x,from.y,from.z+1.3]);operator.move([from.x,height,from.z+1.3]);operator.move([target.x,height,from.z+1.3]);operator.move([target.x,height,target.z]);operator.move(target.toArray());operator.release();transferred++;
+    assert.equal(product.sourceEntry.ownerId,record.id);assert.deepEqual(w.observe().criticalReasons,[]);assert.equal(w.snapshot().stockSourceUnits,24-transferred);
+   }
+   assert.equal(w.pickingOrders(w.observe()).find(row=>row.orderId===order.id).correct,true);
   }
   w.command('material-inspect',{quantity:12,quality:'conforme'});w.command('material-close',{quantity:12});const state=w.snapshot();assert.equal(state.stockSourceUnits,12);assert.equal(state.orderRemainingUnits,0);assert.equal(state.totalUnits,12);assert.equal(state.initialUnits,12);assert.equal(state.receiverUnits,12);assert.equal(state.finalizedUnits,12);assert.equal(w.observe().entries.filter(row=>row.inSource).reduce((sum,row)=>sum+row.quantity,0),12);assert.deepEqual(w.observe().quantities,{box:24});assert.equal(state.stageEvidence.length,6);assert(operator.stats().ticks>1000);
   const Session=require('../../modules/logistica-industrial/practices/schema/PracticeSession.cjs').PracticeSession,session=new Session(Object.assign({},built.manifest,{evidenceAdapter:{kind:'workflow',requirements:built.manifest.stageBindings}}),{snapshot:()=>w.snapshot()});for(const guard of ['identify','prepare','operate','inspect','deliver','close'])assert(session.act(guard).accepted);assert.equal(session.state().passed,true);

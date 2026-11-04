@@ -4,6 +4,8 @@ import catalogue from '../../../functions/equipamiento/schema/equipmentCatalog.c
 import recipes from '../Recipes.cjs';
 import {studySceneBase,studyWorkspace,disposeStudyGeometry} from '../../../scenarios/StudySceneProject.js';
 import {buildPracticeFacility} from './PracticeFacility.js';
+import {buildCediFacility} from './CediFacility.js';
+import {arrangeCediPractice,applyCediOperatingData,buildCediContext} from './CediSceneComposition.js';
 import {buildPracticeMaterialFixtures} from './PracticeMaterialFixtures.js';
 import {buildPracticeEquipmentAttachments} from './PracticeEquipmentAttachments.js';
 
@@ -19,6 +21,7 @@ function add(doc,roomId,objects,kind,name,variant,values,position,rotation){
 }
 function queue(doc,roomId,objects,name,position){return add(doc,roomId,objects,'palletQueue',name,undefined,FLOOR_STOCK,[position[0],position[1]+1,position[2]]);}
 function shell(doc,roomId,plan,objects){
+ if(/^CEDI-0[1-5]$/.test(plan.id))return buildCediFacility(doc,roomId,plan,objects);
  return buildPracticeFacility(doc,roomId,plan,objects);
 
 }
@@ -38,6 +41,11 @@ function actor(doc,roomId,plan,row,objects){
  object.userData.configurablePracticeAlias=row.alias;object.userData.configurablePracticeId=plan.id;row.objectId=id(object);row.actualPose={position:object.position.toArray(),rotation:object.rotation.toArray().slice(0,3),scale:object.scale.toArray()};row.actualCatalogueEquipmentId=d&&d.id||'';row.components=doc.getBehaviors(object).map(c=>c.type);return object;
 }
 function addFloorPlan(doc,roomId,plan,rows,objects){
+ if(/^CEDI-0[1-5]$/.test(plan.id)){
+  const stock=plan.operatingData&&plan.operatingData.inventoryLocations||[],texts=['RESERVA A · ALTA ROTACIÓN','RESERVA B · ROTACIÓN MEDIA','RESERVA C · BAJA / ESPECIALES'].concat(stock.map(row=>row.sku+' · '+row.locationCode));
+  const labels=[[-20,-12,0,6,.45,8],[-8,-12,0,6,.45,9],[12,-12,0,7.8,.45,10]].concat(stock.map((row,i)=>{const code=/R(\d+)-B01-M(\d+)-N(\d+)/.exec(row.locationCode),rack=code&&Number(code[1])===4?18:6,bay=code?Number(code[2]):1,level=code?Number(code[3]):1;return[rack-3+(bay-1)*2,-13.8+(level-1)*.3,0,1.9,.13,11+i];}));
+  const floor=doc.addIndustrialFloorPresentation(roomId,{type:'industrialFloor',version:1,bounds:[-32,-22,32,22],floorY:.031,texts,labels});doc.setProperty(floor,'name','CEDI · clasificación ABC y ubicaciones de reserva');doc.setBehaviors(floor,[Object.assign(schema.defaultBehavior('collision'),{enabled:false})]);objects.push(floor);return{points:[],referenceOnly:true,provenance:'shared-cedi-layout'};
+ }
  const sourceRoute=plan.sourceRow.routes[{manual:'M',semiautomatic:'S',automatic:'A'}[plan.mode]],points=(sourceRoute&&sourceRoute.points||[]).map(p=>[p[0]-plan.interiorArea.width/2,p[1]-plan.interiorArea.depth/2]),arrows=[];
  for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i],dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz);for(let t=.8;t<length;t+=1.5)arrows.push([a[0]+dx*t/length,a[1]+dz*t/length,Math.atan2(dx,dz)]);}
  const floor=doc.addIndustrialFloorPresentation(roomId,{type:'industrialFloor',version:1,bounds:[-plan.interiorArea.width/2,-plan.interiorArea.depth/2,plan.interiorArea.width/2,plan.interiorArea.depth/2],floorY:.029,texts:rows.map(row=>(row.alias+' · '+row.sourceName).slice(0,64)),labels:rows.map((row,index)=>[(row.actualPose&&row.actualPose.position||row.sourceCenter)[0],(row.actualPose&&row.actualPose.position||row.sourceCenter)[2]+row.sourceDimensions[1]/2-.25,0,Math.min(4,Math.max(.3,row.sourceDimensions[0])),.28,8+index]),arrows:plan.availability.ready?[]:arrows.slice(0,96)});doc.setProperty(floor,'name','Referencias de fuente · la ruta operativa usa contactos y misiones nativos');doc.setBehaviors(floor,[Object.assign(schema.defaultBehavior('collision'),{enabled:false})]);objects.push(floor);return{points,provenance:'source-numeric-reference-polyline',referenceOnly:true,notice:'Flechas de referencia; no certifican el espacio libre ni sustituyen la ruta de la misión nativa.'};
@@ -93,10 +101,14 @@ function measure(objects){let triangles=0,drawCalls=0,meshes=0;const materials=n
 export function buildConfigurablePracticeScene(doc,roomId,practiceId,options={}){
  const plan=recipes.plan(practiceId,options),own=!doc.transaction,objects=[],adjustments=[],rows=plan.layoutBindings.map(row=>Object.assign({},row));if(own)doc.begin();
  try{
+  if(/^CEDI-0[1-5]$/.test(plan.id)&&doc.native)doc.native.forEach(entry=>{if(entry.roomId===roomId&&entry.object.parent===doc.getRoot(roomId))doc.setProperty(entry.object,'visible',false);});
   studySceneBase(doc,roomId);const facility=shell(doc,roomId,plan,objects);rows.forEach(row=>actor(doc,roomId,plan,row,objects));
   let built={sourceIds:[],receiverIds:[],productIds:[],palletIds:[],vehicleIds:[],robotIds:[],conveyorIds:[],processIds:[],links:[]};
   if(plan.id==='CEDI-01')built=receiving(doc,roomId,plan,rows,objects,adjustments);
   else built=buildPracticeMaterialFixtures(doc,roomId,plan,rows,objects,{add,set,queue,id,schema});
+  const cediOperations=arrangeCediPractice(doc,plan,rows,built,objects,{set,facility});
+  const operatingData=applyCediOperatingData(doc,plan,built,{set});
+  const cediContext=buildCediContext(doc,roomId,plan,objects,{set});
   if(built.materialRecipe){built.materialRecipe.operationReady=!!plan.availability.ready;built.materialRecipe.validatedEvidence=plan.availability.evidence||null;}
   adjustments.push(...(facility&&facility.adaptations||[]),...(built.fixtureLayoutAdjustments||[]));
   layoutOverrides(doc,plan,rows,built,adjustments);
@@ -106,6 +118,7 @@ export function buildConfigurablePracticeScene(doc,roomId,practiceId,options={})
   const settings=recipes.normalizedOptions(plan);
   const manifest=Object.assign({version:2,practiceId:plan.id,title:plan.title,caseId:plan.caseId,mode:plan.mode,difficulty:plan.difficulty,roomId,kind:'configurable',expectedUnits:plan.expectedUnits,sku:plan.id+'-ORDER',steps:plan.steps,sourceSha256:plan.sourceSha256,sourceHashes:plan.sourceHashes,plan,settings,aliases:rows,layoutElements:rows,layoutAdjustments:adjustments,stageBindings,evidenceAdapter:{kind:'workflow'},availability:plan.availability,executionRoute:route,facility:facility&&Object.fromEntries(['version','profile','bounds','openings','adaptations','costs','environment','limits','objects','outdoor'].map(key=>[key,facility[key]])),validation:{coordinateMapping:'table centre -> centred world; no dimension scaling',mappedAliases:rows.length,sourceAliases:plan.modeDescription.equipment.length,modePolicy:'exactly one selected mode; no hidden actors for other modes',rv:measure(objects),executionReady:plan.availability.ready,limits:plan.availability.reasons}},built);
   manifest.equipmentAttachments=equipmentAttachments;
+  if(cediOperations){manifest.cediOperations=cediOperations;manifest.cediContext=cediContext;manifest.operatingData=operatingData;manifest.facility.layoutId=facility.layoutId;manifest.facility.sharedLayout=facility.sharedLayout;manifest.facility.initialView=facility.initialView;manifest.executionRoute={points:facility.sharedLayout.aisles.safePolyline,referenceOnly:true,provenance:'shared-cedi-aisles; native task supplies final approach'};}
   manifest.sourceId=built.sourceIds[0]||rows[0].objectId;manifest.receiverId=built.receiverIds[0]||rows[rows.length-1].objectId;
   manifest.materialFixture={status:built.productIds.length?'native-seeded':'source-recipe-only',quantities:JSON.parse(JSON.stringify(plan.fixture)),physicalProductIds:built.productIds.slice(),notice:built.productIds.length?'Existencias físicas iniciales identificadas y conservadas por referencia. La evaluación exige además el adaptador y las pruebas del flujo; el registro no genera stock.':'Montaje de configuración: la receta de insumos está documentada; no se crean existencias ni se habilita evaluación antes de enlazar su adaptador material específico.'};
   const studio=doc.studio||{},moduleData=Object.assign({},studio.moduleData||{}),data=Object.assign({version:1,levels:[],attempts:[]},moduleData[MODULE]||{});data.levels=(data.levels||[]).filter(row=>row.roomId!==roomId).concat([manifest]);moduleData[MODULE]=data;doc.setStudio({moduleData,scenes:(studio.scenes||[]).filter(row=>row.id!==roomId).concat([{id:roomId,name:plan.id+' · '+plan.title,moduleId:MODULE}]),startRoomId:roomId});

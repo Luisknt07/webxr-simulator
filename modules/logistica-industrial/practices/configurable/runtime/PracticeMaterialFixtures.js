@@ -35,10 +35,12 @@ export function buildPracticeMaterialFixtures(doc,roomId,plan,rows,objects,api){
   ['E02','E03'].forEach(alias=>{const o=byAlias(alias);set(doc,o,{running:true,withPanel:false,rackAisleCode:plan.id.replace(/-/g,'_'),rackRowCode:alias,rackBays:2,rackLevels:3,rackColumns:1,rackBayWidths:'2.5,2.5',rackSlotDepth:1.1,rackLevelSpacing:1.05,autoRelease:false});doc.setTransform(o,{rotation:[0,Math.PI,0]});receiverIds.push(id(o));destinations.push({objectId:id(o),alias,purpose:'reserva identificada'});});
   const refill=receiver('E04',[0,0,-1.5],'recepción de reposición · 8 cajas sobre pallet');set(doc,refill,{acceptsPallets:true});doc.setTransform(refill,{rotation:[0,Math.PI,0]});
  }else if(plan.id==='CEDI-03'){
-  // Six independently identified four-carton handling bundles preserve all
-  // twenty-four original cartons; the order selects three of these bundles.
-  for(let i=0;i<6;i++){const alias=i<3?'E02':'E03',seat=byAlias(alias);set(doc,seat,{rackAisleCode:plan.id.replace(/-/g,'_'),rackRowCode:alias});const config=doc.getBehaviors(seat).find(c=>c.type==='palletQueue'),cell=schema.warehouseRacks.layout(config).cells[i%3];seed(alias,seat,plan.id+'-B'+(i+1),4,{variant:'carton-bundle',mass:8,width:.48,depth:.38,height:.4},[cell.x,cell.y+.856,cell.z],'box');}
-  for(let i=0;i<3;i++){const o=receiver('E06',[(i-1)*.7,0,0],'pedido O'+(i+1)+' · cuatro cajas');destinations[destinations.length-1].orderId='O'+(i+1);}
+  // One independent carton per native rack cell. A homogeneous four-carton
+  // bundle cannot fulfil a mixed-SKU order without inventing a split operation.
+  // Two racks × two bays × three levels × two columns give 24 real cells.
+  for(const alias of ['E02','E03'])set(doc,byAlias(alias),{rackAisleCode:plan.id.replace(/-/g,'_'),rackRowCode:alias,rackBays:2,rackLevels:3,rackColumns:2,rackBayWidths:'2.5,2.5',autoRelease:false});
+  for(let i=0;i<24;i++){const alias=i<12?'E02':'E03',seat=byAlias(alias),config=doc.getBehaviors(seat).find(c=>c.type==='palletQueue'),cell=schema.warehouseRacks.layout(config).cells[i%12];seed(alias,seat,plan.id+'-BOX'+String(i+1).padStart(2,'0'),1,{variant:'box-small',mass:5,width:.3,depth:.25,height:.2},[cell.x,cell.y+.856,cell.z],'box');}
+  for(let i=0;i<3;i++){const order=plan.operatingData.orders[i],o=receiver('E06',[(i-1)*1.5,0,0],order.id+' · cuatro cajas por referencia');set(doc,o,{capacity:4,columns:2,rows:2,layers:1,layoutMode:'grid'});Object.assign(destinations[destinations.length-1],{orderId:order.id,lines:order.lines.map(row=>Object.assign({},row)),boxIds:order.boxIds.slice()});}
   machine('E05',{capacity:1,processTime:1});
  }else if(plan.id==='CEDI-04'){
   groupedParts('E01',{finished:4,carton:4,label:4},3);machine('E02',{mode:'combiner',combineCount:3,capacity:3,processTime:3});machine('E03',{capacity:1,processTime:1});

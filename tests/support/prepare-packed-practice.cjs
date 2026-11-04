@@ -2,8 +2,8 @@
 const assert=require('node:assert/strict');
 // All products, conversions and pallet members are owned by native runtimes.
 // onPallet must operate the carrier, never rewrite an aggregate pose/queue.
-module.exports=function preparePacked(native,f,id,onPallet){
- const built=native.buildConfigurablePracticeScene(f.document,'hall',id,{mode:'manual',caseId:'A',scene:f.scene});f.scene.updateMatrixWorld(true);f.runtime.start('hall');native.advance(f,.1);
+module.exports=function preparePacked(native,f,id,onPallet,options={}){
+ const built=native.buildConfigurablePracticeScene(f.document,'hall',id,Object.assign({},options,{mode:'manual',caseId:'A',scene:f.scene}));f.scene.updateMatrixWorld(true);f.runtime.start('hall');native.advance(f,.1);
  const workflow=new native.ConfigurablePracticeRuntime({simulation:f.runtime,document:f.document},built.manifest),driver=require('./practice-hand-driver.cjs')(native,f),main=workflow.alias('E02'),seal=id==='CEDI-04'?workflow.alias('E03'):null,palletizer=workflow.alias(id==='CEDI-04'?'E04':'E03'),capacity=id==='CEDI-04'?6:12;
  const tick=seconds=>{native.advance(f,seconds);workflow.update();};
  assert.deepEqual(workflow.observe().criticalReasons,[]);assert.throws(()=>workflow.command('bom-close',{quantity:12}));

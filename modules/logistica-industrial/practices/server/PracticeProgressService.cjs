@@ -16,12 +16,12 @@ module.exports=class PracticeProgressService {
  `);if(!this.db.prepare('PRAGMA table_info(logistics_practice_attempts)').all().some(row=>row.name==='checkpoint'))this.db.exec('ALTER TABLE logistics_practice_attempts ADD COLUMN checkpoint TEXT');this.initialized=true;}
  fail(status,message,code='practice_invalid'){throw this.host.error(status,message,code);}
  read(userId){const row=this.db.prepare('SELECT value FROM logistics_practice_progress WHERE user_id=?').get(userId),value=row?JSON.parse(row.value):null;return progress.normalize(value&&value.sourceSha256!==progress.SOURCE_SHA256?null:value,userId);}
- settings(data){const value=recipes.normalizedOptions(data);recipes.plan(data.practiceId,Object.assign({},data,value));return value;}
+ settings(data){const value=recipes.normalizedOptions(data),plan=recipes.plan(data.practiceId,Object.assign({},data,value));if(plan.cediData)value.cediData=plan.cediData;return value;}
  async handle(req,res,parts,method,body,user,send){
   this.init();const route=parts.slice(1).join('/'),now=this.host.now();
   if(route==='progress'&&method==='GET'){send(200,{progress:this.read(user.id),routes:progress.ROUTES,capabilities:recipes.matrix(),sourceSha256:progress.SOURCE_SHA256});return true;}
   if(route==='attempts'&&method==='POST'){
-   const data=await body(8192);let settings;try{settings=this.settings(data);}catch(error){this.fail(400,error.message);}
+   const data=await body(32768);let settings;try{settings=this.settings(data);}catch(error){this.fail(400,error.message);}
    const access=progress.access(this.read(user.id),data.practiceId);if(!access.routeId)this.fail(400,access.reason);if(settings.executionMode==='campaign'&&!access.allowed)this.fail(403,access.reason,'practice_locked');
    const availability=recipes.availability(data.practiceId,settings.mode,settings);if(data.preview===true||!availability.ready)this.fail(400,availability.reasons.join(' ')||'Este montaje está disponible para consulta, todavía no como intento evaluado.','practice_not_verified');
    this.db.prepare('DELETE FROM logistics_practice_attempts WHERE user_id=? AND completed_at IS NULL AND created_at<?').run(user.id,now-7*86400000);

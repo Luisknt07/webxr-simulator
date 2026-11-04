@@ -12,6 +12,7 @@ const recipes=require('../../modules/logistica-industrial/practices/configurable
 const source=require('../../modules/logistica-industrial/practices/configurable/data/index.json');
 const progress=require('../../modules/logistica-industrial/practices/schema/PracticeProgress.cjs');
 const sessionSchema=require('../../modules/logistica-industrial/practices/schema/PracticeSession.cjs');
+const cediData=require('../../modules/logistica-industrial/practices/configurable/CediOperatingData.cjs');
 const BASE='/api/studio/practices',PREFIX='smarttwin-configurable-api-';
 const clone=value=>JSON.parse(JSON.stringify(value));
 const IDS=['CEDI','SF'].flatMap(prefix=>Array.from({length:5},(_,index)=>prefix+'-'+String(index+1).padStart(2,'0')));
@@ -149,4 +150,27 @@ test('reading an empty prior-edition ledger offers the current curriculum withou
  assert.deepEqual(f.api.studio.db.prepare('SELECT value,updated_at FROM logistics_practice_progress WHERE user_id=?').get(userId),before,'A read must not discard or rewrite the old curriculum ledger.');
  await f.close();await f.open();noCompletions(await state(f,cookie));const restored=f.api.studio.db.prepare('SELECT value,updated_at FROM logistics_practice_progress WHERE user_id=?').get(userId);assert.equal(restored.value,raw);assert.equal(restored.updated_at,updatedAt);
  assert.equal(f.api.studio.access.usage(userId).projects,0);
+}));
+
+test('editable CEDI data is validated, bound to the authenticated attempt and cannot alter completion or progression',{timeout:30000},()=>fixture(async f=>{
+ const cookie=f.owner.cookie,input=cediData.defaults();input.name='Mi CEDI regional';input.products[0].unitMassKg=2;input.products[1].unitMassKg=3;input.inboundOrders[0].lotId='LOTE-REGIONAL';
+ const expected=cediData.normalize(input),attempt=await start(f,cookie,{cediData:input});assert.deepEqual(attempt.settings.cediData,expected);
+ assert.deepEqual(JSON.parse(f.attempts().find(row=>row.id===attempt.id).settings).cediData,expected);
+ assert.equal(recipes.plan(attempt.practiceId,attempt.settings).operatingData.inboundPallets[0].massKg,36);
+ const defaults=await start(f,cookie);assert.deepEqual(defaults.settings.cediData,cediData.normalize(cediData.defaults()));
+ const before=f.attempts().length;
+ for(const mutate of [x=>x.products[0].unitMassKg=Infinity,x=>x.inboundOrders[0].lines[0].quantity=23,x=>x.outboundOrders[0].lines[0].quantity=12,x=>x.capacities.palletPositions=8,x=>x.products[0].script='run()']){
+  const bad=cediData.defaults();mutate(bad);rejected(await f.request(BASE+'/attempts',{practiceId:'CEDI-01',executionMode:'isolated',cediData:bad},{cookie}),400,'Invalid operating book');assert.equal(f.attempts().length,before);
+ }
+ rejected(await f.request(BASE+'/attempts',{practiceId:'SF-01',executionMode:'isolated',cediData:input},{cookie}),400,'CEDI-only data must not leak into Smart Factory');
+ rejected(await f.request(BASE+'/attempts',{practiceId:'CEDI-02',executionMode:'campaign',cediData:input},{cookie}),403,'Operating data cannot bypass predecessor completion');
+ for(const mode of ['semiautomatic','automatic'])rejected(await f.request(BASE+'/attempts',{practiceId:'CEDI-01',executionMode:'isolated',mode,cediData:input},{cookie}),400,'Operating data cannot authorize unverified automation');
+ const receipt=incompleteReceipt(attempt);
+ for(const mutate of [x=>x.products[0].unitMassKg=4,x=>x.inboundOrders[0].lotId='OTHER-LOT',x=>x.capacities.palletPositions=13]){
+  const forged=clone(receipt);mutate(forged.config.settings.cediData);rejected(await f.request(BASE+'/progress',{receipt:forged},{cookie}),409,'Operating data is part of attempt identity');
+ }
+ const omitted=clone(receipt);delete omitted.config.settings.cediData;rejected(await f.request(BASE+'/progress',{receipt:omitted},{cookie}),409,'A completion cannot discard the bound book');
+ rejected(await f.request(BASE+'/progress',{receipt},{cookie}),400,'A valid book cannot substitute for actual material evidence');
+ noCompletions(await state(f,cookie));for(const row of f.attempts()){assert.equal(row.completed_at,null);assert.equal(row.receipt,null);}
+ await f.close();await f.open();assert.deepEqual(JSON.parse(f.attempts().find(row=>row.id===attempt.id).settings).cediData,expected);noCompletions(await state(f,cookie));
 }));

@@ -56,7 +56,13 @@ export default class PracticePanel{
   for(const [id,title]of[['scene','Escena'],['missions','Misiones'],['instructions','Instrucciones']]){const control=make('button','',title);control.type='button';control.setAttribute('data-practice-pane',id);control.setAttribute('aria-pressed',String(id==='instructions'));control.addEventListener('click',()=>{this.root.setAttribute('data-practice-pane',id);for(const button of this.mobileNavigation.children)button.setAttribute('aria-pressed',String(button===control));this.notifyLayout();});this.mobileNavigation.appendChild(control);}
   this.root.appendChild(this.learningLeft);this.root.appendChild(this.missionBar);this.root.appendChild(this.sceneFrame);this.root.appendChild(this.learningRight);this.root.appendChild(this.mobileNavigation);this.notifyLayout();
  }
- notifyLayout(){if(typeof window!=='undefined'&&typeof window.dispatchEvent==='function'&&typeof Event==='function')window.dispatchEvent(new Event('smarttwin-practice-layout'));}
+ notifyLayout(){
+  const ctx=this.controller&&this.controller.editor&&this.controller.editor.ctx,reading=!this.disposed&&typeof window!=='undefined'&&window.innerWidth<=900&&this.root.getAttribute('data-practice-pane')!=='scene'&&this.root.getAttribute('data-scene-focus')!=='true'&&this.root.getAttribute('data-driving')!=='true'&&!(ctx&&ctx.drivingVehicle);
+  // Closing the scene surface must also release a touch held by another finger.
+  // Visibility uses the same declarative pane/focus/driving state in CSS.
+  if(reading&&ctx&&ctx.mobileNavigation&&ctx.mobileNavigation.reset)ctx.mobileNavigation.reset('practice-reading');
+  if(typeof window!=='undefined'&&typeof window.dispatchEvent==='function'&&typeof Event==='function')window.dispatchEvent(new Event('smarttwin-practice-layout'));
+ }
  updateLearningWorkspace(state){
   const plan=state.plan||{},session=state.session||{},settings=plan.settings||this.controller.config&&this.controller.config.settings||state;
   const values=[['Caso',state.caseId||settings.caseId||session.caseId||plan.caseId||'A'],['Dificultad',({1:'Guiada',2:'Configurable',3:'Diagnóstico'})[settings.difficulty||session.difficulty||plan.difficulty||1]],['Automatización',({manual:'Manual / mecanizada',semiautomatic:'Semiautomatizada',automatic:'Automatizada'})[state.mode||settings.mode||session.mode||plan.mode||'manual']]];

@@ -2,35 +2,29 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {createRequire} from 'node:module';
-const require=createRequire(import.meta.url),native=require('../support/load-practice-scenes.cjs')(),manualDriver=require('../support/practice-manual-driver.cjs');
-test('CEDI-05 physically loads both original six-box pallets on the parked truck before dispatch closure',()=>{
- const f=native.fixture();let workflow;
- try{
-  const built=native.buildConfigurablePracticeScene(f.document,'hall','CEDI-05',{mode:'manual',scene:f.scene});f.runtime.start('hall');native.advance(f,.1);workflow=new native.ConfigurablePracticeRuntime({simulation:f.runtime,document:f.document},built.manifest);
-  const originalIds=built.productIds.slice();assert.deepEqual(workflow.snapshot().criticalReasons,[]);assert.throws(()=>workflow.command('material-close',{quantity:12}));
-  workflow.command('material-order',{orderId:built.manifest.materialRecipe.orderId,quantity:12});workflow.command('material-prepare',{method:'ruta-y-capacidad-verificadas'});workflow.command('secure-material-dock',{secured:'calzos-borde-y-acceso-verificados'});
-  const vehicle=f.runtime.records.get(built.vehicleIds[0]),driver=manualDriver(native,f,vehicle),api=f.runtime.vehicleRuntime,v=vehicle.components.vehicle,c=v.config,arcRadius=c.wheelbase/Math.tan(c.steerLimit*.8),reverseSide=arcRadius-c.wheelbase/2+.012;
-  api.command(vehicle,'parkingBrake',false);const delivered=[];
+const require=createRequire(import.meta.url),native=require('../support/load-practice-scenes.cjs')(),{diagnostics,boundedDriver,arrangement,prepare,cleanup,heldChecks}=require('../support/cedi-dock-operator.cjs')(native);
+
+// This is the single full CEDI-05 native transport regression for the shared U facility.
+test('CEDI-05 loads both original pallets deepest-first through the front dock and completes dispatch with real steering and hydraulics',{timeout:120000},()=>{
+ const {f,built,workflow}=arrangement('CEDI-05');try{
+  const originalIds=built.productIds.slice(),delivered=[];assert.deepEqual(workflow.snapshot().criticalReasons,[]);assert.throws(()=>workflow.command('material-close',{quantity:12}));prepare(workflow,built);const record=f.runtime.records.get(built.vehicleIds[0]),api=f.runtime.vehicleRuntime,driver=boundedDriver(f,record),vehicle=record.components.vehicle,forwardSide=vehicle.config.wheelbase/Math.tan(vehicle.config.steerLimit*.8)+vehicle.config.wheelbase/2;
+  const targets=built.tasks.map(task=>f.runtime.records.get(task.destinationId).object.position);assert(targets[0].z>targets[1].z,'Load the far truck seat before the near seat so the first pallet cannot obstruct the next.');
+  assert.equal(driver.yaw(),0);assert(Math.abs(record.object.position.y)<.001);api.command(record,'parkingBrake',false);
   for(let index=0;index<2;index++){
-   const task=built.tasks[index],target=f.runtime.records.get(task.destinationId).object.position;
-   driver.dock('pickup',task.sourceId,task.pickupRoute[0]);assert.equal(v.entry.product.record.id,originalIds[index]);driver.lift(.25);
-   // Withdraw before turning clear of the neighbouring pallet, reverse along
-   // the north aisle, then turn in the central open bay. The east crossing is
-   // beside the physical dock and truck mirrors, never over the raised deck.
-   driver.straight('z',9.2,true);driver.turn(1);driver.straight('x',4,true);driver.turn(-1);driver.straight('z',1.4);driver.turn(-1,true);
-   driver.straight('x',target.x+reverseSide);driver.lift(1.3);driver.turn(1,true);driver.straight('z',target.z+3.5);
-   driver.dock('drop',task.destinationId,{x:target.x,z:target.z+3.5});assert.equal(v.entry,null);
-   const product=workflow.product(originalIds[index]);assert.equal(product.sourceEntry.ownerId,task.destinationId);assert(f.runtime.records.get(task.destinationId).components.palletQueue.queue.includes(product.sourceEntry));
-   driver.straight('z',5.1723,true);driver.lift(.3);delivered.push({productId:originalIds[index],destinationId:task.destinationId,position:product.object.getWorldPosition(new native.THREE.Vector3()).toArray(),units:6});
-   assert.deepEqual(workflow.snapshot().criticalReasons,[]);
+   const task=built.tasks[index],source=f.runtime.records.get(task.sourceId).object,approach=task.pickupRoute[0],target=targets[index];
+   assert(approach.z<source.position.z,'A forward +Z approach starts before the staging pallet.');driver.dock('pickup',task.sourceId,{...approach,yaw:0});heldChecks(f,built,workflow,record,index);driver.lift(.3);
+   const y=record.object.position.y;for(let n=0;n<60;n++)driver.tick({brake:1});assert(Math.abs(record.object.position.y-y)<.003);
+   // Withdraw clear of staging, then steer the actual rear-steered chassis
+   // through an S manoeuvre in the open dispatch aisle.
+   driver.straight('z',12.2,true);driver.turn(-1);driver.straight('x',target.x+forwardSide,target.x+forwardSide>record.object.position.x);driver.turn(1);driver.straight('z',target.z-3.5);
+   driver.dock('drop',task.destinationId,{x:target.x,z:target.z-3.5,yaw:0});assert.equal(Boolean(vehicle.entry),false);assert.equal(workflow.product(built.productIds[index]).sourceEntry.ownerId,task.destinationId);
+   driver.straight('z',18,true);const product=workflow.product(built.productIds[index]);assert(f.runtime.records.get(task.destinationId).components.palletQueue.queue.includes(product.sourceEntry));delivered.push({productId:built.productIds[index],destinationId:task.destinationId,position:product.object.getWorldPosition(new native.THREE.Vector3()).toArray(),units:6});assert.equal(driver.stats().contacts,0);assert.equal(workflow.snapshot().receiverUnits,(index+1)*6);assert.equal(workflow.snapshot().totalUnits,12);assert(Math.abs(record.object.position.y)<.02);
    if(index===0){
-    // Empty forks return through the same aperture. Quarter turns use the
-    // actual rear-steered chassis; no actor or load transform is assigned.
-    driver.turn(1);driver.straight('x',1.3);driver.turn(1,true);driver.straight('z',6.4649);driver.turn(-1);driver.straight('x',-7.3+arcRadius+c.wheelbase/2);driver.turn(-1);
+    const next=built.tasks[1].pickupRoute[0];driver.lift(.3);driver.straight('z',11,true);driver.turn(1);driver.straight('x',22.5);driver.turn(-1,true);driver.straight('z',8.75,true);driver.turn(-1);driver.straight('x',next.x+forwardSide,true);driver.turn(1);driver.straight('z',next.z,next.z<record.object.position.z);
    }
   }
   workflow.command('material-inspect',{quantity:12,quality:'conforme'});workflow.command('material-close',{quantity:12});const result=workflow.snapshot();
-  assert.deepEqual(result.criticalReasons,[]);assert.equal(result.sourceUnits,0);assert.equal(result.receiverUnits,12);assert.equal(result.totalUnits,12);assert.equal(result.destinationConfirmed,true);assert.deepEqual(result.stageEvidence.map(row=>row.guard),['identify','prepare','operate','inspect','deliver','close']);assert.deepEqual(result.materialBalance.actual,{box:12});assert.equal(v.training.completed.length,2);assert.equal(driver.stats().contacts,0);assert.equal(f.runtime.products.size,2);assert.deepEqual([...f.runtime.products.values()].map(p=>p.record.id).sort(),originalIds.sort());
-  fs.mkdirSync(new URL('../../data/qa-studio/practice-facilities/',import.meta.url),{recursive:true});fs.writeFileSync(new URL('../../data/qa-studio/practice-facilities/dispatch-native.json',import.meta.url),JSON.stringify({passed:true,practiceId:'CEDI-05',mode:'manual',simulationSeconds:f.runtime.time,driving:driver.stats(),delivered,snapshot:result},null,2));
- }finally{if(workflow)workflow.dispose();if(f.runtime.active)f.runtime.stop();native.releaseGeometry(f);}
+  assert.deepEqual(result.criticalReasons,[]);assert.equal(result.sourceUnits,0);assert.equal(result.receiverUnits,12);assert.equal(result.destinationConfirmed,true);assert.equal(f.runtime.products.size,2);assert.equal(vehicle.training.completed.length,2);assert.deepEqual(result.materialBalance.actual,{box:12});assert.deepEqual([...f.runtime.products.values()].map(p=>p.record.id).sort(),originalIds.slice().sort());assert.deepEqual(result.stageEvidence.map(row=>row.guard),['identify','prepare','operate','inspect','deliver','close']);
+  fs.mkdirSync(new URL('../../data/qa-studio/practice-facilities/',import.meta.url),{recursive:true});fs.writeFileSync(new URL('../../data/qa-studio/practice-facilities/dispatch-native.json',import.meta.url),JSON.stringify({passed:true,practiceId:'CEDI-05',layoutId:built.manifest.facility.layoutId,mode:'manual',simulationSeconds:f.runtime.time,driving:driver.stats(),delivered,snapshot:result},null,2));
+ }catch(error){error.message+=' · '+diagnostics(f,f.runtime.records.get(built.vehicleIds[0]));throw error;}finally{cleanup(f,workflow);}
 });

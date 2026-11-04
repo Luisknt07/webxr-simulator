@@ -72,7 +72,7 @@ export default class StudioExperience {
     this.applySpawn();
     const invitation = new URL(window.location).searchParams.get('room');
     if (invitation && !ROOM_IDS.includes(invitation) && this.client.user) await this.joinRoom(invitation);
-    if(new URL(window.location).pathname==='/play'){await this.editor.ready;const params=new URL(window.location).searchParams;if(params.has('practice')){try{let settings={mode:params.get('mode')||'manual',caseId:params.get('caseId')||'A',difficulty:Number(params.get('difficulty')||1)};if(params.has('settings')){const text=params.get('settings');if(text.length>30000)throw Error('La configuración de la práctica supera el tamaño permitido.');const value=JSON.parse(text);if(!value||typeof value!=='object'||Array.isArray(value))throw Error('La configuración de la práctica no es válida.');settings=value;}await this.practiceCampaign.launch(params.get('practice'),settings);}catch(error){this.message(error.message);this.open('scenes');}}else if(!['scene','libraryScene','project'].some(key=>params.get(key)))this.open('scenes');}
+    if(new URL(window.location).pathname==='/play'){await this.editor.ready;const params=new URL(window.location).searchParams;if(params.has('practice')){try{const restored=this.practiceCampaign.navigationSettings(params);await this.practiceCampaign.launch(params.get('practice'),restored.settings);if(restored.notice)this.message(restored.notice);}catch(error){this.message(error.message);this.open('scenes');}}else if(!['scene','libraryScene','project'].some(key=>params.get(key)))this.open('scenes');}
   }
   identity() {
     if(this.practiceCampaign)this.practiceCampaign.identityChanged();

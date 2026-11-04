@@ -58,3 +58,12 @@ test('assessment state comes only from the observed session and preview styles d
  const f=fixture(),p=f.panel;f.state.session={score:100,passed:true,stepIndex:6,completedSteps:['1','2','3','4','5','6']};f.state.step={};p.update();assert.equal(p.evaluationStatus.textContent,'Superada');assert.equal(p.progress.value,6);assert.equal(p.verify.disabled,true);assert.equal(p.score.textContent,'100 / 100 pts');
  const host=fs.readFileSync('modules/logistica-industrial/practices/runtime/PracticeCampaignHost.js','utf8');assert.match(host,/Montaje de consulta · evaluación pendiente/);assert.match(host,/No inicia un intento, no concede puntuación/);assert.match(host,/data-practice-scene-viewport/);p.dispose();
 });
+test('mobile reading releases held native touch input while scene focus and occupied vehicles preserve their controls',async()=>{
+ const f=fixture(),p=f.panel,resets=[],touch={forward:1,right:.4};p.controller.editor={ctx:{mobileNavigation:{reset:reason=>{resets.push(reason);touch.forward=touch.right=0;}}}};f.window.innerWidth=390;
+ const pane=id=>p.mobileNavigation.children.find(row=>row.getAttribute('data-practice-pane')===id);
+ await pane('scene').fire('click');assert.equal(resets.length,0);assert.equal(touch.forward,1);
+ await pane('instructions').fire('click');assert.deepEqual(resets,['practice-reading']);assert.deepEqual(touch,{forward:0,right:0});
+ await p.sceneFocusButton.fire('click');await pane('missions').fire('click');assert.equal(resets.length,1,'Full-scene view does not revoke scene controls.');
+ f.setDriving(true);p.update();await pane('instructions').fire('click');assert.equal(resets.length,1,'Occupied vehicle controls are not globally hidden or reset by reading-tab state.');
+ p.dispose();assert.equal(resets.length,1,'Disposal must not reset another scene input owner.');
+});

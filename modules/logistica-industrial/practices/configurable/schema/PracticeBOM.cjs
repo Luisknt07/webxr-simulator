@@ -21,17 +21,25 @@ function prepare(id,entries,stock){
  if(!Number.isInteger(outputCount)||outputCount!==d.batch||Object.keys(counts).some(key=>!d.inputs[key])||keys.some(key=>counts[key]!==d.inputs[key]*outputCount))throw Error('BOM incompleta: '+keys.map(key=>d.inputs[key]*d.batch+' '+key).join(' / ')+'. Carga las referencias originales en la entrada.');
  const available=rows(id,entries,stock).map(row=>({...row,remaining:row.leaf.units,used:0})),outputs=[];
  for(let n=0;n<outputCount;n++){
-  const members=[];
+  const members=[];let cediBox=null;
   for(const material of keys){let needed=d.inputs[material];for(const row of available){
    if(row.material!==material||!row.remaining||!needed)continue;
    const quantity=Math.min(needed,row.remaining),member=Object.assign({},row.leaf,{units:quantity,product:null});
    delete member.archivedProduct;
+   if(id==='CEDI-04'&&material==='finished'&&row.source.cediLoad){
+    const boxes=row.source.cediLoad.boxes,box=Array.isArray(boxes)&&boxes[row.used];
+    if(quantity!==1||!box||boxes.length!==row.source.quantity||!Number.isFinite(box.unitMassKg)||box.unitMassKg<=0||box.unitMassKg>5||!/^#[0-9a-f]{6}$/i.test(box.color||'')||!['boxId','sku','lotId'].every(key=>typeof box[key]==='string'&&/^[A-Z][A-Z0-9_-]{1,79}$/.test(box[key]))||!['width','height','depth'].every(key=>Number.isFinite(box[key])&&box[key]>.001&&box[key]<=.4))throw Error('La identidad, masa o geometría de la caja CEDI no corresponde al insumo original.');
+    // The source container has an average unit mass. Its four distinct cartons
+    // recover their individual masses; the total still must match that source.
+    member.spec=Object.assign({},row.leaf.spec,{mass:box.unitMassKg});cediBox=box;
+   }
    member.materialUnitIds=row.source.unitIds.slice(row.used,row.used+quantity);
    if(member.materialUnitIds.length!==quantity)throw Error('Las identidades de componentes no corresponden a su cantidad.');
    members.push(member);row.used+=quantity;row.remaining-=quantity;needed-=quantity;
   }if(needed)throw Error('Faltan componentes originales de la BOM.');}
-  const mass=members.reduce((sum,leaf)=>sum+leaf.spec.mass*leaf.units,0),lineage=entries[0].id.replace(/[^a-zA-Z0-9_-]/g,'-').slice(-42),[width,height,depth]=d.dimensions;
-  outputs.push({units:1,members,spec:{id:id+'-'+d.material+'-'+lineage+'-'+(n+1),name:d.name+' '+(n+1),type:d.type,width,height,depth,mass,color:d.material==='packed'?'#b99363':'#4a8b91',materialClass:'solid',operationState:Object.assign({},d.state,{sourcePractice:id,outputUnits:1}),operationHistory:[{recipe:d.material==='assembly'?'assemble':d.material==='kit'?'kit':'pack',recordId:'',source:'native-processor-BOM',mode:'discrete-event',componentUnits:members.reduce((sum,leaf)=>sum+leaf.units,0)}]},load:{loadMode:'individual',palletColumns:1,palletRows:1,palletLayers:1}});
+  const mass=members.reduce((sum,leaf)=>sum+leaf.spec.mass*leaf.units,0),lineage=entries[0].id.replace(/[^a-zA-Z0-9_-]/g,'-').slice(-42);let[width,height,depth]=d.dimensions;
+  if(cediBox){width=Math.max(width,cediBox.width+.02);height=Math.max(height,cediBox.height+.02);depth=Math.max(depth,cediBox.depth+.02);if(width>.39||depth>.39)throw Error('La caja necesita otro formato o patrón de paletizado: no cabe en las celdas físicas de este montaje.');}
+  outputs.push({units:1,members,spec:{id:id+'-'+d.material+'-'+lineage+'-'+(n+1),name:d.name+' '+(n+1),type:d.type,width,height,depth,mass,color:cediBox?cediBox.color:d.material==='packed'?'#b99363':'#4a8b91',materialClass:'solid',operationState:Object.assign({},d.state,{sourcePractice:id,outputUnits:1},cediBox?{productSku:cediBox.sku,boxId:cediBox.boxId,lotId:cediBox.lotId}:{}),operationHistory:[{recipe:d.material==='assembly'?'assemble':d.material==='kit'?'kit':'pack',recordId:'',source:'native-processor-BOM',mode:'discrete-event',componentUnits:members.reduce((sum,leaf)=>sum+leaf.units,0)}]},load:{loadMode:'individual',palletColumns:1,palletRows:1,palletLayers:1}});
  }
  conversion.validate(entries,outputs);return outputs;
 }

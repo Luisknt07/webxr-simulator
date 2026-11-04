@@ -44,7 +44,7 @@ export default class ScenarioLibraryPage {
   const available=recipes.availability(id,canonical.mode,canonical);if(!available.ready&&!available.canConfigure)throw Error(available.reasons.join(' '));
   // No attempt is created here. The execution host rechecks account, progression
   // and configuration before requesting an attempt and constructing the world.
-  const url=routes.practiceURL(this.window.location.origin,id,sessionSchema.normalizeAttemptSettings(canonical));this.assert(owner,generation);this.window.location.assign(url);return true;
+  const url=routes.practiceURL(this.window.location.origin,id,sessionSchema.normalizeAttemptSettings(canonical),{userId:owner,window:this.window});this.assert(owner,generation);this.window.location.assign(url);return true;
  }
  async openDocumentation(target,owner,generation){
   this.assert(owner,generation);const [module,data]=await this.loadDocumentation();this.assert(owner,generation);if(this.dialog){this.dialog.close();this.dialog.remove();if(this.documentation)this.documentation.dispose();}

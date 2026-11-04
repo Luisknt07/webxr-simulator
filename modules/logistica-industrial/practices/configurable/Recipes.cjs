@@ -1,5 +1,6 @@
 'use strict';
 const source=require('./data/source.json');
+const cediOperatingData=require('./CediOperatingData.cjs');
 const MODES=['manual','semiautomatic','automatic'];
 const GUARDS=['identify','prepare','operate','inspect','deliver','close'];
 const MODULE_ID='sector.logistics-industrial';
@@ -45,16 +46,21 @@ function normalizedOptions(options){
  if(layout.overrides.some(row=>!plain(row)||Object.keys(row).some(key=>!['alias','x','z','yaw'].includes(key))||typeof row.alias!=='string'||!/^E\d{2}$/.test(row.alias)||!Number.isFinite(row.x)||!Number.isFinite(row.z)||Math.abs(row.x)>250||Math.abs(row.z)>250||row.yaw!==undefined&&(!Number.isFinite(row.yaw)||Math.abs(row.yaw)>360))||new Set(layout.overrides.map(row=>row.alias)).size!==layout.overrides.length)throw Error('Posiciones de layout inválidas.');
  if(options.helps!==undefined&&(!plain(options.helps)||Object.keys(options.helps).some(key=>!['text','voice','hints'].includes(key))))throw Error('Ayudas de práctica inválidas.');
  const helps=Object.assign({text:true,voice:false,hints:'guided'},options.helps||{});if(typeof helps.text!=='boolean'||typeof helps.voice!=='boolean'||!['guided','on-request','none'].includes(helps.hints))throw Error('Ayudas de práctica inválidas.');
- return {mode,caseId,difficulty,executionMode,evaluation,device,equipmentSelections:clone(equipmentSelections),layout:clone(layout),helps};
+ const result={mode,caseId,difficulty,executionMode,evaluation,device,equipmentSelections:clone(equipmentSelections),layout:clone(layout),helps};
+ if(options.cediData!==undefined)result.cediData=cediOperatingData.normalize(options.cediData);
+ return result;
 }
 function plan(id,options={}){
  const row=entry(id),settings=normalizedOptions(options),fixture=clone(FIXTURES[id]),availabilityValue=availability(id,settings.mode,settings);
+ if(id.startsWith('CEDI-'))settings.cediData=cediOperatingData.normalize(settings.cediData);
+ else if(settings.cediData!==undefined)throw Error('Los datos operativos del CEDI no se aplican a Smart Factory.');
  if(options.requireReady&&!availabilityValue.ready)throw Error(availabilityValue.reasons.join(' '));
  const units=id==='CEDI-03'?fixture.pickedBoxes:id==='SF-02'?fixture.kits:fixture.boxes||fixture.rawBodies||fixture.finishedSets||fixture.sets;
  // A material fixture belongs to the source practice; a generic old batch UI
  // must not silently replace six physical pallets by four anonymous boxes.
  if(options.units!==undefined&&Number(options.units)!==units)throw Error('La práctica utiliza su lote de fuente: '+units+' unidades.');
  const result=Object.assign({version:2,id,key:row.key,title:row.title,domain:row.domain,moduleId:MODULE_ID,kind:'configurable',units,expectedUnits:units,fixture,objective:row.objective,initialConditions:row.fixtureText,fixtureText:row.fixtureText,sourceRow:clone(row),interiorArea:clone(row.interiorArea),referenceLayout:{area:clone(row.interiorArea),coordinateMapping:'table-centres; X=x-width/2, Z=y-depth/2',equipment:clone(row.modes[settings.mode].equipment)},diagrams:clone(row.diagrams),sourceSha256:source.sources[1].sha256,sourceHashes:source.sources.map(s=>({filename:s.filename,sha256:s.sha256})),steps:row.steps.map((step,index)=>Object.assign({},step,{guard:GUARDS[index]})),modeDescription:clone(row.modes[settings.mode]),difficultyDescription:{id:'D'+settings.difficulty,name:['Guiada','Configurable','Diagnóstico y mejora'][settings.difficulty-1],text:'La dificultad es independiente de la automatización y del caso elegido.'},casesText:row.casesText,caseDescription:settings.caseId==='A'?'Caso base sin daños ni fallos aleatorios.':settings.caseId==='B'?'Alternativa compatible: comparar sin crear otra práctica.':row.casesText,result:row.result,indicators:clone(row.indicators),allowedChanges:row.allowedChanges,continuity:row.continuity,availability:availabilityValue,limits:'Escenario didáctico con activos y custodia nativos. Las cotas de fuente son hipótesis; no certifica equipos OEM, seguridad industrial ni rendimiento físico del visor.'},settings);
+ if(id.startsWith('CEDI-')){result.operatingData=cediOperatingData.manifest(settings.cediData,id);result.operatingGuide=cediOperatingData.operationalGuide(settings);}
  const bindings=require('./LayoutBindings.cjs');result.layoutBindings=bindings.bindings(result);
  const aliases=new Set(result.layoutBindings.map(r=>r.alias));for(const key of Object.keys(settings.equipmentSelections))if(!aliases.has(key))throw Error('El alias elegido no pertenece al montaje: '+key);
  for(const row of settings.layout.overrides)if(!aliases.has(row.alias))throw Error('El alias de posición no pertenece al montaje: '+row.alias);

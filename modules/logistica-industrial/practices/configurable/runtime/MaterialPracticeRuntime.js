@@ -70,7 +70,7 @@ export default class MaterialPracticeRuntime{
  actions(){
   const id=this.manifest.practiceId;if(!['CEDI-02','CEDI-03','CEDI-05','SF-01','SF-03'].includes(id))return this.operations.actions();
   const common=[{id:'material-order',title:'Contrastar orden y cantidad',actorAliases:[id==='SF-03'?'E07':id==='CEDI-02'?'E06':id==='CEDI-03'?'E01':id==='CEDI-05'?'E07':'E08'],fields:[{key:'orderId',label:'Orden',type:'choice',options:choices([this.recipe.orderId,'ORD-OTRA'])},{key:'quantity',label:id==='SF-01'?'Juegos de componentes disponibles':'Unidades de la orden',type:'number'}],enabled:!this.state.order,reason:'Compara el documento con las cargas identificadas.'},
-   {id:'material-prepare',title:id==='CEDI-03'?'Elegir picking por bulto de cuatro cajas':'Preparar ruta, medios y condiciones',actorAliases:(this.manifest.aliases||[]).map(row=>row.alias),fields:[{key:'method',label:'Método compatible',type:'choice',options:choices(id==='CEDI-03'?['bulto-cuatro-cajas','sin-identificar']:id==='SF-03'?['mecanizado-con-sujecion','sin-sujecion']:['ruta-y-capacidad-verificadas','sin-verificar'])}],enabled:!!this.state.order&&!this.state.prepared,reason:'Confirma un método acorde con la unidad de manipulación.'}];
+   {id:'material-prepare',title:id==='CEDI-03'?'Preparar picking individual por SKU y pedido':'Preparar ruta, medios y condiciones',actorAliases:(this.manifest.aliases||[]).map(row=>row.alias),fields:[{key:'method',label:'Método compatible',type:'choice',options:choices(id==='CEDI-03'?['picking-por-sku','sin-identificar']:id==='SF-03'?['mecanizado-con-sujecion','sin-sujecion']:['ruta-y-capacidad-verificadas','sin-verificar'])}],enabled:!!this.state.order&&!this.state.prepared,reason:'Confirma un método acorde con la unidad de manipulación.'}];
   if(id==='CEDI-02')common.push({id:'assign-stock-location',title:'Reservar ubicación de cada pallet',actorAliases:['E02','E03','E06'],fields:[this.palletField(),{key:'locationCode',label:'Código de ubicación',type:'choice',options:choices(this.manifest.tasks.slice(0,6).map(task=>{const r=this.runtime.records.get(task.destinationId),cell=r&&this.runtime.palletQueueRuntime.locations(r).find(c=>c.index===task.destinationSlot);return cell&&cell.code;}).filter(Boolean))}],enabled:!!this.state.order,reason:'La carga y su dirección deben coincidir.'});
   if(id==='SF-03')common.push({id:'start-material-cycle',title:'Cargar receta y solicitar ciclo real',actorAliases:['E02','E03','E04'],fields:[{key:'station',label:'Estación',type:'choice',options:choices(['E02','E03','E04'])}],enabled:!!this.state.prepared,reason:'Deposita el contenedor en la entrada física antes del ciclo.'});
   if(id==='CEDI-05')common.push({id:'secure-material-dock',title:'Comprobar vehículo y habilitar muelle',actorAliases:['E05','E06'],fields:[{key:'secured',label:'Comprobación del muelle',type:'choice',options:choices(['calzos-borde-y-acceso-verificados','sin-verificar'])}],enabled:!!this.state.prepared&&!this.state.secured,reason:'El vehículo de salida debe permanecer parado durante la carga.'});
@@ -86,7 +86,7 @@ export default class MaterialPracticeRuntime{
   if(type==='material-order'){
    if(payload.orderId!==this.recipe.orderId||Number(payload.quantity)!==this.expected())throw Error('La orden o cantidad no corresponde al lote físico.');this.state.order=true;this.lastMessage='Orden contrastada con las identidades y cantidades originales.';
   }else if(type==='material-prepare'){
-   const wanted=id==='CEDI-03'?'bulto-cuatro-cajas':id==='SF-03'?'mecanizado-con-sujecion':'ruta-y-capacidad-verificadas';if(!this.state.order||payload.method!==wanted)throw Error('Revisa primero la orden y el método compatible.');this.state.prepared=true;this.lastMessage='Medios preparados. Traslada el material con los controles nativos.';
+   const wanted=id==='CEDI-03'?'picking-por-sku':id==='SF-03'?'mecanizado-con-sujecion':'ruta-y-capacidad-verificadas',legacy=id==='CEDI-03'&&payload.method==='bulto-cuatro-cajas';if(!this.state.order||payload.method!==wanted&&!legacy)throw Error('Revisa primero la orden y el método compatible.');this.state.prepared=true;this.lastMessage=id==='CEDI-03'?'Recoge cajas individuales por SKU y consolida las cantidades de cada pedido; conserva el resto en sus ubicaciones.':'Medios preparados. Traslada el material con los controles nativos.';
   }else if(type==='assign-stock-location'){
    const task=this.manifest.tasks.find(row=>row.productId===payload.palletId),record=task&&this.runtime.records.get(task.destinationId),cell=record&&this.runtime.palletQueueRuntime.locations(record).find(row=>row.index===task.destinationSlot);
    if(!this.state.order||!task||!cell||payload.locationCode!==cell.code)throw Error('Relaciona este pallet con el código asignado a su misión de reserva.');this.runtime.palletQueueRuntime.assignLocation(record,{palletId:payload.palletId,locationCode:cell.code});this.state.locations[payload.palletId]=cell.code;this.lastMessage='Ubicación reservada en el rack real: '+cell.code+'.';
@@ -101,6 +101,7 @@ export default class MaterialPracticeRuntime{
    if(!this.state.inspected.order||payload.orderId!==this.recipe.orderId||payload.lotId!=='LOT-'+id+'-001')throw Error('El lote, orden o inspección no coincide con el material real.');this.state.registered.lot={orderId:payload.orderId,lotId:payload.lotId,quantity:this.expected(),time:this.runtime.time};this.lastMessage='Lote registrado una sola vez; se conserva la misma existencia física.';
   }else if(type==='material-inspect'){
    const physical=this.processed(o),wanted=id==='CEDI-03'?12:this.expected();if(!this.state.prepared||physical+1e-7<wanted||Number(payload.quantity)!==wanted||payload.quality!=='conforme'||o.entries.some(row=>row.held&&row.quantity))throw Error('La cantidad, calidad o posición real no permite confirmar esta inspección.');
+   if(id==='CEDI-03'&&this.pickingOrders(o).some(order=>!order.correct))throw Error('Las referencias o cantidades no coinciden con cada pedido. Retira las cajas equivocadas y contrasta los SKU de la orden.');
    this.state.inspected.order={quantity:wanted,time:this.runtime.time};this.lastMessage='Conteo y condición contrastados con las mismas cargas físicas.';
   }else if(type==='material-close'){
    const target=this.finalized(o);if(!this.state.inspected.order||Number(payload.quantity)!==this.expected()||target+1e-7<this.expected())throw Error('Completa la entrega real y concilia todas las unidades antes de cerrar.');this.state.closed=true;this.lastMessage='Operación cerrada con conservación por referencia y destinos físicos confirmados.';
@@ -118,10 +119,25 @@ export default class MaterialPracticeRuntime{
   for(let i=0;i<history.length;i++){const recipe=history[i].recipe;if(recipe==='clamp'){fixture=i;machine=-1;measure=-1;}else if(recipe==='machine'&&fixture>=0){machine=i;measure=-1;}else if(recipe==='measure'&&machine>fixture)measure=i;}
   return measured?measure>machine&&machine>fixture&&fixture>=0:machine>fixture&&fixture>=0;
  }
+ pickingOrders(o){
+  if(this.manifest.practiceId!=='CEDI-03')return[];
+  const orders=this.manifest.operatingData&&this.manifest.operatingData.orders||[];
+  return this.recipe.destinations.map(destination=>{
+   const order=orders.find(row=>row.id===destination.orderId),expected={},actual={},boxIds=[];let unknown=false;
+   for(const line of order&&order.lines||[])add(expected,line.sku,line.quantity);
+   for(const row of o.entries.filter(row=>row.ownerId===destination.objectId))for(const leaf of this.runtime.processorRuntime.leaves([row.entry])){
+    const stock=this.recipe.stock.find(stock=>stock.sku===leaf.spec.id),contents=stock&&stock.cediLoad&&stock.cediLoad.boxes;
+    if(!contents||contents.length!==stock.quantity||leaf.units!==stock.quantity){unknown=true;continue;}
+    for(const box of contents){add(actual,box.sku,1);boxIds.push(box.boxId);}
+   }
+   const quantity=Object.values(actual).reduce((sum,value)=>sum+value,0),correct=!!order&&!unknown&&quantity===4&&new Set(boxIds).size===boxIds.length&&equalVector(actual,expected);
+   return{orderId:destination.orderId,destinationId:destination.objectId,expected,actual,quantity,boxIds,correct};
+  });
+ }
  finalized(o){
   const id=this.manifest.practiceId;
   if(id==='CEDI-02'){const refill=this.recipe.destinations.find(row=>row.alias==='E04'),delivered=o.entries.some(row=>row.ownerId===(refill&&refill.objectId)&&row.quantity===8);return delivered&&this.recipe.stock.every(stock=>this.state.putaway.includes(stock.objectId))?this.processed(o):0;}
-  if(id==='CEDI-03'){const counts=this.recipe.destinations.map(dest=>o.entries.filter(row=>row.ownerId===dest.objectId).reduce((sum,row)=>sum+row.quantity,0));return counts.length===3&&counts.every(value=>value===4)?12:0;}
+  if(id==='CEDI-03'){const orders=this.pickingOrders(o);return orders.length===3?orders.filter(row=>row.correct).reduce((sum,row)=>sum+row.quantity,0):0;}
   if(id==='SF-03')return o.entries.filter(row=>row.inReleased&&this.machiningSequence(row,true)).reduce((sum,row)=>sum+row.quantity,0);
   return o.entries.filter(row=>row.inReleased).reduce((sum,row)=>sum+row.quantity,0);
  }
@@ -136,7 +152,7 @@ export default class MaterialPracticeRuntime{
   for(let i=1;i<conditions.length;i++)conditions[i]=conditions[i]&&conditions[i-1];
   const criticalReasons=o.criticalReasons.concat(op&&op.criticalReasons||[]),time=this.runtime.time,stageEvidence=conditions.flatMap((ok,index)=>ok&&!criticalReasons.length?[{guard:GUARDS[index],eventId:this.manifest.stageBindings[index].requiredEvent,actorAliases:this.manifest.stageBindings[index].actorAliases.slice(),quantity:this.expected(),time,details:{originalStockIds:this.recipe.stock.map(stock=>stock.objectId),materialQuantities:o.quantities}}]:[]);
   const sourceUnits=o.entries.filter(row=>row.inSource).reduce((sum,row)=>sum+row.quantity,0),normalTotal=this.quantity(o.quantities),initial=this.expected(),total=id==='CEDI-03'?normalTotal/2:normalTotal;
-  return{sourceUnits:Math.min(initial,sourceUnits),stockSourceUnits:sourceUnits,orderRemainingUnits:Math.max(0,initial-finalized),processedUnits:processed,receiverUnits:finalized,finalizedUnits:finalized,totalUnits:total,initialUnits:initial,time,blocked:criticalReasons.length>0,paused:false,emergency:this.manifest.vehicleIds.some(value=>{const r=this.runtime.records.get(value);return r&&r.components.vehicle&&r.components.vehicle.emergency;}),selectedSku:this.manifest.sku,identified:!!conditions[0],prepared:!!conditions[1],documentValidated:!!conditions[3],destinationConfirmed:!!conditions[5],faultInjected:false,faultRecovered:true,stageEvidence,criticalReasons,materialBalance:o.materialBalance,pallets:o.entries.map(row=>({id:row.objectId||row.id,sku:row.sku,units:row.quantity,massKg:row.massKg,ownerId:row.ownerId,position:row.position,held:row.held,inSource:row.inSource,inReleased:row.inReleased,inRack:row.inRack,materials:row.materials})),ledger:Object.assign(clone(this.state),op&&op.ledger||{})};
+  return{sourceUnits:Math.min(initial,sourceUnits),stockSourceUnits:sourceUnits,orderRemainingUnits:Math.max(0,initial-finalized),processedUnits:processed,receiverUnits:finalized,finalizedUnits:finalized,totalUnits:total,initialUnits:initial,time,blocked:criticalReasons.length>0,paused:false,emergency:this.manifest.vehicleIds.some(value=>{const r=this.runtime.records.get(value);return r&&r.components.vehicle&&r.components.vehicle.emergency;}),selectedSku:this.manifest.sku,identified:!!conditions[0],prepared:!!conditions[1],documentValidated:!!conditions[3],destinationConfirmed:!!conditions[5],faultInjected:false,faultRecovered:true,stageEvidence,criticalReasons,materialBalance:o.materialBalance,pallets:o.entries.map(row=>({id:row.objectId||row.id,sku:row.sku,units:row.quantity,massKg:row.massKg,ownerId:row.ownerId,position:row.position,held:row.held,inSource:row.inSource,inReleased:row.inReleased,inRack:row.inRack,materials:row.materials})),ledger:Object.assign(clone(this.state),op&&op.ledger||{},id==='CEDI-03'?{orders:this.pickingOrders(o)}:{})};
  }
  dispose(){this.disposed=true;this.cycles.dispose();if(this.operations&&this.operations.dispose)this.operations.dispose();}
 }

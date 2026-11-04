@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "56baecedff4a225e7ad6a183d2174b1096854860",
-  "bundleSha256": "2a70c724a2680eaa78a052204bd2b292c6ca87c081921db3bf76e990477ce50e",
+  "revision": "f8eed32928840b7e2dcb09a8d305c1e5649cfd30",
+  "bundleSha256": "4e0a9543a6e500ae416d835a2c68b444cfa6e08301a33094ce1be001b3eaec29",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -44,31 +44,31 @@
   "files": [
     {
       "path": "11.js",
-      "sha256": "be386f20dba41e9fcb09d14d6e679a690ecd2b7ab16266021b61ad413fe44fe8"
+      "sha256": "5dd4720b3ed0033c062c3e4b5f781b22b964ac560073fa8fbf5cc5ba2cac8fca"
     },
     {
       "path": "12.js",
-      "sha256": "53505fc1c838a2c923502f22db168f618251b99881f87ae5aefacbfe4f8a0efb"
+      "sha256": "5ad24377023349095bc97bc9ad20499f87bd3698ff633e35bae24b72d1dce429"
     },
     {
       "path": "13.js",
-      "sha256": "d8bfe990101aa51f7191296b224ff8b83befefdf636feb4b49d8d8aa18d5b067"
+      "sha256": "3a8615fb925906f64da9dfaa9cb152c125ffc93b190dc843a51af050f5da3697"
     },
     {
       "path": "14.js",
-      "sha256": "1ae9d269f796ac898c7a4a1ed091af37130f8a8a27e73fec0da4ddc64fd65735"
+      "sha256": "10be20d85016b63a5d8740c0b76daf0b74ea46f1e978fb7f633d34d0a4937b31"
     },
     {
       "path": "15.js",
-      "sha256": "06a51b00c8a6899301674ca68d4e937be4894dec2147afc9b414e8949f969ada"
+      "sha256": "79c267fc6edea6589b41181735a23977d519ce5a2e0f2971c53479ed4ef36e3f"
     },
     {
       "path": "16.js",
-      "sha256": "167081967f867d70e11bd3233ad0d3c627816b89f9eb93f49beaf472328095d1"
+      "sha256": "67472cac4c629a4bd19c77f10e60b4ee589bdffc81180c47faa47b0a732de7ca"
     },
     {
       "path": "3.js",
-      "sha256": "c98db283c10cbcc311a1309b67bcebe09224a321da4ca63f32f6b4710f8d310a"
+      "sha256": "86b727d53d12329f91666f97aa91f352e812d8a923bd7166bfb137d534d6d746"
     },
     {
       "path": "apps/workspace/scenario-library.css",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "2a70c724a2680eaa78a052204bd2b292c6ca87c081921db3bf76e990477ce50e"
+      "sha256": "4e0a9543a6e500ae416d835a2c68b444cfa6e08301a33094ce1be001b3eaec29"
     },
     {
       "path": "cad-worker.js",
@@ -104,7 +104,7 @@
     },
     {
       "path": "configurable-practice-reference.js",
-      "sha256": "517ac1cce49c442e081c6aeee1a7ee84f1e3333d05c2d4df60d74064991d6432"
+      "sha256": "2b0dd82cf28fbd45efbb905845dcb6dbb60809dcbc2713cfc67e2f3657334d4a"
     },
     {
       "path": "editor-tools.json",
@@ -116,23 +116,23 @@
     },
     {
       "path": "logistics-documentation.js",
-      "sha256": "b2cb4f0b2f168646aef0085e3409d510edd95e1ba3869e4cc7416c1c2bb4b4d7"
+      "sha256": "d260395888369cb937f2e33f4d8e9bc0c3366c87754b6d2d82d376b1dabf89e3"
     },
     {
       "path": "logistics-equipment-workspace.js",
-      "sha256": "b56dca4cda9a66e8650ee7d0fc91a7c88e2a566cb3ada67b62e0da2f8db6c02c"
+      "sha256": "bceab897f041c88bf0edb53b1d38b3e819f5adcfb8b67c096677dd4f6360abb5"
     },
     {
       "path": "logistics-practice-browser.js",
-      "sha256": "be5a0bcadc837751875c303674cef2c9d141deda1afa4075f92f5b79fe46ddf0"
+      "sha256": "48bdb06d2c422077e14775ed05f9cc0bc406ccf3658e13e745b0c476b9d62b37"
     },
     {
       "path": "logistics-practice-index.js",
-      "sha256": "366fa1ef0471369971aabed0ed7d7d4d195530a653f1f5c96d60098dd58f3669"
+      "sha256": "2c2dcd033b6ed2233e11cb90abc370c91888e1a690259abef8e60059c9ca61f3"
     },
     {
       "path": "logistics-practice-scenes.js",
-      "sha256": "6f59c8a096bfa25615b324acb4b9ed89aa5db01480051ec091e1cae4f662bcb7"
+      "sha256": "fca04d54552dbea85cc359cd0146d9fed53cba8ec6d1cb9c3b699d7ad75d29c5"
     },
     {
       "path": "mesh-optimizer-worker.js",
@@ -2924,7 +2924,7 @@
     },
     {
       "path": "modules/logistica-industrial/practices/ui/practice.css",
-      "sha256": "f981bfb908e4b36e19102bd20247d436b57e96aa64fd4c07c572674eebd6be63"
+      "sha256": "3de15040ed3699e52ba9a750b560986eab8f6ec9422195c33fa4cf4e4c1468de"
     },
     {
       "path": "modules/turismo/assets/angel.basis",
@@ -3284,11 +3284,11 @@
     },
     {
       "path": "nexus-equipment-reference.js",
-      "sha256": "f60208786e48aed1de110ab93a41953c12cf93ad842d61248414afe71a9ac4fa"
+      "sha256": "d17f5de4a50fcb93878fdab306245e3629a05b89f970f1e8312f2451343e0afd"
     },
     {
       "path": "nexus-practices-reference.js",
-      "sha256": "0e00f6b3b06264da5cd7fa7ec9135f7e951a6ce3cf24813a22db11e449dea066"
+      "sha256": "1c9d7fd9368815f470a220c793d6fa508cf76b63c82652a311c891064c2cd97e"
     },
     {
       "path": "packages/assistant-ui/assistant-workspace.css",
@@ -3876,17 +3876,17 @@
     },
     {
       "path": "scenario-library.js",
-      "sha256": "a21c5642b8b493e198ee5c43e8a45a938016f891c49bed52e74ba5dd57a8e844"
+      "sha256": "dc42dcefbbc0be71cec92455c8865df1dd1d709489be0b41d12e102b35eeeaa9"
     }
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "1f63344847373fef7abb",
-    "statsSha256": "f5e3275d80b525a2d6164def9c16c7b439699bfe1e82d734aa6672cebedd03c4",
+    "hash": "5195760e70fc24ffc90c",
+    "statsSha256": "162b871b069e3ee7e7e064482146370d658758f459932d07fe51df10ce14db74",
     "assets": [
       {
         "path": "11.js",
-        "size": 26241
+        "size": 47794
       },
       {
         "path": "12.js",
@@ -3914,7 +3914,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 6907302
+        "size": 6964963
       },
       {
         "path": "configurable-practice-reference.js",
@@ -3930,7 +3930,7 @@
       },
       {
         "path": "logistics-practice-browser.js",
-        "size": 11117
+        "size": 14439
       },
       {
         "path": "logistics-practice-index.js",
@@ -3938,7 +3938,7 @@
       },
       {
         "path": "logistics-practice-scenes.js",
-        "size": 672595
+        "size": 705831
       },
       {
         "path": "nexus-equipment-reference.js",
@@ -3950,7 +3950,7 @@
       },
       {
         "path": "scenario-library.js",
-        "size": 814839
+        "size": 832275
       }
     ]
   }

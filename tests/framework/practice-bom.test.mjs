@@ -38,6 +38,15 @@ test('wrong, missing, duplicate or excess BOM references fail before any invento
  let deep={id:'leaf'};for(let i=0;i<18;i++)deep={id:'node-'+i,members:[deep]};assert.throws(()=>conversion.leaves([deep]),/límite/);
 });
 
+test('CEDI packaging restores each actual SKU/lot/colour and individual mass from a mixed four-carton source without changing source custody',()=>{
+ const f=fixture('CEDI-04'),source=f.stock.find(row=>row.material==='finished'),input=f.entries.find(row=>row.spec.id===source.sku),masses=[2,3,5,2];
+ source.cediLoad={boxes:masses.map((unitMassKg,index)=>({boxId:'BOX-'+(index+1),sku:'SKU-'+String.fromCharCode(65+index),lotId:'LOT-001',unitMassKg,width:.3,height:index===3?.26:.2,depth:.25,color:['#bc945e','#2255aa','#99bb77','#bf905a'][index]}))};input.spec.mass=masses.reduce((a,b)=>a+b,0)/4;
+ const before=JSON.stringify(f),outputs=bom.prepare('CEDI-04',f.entries,f.stock),balance=conversion.validate(f.entries,outputs);
+ assert(outputs.every((row,index)=>Math.abs(row.spec.mass-masses[index]-.151)<1e-10));assert.deepEqual(outputs.map(row=>row.spec.operationState.productSku),['SKU-A','SKU-B','SKU-C','SKU-D']);assert.deepEqual(outputs.map(row=>row.spec.operationState.boxId),['BOX-1','BOX-2','BOX-3','BOX-4']);assert(outputs.every(row=>row.spec.operationState.lotId==='LOT-001'));assert.deepEqual(outputs.map(row=>row.spec.color),source.cediLoad.boxes.map(row=>row.color));assert.equal(outputs[3].spec.height,.28);assert(Math.abs(balance.inputMassKg-balance.outputMassKg)<1e-10);assert.equal(JSON.stringify(f),before);
+ const oversized=structuredClone(f);oversized.stock[0].cediLoad.boxes[0].width=.4;assert.throws(()=>bom.prepare('CEDI-04',oversized.entries,oversized.stock),/formato|patrón|celdas/);
+ const inconsistent=structuredClone(f);inconsistent.stock[0].cediLoad.boxes[0].unitMassKg=4;assert.throws(()=>bom.prepare('CEDI-04',inconsistent.entries,inconsistent.stock),/masa/);
+});
+
 test('native timed processing applies the converter only after its cycle; pause and adapter cleanup retain normal lifecycle',()=>{
  const h=require('../legacy/test-processor-runtime.js'),f=h.setup(),object=h.add(f,'processor',{mode:'combiner',combineCount:3,capacity:3,outputCapacity:12,requiresOperator:false,setupTime:0,processTime:.3,running:true});
  f.runtime.start('hall');
