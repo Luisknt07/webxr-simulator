@@ -408,8 +408,9 @@ export default class ResourceBrowser {
   _syncNavigationLayout(force = false) {
     if (this.navigationDisposed || !this.active || !this.listingVisible) return;
     const width = Math.round(Number(this.host.clientWidth || (this.host.getBoundingClientRect && this.host.getBoundingClientRect().width) || 0));
-    if (!width || !force && width === this.navigationWidth) return;
-    const compact=width<600,changed=this.navigationCompact!==compact;this.navigationWidth=width;this.navigationCompact=compact;
+    const revealKey=JSON.stringify([this.projectId,this.tab,this.state.folder]),widthChanged=width!==this.navigationWidth,pathChanged=revealKey!==this.navigationRevealKey;
+    if (!width || !force && !widthChanged && !pathChanged) return;
+    const compact=width<600,changed=this.navigationCompact!==compact;this.navigationWidth=width;this.navigationCompact=compact;this.navigationRevealKey=revealKey;
     this.host.setAttribute('data-navigation-mode',compact?'compact':'tree');
     if(!compact)this.categoryPicker.open=true;else if(changed)this.categoryPicker.open=false;
     this.host.setAttribute('data-navigation-open',String(this.categoryPicker.open));
@@ -417,7 +418,7 @@ export default class ResourceBrowser {
     // offset into it; resizing must not alter filters, selection or expansion.
     this.folderList.scrollLeft=0;
     const selected=this.folderList.querySelector('.studio-resource-folder.active');
-    if(this.categoryPicker.open&&selected&&selected.scrollIntoView)selected.scrollIntoView({block:'nearest',inline:'nearest'});
+    if((widthChanged||pathChanged)&&this.categoryPicker.open&&selected&&selected.scrollIntoView)selected.scrollIntoView({block:'nearest',inline:'nearest'});
   }
   _renderFolders() {
     this.folderList.textContent = '';this.subfamilyList.textContent='';this.subfamilyList.hidden=true;

@@ -46,6 +46,12 @@
 .xr-editor.ed-light .studio-resource-tree .studio-library-tree-leaf,.xr-editor.ed-light .studio-resource-tree>.studio-resource-folder{position:relative;display:flex;align-items:center;gap:7px;justify-content:space-between;min-width:0;width:100%;min-height:40px;margin:1px 0;padding:8px 6px;border:0;border-radius:6px;box-shadow:none;color:#3e5c70;background:transparent;text-align:left;font-size:12px;line-height:1.45;font-weight:450;white-space:normal;word-break:normal;overflow-wrap:break-word}
 .xr-editor.ed-light .studio-resource-tree .studio-library-tree-leaf.active,.xr-editor.ed-light .studio-resource-tree>.studio-resource-folder.active{background:#def2e9;color:#006e60;box-shadow:inset 3px 0 #00a287;font-weight:600}
 .xr-editor.ed-light .studio-resource-tree summary:hover,.xr-editor.ed-light .studio-resource-tree .studio-library-tree-leaf:hover{background:#e9f4ef;color:#006f62}
+.xr-editor.ed-light .studio-resource-tree .studio-library-category>summary{background:#176454;color:#fff}
+.xr-editor.ed-light .studio-resource-tree .studio-library-category[open]>summary{background:#135746;color:#fff}
+.xr-editor.ed-light .studio-resource-tree .studio-library-category.is-selected>summary{background:#0a463b;color:#fff;box-shadow:inset 3px 0 #52dbc0}
+.xr-editor.ed-light .studio-resource-tree .studio-library-category>summary:hover{background:#114f43;color:#fff}
+.xr-editor.ed-light .studio-resource-tree .studio-library-category>summary::before,.xr-editor.ed-light .studio-resource-tree .studio-library-category.is-selected>summary::before{color:#d6fff1}
+.xr-editor.ed-light .studio-resource-tree .studio-library-category>summary>.studio-resource-folder-count{color:#fff;background:#ffffff26}
 .xr-editor.ed-light .studio-resource-tree summary:focus-visible,.xr-editor.ed-light .studio-resource-tree button:focus-visible,.xr-editor.ed-light .studio-resource-category-picker-summary:focus-visible{outline:2px solid #008f7a;outline-offset:-2px}
 .xr-editor.ed-light .studio-resource-tree .studio-resource-folder-count{flex:0 0 auto;font-size:10px;line-height:1.4;white-space:nowrap;color:#526f7d}
 @media(pointer:coarse){.xr-editor.ed-light .studio-resource-tree .studio-library-tree-leaf,.xr-editor.ed-light .studio-resource-tree .studio-library-branch>summary{min-height:44px}}

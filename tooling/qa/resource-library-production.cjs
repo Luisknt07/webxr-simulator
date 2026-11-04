@@ -9,12 +9,15 @@ const ROOT=path.resolve(__dirname,'../..'),OUT=path.join(ROOT,'data/qa-studio/re
 const FAMILY='family:storage.selective',CARD='.studio-resource-card[data-resource-family="'+FAMILY+'"]';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const rgb=value=>{const channels=String(value).match(/[\d.]+/g);assert(channels&&channels.length>=3,'Invalid computed color: '+value);return channels.slice(0,3).map(Number);};
+const luminance=value=>rgb(value).map(channel=>{const x=channel/255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4;}).reduce((sum,x,index)=>sum+x*[.2126,.7152,.0722][index],0);
+const contrast=(first,second)=>{const a=luminance(first),b=luminance(second);return(Math.max(a,b)+.05)/(Math.min(a,b)+.05);};
 
-function reviewed(expected){
+function reviewed(expected,{artifactOnly=false}={}){
  assert.match(expected||'',/^[a-f0-9]{64}$/,'Pass the reviewed --expected-workspace-sha256 before running Chrome.');
  const folder=path.join(ROOT,'artifacts/workspace'),manifest=JSON.parse(fs.readFileSync(path.join(folder,'publication.json'),'utf8'));
  assert.equal(sha(fs.readFileSync(path.join(folder,'bundle.js'))),expected);assert.equal(manifest.bundleSha256,expected);
- return['resources.css','library-navigation.css'].map(name=>{const relative='packages/tools/editor/src/'+name,row=manifest.files.find(row=>row.path===relative);assert(row,relative+' not packaged.');assert.equal(sha(fs.readFileSync(path.join(folder,relative))),row.sha256);assert.equal(sha(fs.readFileSync(path.join(ROOT,relative))),row.sha256);return{path:relative,sha256:row.sha256};});
+ return['resources.css','library-navigation.css'].map(name=>{const relative='packages/tools/editor/src/'+name,row=manifest.files.find(row=>row.path===relative);assert(row,relative+' not packaged.');assert.equal(sha(fs.readFileSync(path.join(folder,relative))),row.sha256);const sourceSha256=sha(fs.readFileSync(path.join(ROOT,relative)));if(!artifactOnly)assert.equal(sourceSha256,row.sha256);return{path:relative,sha256:row.sha256,sourceSha256,sourceMatches:sourceSha256===row.sha256};});
 }
 
 function preservePreviousReport(expected){
@@ -26,7 +29,7 @@ function preservePreviousReport(expected){
  const preserved=rewrite(previous);preserved.originalReportSha256=sha(bytes);fs.writeFileSync(path.join(folder,'report.json'),JSON.stringify(preserved,null,2));return{folder,workspaceSha256:previous.workspaceSha256,originalReportSha256:sha(bytes)};
 }
 
-const instrument=`(()=>{window.__resourceQA={events:[]};for(const name of ['input','change','click'])document.addEventListener(name,event=>{const n=event.target.closest&&event.target.closest('[data-resource-parameter],[data-resource-family-selector],.studio-resource-search,.studio-resource-star,[data-resource-insert],[data-resource-sheet],[data-resource-documentation]');if(n)__resourceQA.events.push({type:name,tag:n.tagName,parameter:n.dataset.resourceParameter||null,family:n.dataset.resourceFamilySelector||null,resource:n.dataset.resourceInsert||n.dataset.resourceSheet||null,trusted:event.isTrusted});},true);})();`;
+const instrument=`(()=>{window.__resourceQA={events:[]};for(const name of ['input','change','click'])document.addEventListener(name,event=>{const n=event.target.closest&&event.target.closest('[data-resource-parameter],[data-resource-family-selector],.studio-resource-search,.studio-resource-star,[data-resource-insert],[data-resource-sheet],[data-resource-documentation],[data-library-category]');if(n)__resourceQA.events.push({type:name,tag:n.tagName,parameter:n.dataset.resourceParameter||null,family:n.dataset.resourceFamilySelector||null,resource:n.dataset.resourceInsert||n.dataset.resourceSheet||null,category:n.dataset.libraryCategory||null,trusted:event.isTrusted});},true);})();`;
 
 // Decodes the real generated PNG or compositor crop, rather than measuring its
 // DOM image box alone. A model must occupy the stage and retain clear margins.
@@ -51,9 +54,11 @@ async function pixelMetrics(browser,{selector,base64}={}){
  },{selector,base64});
 }
 
-async function run({expectedWorkspaceSha256}={}){
- const css=reviewed(expectedWorkspaceSha256);fs.mkdirSync(OUT,{recursive:true});fs.mkdirSync(path.join(ROOT,'data/qa-studio/workspace-production'),{recursive:true});
- const report={startedAt:new Date().toISOString(),workspaceSha256:expectedWorkspaceSha256,css,baseline:preservePreviousReport(expectedWorkspaceSha256),temporaryDatabaseOnly:true,realNativeModels:true,actorPoseAssignments:false,exceptions:[],consoleErrors:[],failedRequests:[],responses:[],screenshots:[],views:[]};
+async function run({expectedWorkspaceSha256,baselineArtifactProbe=false}={}){
+ // A diagnostic baseline may start after source changes. Its publication and
+ // bundle must still match, and the final source guard remains mandatory.
+ const css=reviewed(expectedWorkspaceSha256,{artifactOnly:baselineArtifactProbe});fs.mkdirSync(OUT,{recursive:true});fs.mkdirSync(path.join(ROOT,'data/qa-studio/workspace-production'),{recursive:true});
+ const report={startedAt:new Date().toISOString(),workspaceSha256:expectedWorkspaceSha256,baselineArtifactProbe,css,baseline:preservePreviousReport(expectedWorkspaceSha256),temporaryDatabaseOnly:true,realNativeModels:true,actorPoseAssignments:false,exceptions:[],consoleErrors:[],failedRequests:[],responses:[],screenshots:[],views:[]};
  const password='Disposable-Resource-'+randomBytes(16).toString('hex'),fixture=await startFixture(password,{voice:{enabled:false,key:''},voiceFetch:async()=>{throw Error('Resource QA must not use external AI/voice providers.');}});
  try{
   const creator=await request(fixture.origin,'/api/studio/register','POST',{username:'qa_resource_creator',displayName:'QA biblioteca de equipos',password});assert.equal(creator.status,201);assert.equal(creator.json.user.role,'creator');report.role=creator.json.user.role;
@@ -106,6 +111,33 @@ async function run({expectedWorkspaceSha256}={}){
     await click('.studio-resource-search');assert.equal(await b.evaluate('context.editor.resourceBrowser.host.querySelector(".studio-resource-category-picker").open'),false,'Clicking outside did not dismiss Categories.');value.keyboardAndOutsideDismiss=true;
     return value;
    };
+   // Scroll the real clipping chain with native wheel input. Never reveal the
+   // final category using scrollIntoView or programmatic scrollTop assignments.
+   const wheelNavigation=async width=>{
+    await libraryWidth(width);await openCategories();
+    const measure=()=>b.call(()=>{
+     const browser=context.editor.resourceBrowser,tree=browser.folderList,picker=browser.host.querySelector('.studio-resource-category-picker'),box=node=>{const r=node.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom};},rows=[...tree.querySelectorAll('[data-library-category]')],last=rows[rows.length-1],r=box(tree),p=box(picker),visible={x:Math.max(0,r.x),y:Math.max(0,r.y),right:Math.min(innerWidth,r.right),bottom:Math.min(innerHeight,r.bottom,browser.navigationCompact?innerHeight:p.bottom)};
+     const q=box(last),x=q.x+q.width/2,y=q.y+q.height/2,hit=document.elementFromPoint(x,y),reachable=q.y>=visible.y-1&&q.bottom<=visible.bottom+1&&(hit===last||last.contains(hit));
+     const chain=[];for(let node=tree;node&&chain.length<6;node=node.parentElement){const style=getComputedStyle(node);chain.push({className:node.className,rect:box(node),clientHeight:node.clientHeight,scrollHeight:node.scrollHeight,scrollTop:node.scrollTop,height:style.height,maxHeight:style.maxHeight,overflowY:style.overflowY,display:style.display});}
+     return{compact:browser.navigationCompact,groups:rows.map(node=>node.dataset.libraryCategory),lastId:last.dataset.libraryCategory,last:q,reachable,visible,point:{x:Math.max(visible.x+20,visible.right-25),y:Math.max(visible.y+10,visible.bottom-25)},chain,detailsContent:{height:getComputedStyle(picker,'::details-content').height,display:getComputedStyle(picker,'::details-content').display,overflow:getComputedStyle(picker,'::details-content').overflowY},colors:rows.map(node=>({id:node.dataset.libraryCategory,color:getComputedStyle(node).color,background:getComputedStyle(node).backgroundColor}))};
+    });
+    const settle=async()=>{let previous=await measure(),unchanged=0;for(let count=0;count<18;count++){await delay(75);const current=await measure();if(Math.abs(current.chain[0].scrollTop-previous.chain[0].scrollTop)<.5&&Math.abs(current.last.y-previous.last.y)<.5)unchanged++;else unchanged=0;previous=current;if(unchanged>=2)return current;}return previous;};
+    const arrival=await settle();let top=arrival,wheelUpEvents=0;
+    // Resizing legitimately reveals the selected folder. Return to the start
+    // with the same native wheel before checking a fresh downward traversal.
+    while(top.chain[0].scrollTop>1&&wheelUpEvents<16){await b.send('Input.dispatchMouseEvent',{type:'mouseMoved',...top.point});await b.send('Input.dispatchMouseEvent',{type:'mouseWheel',...top.point,deltaX:0,deltaY:-640});top=await settle();wheelUpEvents++;}
+    const first=top,trace=[first];
+    for(let count=0;count<16&&!trace[trace.length-1].reachable;count++){
+     const current=trace[trace.length-1];await b.send('Input.dispatchMouseEvent',{type:'mouseMoved',...current.point});await b.send('Input.dispatchMouseEvent',{type:'mouseWheel',...current.point,deltaX:0,deltaY:560});trace.push(await settle());
+    }
+    let last=await settle();const result={width,arrival,first,last,wheelUpEvents,wheelEvents:trace.length-1,scrollTrace:trace.map(row=>({reachable:row.reachable,top:row.chain[0].scrollTop,clientHeight:row.chain[0].clientHeight,scrollHeight:row.chain[0].scrollHeight}))};
+    await shot('library-'+width+'-wheel-bottom');
+    last=await settle();result.last=last;report.wheelProbePending=result;
+    if(last.reachable){const point={x:last.last.x+last.last.width/2,y:last.last.y+last.last.height/2},start=await b.evaluate('__resourceQA.events.length');await b.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point});await b.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point});await until(()=>b.call(({id,start})=>context.editor.resourceBrowser.state.folder==='group:'+id&&__resourceQA.events.slice(start).some(row=>row.type==='click'&&row.category===id&&row.trusted),{id:last.lastId,start}),'The last category did not select after native wheel scrolling.');result.clickedLast=true;result.selected=await b.evaluate('context.editor.resourceBrowser.state.folder');}
+    delete report.wheelProbePending;
+    if(last.compact){await key('Escape','Escape',{windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});}
+    return result;
+   };
    const selected=()=>b.call(()=>{const browser=context.editor.resourceBrowser,id=browser.state.selected,resource=browser.resources.find(row=>row.id===id);return{id,name:resource.name,action:resource.action,articleId:resource.articleId||resource.documentationLinks&&resource.documentationLinks[0]&&resource.documentationLinks[0].articleId,fields:[...browser.preview.querySelectorAll('[data-resource-parameter]')].map(node=>node.dataset.resourceParameter)};});
    const previewReady=()=>until(()=>b.evaluate('!!context.editor.resourceBrowser.previewCleanup&&!!context.editor.resourceBrowser.previewContent?.querySelector("canvas")'),'The selected original variant never created its native orbit preview.');
    const previewCrop=async name=>{
@@ -119,7 +151,12 @@ async function run({expectedWorkspaceSha256}={}){
    report.source=await b.call(()=>({id:context.editor.currentProject.id,librarySceneId:context.editor.currentProject.librarySceneId,canEdit:context.editor.canEditDocument(),room:context.editor.roomId}));assert.equal(report.source.librarySceneId,'vr-robot-transfer');assert.equal(report.source.canEdit,false);
    report.copy=await b.call(async()=>{const e=context.editor,document=await e.document.serialize(),room=e.roomId,poses=document.rooms[room].additions.map(row=>({id:row.id,position:row.position,quaternion:row.quaternion,scale:row.scale})),copy=await e.projectClient.createProject('QA biblioteca nativa independiente',document);await e.applyServerProject(copy);if(!e.active)e.enter();e.projectSync.stop();window.__resourceQA.initialIds=e.document.getObjects(e.roomId).map(o=>o.userData.editorId);window.__resourceQA.projectId=copy.id;const savedPoses=copy.document.rooms[room].additions.map(row=>({id:row.id,position:row.position,quaternion:row.quaternion,scale:row.scale}));return{id:copy.id,canEdit:e.canEditDocument(),room:e.roomId,initialObjects:window.__resourceQA.initialIds.length,posesPreserved:JSON.stringify(poses)===JSON.stringify(savedPoses)};});assert(report.copy.canEdit&&report.copy.posesPreserved);assert.notEqual(report.copy.id,report.source.id);await idle();
    await b.call(()=>context.editor.shell.openResources('library'));await until(()=>b.evaluate('!!document.querySelector("[data-library-category=AL]")'),'The actual native library categories did not mount.');
-   mark('registered rack families and large native thumbnails');report.defaultLibrary=await b.call(()=>({width:context.editor.assets.getBoundingClientRect().width,preference:context.editor.shell.layout.left,viewport:innerWidth}));assert(report.defaultLibrary.width>=600&&report.defaultLibrary.width<=680,'The fresh1600px editor still starts with an unnecessarily narrow library.');await treeClick('[data-library-category="AL"]');await until(()=>b.evaluate('context.editor.resourceBrowser.state.folder==="group:AL"'),'The AL category did not select.');
+   mark('registered rack families and large native thumbnails');report.defaultLibrary=await b.call(()=>({width:context.editor.assets.getBoundingClientRect().width,preference:context.editor.shell.layout.left,viewport:innerWidth}));assert(report.defaultLibrary.width>=600&&report.defaultLibrary.width<=680,'The fresh1600px editor still starts with an unnecessarily narrow library.');
+   report.wheelNavigation=[];for(const width of [640,340])report.wheelNavigation.push(await wheelNavigation(width));
+   assert(report.wheelNavigation.every(row=>row.last.reachable&&row.clickedLast),'Native wheel cannot reach/click the last main category: '+report.wheelNavigation.filter(row=>!row.last.reachable).map(row=>row.width+'px').join(', '));
+   for(const probe of report.wheelNavigation){assert.deepEqual(probe.last.groups,catalog.libraryTaxonomy.GROUPS.map(row=>row.id),'Some main categories disappeared from the tree.');assert(probe.wheelEvents>0,'The scrolling fixture did not exercise native wheel input.');assert(probe.last.chain[0].scrollTop>0,'Only an ancestor moved; the actual tree did not scroll.');probe.categoryColors=probe.first.colors.map(row=>({...row,contrast:contrast(row.color,row.background)}));assert(probe.categoryColors.every(row=>{const color=rgb(row.color),background=rgb(row.background);return color.every(channel=>channel>=230)&&background[1]>background[0]&&background[1]>=background[2]&&luminance(row.background)<.2&&row.contrast>=4.5;}),'Main category headers must have high-contrast white text on dark green.');}
+
+   await libraryWidth(640);await treeClick('[data-library-category="AL"]');await until(()=>b.evaluate('context.editor.resourceBrowser.state.folder==="group:AL"'),'The AL category did not select.');
    const registered=new Set(catalog.libraryTaxonomy.decorate(catalog.RESOURCES).filter(row=>catalog.libraryTaxonomy.matchesPath(row,'group:AL')).map(row=>row.id));
    report.category=await b.call(()=>({folder:context.editor.resourceBrowser.state.folder,cards:[...context.editor.resourceBrowser.grid.querySelectorAll('.studio-resource-card')].map(n=>({id:n.dataset.resourceId,family:n.dataset.resourceFamily||null})),rawCount:context.editor.resourceBrowser.resources.length}));assert(report.category.cards.length>2);assert(report.category.cards.every(row=>registered.has(row.id)&&!row.id.startsWith('knowledge:')),'AL includes unregistered/theoretical duplicate resource cards.');const families=report.category.cards.map(row=>row.family).filter(Boolean);assert.equal(new Set(families).size,families.length,'A family appears more than once.');
    const rackBranch='.studio-library-branch[data-library-node="branch:AL/pallet-racks"]';
@@ -165,4 +202,4 @@ async function run({expectedWorkspaceSha256}={}){
  finally{report.completedAt=new Date().toISOString();report.serverErrors=fixture.errors;fs.writeFileSync(path.join(OUT,'report.json'),JSON.stringify(report,null,2));await fixture.close();console.log(JSON.stringify({passed:!!report.passed,stage:report.stage,workspaceSha256:expectedWorkspaceSha256,views:report.views.length,screenshots:report.screenshots.length,report:path.join(OUT,'report.json')}));}
 }
 module.exports={run,reviewed,pixelMetrics,preservePreviousReport};
-if(require.main===module){const at=process.argv.indexOf('--expected-workspace-sha256');run({expectedWorkspaceSha256:at<0?undefined:process.argv[at+1]}).catch(error=>{console.error(error);process.exitCode=1;});}
+if(require.main===module){const at=process.argv.indexOf('--expected-workspace-sha256');run({expectedWorkspaceSha256:at<0?undefined:process.argv[at+1],baselineArtifactProbe:process.argv.includes('--baseline-artifact-probe')}).catch(error=>{console.error(error);process.exitCode=1;});}
