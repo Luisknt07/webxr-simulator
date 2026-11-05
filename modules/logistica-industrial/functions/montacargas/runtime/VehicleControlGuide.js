@@ -120,6 +120,7 @@ export default class VehicleControlGuide {
     if (vehicle.towedBy) return model('towed', 'Equipo remolcado', 'Opera el tractor que lleva este equipo; no conduzcas ambos a la vez.');
     if (vehicle.blocked || vehicle.missionObstacle) return model('obstacle', 'Paso bloqueado', 'Frena y revisa el obstáculo o la carga antes de continuar.', 'brake', vehicle.warning || vehicle.missionStatus, true);
     const attached = !!vehicle.entry, stability = docking && docking.stability || {}, reason = docking && docking.reason || vehicle.warning || '';
+    if (!attached && docking && docking.preparationRequired && vehicle.operatorInterlock && vehicle.operatorInterlock.scope === 'load') return model('load-interlock', vehicle.operatorInterlock.title, vehicle.operatorInterlock.instruction, 'practicePreparation', 'La preparación del muelle protege la retirada de su mercancía; el montacargas puede circular.', true);
     const capacity = stability.capacityKg, load = stability.loadKg, overloaded = finite(capacity) && finite(load) && load > capacity + 1e-6;
     const pose = vehicle.pose || {};
     const lift = config.family === 'telehandler' && finite(pose.boomAngle) && finite(config.boomLength) ? Math.max(0, (config.boomLength + (finite(pose.reach) ? pose.reach : 0)) * Math.sin(pose.boomAngle)) :

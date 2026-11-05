@@ -22,13 +22,14 @@ export default class ConfigurablePracticeRuntime{
   const prepared=this.state.secured===true,arrival=!!this.state.arrival,boxes=Number(this.manifest.expectedUnits)||this.ids.length*(Number(this.receiving.unitsPerPallet)||8),dock=this.receiving.dockAlias||'E02';
   for(const id of this.manifest.vehicleIds||[]){
    const record=this.runtime.records.get(id),vehicle=record&&record.components.vehicle;if(!vehicle)continue;
-   if(refreshPermission)this.runtime.setVariable(id,'enabled',prepared);
-   // Ephemeral cockpit context. This explains the existing dock interlock;
-   // it neither changes the order nor accepts its documentary evidence.
+   if(refreshPermission)this.runtime.setVariable(id,'enabled',true);
+   // The truck's dock preparation restricts its cargo transfer, not an
+   // otherwise operational forklift's travel or hydraulic controls. This
+   // context is ephemeral and never accepts documentary or mission evidence.
    if(prepared)delete vehicle.operatorInterlock;
-   else vehicle.operatorInterlock={kind:'practice-dock',actionId:arrival?'secure-dock':'arrival-check',
-    title:arrival?'Verificar el muelle antes de conducir':'Contrastar la orden antes de conducir',
-    instruction:arrival?'Comprueba calzos, borde y acceso en '+dock+'. Abre la comprobación del muelle y confirma lo observado para habilitar el montacargas.':'Revisa la cita, el vehículo, las '+boxes+' cajas y el muelle '+dock+'. Registra la orden; después comprueba calzos, borde y acceso.',
+   else vehicle.operatorInterlock={kind:'practice-dock',scope:'load',sourceIds:(this.manifest.sourceIds||[]).slice(),actionId:arrival?'secure-dock':'arrival-check',
+    title:arrival?'Verificar el muelle antes de descargar':'Contrastar la orden antes de descargar',
+    instruction:arrival?'Puedes conducir el montacargas. Antes de retirar mercancía del camión, comprueba calzos, borde y acceso en '+dock+' y confirma lo observado.':'Puedes conducir el montacargas. Antes de retirar mercancía, revisa la cita, el vehículo, las '+boxes+' cajas y el muelle '+dock+'. Registra la orden; después comprueba calzos, borde y acceso.',
     label:arrival?'Comprobar muelle '+dock:'Revisar orden de recepción'};
   }
  }
@@ -97,7 +98,7 @@ export default class ConfigurablePracticeRuntime{
    if(Number(payload.boxes)!==48||this.ids.some(id=>!this.state.registrations[id])||observation.units.some(row=>this.state.dispositions[row.id].decision==='released'?!row.inReleased:!row.inQuarantine))throw Error('Deposita todas las cargas en sus destinos reales y concilia las 48 cajas antes del cierre.');
    this.state.closed=true;this.lastMessage='Las 48 cajas están conciliadas en destinos físicos; recepción cerrada.';
   }else throw Error('Acción de práctica no admitida.');
-  this.syncVehicleInterlock(type==='secure-dock');const actor=this.alias(type==='arrival-check'||type==='register-pallet'?'E08':type==='confirm-handover'?'E07':type==='secure-dock'?'E02':'E04');if(actor)this.runtime.event(actor.id,'configurable-'+type,this.manifest.practiceId+' · '+(pallet?pallet.sku:this.receiving.orderId));this.save();return{accepted:true,message:this.lastMessage};
+  this.syncVehicleInterlock();const actor=this.alias(type==='arrival-check'||type==='register-pallet'?'E08':type==='confirm-handover'?'E07':type==='secure-dock'?'E02':'E04');if(actor)this.runtime.event(actor.id,'configurable-'+type,this.manifest.practiceId+' · '+(pallet?pallet.sku:this.receiving.orderId));this.save();return{accepted:true,message:this.lastMessage};
  }
  snapshot(){
   this.live();const o=this.observe(),conserved=!o.criticalReasons.length,all=map=>this.ids.length===6&&this.ids.every(id=>map[id]),prepared=!!(this.state.arrival&&this.state.secured),conditions=[!!this.state.arrival,prepared&&this.state.unloaded.length===6&&o.units.every(row=>!row.inSource),all(this.state.inspections),all(this.state.dispositions)&&o.units.every(row=>this.state.dispositions[row.id].decision===(row.quality==='good'?'released':'quarantine')),all(this.state.registrations),this.state.closed&&all(this.state.registrations)&&o.units.every(row=>this.state.dispositions[row.id].decision==='released'?row.inReleased:row.inQuarantine)];

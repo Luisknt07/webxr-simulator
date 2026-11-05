@@ -56,7 +56,7 @@ export default class VehicleDriving {
     const ctx = this.ctx, editor = ctx.editor, studio = ctx.studio;
     const xr = ctx.renderer && ctx.renderer.xr, session = xr && xr.getSession && xr.getSession();
     return !this.authority() || !this.simulation.running || editor && (editor.active || editor.loadingProject || editor.busy || editor.simulationPaused) ||
-      ctx.studioMenuOpen || (ctx.voicePanelOpen || ctx.assistantPanelOpen || ctx.externalDevicePanelOpen || ctx.vehiclePreparationOpen) || ctx.publicDialogOpen || ctx.roomTransition || ctx.xrEntryPending || ctx.xrExitPending || this.document && this.document.hidden ||
+      ctx.studioMenuOpen || (ctx.voicePanelOpen || ctx.assistantPanelOpen || ctx.externalDevicePanelOpen || ctx.vehiclePreparationOpen || ctx.practiceReadingPanelOpen) || ctx.publicDialogOpen || ctx.roomTransition || ctx.xrEntryPending || ctx.xrExitPending || this.document && this.document.hidden ||
       studio && studio.drawer && !studio.drawer.hidden || ctx.vrMode && (!session || session.visibilityState && session.visibilityState !== 'visible' || ctx.raycontrol && ctx.raycontrol.enabled === false);
   }
   panelSelectable(controller) {
@@ -203,7 +203,7 @@ export default class VehicleDriving {
     if (!down) { this.blockedKeys.delete(event.code); this.keys.delete(event.code); }
     // A native video/dialog must retain Space, arrows and Tab for playback and
     // focus. Reset driving without consuming those browser controls.
-    if (this.ctx.externalDevicePanelOpen || this.ctx.publicDialogOpen) { this.resetInput(); return; }
+    if (this.ctx.externalDevicePanelOpen || this.ctx.publicDialogOpen || this.ctx.vehiclePreparationOpen || this.ctx.practiceReadingPanelOpen) { this.resetInput(); return; }
     if (!this.id) { if (down && event.code === 'KeyF' && !event.repeat && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey && !event.isComposing && !typing && !(this.ctx.editor && this.ctx.editor.active)) { const record = this.nearest(); if (record) { event.preventDefault(); this.mount(record.id); } } return; }
     if (!DRIVE_KEYS.has(event.code) || typing || event.ctrlKey || event.altKey || event.metaKey) return;
     event.preventDefault(); if (event.stopImmediatePropagation) event.stopImmediatePropagation();
@@ -485,7 +485,7 @@ export default class VehicleDriving {
     this.controlLayoutPreferences[viewport] = !!expanded;
     this.controlSection = section; this.controlsExpanded = !!expanded; this.controlsMinimized = false; this.resetInput(); this.applyControlSections(); return true;
   }
-  prefersWideControls() { return !!(this.window && this.window.innerWidth >= 1440 && this.window.innerHeight >= 800 && !this.ctx.vrMode); }
+  prefersWideControls() { const practice=this.document&&this.document.querySelector&&this.document.querySelector('.st-practice-panel');return !!(this.window && this.window.innerWidth >= 1440 && this.window.innerHeight >= 800 && !this.ctx.vrMode && !practice); }
   applyControlSections() {
     if (!this.hud || !this.controlTabs) return;
     const viewport = this.prefersWideControls() ? 'wide' : 'compact';
@@ -523,7 +523,7 @@ export default class VehicleDriving {
     this.guideTitle.textContent = next.title || 'Siguiente paso';
     this.guideText.textContent = [next.instruction, next.control && 'Mando: ' + next.control, next.reason].filter(Boolean).join(' · ');
     this.guideElement.dataset.tone = v.emergency ? 'danger' : next.canAct ? 'ready' : 'warning';
-    this.hud.dataset.interlocked=String(v.enabled===false);this.preparationButton.hidden=!(v.enabled===false&&v.operatorInterlock);this.preparationButton.textContent=v.operatorInterlock&&v.operatorInterlock.label||'Revisar preparación';this.preparationButton.disabled=this.blocked();
+    this.hud.dataset.interlocked=String(v.enabled===false);this.preparationButton.hidden=!v.operatorInterlock;this.preparationButton.textContent=v.operatorInterlock&&v.operatorInterlock.label||'Revisar preparación';this.preparationButton.disabled=this.blocked();
     this.hud.dataset.fineControl=this.fineControlActive?'active':'off';
     this.hint.textContent = (this.fineControlActive?'Maniobra fina · velocidad reducida · ':'')+'Mantén pulsadas las flechas y la hidráulica · Holograma: Shift+G · Tab: cursor / mirada · Esc: liberar mouse';
     this.viewButton.controlLabel.textContent = this.viewIndex ? 'Seguir' : 'Cabina';
@@ -562,7 +562,7 @@ export default class VehicleDriving {
   paintWorldPanel() {
     const panel = this.worldPanel, record = this.record(); if (!panel || !record) return;
     const v = this.state(record), next = this.nextStep || {}, full = this.worldPage === 'controls';
-    const signature = [v.actualSpeed, v.lift, v.loadKg, v.parkingBrake, v.powered, v.running, v.paused, v.emergency, next.stage, next.instruction, next.reason, next.action, this.mode, this.xrControlMode, this.worldPage, this.operatorIntent, this.docking.visible, this.docking.cameraEnabled, this.docking.forkCamera.selectedFeed, this.holographicGuide.enabled, this.holographicGuide.getState().targetId].map(value => typeof value === 'number' ? value.toFixed(1) : value).join('|');
+    const signature = [v.actualSpeed, v.lift, v.loadKg, v.parkingBrake, v.powered, v.running, v.paused, v.emergency, v.operatorInterlock&&v.operatorInterlock.actionId, v.operatorInterlock&&v.operatorInterlock.label, next.stage, next.instruction, next.reason, next.action, this.mode, this.xrControlMode, this.worldPage, this.operatorIntent, this.docking.visible, this.docking.cameraEnabled, this.docking.forkCamera.selectedFeed, this.holographicGuide.enabled, this.holographicGuide.getState().targetId].map(value => typeof value === 'number' ? value.toFixed(1) : value).join('|');
     if (panel.signature === signature) return; panel.signature = signature;
     panel.plane.scale.setScalar(full ? 1 : .68); this.placeCabPanel(panel.plane, this.cabPanelLayout().controls);
     const c = panel.context, text = (value, x, y, width, size = 25, lines = 2) => {
@@ -578,7 +578,7 @@ export default class VehicleDriving {
     const definitions = this.definitions().filter(value => !value.continuous && !['view', 'cursor', 'forkCameraSide', 'forkCameraMode'].includes(value.action) && (value.action !== 'depositIntent' || record.components.vehicle.entry));
     const supported = new Set(definitions.map(value => value.action));
     let actions = full ? definitions.map(value => [value.action, value.label]) : [!v.powered ? 'powerOn' : !v.running || v.paused ? 'start' : 'parkingBrake', record.components.vehicle.entry ? this.operatorIntent === 'deposit' ? 'release' : 'depositIntent' : 'pickup', 'emergency', 'exit'].filter(action => supported.has(action)).map(action => [action, VehicleControlGuide.actions.find(value => value.action === action).label]);
-    if(v.enabled===false&&v.operatorInterlock)actions=full?[['practicePreparation',v.operatorInterlock.label]].concat(actions):[['practicePreparation',v.operatorInterlock.label],['emergency','Emergencia'],['exit','Bajar del vehículo']];
+    if(v.operatorInterlock)actions=v.enabled===false&&!full?[['practicePreparation',v.operatorInterlock.label],['emergency','Emergencia'],['exit','Bajar del vehículo']]:[['practicePreparation',v.operatorInterlock.label]].concat(actions);
     actions = actions.concat([['xrControls', this.xrControlMode === 'cab' ? 'RV: Cabina → Sticks' : 'RV: Sticks → Cabina'], ['controls', full ? 'Volver a la cabina' : 'Todos los mandos']]);
     panel.actions = actions; panel.regions = [];
     const columns = full ? 3 : 2, rows = Math.ceil(actions.length / columns), top = full ? 190 : 310, bottom = 590, height = (bottom - top) / rows, width = 1024 / columns;

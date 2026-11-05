@@ -205,7 +205,19 @@ async function run() {
   immersive.editor.sceneCreationDialog = {dispose() { calls.push(['creationClose']); }}; immersive.editor.sharePanel = {hidden: false}; immersive.editor.conveyorViewer = {close() { calls.push(['equipmentViewerClose']); }}; immersive.editor.simulationPanel = {toggle(value) { calls.push(['simulationPanel', value]); }};
   const vrStart = calls.length; immersive.onVRChange(true); const vrCalls = calls.slice(vrStart);
   for (const name of ['administrationClose', 'libraryClose', 'guideClose', 'monitorBindingClose', 'creationClose', 'equipmentViewerClose']) assert(vrCalls.some(value => value[0] === name)); assert(immersive.editor.sharePanel.hidden); assert.deepEqual(vrCalls[vrCalls.length - 1], ['immersiveVR', true]);
-  immersive.onVRChange(false); assert.deepEqual(calls.pop(), ['immersiveVR', false]);
+  immersive.ctx.vrMode = false; immersive.onVRChange(false); assert.deepEqual(calls.pop(), ['immersiveVR', false]);
+  const transitionStates = [];
+  immersive.ctx.renderer = {xr: {isPresenting: true}}; immersive.ctx.practiceReadingPanelOpen = true;
+  immersive.editor.practiceController = {panel: {notifyLayout() { transitionStates.push(immersive.ctx.vrMode); immersive.ctx.practiceReadingPanelOpen = !immersive.ctx.vrMode && !immersive.ctx.renderer.xr.isPresenting; }}};
+  immersive.ctx.vrMode = true; immersive.onVRChange(true);
+  assert.equal(immersive.ctx.practiceReadingPanelOpen, false, 'A hidden mobile drawer cannot keep its driving lock in XR.');
+  immersive.ctx.vrMode = false; immersive.onVRChange(false);
+  // VRButton notifies before r112 finishes its end event and clears this flag.
+  immersive.ctx.renderer.xr.isPresenting = false; await Promise.resolve();
+  assert.equal(immersive.ctx.practiceReadingPanelOpen, true, 'The visible reading drawer must regain its lock after the renderer finishes XR exit.');
+  assert.deepEqual(transitionStates, [true, false], 'Entering and leaving XR must refresh the practice drawer input lock even without a browser resize.');
+  delete immersive.editor.practiceController;
+  immersive.ctx.vrMode = true;
   const closedMenuStart = calls.length;
   Experience.prototype.open.call(immersive, 'account');
   assert(!calls.slice(closedMenuStart).some(value => value[0] === 'immersiveOpen'), 'Account/network events cannot open a closed VR menu.');

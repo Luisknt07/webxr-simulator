@@ -76,4 +76,11 @@ assert.equal(held.window.listeners.get('resize').size,0);
 held.window.fire('resize');
 assert.equal(held.driving.hud,null,'A disposed resize listener cannot recreate the driving console.');
 
+const practice=setup(false,true);Object.assign(practice.window,{innerWidth:1920,innerHeight:1080});practice.dom.querySelector=selector=>selector==='.st-practice-panel'?{}:null;
+assert(practice.driving.mount(practice.record.id));assert.equal(practice.driving.prefersWideControls(),false);
+assert.equal(practice.driving.hud.dataset.expanded,'false','Practice sidebars keep the cockpit compact even on a large desktop.');
+assert.deepEqual(practice.driving.controlGroups.filter(group=>!group.hidden).map(group=>group.dataset.group),['drive']);
+practice.driving.expandControls.fire('click');assert.equal(practice.driving.hud.dataset.expanded,'true','The operator can still explicitly expand every category.');
+practice.driving.dispose();practice.runtime.stop();
+
 console.log('Responsive controls: desktop defaults, independent breakpoint preferences, held-input release, listener disposal, category selection, emergency access and unchanged custody passed.');

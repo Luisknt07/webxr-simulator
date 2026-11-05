@@ -343,6 +343,15 @@ export default class StudioExperience {
       document.querySelectorAll('.ed-scene-name-dialog[open]').forEach(dialog => dialog.dispatchEvent(new Event('cancel', {cancelable: true})));
     }
     if (this.immersiveMenu) this.immersiveMenu.setVR(active);
+    // The browser's reading drawers are hidden in XR. Refresh their input
+    // interlock on both transitions, including when the viewport did not resize.
+    const practicePanel = this.editor.practiceController && this.editor.practiceController.panel;
+    if (practicePanel && practicePanel.notifyLayout) {
+      const refreshPracticeLayout = () => { if (this.ctx.vrMode === active && this.editor.practiceController && this.editor.practiceController.panel === practicePanel) practicePanel.notifyLayout(); };
+      // r112 clears isPresenting later in the same session.end event. Waiting
+      // one microtask lets a visible mobile reading drawer restore its lock.
+      if (active) refreshPracticeLayout(); else Promise.resolve().then(refreshPracticeLayout);
+    }
   }
   async classroom() {
     if (this.needAccount()) return;

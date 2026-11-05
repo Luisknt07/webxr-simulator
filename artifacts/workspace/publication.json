@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "b1eda2c74f52c8da9c50d37d0382f6cb6028e2a8",
-  "bundleSha256": "c3dc1669a6a56fa5213e455c583b558f6b9f715b1589dcbde888428a40bba872",
+  "revision": "bad257e6ac42ef1778e3f30025cb5662d63ee476",
+  "bundleSha256": "7abbc7a0c215cb908684d9435a6a9939466793e4237cad4109d8002b08ef4bb2",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -44,31 +44,31 @@
   "files": [
     {
       "path": "13.js",
-      "sha256": "6d16ff265ad2a87903538146ddf2430874ee90609a257a2bbff3f561064a32b8"
+      "sha256": "355e590ca53da27ad0fec423f074703302a63f604306f7a78ee81a4ace1aca51"
     },
     {
       "path": "14.js",
-      "sha256": "ce285e6f42b063215662cd3b5d08aecee0bef475d041bd6960d25671aeba2dcb"
+      "sha256": "7497d630cdff2c80aab61924ae9c47f2ed3905ea0237db079cefed3ccaea004c"
     },
     {
       "path": "15.js",
-      "sha256": "dcdb43da9b60eaeb83cc99b016921c0e9c58aae886e450232fc18bc778dba9dc"
+      "sha256": "7861e0383d0e886337cbd50eb0986afe87dad923bd162552381c86515a9276fc"
     },
     {
       "path": "16.js",
-      "sha256": "b3ae5c225f92647b28b585c803aa8eefe8f1e6a529356795e7f5c189b0827e66"
+      "sha256": "89ad52d63dd2c9c0b10e653d85844e87a6ad18d429387d5949f91292d68d5b95"
     },
     {
       "path": "17.js",
-      "sha256": "af5f1e82a7d64916300d26cc19a82e80ab32d54bae932c12c4aa501462cebc70"
+      "sha256": "6c1e4eb16744cb175ffaeff3445c73f26f7dac2d08423086d982ee2b98898048"
     },
     {
       "path": "18.js",
-      "sha256": "61b79d4cba026c4bf1224a79a588b3c5e62c6bb3340462e8f578ff2a89a463b0"
+      "sha256": "05b0308a34a24d3df0fd00085b4b28403802350e797e0f5f5fb2e93006bfe859"
     },
     {
       "path": "3.js",
-      "sha256": "e2464ed0e57b503f9319920d9cb37e6b4b9fe640658a599c3b77a4e87cac1ed5"
+      "sha256": "b51dc9b412f4f759af29ee26df34c549ce3a8ad0e601322e6988d546726185a1"
     },
     {
       "path": "apps/workspace/scenario-library.css",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "c3dc1669a6a56fa5213e455c583b558f6b9f715b1589dcbde888428a40bba872"
+      "sha256": "7abbc7a0c215cb908684d9435a6a9939466793e4237cad4109d8002b08ef4bb2"
     },
     {
       "path": "cad-worker.js",
@@ -104,7 +104,7 @@
     },
     {
       "path": "configurable-practice-reference.js",
-      "sha256": "1f46811083827acce6b238b4d456e6b987c7a3892a0af6554997d347f3a53511"
+      "sha256": "fbdad92b38a09f90b6150624b1dded6b29e35c48f2274d0993be2a966efecb92"
     },
     {
       "path": "editor-tools.json",
@@ -116,23 +116,23 @@
     },
     {
       "path": "logistics-documentation.js",
-      "sha256": "3cc1c74d81928bd9f829af7c4d445478cba1711233fe5bfbaf0c7a0d42405240"
+      "sha256": "f0acf87ad104dad2b9bfe63f1841b7b4dd11794eb9b747e4c82048050ea2e24e"
     },
     {
       "path": "logistics-equipment-workspace.js",
-      "sha256": "6f8ee8383324a510d0277fe32a55cf734def0d925339a8f7d0fe51b904733b1d"
+      "sha256": "1757dfcf8cefea1b86fb5b94a30ff683eee1e483c4b834879b942fdcfff538cd"
     },
     {
       "path": "logistics-practice-browser.js",
-      "sha256": "64f94b336344bae1cc3225d563b48d494d418899e2f463e71dc56879456d39c6"
+      "sha256": "68579fe286c8fdd74e0881194dbf097bbc7b856686d3dc119597c90e5db14630"
     },
     {
       "path": "logistics-practice-index.js",
-      "sha256": "41fd50f2634286af5d6e8116af19bb36159c39870b24f5c6338c6afd520d8ab2"
+      "sha256": "2674c54fa784028503c4b7121708f6f98d24638367ab66b3e659a71d44db3609"
     },
     {
       "path": "logistics-practice-scenes.js",
-      "sha256": "e1aedb03eb4f32f4b66509d2978f0de45961e3e7003f21b54534834745d3dcca"
+      "sha256": "f4e3e3929e64fcc36835c3a8ed758e5a552af195737aeed799ff7ce771406c04"
     },
     {
       "path": "mesh-optimizer-worker.js",
@@ -2976,7 +2976,7 @@
     },
     {
       "path": "modules/logistica-industrial/practices/ui/practice.css",
-      "sha256": "14762824bc4d7629a3554d98808e5696608e642f98ec95d5511bcc165a0437a5"
+      "sha256": "9cbd0432118166260efd4a2d66451703aa1a63e2b04132a57489c86cf668e05c"
     },
     {
       "path": "modules/turismo/assets/angel.basis",
@@ -3336,11 +3336,11 @@
     },
     {
       "path": "nexus-equipment-reference.js",
-      "sha256": "bfaf8cd9da024e0777a298ee831426c303e73634c7a0b2c591516566620e54c5"
+      "sha256": "dcadb7c7c1e70104afc377aaa879cf2bb4e6d58b8e100b4930d03e864affede4"
     },
     {
       "path": "nexus-practices-reference.js",
-      "sha256": "f144c444ea7e3be56cf6651a7dafc92eee33caa818ade7895062c4a79cabe735"
+      "sha256": "c57e325355299127e5a80c3b2a9161d75a302f743bca97ebb1b9f175c22f4d11"
     },
     {
       "path": "packages/assistant-ui/assistant-workspace.css",
@@ -3592,7 +3592,7 @@
     },
     {
       "path": "practice-configuration-preview.js",
-      "sha256": "83be6520cc9b2ac75f43cd3b1cf0643b485cc85a30079ecc972100a0a49a575c"
+      "sha256": "0619a2a054dbc20ee51452ddaafb8fa47125efc10f4b38e8d4b243ce89c31037"
     },
     {
       "path": "projects/smarttwin/branding/apple-touch-icon-114x114.png",
@@ -3932,21 +3932,21 @@
     },
     {
       "path": "receiving-video-guide.js",
-      "sha256": "d50f8d52f53297a21b68bc11f568a9e1e2fd5193eec6593fd278c7a282feba87"
+      "sha256": "0b7979d7559abdf04acb76069aba93dc2efc006fede6543b8c705a596f60c9c5"
     },
     {
       "path": "scenario-library.js",
-      "sha256": "76dd41f45910475406052e3595cd046f973b7d23f9d2b1dd9890d8ceb0a3e3c0"
+      "sha256": "7079c497f4138be8ac36ed5502b3f6380df2308d7940cacbb9f0ea30af517337"
     }
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "4215b193b85b2539c6a9",
-    "statsSha256": "474a5366061a67e17d6b48cbf6dc389755b71513cb6a783ae963db170dfa7cf9",
+    "hash": "f0ab2b6b22035bd7d291",
+    "statsSha256": "9f1568902f38f65df11f000384973ec2ed529997ec56fad037b95b22cbd16e1c",
     "assets": [
       {
         "path": "13.js",
-        "size": 62345
+        "size": 63440
       },
       {
         "path": "14.js",
@@ -3974,7 +3974,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7027803
+        "size": 7034623
       },
       {
         "path": "configurable-practice-reference.js",
@@ -4010,11 +4010,11 @@
       },
       {
         "path": "practice-configuration-preview.js",
-        "size": 3150456
+        "size": 3150457
       },
       {
         "path": "receiving-video-guide.js",
-        "size": 8556
+        "size": 8831
       },
       {
         "path": "scenario-library.js",

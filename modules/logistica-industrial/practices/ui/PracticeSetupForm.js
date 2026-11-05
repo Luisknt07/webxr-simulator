@@ -2,6 +2,7 @@ import layoutCoordinates from '../schema/PracticeLayoutCoordinates.cjs';
 import CediOperatingDataForm from './CediOperatingDataForm.js';
 import operatingData from '../configurable/CediOperatingData.cjs';
 import PracticeConfigurationPreview from './PracticeConfigurationPreview.js';
+import practiceDevice from './PracticeDevice.cjs';
 const node=(tag,className,text)=>{const element=document.createElement(tag);if(className)element.className=className;if(text!==undefined)element.textContent=String(text);return element;};
 const clone=value=>JSON.parse(JSON.stringify(value));
 const modeLetter={manual:'M',semiautomatic:'S',automatic:'A'};
@@ -25,7 +26,7 @@ export default class PracticeSetupForm{
   this.form.appendChild(node('p','st-practice-note','Dificultad y automatización son independientes. Las restricciones físicas se mantienen en todos los niveles.'));
   this.select('executionMode','Recorrido',[{id:'isolated',title:'Modo libre · elegir y repetir'},{id:'campaign',title:'Progresivo · avance en orden'}]);this.fields.executionMode.disabled=executionModeLocked;this.modeExplanation=node('section','st-practice-mode-explanation');this.form.appendChild(this.modeExplanation);
   this.select('evaluation','Evaluación',[{id:'assessed',title:'Con puntuación y evidencias'},{id:'practice',title:'Ensayo sin evaluación'}]);
-  this.select('device','Dispositivo',[{id:'desktop',title:'Escritorio'},{id:'mobile',title:'Móvil / táctil'},{id:'vr',title:'Realidad virtual compatible'}]);
+  this.deviceNote=node('p','st-practice-note');this.deviceNote.setAttribute('data-practice-device','automatic');this.form.appendChild(this.deviceNote);
   const helps=node('fieldset','st-practice-helps');helps.appendChild(node('legend','','Ayudas'));this.form.appendChild(helps);
   for(const[key,label]of[['text','Instrucciones en texto'],['voice','Guía por voz']]){const wrapper=node('label','st-practice-check'),input=node('input');input.type='checkbox';input.checked=this.settings.helps[key]===true;this.helpInputs[key]=input;input.setAttribute('data-practice-help',key);input.addEventListener('change',()=>{this.settings.helps[key]=input.checked;this.changed();});wrapper.appendChild(input);wrapper.appendChild(document.createTextNode(label));helps.appendChild(wrapper);}
   this.hints=node('select');for(const[id,title]of[['guided','Paso a paso'],['on-request','Pistas al solicitarlas'],['none','Sin pistas']]){const option=node('option','',title);option.value=id;this.hints.appendChild(option);}this.hints.value=this.settings.helps.hints;this.hints.setAttribute('data-practice-help','hints');this.hints.addEventListener('change',()=>{this.settings.helps.hints=this.hints.value;this.helpsCustomized=true;this.changed();});this.field(helps,'Pistas',this.hints);
@@ -62,7 +63,7 @@ export default class PracticeSetupForm{
  useSuggested(){if(this.disposed||this.busy)return;Object.assign(this.settings,{caseId:'A',difficulty:1,mode:'manual',equipmentSelections:{},layout:{preset:'prepared',overrides:[]},helps:{text:true,voice:false,hints:'guided'}});this.customLayout=false;this.helpsCustomized=false;for(const[key,control]of Object.entries(this.fields))control.value=String(this.settings[key]);for(const[key,control]of Object.entries(this.helpInputs))control.checked=this.settings.helps[key];this.hints.value='guided';this.changed(true);}
  suspendPreview(){if(this.previewView&&this.previewView.suspend)this.previewView.suspend();}
  changed(structural=false,preserveError=false){
-  if(this.disposed)return;if(!preserveError)this.submitError='';if(structural){this.renderEquipment();this.renderLayout();}else if(this.customLayout&&this.settings.difficulty===1)this.renderLayout();
+  if(this.disposed)return;this.settings.device=practiceDevice.detect(this.options.inputContext);if(this.deviceNote)this.deviceNote.textContent=practiceDevice.description(this.options.inputContext)+'. Entra en realidad virtual con el botón VR del visor; las misiones y la guía se consultan con sus mandos.';if(!preserveError)this.submitError='';if(structural){this.renderEquipment();this.renderLayout();}else if(this.customLayout&&this.settings.difficulty===1)this.renderLayout();
   const mode=this.modeData(),description=Array.isArray(this.record.modes)?this.record.modes[['manual','semiautomatic','automatic'].indexOf(this.settings.mode)]:mode;
   this.fixture.textContent='Insumos del caso: '+text(this.record.fixtureText||this.definition.fixtureText||this.record.initialConditions||'Consulta el kit y el manifiesto validados del caso.');
   this.responsibilities.textContent='Responsabilidades · '+text(mode.actorsText||mode.actors||mode.responsibilities||description&&description.actions||'La automatización sólo afecta los subprocesos configurados; las tareas humanas se mantienen indicadas en las misiones.');

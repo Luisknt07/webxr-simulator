@@ -4,6 +4,7 @@ import recipes from '../configurable/Recipes.cjs';
 import PracticeSetupForm from '../ui/PracticeSetupForm.js';
 import {drawPracticeLayout} from '../ui/PracticeLayoutCanvas.js';
 import practiceRoutes from '../schema/PracticeNavigation.cjs';
+import practiceDevice from '../ui/PracticeDevice.cjs';
 const node=(tag,text,parent)=>{const element=document.createElement(tag);if(text!==undefined)element.textContent=text;if(parent)parent.appendChild(element);return element;};
 const safeImage=value=>value&&typeof value.src==='string'&&/^modules\/logistica-industrial\/practices\/(?:configurable\/)?assets\/[A-Za-z0-9_./-]+\.(png|jpg|svg)$/.test(value.src)&&!value.src.includes('..');
 const modes=['manual','semiautomatic','automatic'];
@@ -35,7 +36,7 @@ export default class PracticeCampaignHost {
   if(this.busy)throw Error('Espera a que termine de prepararse el escenario.');if(this.editor.editorEnabled)throw Error("Abre las prácticas en el visualizador para conservar el proyecto que estás editando.");if(this.studio.room)throw Error('Sal de la sala compartida antes de iniciar un ensayo individual.');
   const owner=this.identity(),generation=this.generation;this.assertIdentity(owner,generation);this.busy=true;const previousAttempt=this.attempt,previousPreview=this.preview;
   try{
-   const canonical=recipes.normalizedOptions(settings),availability=this.availability(id,canonical.mode,canonical),permission=progressSchema.access(this.progress,id,{author:canonical.executionMode==='isolated'});if(!permission.allowed)throw Error(permission.reason);
+   const canonical=recipes.normalizedOptions(practiceDevice.settings(settings,this.editor.ctx)),availability=this.availability(id,canonical.mode,canonical),permission=progressSchema.access(this.progress,id,{author:canonical.executionMode==='isolated'});if(!permission.allowed)throw Error(permission.reason);
    let result=null;if(availability.ready){result=await this.client.request('POST','/practices/attempts',Object.assign({practiceId:id},canonical));this.assertIdentity(owner,generation);}else if(!availability.canConfigure)throw Error(availability.reasons.join(' '));
    const chosen=result?result.attempt.settings:canonical,compiler=await import(/* webpackChunkName: "logistics-practice-scenes" */ './PracticeSceneBuilder.js');this.assertIdentity(owner,generation);const prepared=await compiler.compilePracticeProject(id,Object.assign({},chosen,{nativeDocument:this.editor.document}));this.assertIdentity(owner,generation);
    this.disposePreviewTools();if(this.previewBanner){this.previewBanner.remove();this.previewBanner=null;}this.editor.projectSync.stop();this.editor.stopRuntime();this.attempt=result&&result.attempt||null;this.preview=result?null:{practiceId:id,settings:chosen,availability};if(result){this.progress=progressSchema.normalize(result.progress,owner);this.capabilities=result.capabilities||this.capabilities||[];}
