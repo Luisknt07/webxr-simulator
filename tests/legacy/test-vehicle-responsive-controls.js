@@ -77,10 +77,34 @@ held.window.fire('resize');
 assert.equal(held.driving.hud,null,'A disposed resize listener cannot recreate the driving console.');
 
 const practice=setup(false,true);Object.assign(practice.window,{innerWidth:1920,innerHeight:1080});practice.dom.querySelector=selector=>selector==='.st-practice-panel'?{}:null;
-assert(practice.driving.mount(practice.record.id));assert.equal(practice.driving.prefersWideControls(),false);
-assert.equal(practice.driving.hud.dataset.expanded,'false','Practice sidebars keep the cockpit compact even on a large desktop.');
-assert.deepEqual(practice.driving.controlGroups.filter(group=>!group.hidden).map(group=>group.dataset.group),['drive']);
-practice.driving.expandControls.fire('click');assert.equal(practice.driving.hud.dataset.expanded,'true','The operator can still explicitly expand every category.');
+assert(practice.driving.mount(practice.record.id));assert.equal(practice.driving.prefersWideControls(),true);
+assert.equal(practice.driving.hud.dataset.viewport,'wide');
+assert.equal(practice.driving.hud.dataset.expanded,'true','A practice on a large desktop shows every compatible control category immediately.');
+const practiceGroups=()=>practice.driving.controlGroups.filter(group=>!group.hidden).map(group=>group.dataset.group);
+assert.deepEqual(practiceGroups(),['drive','cargo','view','safety']);
+assert.equal(practice.driving.expandControls.textContent,'Compactar');
+for(const action of ['driveForward','driveReverse','pickup','release','liftUp','liftDown','forkCamera','holographicGuide','emergency','exit'])
+  assert.equal(practice.driving.controlButtons.get(action).hidden,false,'Desktop practice keeps its native '+action+' control visible.');
+for(const action of ['retract','extend','turretLeft','couple'])
+  assert.equal(practice.driving.controlButtons.get(action).hidden,true,'Expanding never invents unsupported '+action+' controls.');
+practice.driving.expandControls.fire('click');assert.equal(practice.driving.hud.dataset.expanded,'false');
+assert.deepEqual(practiceGroups(),['drive'],'Compactar still shows the chosen category.');
+practice.window.matchMedia=()=>({matches:true});practice.window.fire('resize');
+assert.equal(practice.driving.prefersWideControls(),false,'Large touch displays use the compact initial controls.');
+assert.equal(practice.driving.hud.dataset.viewport,'compact');
+assert.equal(practice.driving.hud.dataset.expanded,'false');
+practice.driving.expandControls.fire('click');assert.equal(practice.driving.hud.dataset.expanded,'true','Touch users can explicitly show all controls.');
+practice.window.matchMedia=()=>({matches:false});practice.window.fire('resize');
+assert.equal(practice.driving.hud.dataset.expanded,'false','A desktop explicit compact choice survives a touch-sized presentation.');
+practice.driving.expandControls.fire('click');assert.equal(practice.driving.hud.dataset.expanded,'true');
+practice.ctx.renderer.xr.isPresenting=true;
+assert.equal(practice.driving.prefersWideControls(),false,'An active immersive session uses its own controls even before ctx.vrMode changes.');
+practice.ctx.renderer.xr.isPresenting=false;
+practice.driving.unmount(true);const tractor=practice.addVehicle('tow-tractor',[8,0,0]);
+assert(practice.driving.mount(tractor.id));
+assert.equal(practice.driving.hud.dataset.expanded,'true');
+assert.equal(practice.driving.controlButtons.get('couple').hidden,false,'A tractor exposes its actual hitch when every category is open.');
+assert.equal(practice.driving.controlButtons.get('liftUp').hidden,true,'A tractor does not acquire fork controls from the full presentation.');
 practice.driving.dispose();practice.runtime.stop();
 
 console.log('Responsive controls: desktop defaults, independent breakpoint preferences, held-input release, listener disposal, category selection, emergency access and unchanged custody passed.');

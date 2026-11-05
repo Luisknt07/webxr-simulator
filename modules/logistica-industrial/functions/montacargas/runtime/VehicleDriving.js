@@ -485,7 +485,14 @@ export default class VehicleDriving {
     this.controlLayoutPreferences[viewport] = !!expanded;
     this.controlSection = section; this.controlsExpanded = !!expanded; this.controlsMinimized = false; this.resetInput(); this.applyControlSections(); return true;
   }
-  prefersWideControls() { const practice=this.document&&this.document.querySelector&&this.document.querySelector('.st-practice-panel');return !!(this.window && this.window.innerWidth >= 1440 && this.window.innerHeight >= 800 && !this.ctx.vrMode && !practice); }
+  prefersWideControls() {
+    const win=this.window,immersive=!!(this.ctx.vrMode||this.ctx.renderer&&this.ctx.renderer.xr&&this.ctx.renderer.xr.isPresenting);
+    const touch=!!(win&&typeof win.matchMedia==='function'&&win.matchMedia('(pointer: coarse)').matches);
+    // Practice sidebars do not remove controls. Their measured scene layout
+    // positions the console; only the display's available size/input chooses
+    // the initial full or compact presentation, preserving explicit choices.
+    return !!(win&&win.innerWidth>=1440&&win.innerHeight>=800&&!immersive&&!touch);
+  }
   applyControlSections() {
     if (!this.hud || !this.controlTabs) return;
     const viewport = this.prefersWideControls() ? 'wide' : 'compact';

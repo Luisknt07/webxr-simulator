@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "bad257e6ac42ef1778e3f30025cb5662d63ee476",
-  "bundleSha256": "7abbc7a0c215cb908684d9435a6a9939466793e4237cad4109d8002b08ef4bb2",
+  "revision": "50315b5c23aa5d7d3590e1d178747daa870f5b59",
+  "bundleSha256": "fae6da52445d52369c0674f7d2f4ae109e8f54d644a38b17ead0a7dae6ee5a2f",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "7abbc7a0c215cb908684d9435a6a9939466793e4237cad4109d8002b08ef4bb2"
+      "sha256": "fae6da52445d52369c0674f7d2f4ae109e8f54d644a38b17ead0a7dae6ee5a2f"
     },
     {
       "path": "cad-worker.js",
@@ -2976,7 +2976,7 @@
     },
     {
       "path": "modules/logistica-industrial/practices/ui/practice.css",
-      "sha256": "9cbd0432118166260efd4a2d66451703aa1a63e2b04132a57489c86cf668e05c"
+      "sha256": "fda8234f5ccc82548922758c085f1ff3bc4069226811e0ab0a78054228ae934e"
     },
     {
       "path": "modules/turismo/assets/angel.basis",
@@ -3941,8 +3941,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "f0ab2b6b22035bd7d291",
-    "statsSha256": "9f1568902f38f65df11f000384973ec2ed529997ec56fad037b95b22cbd16e1c",
+    "hash": "b4ff8423eabcf11829e5",
+    "statsSha256": "bac97d1f3d5613bdfed76bdc1064e4f709232fa4a1cc42def2d2f4377f476381",
     "assets": [
       {
         "path": "13.js",
@@ -3974,7 +3974,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7034623
+        "size": 7034680
       },
       {
         "path": "configurable-practice-reference.js",
