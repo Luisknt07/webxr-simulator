@@ -1636,10 +1636,13 @@ export default class SimulationRuntime {
     try {
       const sector=this.document.studio&&this.document.studio.moduleData&&this.document.studio.moduleData['sector.logistics-industrial'],level=sector&&Array.isArray(sector.levels)&&sector.levels.find(row=>row&&row.kind==='configurable'&&row.roomId===this.roomId),root=this.document.getRoot(this.roomId);
       const staticObjects=level&&level.facility&&Array.isArray(level.facility.objects)?level.facility.objects.slice(0,128).filter(row=>row&&['envelope','detail'].includes(row.role)).map(row=>this.document.getObject(row.objectId)).filter(object=>object&&object.parent===root&&object.userData.editorDescriptor&&object.userData.editorDescriptor.type==='cad'):[];
+      const receiving=level&&level.receivingConveyors;
+      const texturedTintObjects=receiving&&receiving.layoutId==='cedi-receiving-inspection-v1'&&Array.isArray(receiving.conveyorIds)?receiving.conveyorIds.slice(0,9).map(id=>this.records.get(id)).filter(record=>record&&record.components.conveyor).map(record=>record.object):[];
       this.nativeRenderBanks.sync(Array.from(this.records.values(), record => record.object), {
         editing: !this.running || !!(this.ctx.editor && this.ctx.editor.active),
         version: this.ctx.editor && this.ctx.editor.changeVersion || 0,
-        staticObjects
+        staticObjects,
+        texturedTintObjects
       });
     } catch (error) {
       // An optional render optimization must never stop input or simulation.

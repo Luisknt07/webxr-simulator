@@ -25,9 +25,12 @@ module.exports=function runReceiving(h,f,built,onProgress=()=>{}){
    const palletId=task.productId,observed=verifyCustody().pallets.find(row=>row.id===palletId);assert(observed.inInspection,'The original load must physically stop at inspection.');assert.equal(observed.quality,'good','This prepared run requires its six conforming pallets.');
    w.command('inspect-pallet',{palletId,boxes:observed.units,massKg:observed.massKg,lotId:observed.lotId});w.command('disposition',{palletId,decision:'released'});w.command('register-pallet',{palletId,orderId:built.manifest.receiving.orderId});
    const before=w.snapshot().totalUnits;w.command('register-pallet',{palletId,orderId:built.manifest.receiving.orderId});assert.equal(w.snapshot().totalUnits,before);assert.equal(Object.keys(w.state.registrations).length,i+1);
-   // Leave inspection below the physical weigh station, then use the wide
-   // east receiving aisle. Loaded carriers never cross another staged pallet.
-   d.straight('z',-3.5,true);d.turn(1);d.straight('x',travelX-forwardSide);d.turn(1);d.straight('z',18.5,true);shiftWhileForward(target.x,Math.PI);
+   // Follow the authored front exit: the new receiving roller bank occupies
+   // the former rear reversing lane. Clear the weighing platform and staged
+   // pallets before turning into the real east receiving aisle. Never move
+   // machines, relax contact guards or drive through a conveyor to pass QA.
+   assert.equal(built.manifest.receiving.inspectionExit.x,inspection[0]);
+   d.straight('z',built.manifest.receiving.inspectionExit.z);d.turn(1);d.straight('x',travelX-forwardSide);d.turn(1);d.straight('z',18.5,true);shiftWhileForward(target.x,Math.PI);
    const dropApproach=target.z+3;d.straight('z',dropApproach,dropApproach>record.object.position.z);d.dock('drop',task.destinationId,{x:target.x,z:dropApproach,yaw:Math.PI});d.straight('z',dropApproach,true);
    const world=verifyCustody(),product=world.pallets.find(row=>row.id===palletId);assert(product.inReleased&&!product.held&&product.ownerId===task.destinationId);assert.equal(world.receiverUnits,(i+1)*8);
    shipments.push({palletId,sourceId:task.sourceId,destinationId:task.destinationId,units:observed.units,massKg:observed.massKg,lotId:observed.lotId,simulationSeconds:f.runtime.time,driving:d.stats()});onProgress({stage:'delivered',pallet:i+1,releasedUnits:world.receiverUnits,driving:d.stats()});

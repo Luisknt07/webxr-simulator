@@ -1,4 +1,5 @@
 'use strict';
+const receivingLayout=require('./CediReceivingLayout.cjs');
 
 // Stable, shared world-space installation. Runtime actors and inventory are
 // independent of architecture; none of the validated front docks are moved.
@@ -32,8 +33,8 @@ const zones={
 // every established main rect unchanged: active native tasks address them.
 const subarea=(id,label,rect,floorY=0)=>({id,...area(label,rect,floorY)});
 for(const zone of Object.values(zones))zone.areas=[subarea('main',zone.label,zone.rect,zone.floorY)];
-zones.receiving.areas.push(subarea('receiving-docks','Muelles REC-01 y REC-02',[-25,21,-11,35],-1.15),subarea('receiving-roller-west','Rodillos de recepción oeste',[-29.6,.2,-26.4,6.5]),subarea('receiving-roller-east','Rodillos de recepción este',[-18.6,.2,-15.4,6.5]));
-zones.inspection.areas.push(subarea('quality-checks','Puestos adicionales de control de calidad',[-29.5,-10.4,-16.5,-7.5]));
+zones.receiving.areas.push(subarea('receiving-docks','Muelles REC-01 y REC-02',[-25,21,-11,35],-1.15),subarea('receiving-connected-rollers','Entradas de pallets y colector de rodillos en L',receivingLayout.RECEIVING.bounds));
+zones.inspection.areas.push(subarea('quality-checks','Tres puestos de inspección con mesas y estantes',receivingLayout.RECEIVING.bounds));
 zones.consolidation.areas.push(subarea('order-control','Control de pedidos junto al picking',[18.5,-1.2,23.5,1.4]));
 zones.packing.areas.push(subarea('manual-packing-line','Empaque manual, encintado y etiquetado',[7.5,-5.2,23.5,-1]));
 zones.dispatch.areas.push(subarea('dispatch-docks','Muelles DES-01 y DES-02',[11,21,25,35],-1.15),subarea('front-staging','Lotes de despacho preparados',[4.3,19.4,10.7,20.8]),subarea('dispatch-control','Registro y control de expedición',[25.5,8.5,30,12]));
@@ -52,7 +53,7 @@ const LAYOUT={version:VERSION,id:ID,title:'CEDI · instalación compartida y ane
  aisles:{
   vehicleRects:[[-14,-9,-10,20],[-14,-9,29,-5],[25,-36,29,20],[-29,16,-10,20],[10,16,29,20],[-30,-22,29,-20],[-16,-36,-14,-20]],
   safePolyline:[[-22,0,18],[-12,0,18],[-12,0,-7],[27,0,-7],[27,0,18],[22,0,18]],
-  pedestrianRects:[[-31,-7,-29,20],[-29,-7,-15,-5],[29,-36,31,20],[-10,12,10,14],[-31,-37,29,-35],[29.5,3.8,33.2,6.2],[-33.2,-26.2,-29.5,-23.8]],
+  pedestrianRects:[[-31,receivingLayout.RECEIVING.pedestrianReturn[1],-29,20],receivingLayout.RECEIVING.pedestrianReturn.slice(),[29,-36,31,20],[-10,12,10,14],[-31,-37,29,-35],[29.5,3.8,33.2,6.2],[-33.2,-26.2,-29.5,-23.8]],
   pedestrianRamp:{rect:[-1.6,22,1.6,36],fromY:0,toY:-1.15,axis:'z'},
   crossings:[[-15,12,-9,13.5],[24,12,30,13.5],[-29,14,-10,15.2],[10,14,29,15.2]]
  },

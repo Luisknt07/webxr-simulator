@@ -8,6 +8,8 @@ import {buildCediFacility} from './CediFacility.js';
 import {arrangeCediPractice,applyCediOperatingData,buildCediContext} from './CediSceneComposition.js';
 import {buildPracticeMaterialFixtures} from './PracticeMaterialFixtures.js';
 import {buildPracticeEquipmentAttachments} from './PracticeEquipmentAttachments.js';
+import {buildReceivingConveyors} from './CediReceivingConveyors.js';
+import {createReceivingAnalyticsBoard} from './ReceivingAnalyticsBoard.js';
 
 const MODULE='sector.logistics-industrial';
 const TYPES=['source','conveyor','processor','palletQueue','robot','vehicle','sensor','automation','product','plc'];
@@ -108,7 +110,11 @@ export function buildConfigurablePracticeScene(doc,roomId,practiceId,options={})
   else built=buildPracticeMaterialFixtures(doc,roomId,plan,rows,objects,{add,set,queue,id,schema});
   const cediOperations=arrangeCediPractice(doc,plan,rows,built,objects,{set,facility});
   const operatingData=applyCediOperatingData(doc,plan,built,{set});
+  const receivingConveyors=buildReceivingConveyors(doc,roomId,plan,objects);
+  if(receivingConveyors)built.conveyorIds=built.conveyorIds.concat(receivingConveyors.conveyorIds);
   const cediContext=buildCediContext(doc,roomId,plan,objects,{set});
+  let receivingAnalytics;
+  if(cediContext){const board=createReceivingAnalyticsBoard(doc,roomId);objects.push(...board.objects);receivingAnalytics=Object.assign({},board);delete receivingAnalytics.objects;}
   if(built.materialRecipe){built.materialRecipe.operationReady=!!plan.availability.ready;built.materialRecipe.validatedEvidence=plan.availability.evidence||null;}
   adjustments.push(...(facility&&facility.adaptations||[]),...(built.fixtureLayoutAdjustments||[]));
   layoutOverrides(doc,plan,rows,built,adjustments);
@@ -118,6 +124,8 @@ export function buildConfigurablePracticeScene(doc,roomId,practiceId,options={})
   const settings=recipes.normalizedOptions(plan);
   const manifest=Object.assign({version:2,practiceId:plan.id,title:plan.title,caseId:plan.caseId,mode:plan.mode,difficulty:plan.difficulty,roomId,kind:'configurable',expectedUnits:plan.expectedUnits,sku:plan.id+'-ORDER',steps:plan.steps,sourceSha256:plan.sourceSha256,sourceHashes:plan.sourceHashes,plan,settings,aliases:rows,layoutElements:rows,layoutAdjustments:adjustments,stageBindings,evidenceAdapter:{kind:'workflow'},availability:plan.availability,executionRoute:route,facility:facility&&Object.fromEntries(['version','profile','bounds','openings','adaptations','costs','environment','limits','objects','outdoor'].map(key=>[key,facility[key]])),validation:{coordinateMapping:'table centre -> centred world; no dimension scaling',mappedAliases:rows.length,sourceAliases:plan.modeDescription.equipment.length,modePolicy:'exactly one selected mode; no hidden actors for other modes',rv:measure(objects),executionReady:plan.availability.ready,limits:plan.availability.reasons}},built);
   manifest.equipmentAttachments=equipmentAttachments;
+  if(receivingAnalytics)manifest.receivingAnalytics=receivingAnalytics;
+  if(receivingConveyors)manifest.receivingConveyors=receivingConveyors;
   if(cediOperations){manifest.cediOperations=cediOperations;manifest.cediContext=cediContext;manifest.operatingData=operatingData;manifest.facility.layoutId=facility.layoutId;manifest.facility.sharedLayout=facility.sharedLayout;manifest.facility.initialView=facility.initialView;manifest.executionRoute={points:facility.sharedLayout.aisles.safePolyline,referenceOnly:true,provenance:'shared-cedi-aisles; native task supplies final approach'};}
   manifest.sourceId=built.sourceIds[0]||rows[0].objectId;manifest.receiverId=built.receiverIds[0]||rows[rows.length-1].objectId;
   manifest.materialFixture={status:built.productIds.length?'native-seeded':'source-recipe-only',quantities:JSON.parse(JSON.stringify(plan.fixture)),physicalProductIds:built.productIds.slice(),notice:built.productIds.length?'Existencias físicas iniciales identificadas y conservadas por referencia. La evaluación exige además el adaptador y las pruebas del flujo; el registro no genera stock.':'Montaje de configuración: la receta de insumos está documentada; no se crean existencias ni se habilita evaluación antes de enlazar su adaptador material específico.'};

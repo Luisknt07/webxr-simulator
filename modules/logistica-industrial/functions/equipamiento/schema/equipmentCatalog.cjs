@@ -5,7 +5,7 @@ const crosswalk = require('./source-crosswalk.cjs');
 const MODULE_ID = 'sector.logistics-industrial';
 const VERSION = 1;
 const CONVEYORS = {
- 'roller-gravity':'roller-gravity','roller-box':'roller-motor','roller-pallet':'pallet-chain','flat-belt':'belt','modular-belt':'modular-incline',
+ 'roller-gravity':'roller-gravity','roller-box':'roller-motor','roller-pallet':'pallet-rollers','flat-belt':'belt','modular-belt':'modular-incline',
  'pallet-chain':'pallet-chain','zero-pressure':'roller-zones',curve:'roller-curve','popup-transfer':'popup-chain',turntable:'roller-turntable',pusher:'pusher',merge:'merge-angle',junction:'distributor','vertical-lift':'pallet-elevator','stops-guides':'loading-table'
 };
 const VEHICLES = {'manual-cart':'transport-cart','picking-cart':'transport-cart','pallet-truck-manual':'pallet-truck-manual','pallet-truck-electric':'pallet-truck-electric',stacker:'stacker',counterbalance:'forklift-electric-4w','reach-truck':'reach-truck',vna:'vna-turret','order-picker':'order-picker','tow-tractor':'tow-tractor'};

@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "aaa1ababa6d416c7b31cf2d03f02a92b1550d6bd",
-  "bundleSha256": "c0a05c8a185df08d935960e67641e01a71845080930d2cccdae654930cab1de9",
+  "revision": "e39c8e516bf3f29dc862a3ee245fae08f7f24c0a",
+  "bundleSha256": "778ec44637f13e00008ffcb3a2a537d96333a172cb9488a3186645b5a2495763",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -44,31 +44,31 @@
   "files": [
     {
       "path": "12.js",
-      "sha256": "05dd9e8c05137192f93d8f6ac183012e9db8a631b994fcd9fd582163800b7d1d"
+      "sha256": "4996c46cbc9dfc023bfe772409a0df8d5d4be500a8a87e610e123e4b9d2f418a"
     },
     {
       "path": "13.js",
-      "sha256": "c2072822f7088d824d1db8d2d8a5c2cfdcb5ab432a2aa9f85bb559102f333d98"
+      "sha256": "66227d538ba684416e0ce5e32cf93ba1a136b7df129c1bf4f687d8c3d10b250c"
     },
     {
       "path": "14.js",
-      "sha256": "39b61991077aa8212f0dddfd446105e49114a2fe9cc8308eac01be21dc4a9943"
+      "sha256": "d94f3ba2efb64faff9dd85778fe9f6b28bbbf718ab7c65eff6fdb8239db553e1"
     },
     {
       "path": "15.js",
-      "sha256": "4cae736b7d3fd46d6f972a4103fb4c67bc364deffd7dfb4c39d8cba24e770db6"
+      "sha256": "3010b122c68805f7dd9653ad82b56836d1170349ce6998ef0a0a102b88b9efab"
     },
     {
       "path": "16.js",
-      "sha256": "f6213c07d6e18992cd09073a1aa901bcee1a7456c62c1c6500a07064036ab9ff"
+      "sha256": "56cd8314be9d89bbbddb625e356842e0d8ca4db15a669449c138f681d4f6a3f5"
     },
     {
       "path": "17.js",
-      "sha256": "c13dbe201c583d468b0892caa88ceb23d8974a8e6a8cb6aaa6be407a888bdccf"
+      "sha256": "944f104c4609a63300fffc2300350c23b5454bd137e90641ba19aab2bddac42b"
     },
     {
       "path": "3.js",
-      "sha256": "9b538390bbdcd4df4dc4ee75d40a2d20712eae82fc804068a0ea80fe0f940596"
+      "sha256": "a86afc13b69c6b6add69d389a36720f5e65610e3999a07e3efdad296cac62567"
     },
     {
       "path": "apps/workspace/scenario-library.css",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "c0a05c8a185df08d935960e67641e01a71845080930d2cccdae654930cab1de9"
+      "sha256": "778ec44637f13e00008ffcb3a2a537d96333a172cb9488a3186645b5a2495763"
     },
     {
       "path": "cad-worker.js",
@@ -104,7 +104,7 @@
     },
     {
       "path": "configurable-practice-reference.js",
-      "sha256": "0d1543742d73cd4770d2ac3e27ab5b0601163ba4cb2c041f79c4a6f0c5440d25"
+      "sha256": "1f46811083827acce6b238b4d456e6b987c7a3892a0af6554997d347f3a53511"
     },
     {
       "path": "editor-tools.json",
@@ -116,23 +116,23 @@
     },
     {
       "path": "logistics-documentation.js",
-      "sha256": "2fe55fe375c2b6925feaf5b8a063771c95e9df810b7ec227ce4d3a3c2c04b7d3"
+      "sha256": "3cc1c74d81928bd9f829af7c4d445478cba1711233fe5bfbaf0c7a0d42405240"
     },
     {
       "path": "logistics-equipment-workspace.js",
-      "sha256": "ba7bc42180de5c0d70d9672de1ea3048381d9a021266fc75b1c59d82ae05093b"
+      "sha256": "6f8ee8383324a510d0277fe32a55cf734def0d925339a8f7d0fe51b904733b1d"
     },
     {
       "path": "logistics-practice-browser.js",
-      "sha256": "b1ae1a24f046570580693a1011a6178853d3c3fcb41bead9983f8a5dc107b18a"
+      "sha256": "64f94b336344bae1cc3225d563b48d494d418899e2f463e71dc56879456d39c6"
     },
     {
       "path": "logistics-practice-index.js",
-      "sha256": "b91c525a41824c6fc279bbfb81ceb32fdada25710621e5c435f99c41822a36b2"
+      "sha256": "41fd50f2634286af5d6e8116af19bb36159c39870b24f5c6338c6afd520d8ab2"
     },
     {
       "path": "logistics-practice-scenes.js",
-      "sha256": "69eb5de25dd7cc5268aeba923fe6eb233a21265d19b83cb5c8bd9009870b6c4c"
+      "sha256": "e1aedb03eb4f32f4b66509d2978f0de45961e3e7003f21b54534834745d3dcca"
     },
     {
       "path": "mesh-optimizer-worker.js",
@@ -3320,11 +3320,11 @@
     },
     {
       "path": "nexus-equipment-reference.js",
-      "sha256": "057dd0d1ba7886b271f5daedb8cdcaec5de967d6dae5cf91c983e7986e4ba39d"
+      "sha256": "bfaf8cd9da024e0777a298ee831426c303e73634c7a0b2c591516566620e54c5"
     },
     {
       "path": "nexus-practices-reference.js",
-      "sha256": "6c8517b1cb44b88f0adac4b5fa51d4d983cb23ef46479c4a78e3448c8fa1222f"
+      "sha256": "f144c444ea7e3be56cf6651a7dafc92eee33caa818ade7895062c4a79cabe735"
     },
     {
       "path": "packages/assistant-ui/assistant-workspace.css",
@@ -3460,7 +3460,7 @@
     },
     {
       "path": "packages/tools/editor/assets/catalog.json",
-      "sha256": "20d79ca4edc2890827495c6837a166d37d8f4deb99377f5e0e17bc77dcbb91ba"
+      "sha256": "42cf31c1d9d9f22ccc0bba4f880bb560c68e83b9c95e1673d1cd5dcfc14f4dea"
     },
     {
       "path": "packages/tools/editor/assets/previews/blend_0f68dad69a763090.png",
@@ -3576,7 +3576,7 @@
     },
     {
       "path": "practice-configuration-preview.js",
-      "sha256": "dc18501f24ad20d38959710f6be2ca355fa1ae1fd9462e9851214840fb7461c9"
+      "sha256": "b0ade2eed2f7cd969b579882fbdc36157d522c37d6ed259f50ffd1724ca5ca32"
     },
     {
       "path": "projects/smarttwin/branding/apple-touch-icon-114x114.png",
@@ -3772,15 +3772,15 @@
     },
     {
       "path": "projects/smarttwin/scenes/advanced-packing.json",
-      "sha256": "cefaa7e8f636e2f8b64957248e71b8898577dc2f5a7b51baeaecaf90f863c327"
+      "sha256": "6ad4a2e2b8e919642fbac2d0a1900a95218ea8c0ca59ac5670098442ee2a5660"
     },
     {
       "path": "projects/smarttwin/scenes/advanced-pallets.json",
-      "sha256": "b72604906670cbfef76e8c34c286a5eb602f1d0567a0bec6bf567327779bbe0b"
+      "sha256": "0df53562173021342f73c1a31b6d25af1733e689fea29c116d16f237d59b09a5"
     },
     {
       "path": "projects/smarttwin/scenes/advanced-rework.json",
-      "sha256": "0ace9e9987b304e3a1e273a982121bcd098605777ffa42bea7d7a2fba903acd7"
+      "sha256": "92d5ac9498cb0ddf2f35ef6668c2a3bc0927afa6849efe4cc347855f1f120cc1"
     },
     {
       "path": "projects/smarttwin/scenes/catalog.json",
@@ -3788,115 +3788,115 @@
     },
     {
       "path": "projects/smarttwin/scenes/cedi-packing-robotics.json",
-      "sha256": "306720a3fa3a209f2e742ceb5ed0c3ef46f59ea89ddd25454386bd2501465553"
+      "sha256": "429f030618f60a60402f29af2a327ba88adadb23a6317bdedef05baf33fe546a"
     },
     {
       "path": "projects/smarttwin/scenes/cedi-packing.json",
-      "sha256": "e3150affdbd75adcfe504dfcff8d79511e703d5c9f4e55f395fb1160fe15620f"
+      "sha256": "eb9e406081aa41a48a8729936a91027326d541ab4056bdb3b16bc1ea5b035c07"
     },
     {
       "path": "projects/smarttwin/scenes/cedi-sorting-robotics.json",
-      "sha256": "ad7a093061111fe276d0a1ce75546aaee93c0df668a3dfaaeec4424226f7052c"
+      "sha256": "755fc1c7079896c040434f3ba938ee486f047c085b016c6f053e0fd01e44bfc8"
     },
     {
       "path": "projects/smarttwin/scenes/cedi-sorting.json",
-      "sha256": "e8474871d8de25f3e238ea22bb4e8fc598028d837d125c47e6012872df3d66de"
+      "sha256": "987beca76a5a256976b66baa4285e5dd6a6471b91c32bd5ba0143ba47fe41895"
     },
     {
       "path": "projects/smarttwin/scenes/forklift-training.json",
-      "sha256": "888cd675eec7c1a008407db2caf44ff387e0bcd18cd3e441159114f0dfdcac0a"
+      "sha256": "192247637eea1ce682977038e469a72ddc6e37a07ee1be48a608b9f9ec5eadfa"
     },
     {
       "path": "projects/smarttwin/scenes/industrial-lab-complete.json",
-      "sha256": "2449967b21a56ffc185b38da4f0d65d2933f4c0fed6a896bb6897d687084d243"
+      "sha256": "1aa452e657c912cacf6aee2da8cdb34fd80788945534a7f9b54c6f2e65cb3eb9"
     },
     {
       "path": "projects/smarttwin/scenes/inspection-sorting.json",
-      "sha256": "664ffdad2cbe2bbee8c585b1a638e89aaaf958c563ecf8f94c8eaa53cd80a1bd"
+      "sha256": "52418bcc3d1df4d12971e181b8e43319deac3bef550710c332620bf757360305"
     },
     {
       "path": "projects/smarttwin/scenes/l-transfer.json",
-      "sha256": "9f4adf10f26b4c3e75ce6f4ca6756fd5a1f701a8202cde082f546f39f3ec7629"
+      "sha256": "4583dea5478524f9ec0e29bf5dc82b8e8b66e7da4d8d0b571beb3591fa2b84aa"
     },
     {
       "path": "projects/smarttwin/scenes/lab-assembly.json",
-      "sha256": "84f1dba071070376e2c4024776f15aaf408e0fae360fb4e640971623bc036a82"
+      "sha256": "c2da42ca8bf220fcad24bd3f1bca9af28417f40633eb23fc0b1a320067a85a27"
     },
     {
       "path": "projects/smarttwin/scenes/lab-elevator.json",
-      "sha256": "ad304f4f2a833ee3d1a803b62aeabb18fae2b902015bcf699870f7b0cafe84e4"
+      "sha256": "cc97bb090209fec0d8e6cfa734d5571288969ac4774e0424718ba21f6ab3079d"
     },
     {
       "path": "projects/smarttwin/scenes/lab-gravity.json",
-      "sha256": "8777a01e66d157abf499d1f554af5c6dae6b01bb22745b271d52bbb5bd28d572"
+      "sha256": "6ef9ea17b25e1c34f7eeb648c2c1d5adc52c9c0e46b93aedd0b10eb4af38bce4"
     },
     {
       "path": "projects/smarttwin/scenes/lab-manual-l.json",
-      "sha256": "fbb4e075f83b4725e4eb6324cbcc11cb4172d874c5039fc485b280df092420cc"
+      "sha256": "23ae0be5940a05885c3627a7bae556bb16c9bed18335df13e6018a6783f3f7b7"
     },
     {
       "path": "projects/smarttwin/scenes/lab-merge.json",
-      "sha256": "52088230de264de85ac1fe0e5bc563ac75e2495156c693b16ca385854f4bf6d1"
+      "sha256": "4d3772f9eb10e97de37cb88a1dff6270ecae4cc052667156e2a8179e6026801c"
     },
     {
       "path": "projects/smarttwin/scenes/lab-pallets.json",
-      "sha256": "4ff26ed6532755b314f6ec9d0387bf8bf55ad1bb38b30ba874fa3722db250734"
+      "sha256": "72fd90a35da37d5cb6e14477408f431fb33615d7214d156805a4db9f1ad4f394"
     },
     {
       "path": "projects/smarttwin/scenes/lab-rectangle.json",
-      "sha256": "7d2bde285e08fd55ce3d5f64f139812e912b45a8ae698ff140d166ecc970286c"
+      "sha256": "75feaee48666443e6c2af024d3f28fb96cfa04045edc3aec91c8f94a1aa5d552"
     },
     {
       "path": "projects/smarttwin/scenes/manual-station.json",
-      "sha256": "c5086aca49eb343a5a53d45e22273ae0a30f80d8ab1513968e89573d983ebceb"
+      "sha256": "c9b51dcaebbded1baf0d3399a7155a3c52eee9d05496a2f4d80ced42708d4bf7"
     },
     {
       "path": "projects/smarttwin/scenes/original-hall.json",
-      "sha256": "3245735dedc00294e74fecf0eb15dc12867a94d494a9b3a7bc3e484f18fc7591"
+      "sha256": "1641cf3927e830656538bfe1b56b889dc59719d488b49661a37ac8f067a228d8"
     },
     {
       "path": "projects/smarttwin/scenes/original-panorama1.json",
-      "sha256": "81bc9b5a277772522e59149a490195d5fed464319d0c6859469cadc11179c957"
+      "sha256": "d0cafb6b28b1bd136b11fc5eac5c7c2f09298c0e3c3af0f8e5895aa7fd211121"
     },
     {
       "path": "projects/smarttwin/scenes/original-panorama2.json",
-      "sha256": "61bd8d36100a015642b29f3e56eaf067979552a5e1d01de7a648aecba70fb703"
+      "sha256": "bb4181b44ad4d3dda47b2159672207a152b299a6fee2a401d06cfdb7800c64cf"
     },
     {
       "path": "projects/smarttwin/scenes/original-panorama3.json",
-      "sha256": "b217a878579ae1d6f47acfd94b91f5f6f4c4df4dbc6da7473f70d6ec00f36c87"
+      "sha256": "febf838715de06bfab3ac172e0dad395d817de06b7b0171b84b701a36179af44"
     },
     {
       "path": "projects/smarttwin/scenes/original-panorama4.json",
-      "sha256": "8685051f98114114d091235b4ae0ebd6402aabdff64df78f85a97399d2eeaf0c"
+      "sha256": "d6510ae39cd0d8d71cedc013687e85419102b4b9ddfd5de2386b45368dcf0356"
     },
     {
       "path": "projects/smarttwin/scenes/original-panorama5.json",
-      "sha256": "b3c8ebf1d771ac8c20c0add16fe7e7ff4511146250b178072aed788fa7098e1c"
+      "sha256": "01473b99e3c6a8e70bf634e2649fa29ad8c1278c7f63925c6b1b6f9d17ef2e3c"
     },
     {
       "path": "projects/smarttwin/scenes/original-panoramastereo.json",
-      "sha256": "5a89dd9ba493560c452a161ce52cef99ed6fbc04d14352601fb710586a8688cb"
+      "sha256": "7148cefc881c832977b941fe3c59067128b25de0d858fbed235b29e5e8de5443"
     },
     {
       "path": "projects/smarttwin/scenes/original-photogrammetry.json",
-      "sha256": "e489d61cf95a15076cea72d106cb67a6c2c96d180f1846214cdc759009cfab2f"
+      "sha256": "26a0225d0ae0e795d5cb0ff6c8c9b48c036556fa925be14df14a947f4942a3af"
     },
     {
       "path": "projects/smarttwin/scenes/original-sound.json",
-      "sha256": "67ff6c3cbfbd82488a52ae467512d29c494561ef584ff6a50b56fbe77cef3e52"
+      "sha256": "ccb134045690c20838b8e22ff9086cc0390c2c01549e26a5a674f0a20054ad7a"
     },
     {
       "path": "projects/smarttwin/scenes/original-vertigo.json",
-      "sha256": "29e1c5b1b2491e799c5b66a1d528927d830b3d6ab3a16f258130b765a51d52e4"
+      "sha256": "1ff4947a749f30e95054c6ffc94e800757eb9393b730742c04548e09d9f35c6a"
     },
     {
       "path": "projects/smarttwin/scenes/robot-handling-line.json",
-      "sha256": "dd84d736bab11b44746003ac593394627d833061c096475875f27303e3a433ab"
+      "sha256": "e3900b67e3d79937022f7af536efd38370d81bea39524807f3a6eb7a4690fc6d"
     },
     {
       "path": "projects/smarttwin/scenes/robot-scara-sorting.json",
-      "sha256": "96803931b22fd2b236a53d918c13a50281e973b96d973e87d1edec252085750f"
+      "sha256": "243317c62792d289e5b3e809de17c98afab7cfe52707268cb0fb0860c8b2c1ef"
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-dispatch.json",
@@ -3912,17 +3912,17 @@
     },
     {
       "path": "projects/smarttwin/scenes/vr-warehouse-missions.json",
-      "sha256": "42fa406ab46dd834562f11bbc77814d7fa9aed81c09ad9de2534f7c9a173feed"
+      "sha256": "3050b674e8d88348068eca45ed8ddd8b1cf4e0527d804063e45c01e5be7bb2a7"
     },
     {
       "path": "scenario-library.js",
-      "sha256": "c91117afb2016d3e169087d66a88d1804be194f03ae75cc4cf47d8425ff43760"
+      "sha256": "464b16e2d51a5eb209ebcc4989ff76de144d8b2c31cbcddb085673377154b603"
     }
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "b8e31b7b0cee45aa5c6b",
-    "statsSha256": "41ede18654b2cbc3868cb29a51b6128bd4c83f12fa62d3d2fa7851b25dc87c05",
+    "hash": "7b97b0463614b4e11dcb",
+    "statsSha256": "c229d01c6ed237a6fec8ef28144868b6f69dbb664e732a5d7eb5d4ec52ab9203",
     "assets": [
       {
         "path": "12.js",
@@ -3954,7 +3954,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7009640
+        "size": 7025459
       },
       {
         "path": "configurable-practice-reference.js",
@@ -3978,7 +3978,7 @@
       },
       {
         "path": "logistics-practice-scenes.js",
-        "size": 724423
+        "size": 730975
       },
       {
         "path": "nexus-equipment-reference.js",
@@ -3990,11 +3990,11 @@
       },
       {
         "path": "practice-configuration-preview.js",
-        "size": 3135155
+        "size": 3150455
       },
       {
         "path": "scenario-library.js",
-        "size": 845896
+        "size": 849610
       }
     ]
   }

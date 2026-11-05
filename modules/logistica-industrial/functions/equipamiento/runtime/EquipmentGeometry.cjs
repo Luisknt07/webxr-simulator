@@ -6,7 +6,7 @@ const surfaces = require('./EquipmentSurfaces.cjs');
 const VERSION = 2;
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 const finite = (v,f)=>Number.isFinite(v)?v:f;
-const NATIVE_TRANSPORT = new Set(['roller-gravity','roller-box','flat-belt','modular-belt','pallet-chain','zero-pressure','curve','popup-transfer','turntable','pusher','merge','junction','vertical-lift','stops-guides']);
+const NATIVE_TRANSPORT = new Set(['roller-gravity','roller-box','roller-pallet','flat-belt','modular-belt','pallet-chain','zero-pressure','curve','popup-transfer','turntable','pusher','merge','junction','vertical-lift','stops-guides']);
 const NATIVE_STORAGE = new Set(['selective','double-deep','drive-in','drive-through','push-back','pallet-flow','carton-flow','cantilever','mobile','light-medium','mezzanine','vertical-lift','miniload','block']);
 const NATIVE_PRODUCTS = new Set(['wood-pallet','plastic-pallet','standard-pallet','loaded-pallet','carton','tote','roll-container','sack','drum','bottle-can-tray','discrete-part','metal-part','fragile-electronic','textile','hazardous']);
 function keepNative(def) {

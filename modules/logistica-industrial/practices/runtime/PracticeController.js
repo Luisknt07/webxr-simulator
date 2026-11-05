@@ -2,6 +2,7 @@ import sessionSchema from '../schema/PracticeSession.cjs';
 import PracticePanel from '../ui/PracticePanel.js';
 import progressSchema from '../schema/PracticeProgress.cjs';
 import ConfigurablePracticeRuntime from '../configurable/runtime/ConfigurablePracticeRuntime.js';
+import ReceivingAnalyticsBoard from '../configurable/runtime/ReceivingAnalyticsBoard.js';
 
 const MODULE='sector.logistics-industrial';
 const total=queue=>(queue||[]).reduce((sum,entry)=>sum+(entry.units||1),0);
@@ -17,6 +18,7 @@ export default class PracticeController{
   if(manifest.caseId==='C'&&!this.workflow){this.faultInjected=true;this.machineRecords().forEach(record=>{if(record.components.processor||record.components.robot||record.components.vehicle||record.components.conveyor)this.runtime.setVariable(record.id,'emergency',true);});}
   this.session=new sessionSchema.PracticeSession(this.config,{snapshot:()=>this.snapshot(),onEvent:event=>{this.runtime.event(this.config.sourceId,'practice-'+event.type,this.plan.id+' · '+event.type);if(event.type==='practice-passed'){this.lastMessage='Práctica aprobada · '+event.score+' puntos.';if(this.campaign)Promise.resolve().then(()=>this.recordCompletion());}}});
   if(options.panel!==false&&typeof document!=='undefined')this.panel=new PracticePanel({controller:this,host:options.host||document.body});
+  if(manifest.receivingAnalytics){this.receivingAnalytics=new ReceivingAnalyticsBoard(editor,manifest);this.receivingAnalytics.update(this.workflow&&manifest.practiceId==='CEDI-01'?()=>this.workflow.snapshot():null);}
  }
  current(){return!this.disposed&&(!this.options.isCurrent||this.options.isCurrent()===true)&&(!this.editor.projectModules||this.editor.projectModules.canShowLevel('sector.logistics-industrial'))&&this.runtime.active!==false&&this.runtime.runSequence===this.runtimeRun&&this.editor.projectGeneration===this.projectGeneration&&this.editor.roomId===this.roomId&&(this.editor.currentProject&&this.editor.currentProject.id||'')===this.projectId;}
  records(ids){return(ids||[]).map(id=>this.runtime.records.get(id)).filter(Boolean);}
@@ -84,7 +86,7 @@ export default class PracticeController{
    this.session.observe();if(this.panel)this.panel.update();return true;
   }catch(error){if(['record','diagnose','change-tool','workflow-command'].includes(action))this.session.reject(action,error.message);this.lastMessage=error.message;if(this.panel)this.panel.update();return false;}
  }
- update(){if(!this.current())return;if(this.workflow&&this.workflow.update)this.workflow.update();this.session.observe();this.narrate();if(this.panel&&(!this.panelNextAt||Date.now()>=this.panelNextAt)){this.panelNextAt=Date.now()+125;this.panel.update();}}
+ update(){if(!this.current())return;if(this.workflow&&this.workflow.update)this.workflow.update();this.session.observe();this.narrate();if(this.receivingAnalytics)this.receivingAnalytics.update(this.workflow&&this.manifest.practiceId==='CEDI-01'?()=>this.workflow.snapshot():null);if(this.panel&&(!this.panelNextAt||Date.now()>=this.panelNextAt)){this.panelNextAt=Date.now()+125;this.panel.update();}}
  narrate(){const settings=this.config.settings,voice=this.editor.ctx&&this.editor.ctx.voiceAssistant;if(!settings||!settings.helps.voice||!voice||typeof voice.speak!=='function')return;const step=this.config.steps[this.session.done.length],key=this.attemptId+':'+(step?step.id:'passed');if(this.narratedKey===key||this.voiceRetryAt&&Date.now()<this.voiceRetryAt||voice.value&&voice.value.listening)return;if(typeof voice.setEnabled==='function'&&!this.voiceActivated){voice.setEnabled(true);this.voiceActivated=true;}const text=step?step.title+'. '+step.action:this.session.state().passed?'Práctica aprobada. El resultado se guardará en tu cuenta.':'';if(voice.speak(text,undefined,key))this.narratedKey=key;else this.voiceRetryAt=Date.now()+5000;}
 
  completionReceipt(){return progressSchema.receipt(this.config,this.session,{attemptId:this.attemptId,routeId:this.campaign&&this.campaign.routeId,sourceSha256:this.plan.sourceSha256||progressSchema.SOURCE_SHA256});}
@@ -99,5 +101,5 @@ export default class PracticeController{
  exit(){return this.current()&&this.options.onExit&&this.options.onExit();}
  configure(){return this.current()&&this.options.onConfigure&&this.options.onConfigure();}
  restart(settings){if(!this.current())return false;if(this.options.onRestart)return this.options.onRestart(settings);if(settings){this.lastMessage='Cambia la configuración desde el anfitrión para crear un intento nuevo.';return false;}this.editor.stopRuntime();this.editor.startRuntime();}
- dispose(){this.disposed=true;const voice=this.editor.ctx&&this.editor.ctx.voiceAssistant;if(voice&&voice.activeAutomaticKey&&voice.activeAutomaticKey.indexOf(this.attemptId+':')===0&&voice.stop)voice.stop(false);if(this.workflow&&this.workflow.dispose)this.workflow.dispose();if(this.panel)this.panel.dispose();}
+ dispose(){this.disposed=true;const voice=this.editor.ctx&&this.editor.ctx.voiceAssistant;if(voice&&voice.activeAutomaticKey&&voice.activeAutomaticKey.indexOf(this.attemptId+':')===0&&voice.stop)voice.stop(false);if(this.receivingAnalytics)this.receivingAnalytics.dispose();if(this.workflow&&this.workflow.dispose)this.workflow.dispose();if(this.panel)this.panel.dispose();}
 }

@@ -7,9 +7,41 @@ const within=(object,owner)=>{for(let node=object;node;node=node.parent)if(node=
 const safeMaterial=material=>material&&!Array.isArray(material)&&material.visible!==false&&!material.transparent&&material.opacity===1&&!material.skinning&&!material.morphTargets&&!material.isShaderMaterial&&!material.isRawShaderMaterial&&!(material.clippingPlanes&&material.clippingPlanes.length)&&
  (material.onBeforeCompile===THREE.Material.prototype.onBeforeCompile||material.staticInstanceBatchShader===material.onBeforeCompile)&&
  Object.values(material).every(value=>!value||!value.isTexture||!value.isCanvasTexture&&!value.isVideoTexture&&!value.isRenderTargetTexture)&&!material.displacementMap;
-const tintable=object=>{const m=object.material;return !object.geometry.attributes.color&&(m.isMeshStandardMaterial||m.isMeshBasicMaterial)&&!m.vertexColors&&!m.alphaTest&&m.onBeforeCompile===THREE.Material.prototype.onBeforeCompile&&(!m.emissive||m.emissive.getHex()===0)&&Object.values(m).every(value=>!value||!value.isTexture);};
+const manufacturedTexture=texture=>texture&&texture.isDataTexture&&/^Microacabado fabricado \/ /.test(texture.name)&&texture.image&&ArrayBuffer.isView(texture.image.data)&&!texture.mipmaps.length&&!texture.onUpdate;
+const tintable=(object,textured=false)=>{const m=object.material;return !object.geometry.attributes.color&&(m.isMeshStandardMaterial||m.isMeshBasicMaterial)&&!m.vertexColors&&!m.alphaTest&&m.onBeforeCompile===THREE.Material.prototype.onBeforeCompile&&(!m.emissive||m.emissive.getHex()===0)&&Object.values(m).every(value=>!value||!value.isTexture||textured&&manufacturedTexture(value));};
+// Explicit opt-in only: unify byte-identical immutable factory microfinishes
+// inside a separately editable actor, including after document reconstruction.
+// No displays, moving roller maps or textures owned by another actor are pooled.
+function poolManufacturedTextures(actor){
+ const buckets=new Map(),seen=new Set(),retired=new Set();
+ const properties=t=>JSON.stringify(['format','type','mapping','wrapS','wrapT','magFilter','minFilter','anisotropy','encoding','flipY','premultiplyAlpha','unpackAlignment','generateMipmaps','matrixAutoUpdate','rotation'].map(key=>t[key]).concat([t.offset.toArray(),t.repeat.toArray(),t.center.toArray(),t.matrix.elements]));
+ const bytes=t=>new Uint8Array(t.image.data.buffer,t.image.data.byteOffset,t.image.data.byteLength);
+ actor.traverse(node=>{
+  for(let p=node;p&&p!==actor;p=p.parent){const d=p.userData||{};if(d.industrialRoller||d.industrialBelt||d.industrialDisplay)return;}
+  for(const m of Array.isArray(node.material)?node.material:node.material?[node.material]:[]){if(seen.has(m))continue;seen.add(m);
+   for(const key of Object.keys(m)){const t=m[key];if(!manufacturedTexture(t))continue;const data=bytes(t);let hash=2166136261;for(const byte of data)hash=Math.imul(hash^byte,16777619);
+    const signature=[t.image.width,t.image.height,data.length,hash>>>0,properties(t)].join('|'),bucket=buckets.get(signature)||[],same=bucket.find(candidate=>{const other=bytes(candidate);return other.length===data.length&&other.every((value,i)=>value===data[i]);});
+    if(same&&same!==t){m[key]=same;retired.add(t);}else if(!same){bucket.push(t);buckets.set(signature,bucket);}
+   }
+  }
+ });
+ actor.traverse(node=>{for(const m of Array.isArray(node.material)?node.material:node.material?[node.material]:[])for(const value of Object.values(m))if(value&&value.isTexture)retired.delete(value);});retired.forEach(texture=>texture.dispose());
+}
 const attrs=geometry=>Object.keys(geometry.attributes).sort();
 const signature=geometry=>attrs(geometry).map(name=>{const a=geometry.attributes[name];return name+':'+a.itemSize+':'+a.normalized+':'+a.array.constructor.name;}).join('|');
+// Lossless indexing for opted-in manufactured banks. A vertex may be reused
+// only when EVERY attribute byte is identical: seams, hard normals, UVs and
+// linear tint colours remain distinct. Original editor geometry is untouched.
+function compactVertexTuples(geometry){
+ const names=attrs(geometry),attributes=names.map(name=>geometry.attributes[name]),views=attributes.map(a=>new Uint8Array(a.array.buffer,a.array.byteOffset,a.array.byteLength)),strides=attributes.map(a=>a.itemSize*a.array.BYTES_PER_ELEMENT),count=geometry.attributes.position.count,keys=new Map(),vertices=[],remap=new Uint16Array(count);
+ for(let i=0;i<count;i++){
+  let key='';for(let a=0;a<views.length;a++){const bytes=views[a],start=i*strides[a],end=start+strides[a];for(let n=start;n<end;n++)key+=String.fromCharCode(bytes[n]);}
+  let index=keys.get(key);if(index===undefined){index=vertices.length;keys.set(key,index);vertices.push(i);}remap[i]=index;
+ }
+ if(vertices.length===count)return;
+ for(let a=0;a<names.length;a++){const original=attributes[a],array=new original.array.constructor(vertices.length*original.itemSize);for(let i=0;i<vertices.length;i++)for(let k=0;k<original.itemSize;k++)array[i*original.itemSize+k]=original.array[vertices[i]*original.itemSize+k];geometry.setAttribute(names[a],new THREE.BufferAttribute(array,original.itemSize,original.normalized));}
+ const source=geometry.index,indices=new Uint16Array(source.count);for(let i=0;i<source.count;i++)indices[i]=remap[source.getX(i)];geometry.setIndex(new THREE.BufferAttribute(indices,1));
+}
 const protectedSubtree=data=>data.editorHelper||data.editorRuntimeHelper||data.industrialAction||data.industrialButton||data.industrialDisplay||/vehicle\.(?:steering|controls)/.test(data.equipmentComponentId||'');
 const rigidBoundary=(object,anchors)=>{const data=object.userData||{};return anchors.has(object)||data.robotJoint||/^vehicle\./.test(data.equipmentComponentId||'')||data.robotRig||data.vehicleRig||data.warehouseRackRig;};
 function rigidPlacement(object,owner,excluded,anchors){
@@ -47,7 +79,7 @@ function geometryView(sources){
   for(const name of names){const first=parts[0].attributes[name],count=parts.reduce((sum,g)=>sum+g.attributes[name].array.length,0),array=new first.array.constructor(count);let offset=0;for(const part of parts){array.set(part.attributes[name].array,offset);offset+=part.attributes[name].array.length;}out.setAttribute(name,new THREE.BufferAttribute(array,first.itemSize,first.normalized));}
   const count=parts.reduce((sum,g)=>sum+(g.index?g.index.count:g.attributes.position.count),0),indices=new Uint16Array(count);let vertex=0,index=0;
   for(const part of parts){const n=part.index?part.index.count:part.attributes.position.count;for(let i=0;i<n;i++)indices[index++]=vertex+(part.index?part.index.getX(i):i);vertex+=part.attributes.position.count;}
-  out.setIndex(new THREE.BufferAttribute(indices,1));out.computeBoundingBox();out.computeBoundingSphere();return out;
+  out.setIndex(new THREE.BufferAttribute(indices,1));if(sources.some(source=>source.compact))compactVertexTuples(out);out.computeBoundingBox();out.computeBoundingSphere();return out;
  }catch(error){out.dispose();throw error;}finally{parts.forEach(g=>g.dispose());}
 }
 
@@ -90,14 +122,20 @@ export default class RuntimeNativeRenderBanks {
     o.onBeforeRender!==THREE.Object3D.prototype.onBeforeRender||o.onAfterRender!==THREE.Object3D.prototype.onAfterRender||o.customDepthMaterial||o.customDistanceMaterial||g.drawRange.start!==0||g.drawRange.count!==row.drawCount||g.index!==row.index||g.index&&g.index.version!==row.indexVersion||attrs(g).length!==row.names.length||row.names.some((name,i)=>g.attributes[name]!==row.attributes[i]||g.attributes[name].version!==row.versions[i]))return false;
   }return true;
  }
- sync(objects,{editing=false,enabled=true,version=0,staticObjects=[]}={}){
+ sync(objects,{editing=false,enabled=true,version=0,staticObjects=[],texturedTintObjects=[]}={}){
   if(editing||!enabled){if(this.sources.length)this.reset();return;}
   const native=objects.filter(object=>object&&KINDS.has(object.userData.editorPrefabKey)),staticRoots=staticObjects.slice(0,128).filter(object=>object&&object.parent&&object.userData.editorDescriptor&&object.userData.editorDescriptor.type==='cad'&&native.some(owner=>within(owner,object.parent))),roots=[...new Set(native.concat(staticRoots))],staticSet=new Set(staticRoots);
-  if(this.unchanged(roots,version))return;
-  this.clear();const groups=new Map(),seen=new Set(),owners=new Map(),placements=new Map(),tints=new Map(),materialKeys=new Map(),anchors=collectRigAnchors(roots);let count=0;
+  const texturedIds=new Set(texturedTintObjects.map(value=>typeof value==='string'?value:value&&value.userData.editorId)),texturedRoots=new Set(roots.filter(root=>root.userData.cediReceiving||texturedIds.has(root.userData.editorId))),tintScope=Array.from(texturedRoots,root=>root.userData.editorId).sort().join('|');
+  if(this.tintScope===tintScope&&this.unchanged(roots,version))return;
+  this.clear();this.tintScope=tintScope;texturedRoots.forEach(poolManufacturedTextures);
+  const groups=new Map(),seen=new Set(),owners=new Map(),placements=new Map(),tints=new Map(),materialKeys=new Map(),anchors=collectRigAnchors(roots);let count=0;
+  // Keep a mirrored drive's handedness on its ORIGINAL parent. Baking a
+  // negative matrix would reverse winding, so group positive local children
+  // beneath that parent instead. The same boundary preserves moving lifts.
+  texturedRoots.forEach(root=>root.traverse(node=>{if(node.matrixAutoUpdate)node.updateMatrix();if(node.matrix.determinant()<0||node.userData.industrialConveyorMechanism)anchors.add(node);}));
   for(const root of roots)root.traverse(object=>{
    if(count>=MAX_SOURCES||seen.has(object)||this.excluded.has(object)||!eligible(object))return;const owner=staticSet.has(root)?root.parent:root,placement=rigidPlacement(object,owner,this.excluded,anchors);if(!placement)return;seen.add(object);owners.set(object,owner);placements.set(object,placement);count++;
-   if(!materialKeys.has(object.material))materialKeys.set(object.material,this.materialKey(object.material));const tint=!placement.control&&tintable(object);tints.set(object,tint);
+   if(!materialKeys.has(object.material))materialKeys.set(object.material,this.materialKey(object.material));const tint=!placement.control&&tintable(object,texturedRoots.has(root));tints.set(object,tint);
    const key=[this.id(placement.anchor),tint?'tint:'+this.materialKey(object.material,true):'exact:'+materialKeys.get(object.material),object.layers.mask,object.castShadow,object.receiveShadow,object.renderOrder,signature(object.geometry)].join(':');
    if(!groups.has(key))groups.set(key,[]);groups.get(key).push(object);
   });
@@ -105,7 +143,7 @@ export default class RuntimeNativeRenderBanks {
    let chunk=[],vertices=0;
    const flush=()=>{
     if(chunk.length<2){chunk=[];vertices=0;return;}
-    const rows=chunk.map(object=>({object,tint:tints.get(object),owner:owners.get(object),parent:object.parent,anchor:placements.get(object).anchor,path:placements.get(object).path,placed:placements.get(object).matrix,mask:object.layers.mask,matrix:object.matrix.clone(),geometry:object.geometry,material:object.material,shader:object.material.onBeforeCompile,castShadow:object.castShadow,receiveShadow:object.receiveShadow,order:object.renderOrder,drawCount:object.geometry.drawRange.count,index:object.geometry.index,indexVersion:object.geometry.index&&object.geometry.index.version,names:attrs(object.geometry),attributes:attrs(object.geometry).map(name=>object.geometry.attributes[name]),versions:attrs(object.geometry).map(name=>object.geometry.attributes[name].version)}));
+    const rows=chunk.map(object=>({object,tint:tints.get(object),compact:texturedRoots.has(owners.get(object)),owner:owners.get(object),parent:object.parent,anchor:placements.get(object).anchor,path:placements.get(object).path,placed:placements.get(object).matrix,mask:object.layers.mask,matrix:object.matrix.clone(),geometry:object.geometry,material:object.material,shader:object.material.onBeforeCompile,castShadow:object.castShadow,receiveShadow:object.receiveShadow,order:object.renderOrder,drawCount:object.geometry.drawRange.count,index:object.geometry.index,indexVersion:object.geometry.index&&object.geometry.index.version,names:attrs(object.geometry),attributes:attrs(object.geometry).map(name=>object.geometry.attributes[name]),versions:attrs(object.geometry).map(name=>object.geometry.attributes[name].version)}));
     const geometry=geometryView(rows),bytes=Object.values(geometry.attributes).reduce((n,a)=>n+a.array.byteLength,geometry.index.array.byteLength);
     if(this.stats.bufferBytes+bytes>MAX_BYTES){geometry.dispose();chunk=[];vertices=0;return;}
     const first=rows[0],material=first.tint?first.material.clone():first.material;if(first.tint){material.color.setRGB(1,1,1);material.vertexColors=THREE.VertexColors;}

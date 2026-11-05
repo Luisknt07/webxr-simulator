@@ -3,7 +3,10 @@ import schema from '../../../contracts/behaviors.js';
 import {createIndustrialPrefab} from '../../../functions/presentacion/runtime/IndustrialPrefabs.js';
 import cediLayout from '../CediLayout.cjs';
 import operatingData from '../CediOperatingData.cjs';
+import receivingLayout from '../CediReceivingLayout.cjs';
 import cad from '../../../../../packages/tools/cad/schema/cad.js';
+import catalogue from '../../../functions/equipamiento/schema/equipmentCatalog.cjs';
+import geometryFactory from '../../../functions/equipamiento/runtime/EquipmentGeometry.cjs';
 
 // Stable positions belong to the installation, not to a slide of an exercise.
 // Only the selected stage retains native simulation/control behaviours. Other
@@ -40,7 +43,7 @@ export function arrangeCediPractice(doc,plan,rows,built,objects,api){
  // Receiving had individually positioned fixtures rather than alias children.
  if(built.receiving){
   const r=built.receiving;for(const key of ['inspectionIds','quarantineIds'])for(const id of r[key]||[]){const object=doc.getObject(id);if(!object||moved.has(id))continue;const fn=transforms.get(key==='inspectionIds'?'E04':'E05');doc.setTransform(object,{position:fn(object.position).toArray()});moved.add(id);}
-  r.inspectionCenter=[-24,0,4];for(const id of r.inspectionIds){const object=doc.getObject(id);doc.setTransform(object,{position:[-24,1,4],rotation:[0,0,0]});}
+  r.inspectionCenter=[-24,0,4];r.inspectionExit={x:-24,z:14.5};for(const id of r.inspectionIds){const object=doc.getObject(id);doc.setTransform(object,{position:[-24,1,4],rotation:[0,0,0]});}
   for(const [index,id]of built.sourceIds.entries()){
    const seat=doc.getObject(id),product=doc.getObject(built.palletIds[index]),z=23+index*.98;
    doc.setTransform(seat,{position:[-22,1,z],rotation:[0,0,0]});doc.setTransform(product,{position:[-22,.005,z],rotation:[0,0,0]});
@@ -59,7 +62,7 @@ export function arrangeCediPractice(doc,plan,rows,built,objects,api){
  for(const task of built.tasks||[]){
   const source=doc.getObject(task.sourceId),target=doc.getObject(task.destinationId),product=doc.getObject(task.productId);if(!source||!target)continue;
   const pickup=approach(source),destination=approach(target);
-  if(plan.id==='CEDI-01'){pickup.x=-22;pickup.z=19;destination.x=target.position.x;destination.z=target.position.z+3;task.route=[pickup,{x:-22,z:14},{x:-24,z:10},{x:-24,z:6.5},{x:-24,z:10},{x:destination.x,z:14},destination];}
+  if(plan.id==='CEDI-01'){pickup.x=-22;pickup.z=19;destination.x=target.position.x;destination.z=target.position.z+3;task.route=[pickup,{x:-22,z:14},{x:-24,z:10},{x:-24,z:6.5},clone(built.receiving.inspectionExit),{x:-12,z:16.5},{x:destination.x,z:14.5},destination];}
   else if(plan.id==='CEDI-02'){task.route=[pickup,{x:pickup.x,z:7},{x:-12,z:7},{x:-12,z:-7},{x:destination.x,z:-7},destination];}
   else {pickup.z=source.position.z-3.5;destination.z=target.position.z-3.5;task.route=[pickup,{x:27,z:12},{x:27,z:18},{x:destination.x,z:18},destination];}
   task.pickupRoute=[pickup];
@@ -116,11 +119,10 @@ const CONTEXT=[
  ['maintenance-cart','maintenance','vehicle','equipment.vehicle.pallet-truck-manual',[-40,0,-22,Math.PI/2],null,{}]
 ];
 const row=(key,zone,kind,equipment,pose,values={},active=null)=>CONTEXT.push([key,zone,kind,equipment,pose,active,values]);
-// Parallel unloading/inspection lanes, outside the REC-01 native manoeuvre.
-for(let n=0;n<2;n++){
- row('reception-rollers-'+n,'receiving','conveyor','equipment.transport.roller-pallet',[-28+n*11,1,3,Math.PI/2],{length:5,width:1.05,withPanel:false});
- row('qc-bench-'+n,'inspection','processor','equipment.picking.receiving-inspection',[-27+n*8,1,-9,0],{length:2.2,width:1.05});
-}
+// Three repeated inspection workcells share one real eastbound collector.
+// The active practice creates these exact conveyor fixtures as native actors;
+// other practices bake the same geometry rather than a different floor plan.
+CONTEXT.push(...receivingLayout.fixtures());
 // The two AS/RS rack-and-crane assemblies are native pallet AS/RS equipment.
 // Their longitudinal guide, lift carriage and extractor are not a miniload icon.
 for(let n=0;n<2;n++)row('asrs-crane-rack-'+n,'asrs','palletQueue','equipment.storage.pallet-asrs',[-23,1,-33.2+n*7.3,n?Math.PI:0],{rackBays:5,rackLevels:5,rackColumns:1,rackBayWidth:1.8,rackSlotDepth:1.35,rackLevelHeight:1.55,rackAisleCode:'AS01',rackRowCode:'R0'+(n+1)});
@@ -151,6 +153,18 @@ row('packing-wrap-context','palletizing','processor','equipment.packaging.stretc
 // Cross docking stays a clear driving connection, with two short transfer banks
 // alongside its path, never a conveyor blocking the full manoeuvring aisle.
 for(let n=0;n<2;n++)row('crossdock-buffer-'+n,'crossDock','conveyor','equipment.transport.roller-pallet',[-6+n*7,1,18.9,0],{length:3.2,width:1.05,withPanel:false});
+
+// QC reference benches are supported manual worktops, not material processors.
+// Their native processor input/output buffer beds would close the operator
+// entrance. Build only their same catalogue body; active E04 and global machine
+// geometry/ports are unchanged.
+export function createCediContextEquipment(row){
+ const [key,,kind,equipment,,,values]=row,options=Object.assign({detail:'low',withPanel:false,wear:.15,autoRelease:false,running:false},values);
+ if(!/^receiving-qc-bench-[0-2]$/.test(key))return createIndustrialPrefab(kind,equipment?'catalogue:'+equipment:undefined,options);
+ const definition=catalogue.definition(equipment),config=catalogue.normalize(equipment,options),layout=Object.assign({},catalogue.layout(equipment,config),{length:config.length,width:config.width,height:config.height});
+ delete layout.bodyLength;delete layout.inputPosition;delete layout.outputPosition;
+ return geometryFactory.createEquipmentGeometry(definition,config,{THREE,layout});
+}
 
 export function buildCediContext(doc,roomId,plan,objects,api){
  if(!/^CEDI-0[1-5]$/.test(plan.id))return null;
@@ -201,8 +215,8 @@ export function buildCediContext(doc,roomId,plan,objects,api){
    const entry=bake(key,rack.zone,body,position.concat(rack.yaw),long?'Long structural sections':loadType+' '+cell.code);
    displayStock.push({key,zone:rack.zone,sku:long?'REF-PERFIL':profile.sku,abc:profile.abc,handling:long?'long-stock':profile.handling,loadType,supportFixtureKey:fixtureKey,locationCode:cell.code,position:position.slice(),yaw:rack.yaw,contextKey:entry.key,operational:false});return entry;
   };
-  for(const [key,zone,kind,equipment,pose,active,values]of CONTEXT){if(active===plan.id||plan.id==='CEDI-02'&&key==='picking-A')continue;
-   const body=createIndustrialPrefab(kind,equipment?'catalogue:'+equipment:undefined,Object.assign({detail:'low',withPanel:false,wear:.15,autoRelease:false,running:false},values));
+  for(const row of CONTEXT){const [key,zone,kind,equipment,pose,active,values]=row;if(active===plan.id||plan.id==='CEDI-02'&&key==='picking-A')continue;
+   const body=createCediContextEquipment(row);
    const config=rackConfig(body);
    if(config){
     const layout=schema.warehouseRacks.layout(config),transform=new THREE.Matrix4().compose(new THREE.Vector3(...pose.slice(0,3)),new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),pose[3]||0),new THREE.Vector3(1,1,1));
@@ -261,6 +275,28 @@ export function buildCediContext(doc,roomId,plan,objects,api){
   fence('packing','x',-4.9,8,23,[19.5,22]);fence('packing','z',23,-4.9,-1.7);fence('packing','z',8,-4.9,-1.7,[-4.2,-2.2]);
   fence('palletizing','z',30,3,11.5,[5,7.4]);fence('palletizing','x',11.5,24,30,[26,28]);
   fence('quarantine','z',-8.4,.2,7.4);fence('quarantine','x',7.4,-8.4,-.8,[-6.5,-4]);
+  // QC operators work between each roller entry and the adjacent table/rack.
+  // Yellow welded guards protect the collector, while the front and right
+  // access remain open; no guard crosses a native pallet or forklift path.
+  for(const cell of receivingLayout.workcells()){
+   const x=cell.benchCenter[0],z=cell.benchCenter[2],guard=cell.guardLine;
+   fence('inspection',guard.axis,guard.coordinate,guard.from,guard.to);
+   fence('inspection','z',cell.branchX+.88,guard.coordinate,guard.coordinate+1.2);
+   for(const px of [guard.from,guard.to])for(const dx of [-.065,.065])for(const dz of [-.065,.065])part('inspection','#aab8bc','Anclaje de protección QC',[px+dx,.062,guard.coordinate+dz],[.025,.025,.025]);
+   // Supported instruments: paper/checklist, inspection lamp, sample tray and
+   // dimensional gauge. These are reference tools, never extra pallet stock.
+   part('inspection','#e5e8df','Hoja de control de calidad',[x+.55,1.008,z+.19],[.32,.012,.24]);
+   part('inspection','#26343c','Clip de hoja de inspección',[x+.55,1.019,z+.08],[.16,.012,.026]);
+   part('inspection','#344f5a','Base de lámpara de inspección',[x-.64,1.026,z+.16],[.18,.052,.18]);
+   part('inspection','#adbcc0','Brazo de lámpara de inspección',[x-.64,1.24,z+.16],[.028,.4,.028]);
+   part('inspection','#e5e8df','Difusor de lámpara QC',[x-.54,1.45,z+.16],[.27,.055,.16]);
+   part('inspection','#abbabd','Regla de comprobación dimensional',[x+.23,1.014,z+.31],[.38,.018,.025]);
+   for(const dx of [-.14,.03])part('inspection','#abbabd','Mordaza de calibre',[x+.23+dx,1.03,z+.27],[.018,.035,.1]);
+   part('inspection','#bd8d4e','Muestra de embalaje sobre mesa',[x-.32,1.12,z+.13],[.26,.24,.24]);
+   // A real clear operator mat and low bumper identify the access side.
+   part('inspection','#27363c','Alfombra antideslizante QC',[cell.operatorCenter[0],.012,cell.operatorCenter[2]],[1.7,.024,1.15]);
+   for(const side of [-1,1])part('inspection','#d8b43a','Borde visible de puesto QC',[cell.operatorCenter[0]+side*.86,.026,cell.operatorCenter[2]],[.035,.008,1.15]);
+  }
   // Tablet stands, chairs, sealing stock and small unmistakable workstation
   // details, all supported on the same actual bench and floor surfaces.
   for(let n=0;n<3;n++){
@@ -273,13 +309,19 @@ export function buildCediContext(doc,roomId,plan,objects,api){
    labels:[[-6,-35.6,0,7,.7,8],[12,-29.9,0,7,.7,9],[12,-12.8,0,7,.7,10],[28,-23.5,Math.PI/2,7,.7,11],[-4.5,5,0,5.5,.6,12],[12.6,-9.7,0,8,.5,13],[0,16.3,0,8,.7,14],[15,-4.5,0,7,.55,15],[27,10.6,0,5,.5,16],[8,18.6,0,6,.5,17]],
    arrows:[[-8,16,Math.PI/2],[0,16,Math.PI/2],[8,16,Math.PI/2]],signs:[[-15.8,-23.8,0,1,16],[-.8,6.8,0,1,12],[29,-23.5,Math.PI/2,1,11]]});
   doc.setProperty(marks,'name','CEDI · referencias ABC, producto, zonas y cross-docking');doc.setBehaviors(marks,[Object.assign(schema.defaultBehavior('collision'),{enabled:false})]);objects.push(marks);
+  const receivingMarks=doc.addIndustrialFloorPresentation(roomId,{type:'industrialFloor',version:1,bounds:[-30,-8.3,-15,8],floorY:.037,
+   texts:['RECEPCIÓN · INSPECCIÓN DE CALIDAD','QC-01 · CONTEO Y ESTADO','QC-02 · MUESTREO Y MEDICIÓN','QC-03 · IDENTIDAD Y REGISTRO','ENTRADA DE PALLETS','SALIDA A CLASIFICACIÓN','PASO DE OPERARIOS','E04 · INSPECCIÓN DEL LOTE'],
+   labels:[[-22.5,1.3,0,7.8,.63,8],[-26,-2.85,0,1.6,.24,9],[-21.5,-2.85,0,1.6,.24,10],[-17,-2.85,0,1.6,.24,11],[-28.25,1.7,0,2.1,.28,12],[-23.75,1.7,0,2.1,.28,12],[-19.25,1.7,0,2.1,.28,12],[-18,-7.55,0,4,.3,13],[-25,-7.65,0,5,.28,14],[-24,5.6,0,4.5,.4,15]],
+   bays:[[-25.1,3.25,-22.9,4.75]],arrows:[[-28.25,1.95,Math.PI],[-23.75,1.95,Math.PI],[-19.25,1.95,Math.PI],[-16.15,-6.3,Math.PI/2]],
+   signs:[[-26.1,-.15,0,1,9],[-21.6,-.15,0,1,10],[-17.1,-.15,0,1,11]]});
+  doc.setProperty(receivingMarks,'name','Recepción · puestos QC, entrada de rodillos y salida en L');doc.setBehaviors(receivingMarks,[Object.assign(schema.defaultBehavior('collision'),{enabled:false})]);objects.push(receivingMarks);
   for(const bank of banks.values()){
    const positions=bank.positions.length?cad.encodePositions(bank.positions):null;if(!positions)continue;
    const object=doc.addCAD(roomId,{type:'cad',recipe:{steps:[{id:'s1',op:'primitive.mesh',params:{positions},inputs:[]}],output:'s1'},mesh:{positions},color:bank.color,smoothingAngle:35,sourceData:{tool:'cedi-static-native-context',version:1,document:{layoutId:cediLayout.ID,zone:bank.zone,interactive:false,contextKeys:bank.entries.map(entry=>entry.key)}}});doc.setTransform(object,{position:[0,0,0],rotation:[0,0,0],scale:[1,1,1]});
    doc.setProperty(object,'name','CEDI · '+bank.zone+' · contexto estático');doc.setBehaviors(object,[Object.assign(schema.defaultBehavior('collision'),{enabled:true}),Object.assign(schema.defaultBehavior('surfaceMaterial'),{preset:bank.preset,color:bank.color,colorMapMode:'preserve',metalness:bank.preset==='steel'?.65:0,roughness:bank.preset==='rubber'?.9:.65,wear:.12,wearType:'scratches',seed:815})]);objects.push(object);bank.entries.forEach(entry=>entry.objectIds.push(oid(object)));
   }
  }finally{geometrySet.forEach(g=>g.dispose());materialSet.forEach(m=>m.dispose());}
- return{version:2,layoutId:cediLayout.ID,entries,inventory,displayStock,staticDraws:banks.size+1,simulationActors:0,notice:'Las áreas de contexto son visibles y consultables; sus controles y cargas no forman parte del intento activo. Las existencias operativas se muestran por separado.'};
+ return{version:2,layoutId:cediLayout.ID,entries,inventory,displayStock,staticDraws:banks.size+2,simulationActors:0,receivingZone:receivingLayout.layout(),notice:'Las áreas de contexto son visibles y consultables; sus controles y cargas no forman parte del intento activo. Las existencias operativas se muestran por separado.'};
 }
 
 export function cediPracticePoses(id){return clone(POSES[id]||{});}

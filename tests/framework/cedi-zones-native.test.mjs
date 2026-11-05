@@ -4,9 +4,9 @@ import fs from 'node:fs';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url),native=require('../support/load-practice-scenes.cjs')(),T=native.THREE,cedi=require('../../modules/logistica-industrial/practices/configurable/CediLayout.cjs'),operating=require('../../modules/logistica-industrial/practices/configurable/CediOperatingData.cjs'),cad=require('../../packages/tools/cad/schema/cad.js');
 const source=fs.readFileSync(new URL('../../modules/logistica-industrial/practices/configurable/runtime/CediSceneComposition.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
-const {CONTEXT,PACKING_TRANSFER_GAPS}=new Function('THREE','schema','createIndustrialPrefab','cediLayout','operatingData','cad',source+'\nreturn {CONTEXT,PACKING_TRANSFER_GAPS};')(T,native.schema,native.createIndustrialPrefab,cedi,operating,cad);
+const {CONTEXT,PACKING_TRANSFER_GAPS,createCediContextEquipment}=new Function('THREE','schema','createIndustrialPrefab','cediLayout','operatingData','cad','receivingLayout','catalogue','geometryFactory',source+'\nreturn {CONTEXT,PACKING_TRANSFER_GAPS,createCediContextEquipment};')(T,native.schema,native.createIndustrialPrefab,cedi,operating,cad,require('../../modules/logistica-industrial/practices/configurable/CediReceivingLayout.cjs'),require('../../modules/logistica-industrial/functions/equipamiento/schema/equipmentCatalog.cjs'),require('../../modules/logistica-industrial/functions/equipamiento/runtime/EquipmentGeometry.cjs'));
 const geometries=new Set(),materials=new Set(),bodies=new Map();let scene;
-function body(key){if(bodies.has(key))return bodies.get(key);const row=CONTEXT.find(row=>row[0]===key);assert(row,'Missing native context definition '+key);const[,zone,kind,equipment,pose,,values]=row,object=native.createIndustrialPrefab(kind,'catalogue:'+equipment,{detail:'low',withPanel:false,wear:.15,autoRelease:false,running:false,...values});object.position.fromArray(pose.slice(0,3));object.rotation.y=pose[3]||0;object.updateWorldMatrix(true,true);object.traverse(node=>{if(node.geometry)geometries.add(node.geometry);for(const m of Array.isArray(node.material)?node.material:node.material?[node.material]:[])materials.add(m);});const result={object,row,zone,meshes:meshes(object)};bodies.set(key,result);return result;}
+function body(key){if(bodies.has(key))return bodies.get(key);const row=CONTEXT.find(row=>row[0]===key);assert(row,'Missing native context definition '+key);const[,zone,,,pose]=row,object=createCediContextEquipment(row);object.position.fromArray(pose.slice(0,3));object.rotation.y=pose[3]||0;object.updateWorldMatrix(true,true);object.traverse(node=>{if(node.geometry)geometries.add(node.geometry);for(const m of Array.isArray(node.material)?node.material:node.material?[node.material]:[])materials.add(m);});const result={object,row,zone,meshes:meshes(object)};bodies.set(key,result);return result;}
 function meshes(root){const rows=[];root.traverse(node=>{if(!node.isMesh||!node.geometry)return;for(let p=node;p;p=p.parent)if(!p.visible||p.userData.editorGeometryReplaced||p.userData.warehouseRackLocationLabels)return;rows.push(node);});return rows;}
 function setup(){if(!scene){const fixture=native.fixture(),built=native.buildConfigurablePracticeScene(fixture.document,'hall','CEDI-01',{scene:fixture.scene});fixture.root.updateWorldMatrix(true,true);scene={fixture,built,context:built.manifest.cediContext};}return scene;}
 function contains(area,x,z,margin=.01){return x>=area.rect[0]-margin&&x<=area.rect[2]+margin&&z>=area.rect[1]-margin&&z<=area.rect[3]+margin;}
@@ -53,9 +53,33 @@ test('packing belt segments end outside the real native machine beds and fixed b
  assert.equal(context.entries.some(row=>row.key==='packing-belt-spine'),false,'The former overlapping full-length belt is gone.');
 });
 
+test('actual QC worktops omit processor buffers and retain a 0.9 m operator entry beside real intake feet',()=>{
+ const receiving=require('../../modules/logistica-industrial/practices/configurable/CediReceivingLayout.cjs'),{context}=setup();
+ for(const cell of receiving.workcells()){
+  const bench=body(cell.benchKey),inlet=body(cell.intakeKey),bounds=bench.meshes.reduce((box,mesh)=>box.union(new T.Box3().setFromObject(mesh)),new T.Box3());
+  const intakeEdge=Math.max(...inlet.meshes.map(mesh=>new T.Box3().setFromObject(mesh)).filter(box=>box.min.z<=bounds.max.z&&box.max.z>=bounds.min.z&&box.min.y<1.9).map(box=>box.max.x));
+  const actualWidth=bounds.min.x-intakeEdge;assert(actualWidth>=.9,cell.id+' actual entrance: '+actualWidth+'m');assert(Math.abs(actualWidth-.945)<.002);
+  assert(Math.abs(cell.operatorEntrance.from-intakeEdge)<.002);assert(Math.abs(cell.operatorEntrance.to-bounds.min.x)<.002,'Access metadata must match built steel/wood geometry, including base plates.');
+  assert(Math.abs(bounds.max.x-bounds.min.x-1.6)<.001);assert(!bench.object.userData.catalogueBufferSupports,'A manual reference bench cannot inherit two processor transfer beds.');
+  const persisted=context.entries.find(row=>row.key===cell.benchKey);assert(persisted);assert(Math.abs(persisted.bounds.min[0]-bounds.min.x)<.001);assert(Math.abs(persisted.bounds.max[0]-bounds.max.x)<.001);
+  // The resized table still supports all four corners of the lamp base and
+  // the checklist at the exact authored coordinates, not only their centres.
+  for(const [x,z,w,d]of [[cell.benchCenter[0]-.64,cell.benchCenter[2]+.16,.18,.18],[cell.benchCenter[0]+.55,cell.benchCenter[2]+.19,.32,.24]])for(const sx of [-1,1])for(const sz of [-1,1])assert(supportHits(bench.meshes,x+sx*(w/2-.002),z+sz*(d/2-.002),1).length,'QC instrument must bear on its compact native tabletop.');
+ }
+});
+
+test('the receiving board data rows are visible from a standing QC operator eye above the real shelf',()=>{
+ const {fixture,built}=setup(),board=fixture.document.getObject(built.manifest.receivingAnalytics.boardIds[0]),cell=require('../../modules/logistica-industrial/practices/configurable/CediReceivingLayout.cjs').workcells()[0],eye=new T.Vector3(cell.operatorCenter[0],1.6,cell.operatorCenter[2]);
+ const targets=built.objects.filter(object=>!built.manifest.receivingAnalytics.objectIds.includes(object.userData.editorId)).flatMap(meshes);
+ for(const x of [-.32,.15,.4])for(const y of [-.45,-.3,0,.35]){
+  const target=board.localToWorld(new T.Vector3(x,y,.52)),delta=target.clone().sub(eye),distance=delta.length(),hits=new T.Raycaster(eye,delta.normalize(),0,distance-.004).intersectObjects(targets,false);
+  assert.equal(hits.length,0,'The real QC shelf/table must not obscure board row at '+target.toArray()+'; first hit '+(hits[0]&&hits[0].object.name));
+ }
+});
+
 test('the denser static world stays finite and its reference stock does not create active runtime products',()=>{
  const {fixture,built,context}=setup();fixture.runtime.start('hall');native.advance(fixture,.1);const costs=require('../support/practice-render-costs.cjs'),scope=[...new Set(built.objects)],contextIds=[...new Set(context.entries.flatMap(row=>row.objectIds))],contextObjects=contextIds.map(id=>fixture.document.getObject(id)),facilityObjects=built.manifest.facility.objects.map(row=>fixture.document.getObject(row.objectId)),authored=costs(scope),facility=costs(facilityObjects),reference=costs(contextObjects);
- assert(facility.drawCalls<90&&facility.triangles<35000,'The existing facility envelope remains unchanged.');assert.equal(reference.drawCalls,contextIds.length,'Each stored context bank must be a single real native draw.');assert.equal(context.staticDraws,reference.drawCalls+1);assert(reference.drawCalls<context.entries.length,'A mesh per context actor would defeat area/material batching.');
+ assert(facility.drawCalls<90&&facility.triangles<35000,'The existing facility envelope remains unchanged.');assert.equal(reference.drawCalls,contextIds.length,'Each stored context bank must be a single real native draw.');assert.equal(context.staticDraws,reference.drawCalls+2);assert(reference.drawCalls<context.entries.length,'A mesh per context actor would defeat area/material batching.');
  for(const object of contextObjects){assert(fixture.document.getBehaviors(object).every(row=>['collision','surfaceMaterial'].includes(row.type)));assert(!fixture.runtime.records.has(object.userData.editorId),'Static reference geometry cannot register an additional simulated actor.');}
  fixture.runtime.nativeRenderBanks.sync(scope,{staticObjects:built.manifest.facility.objects.filter(row=>['envelope','detail'].includes(row.role)).map(row=>fixture.document.getObject(row.objectId))});
  const submitted=scope.concat(fixture.runtime.nativeRenderBanks.banks),banked=costs(submitted);assert.equal(banked.triangles,authored.triangles,'Rigid banking retains all native surfaces.');assert(banked.drawCalls<authored.drawCalls,'The actual production presentation must reduce draw submissions.');
