@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url),THREE=require('three');
 const source=fs.readFileSync(new URL('../../packages/render-three/BrowserInput.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export default class BrowserInput','return class BrowserInput');
+const teleportSource=fs.readFileSync(new URL('../../packages/render-three/src/Teleport.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export default class Teleport','return class Teleport');
+const Teleport=new Function('THREE',teleportSource)(THREE);
 const collisionSource=fs.readFileSync(new URL('../../packages/render-three/src/CollisionWorld.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export default class CollisionWorld','return class CollisionWorld');
 const CollisionWorld=new Function('THREE','getGeometryTree',collisionSource)(THREE,()=>{throw Error('Fixture uses actual native Geometry triangles.');});
 class Events{
@@ -17,7 +19,8 @@ class Events{
  getBoundingClientRect(){return{x:0,y:0,width:100,height:100};}
 }
 class Ray{
- constructor(){this.controllers=[];this.raycasterContext=new THREE.Group();}
+ constructor(){this.controllers=[];this.states={};this.currentStates=[];this.raycasterContext=new THREE.Group();}
+ addState(name,state){this.states[name]=state;this.currentStates.push(state);}deactivateState(name){this.currentStates=this.currentStates.filter(state=>state!==this.states[name]);}
  setLineStyle(){}addController(controller,inputSource,aim){const data={controller,inputSource,aim};this.controllers.push(data);return data;}
  removeController(controller){this.controllers=this.controllers.filter(row=>row.controller!==controller);}execute(){}onSelectStart(){}onSelectEnd(){}cancelSelect(){}
 }
@@ -28,7 +31,7 @@ function fixture(){
  const room=new THREE.Group(),floor=new THREE.Mesh(new THREE.BoxGeometry(30,.2,30),new THREE.MeshBasicMaterial()),wall=new THREE.Mesh(new THREE.BoxGeometry(6,4,.2),new THREE.MeshBasicMaterial());floor.position.y=-.1;wall.position.set(0,2,-1);room.add(floor,wall);ctx.scene.add(room);
  const world=new CollisionWorld(ctx,{getRoot:()=>room});world.setRoom('hall');ctx.collisionWorld=world;
  let capsules=0;const move=world.moveCapsule.bind(world);world.moveCapsule=(...args)=>{capsules++;return move(...args);};
- const Input=new Function('THREE','RayControl','XRLocomotion','createXRGrip','updateXRGrip','document','window',source)(THREE,Ray,Locomotion,()=>new THREE.Group(),()=>{},document,window);
+ const Input=new Function('THREE','RayControl','XRLocomotion','Teleport','createXRGrip','updateXRGrip','disposeXRGrip','document','window',source)(THREE,Ray,Locomotion,Teleport,()=>new THREE.Group(),()=>{},()=>{},document,window);
  const input=new Input(ctx,canvas,{canWalk:()=>!ctx.drivingVehicle}),position=()=>{ctx.scene.updateMatrixWorld(true);return ctx.camera.getWorldPosition(new THREE.Vector3());};
  world.dispose=()=>{room.traverse(node=>{if(node.geometry)node.geometry.dispose();if(node.material)node.material.dispose();});};
  const key=(code,extra={})=>window.fire('keydown',{code,ctrlKey:false,metaKey:false,altKey:false,target:canvas,...extra});

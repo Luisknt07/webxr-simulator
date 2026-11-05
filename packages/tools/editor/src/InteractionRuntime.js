@@ -45,7 +45,8 @@ export default class InteractionRuntime {
       let state;
       if (action.type === 'teleport') {
         state = {
-          colliderMesh: object, controller: 'primary', vrOnly: true,
+          colliderMesh: object, controller: 'primary', vrOnly: true, teleport: true,
+          isSelectable: hit => this.ctx.teleport && !this.ctx.teleport.blocked() && this.ctx.teleport.walkableHit(hit),
           onHover: (hit, active) => this.ctx.teleport.onHover(hit.point, active),
           onHoverLeave: () => this.ctx.teleport.onHoverLeave(),
           onSelectStart: (hit, controller) => this.ctx.teleport.onSelectStart(controller),

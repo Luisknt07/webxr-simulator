@@ -17,11 +17,11 @@ export default class XRLocomotion {
     this.onBlur = () => this.reset();
     if (this.window && this.window.addEventListener) this.window.addEventListener('blur', this.onBlur);
   }
-  reset() { this.inputs = new WeakMap(); this.session = null; }
+  reset() { this.inputs = new WeakMap(); this.session = null; if (this.ctx.teleport && this.ctx.teleport.cancel) this.ctx.teleport.cancel(); }
   blocked(session) {
     const ctx = this.ctx, editor = ctx.editor;
     return this.disposed || !ctx.vrMode || !session || !ctx.renderer || !ctx.renderer.xr.isPresenting || ctx.xrEntryPending || ctx.xrExitPending ||
-      ctx.studioMenuOpen || (ctx.voicePanelOpen || ctx.assistantPanelOpen || ctx.externalDevicePanelOpen) || ctx.drivingVehicle || ctx.roomTransition || ctx.goto !== null && ctx.goto !== undefined ||
+      ctx.publicDialogOpen || ctx.studioMenuOpen || (ctx.voicePanelOpen || ctx.assistantPanelOpen || ctx.externalDevicePanelOpen) || ctx.drivingVehicle || ctx.roomTransition || ctx.goto !== null && ctx.goto !== undefined ||
       session.visibilityState && session.visibilityState !== 'visible' ||
       editor && (editor.active || editor.initializing || editor.loadingProject || editor.busy || editor.creatingScene || editor.document && editor.document.loading);
   }
@@ -78,24 +78,44 @@ export default class XRLocomotion {
   }
   tick(delta = 0) {
     const ctx = this.ctx, xr = ctx.renderer && ctx.renderer.xr, session = xr && xr.getSession && xr.getSession();
+    if (ctx.teleport && ctx.teleport.tick) ctx.teleport.tick();
     if (this.blocked(session) || !ctx.cameraRig || !ctx.camera || !Number.isFinite(delta) || delta <= 0) { if (this.session) this.reset(); return false; }
     if (this.session !== session) { this.inputs = new WeakMap(); this.session = session; }
     let leftSeen = false, rightSeen = false, moveX = 0, moveY = 0, turnX = 0;
     for (const data of ctx.raycontrol && ctx.raycontrol.controllers || []) {
-      const source = data.inputSource, axes = !data.desktop && this.axes(source);
+      const source = data.inputSource, tracked = data.enabled !== false && (!data.controller || data.controller.visible !== false);
+      if (!data.desktop && !tracked) {
+        if (source) this.inputs.delete(source);
+        if (ctx.teleport && ctx.teleport.aimController === data.controller) ctx.teleport.cancel();
+        continue;
+      }
+      const axes = !data.desktop && this.axes(source);
       if (!axes || source.handedness === 'left' && leftSeen || source.handedness === 'right' && rightSeen) continue;
       if (source.handedness === 'left') leftSeen = true; else rightSeen = true;
       let state = this.inputs.get(source);
-      if (!state) { state = {armed: false}; this.inputs.set(source, state); }
+      if (!state) { state = {armed: false, teleport: false}; this.inputs.set(source, state); }
       const centered = Math.hypot(axes.x, axes.y) <= this.deadzone;
+      if (state.teleport) {
+        const teleport = ctx.teleport;
+        if (centered) {if (teleport && teleport.endAim) teleport.endAim(data.controller); state.teleport = false; state.armed = true;}
+        else if (axes.y < -.4 && Math.abs(axes.x) < .5) {if (teleport && teleport.updateAim) teleport.updateAim(data.controller);}
+        else {if (teleport && teleport.endAim) teleport.endAim(data.controller, false); state.teleport = false; state.armed = false;}
+        continue;
+      }
       if (centered) { state.armed = true; continue; }
       if (!state.armed) continue;
       if (source.handedness === 'left') {
         if (ctx.studioLocomotion !== 'teleport') { moveX = axes.x; moveY = axes.y; }
+      } else if (axes.y < -.65 && Math.abs(axes.x) < .4 && ctx.teleport && ctx.teleport.beginAim) {
+        // Right stick forward aims a curved teleport; return it to centre to
+        // confirm. Horizontal right-stick motion keeps the existing snap turn.
+        state.teleport = ctx.teleport.beginAim(data.controller); state.armed = false;
       } else if (Math.abs(axes.x) >= .65) {
         turnX = axes.x; state.armed = false;
       }
     }
+    const teleport = ctx.teleport;
+    if (teleport && teleport.aimController && !(ctx.raycontrol.controllers || []).some(data => data.controller === teleport.aimController && data.enabled !== false && !data.desktop)) teleport.cancel();
     // Apply the same order even when r112 remaps the physical hands' indices.
     let changed = turnX ? this.turn(turnX) : false;
     if (moveX || moveY) changed = this.move(moveX, moveY, Math.min(delta, .05)) || changed;

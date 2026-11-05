@@ -1,6 +1,8 @@
 'use strict';
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), THREE = require('three');
 const source = fs.readFileSync(path.join(__dirname, '../../packages/render-three/BrowserInput.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class BrowserInput', 'return class BrowserInput');
+const teleportSource = fs.readFileSync(path.join(__dirname, '../../packages/render-three/src/Teleport.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class Teleport', 'return class Teleport');
+const Teleport = new Function('THREE', teleportSource)(THREE);
 class Events {
   constructor() {this.events = new Map(); this.children = []; this.isConnected = true; this.captured = new Set();}
   addEventListener(type, handler) {if (!this.events.has(type)) this.events.set(type, new Set()); this.events.get(type).add(handler);}
@@ -10,7 +12,8 @@ class Events {
   setPointerCapture(id) {this.captured.add(id);} hasPointerCapture(id) {return this.captured.has(id);} releasePointerCapture(id) {this.captured.delete(id); this.fire('lostpointercapture', {pointerId: id});}
 }
 class Ray {
-  constructor() {this.controllers = []; this.raycasterContext = new THREE.Group(); this.selections = 0;}
+  constructor() {this.controllers = []; this.states = {}; this.currentStates = []; this.raycasterContext = new THREE.Group(); this.selections = 0;}
+  addState(name, state) {this.states[name] = state; this.currentStates.push(state);} deactivateState(name) {this.currentStates = this.currentStates.filter(state => state !== this.states[name]);}
   setLineStyle() {} addController(controller, inputSource, aim) {const data = {controller, inputSource, aim}; this.controllers.push(data); return data;}
   removeController(controller) {this.controllers = this.controllers.filter(data => data.controller !== controller);}
   execute() {} onSelectStart() {this.selections++;} onSelectEnd() {} cancelSelect() {}
@@ -19,7 +22,7 @@ class Locomotion {reset() {} dispose() {} tick() {}}
 function fixture(pointerLock = true) {
   const document = new Events(), window = new Events(), canvas = new Events(); document.body = new Events(); document.createElement = () => new Events(); canvas.ownerDocument = document;
   const ctx = {camera: new THREE.PerspectiveCamera(), cameraRig: new THREE.Group(), scene: new THREE.Scene(), renderer: {xr: {getController: () => new THREE.Group(), getSession: () => null}}}; ctx.cameraRig.add(ctx.camera); ctx.scene.add(ctx.cameraRig);
-  const Input = new Function('THREE', 'RayControl', 'XRLocomotion', 'createXRGrip', 'updateXRGrip', 'document', 'window', source)(THREE, Ray, Locomotion, () => new THREE.Group(), () => {}, document, window);
+  const Input = new Function('THREE', 'RayControl', 'XRLocomotion', 'Teleport', 'createXRGrip', 'updateXRGrip', 'disposeXRGrip', 'document', 'window', source)(THREE, Ray, Locomotion, Teleport, () => new THREE.Group(), () => {}, () => {}, document, window);
   let requests = 0;
   canvas.requestPointerLock = () => {requests++; document.pointerLockElement = canvas; document.fire('pointerlockchange');};
   document.exitPointerLock = () => {document.pointerLockElement = null; document.fire('pointerlockchange');};

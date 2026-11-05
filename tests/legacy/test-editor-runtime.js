@@ -1325,15 +1325,19 @@ function testTeleportCollisionIntegration() {
   const model = new THREE.Group();
   for (const name of ['goal', 'glow']) { const mesh = new THREE.Mesh(new THREE.BoxBufferGeometry(), new THREE.MeshBasicMaterial()); mesh.name = name; model.add(mesh); }
   let resets = 0; const checks = [];
-  const ctx = {scene, cameraRig, camera, assets: {teleport_model: {scene: model}, glow_tex: new THREE.Texture()},
+  const xrPose = {matrixWorld: new THREE.Matrix4().makeTranslation(0, 1.6, 0)};
+  const ctx = {scene, cameraRig, camera, vrMode: true, audioListener: new THREE.Group(),
+    renderer: {xr: {isPresenting: true, getSession: () => ({visibilityState: 'visible'}), getCamera: () => xrPose}},
+    assets: {teleport_a_snd: {}, teleport_b_snd: {}},
     resetCollisionPose: () => resets++, collisionWorld: {
       canOccupyCapsule(eye, options) { checks.push({eye: eye.clone(), options}); return eye.x !== 3; },
       moveCapsule() { throw new Error('Teleport checks destination occupancy rather than sweeping across its route.'); }
     }};
   const teleport = new Teleport(ctx);
   teleport.onSelectStart(); teleport.onHover(new THREE.Vector3(3, 0, 0), true);
-  assert.equal(teleport.teleportHitGeometry.visible, false, 'An occupied destination never shows a valid teleport marker.');
-  assert.equal(teleport.ballColliding.material.color.getHex(), 0xb52222);
+  assert.equal(teleport.teleportHitGeometry.visible, true, 'An occupied destination stays visible with a rejected red outline.');
+  assert.equal(teleport.hit, false, 'A red marker never authorizes a teleport.');
+  assert.equal(teleport.material.color.getHex(), 0xf07469);
   const initialRig = cameraRig.position.clone(), initialCamera = camera.position.clone();
   assert.equal(teleport.onSelectEnd(new THREE.Vector3(3, 0, 0)), false);
   assert(cameraRig.position.equals(initialRig)); assert.equal(resets, 0); assert(!teleport.endSound.plays);
@@ -1341,11 +1345,11 @@ function testTeleportCollisionIntegration() {
   assert.equal(teleport.teleportHitGeometry.visible, true);
   assert.equal(teleport.onSelectEnd(new THREE.Vector3(5, 0, 0)), true);
   assert.equal(cameraRig.position.x, 5); assert(camera.position.equals(initialCamera)); assert.equal(resets, 1);
-  ctx.vrMode = true;
-  ctx.renderer = {xr: {getCamera: () => ({matrixWorld: new THREE.Matrix4().makeTranslation(5, 0.8, 0)})}};
+  xrPose.matrixWorld.makeTranslation(5, 0.8, 0);
   teleport.onSelectEnd(new THREE.Vector3(7, 0, 0));
   assert.equal(cameraRig.position.x, 7, 'VR teleport uses the current tracked head rather than a stale desktop pose.');
   assert(camera.position.equals(initialCamera)); assert.equal(checks.at(-1).options.eyeHeight, 0.8);
+  teleport.dispose();
 }
 
 async function testObjectClipboard() {

@@ -166,8 +166,9 @@ export default class BehaviorRuntime {
       const state = {
         colliderMesh: object, controller: group[0].controller || 'primary',
         raycaster: group[0].raycaster !== false, consumeSelect: true, mergeSelection: true,
-        vrOnly: group.every(part => part.vrOnly === true)
+        vrOnly: group.every(part => part.vrOnly === true), teleport: group.every(part => part.teleport === true)
       };
+      if (group.some(part => part.isSelectable)) state.isSelectable = (...args) => group.some(part => !part.isSelectable || part.isSelectable(...args));
       const style = group.find(part => part.lineStyleOnIntersection);
       if (style) state.lineStyleOnIntersection = style.lineStyleOnIntersection;
       ['onHover', 'onHoverLeave', 'onSelectStart', 'onSelectEnd'].forEach(event => {
@@ -239,7 +240,8 @@ export default class BehaviorRuntime {
     }
     if (config.type === 'teleport') {
       return {state: {
-        vrOnly: true,
+        vrOnly: true, teleport: true,
+        isSelectable: hit => this.ctx.teleport && !this.ctx.teleport.blocked() && this.ctx.teleport.walkableHit(hit),
         onHover: (hit, active) => this.ctx.teleport.onHover(hit.point, active),
         onHoverLeave: () => this.ctx.teleport.onHoverLeave(),
         onSelectStart: (hit, controller) => this.ctx.teleport.onSelectStart(controller),

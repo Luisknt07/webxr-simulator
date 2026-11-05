@@ -23,7 +23,7 @@ import NativeTextureAI from '../../../packages/tools/ai/src/NativeTextureAI.js';
 import NativeMaterialAI from '../../../packages/tools/ai/src/NativeMaterialAI.js';
 import XRMirror from '../../../packages/render-three/src/XRMirror.js';
 import XRLocomotion from '../../../packages/render-three/src/XRLocomotion.js';
-import {createXRGrip, updateXRGrip} from '../../../packages/render-three/src/XRGripTracking.js';
+import {createXRGrip, updateXRGrip, disposeXRGrip} from '../../../packages/render-three/src/XRGripTracking.js';
 
 import {VRButton} from '../../../packages/render-three/src/VRButton.js';
 import {loadAssets} from '../../../packages/render-three/src/assetManager.js';
@@ -781,26 +781,19 @@ function constrainVRCamera() {
 }
 
 function setupControllers() {
-  var model = assets['generic_controller_model'].scene;
-  var material = new THREE.MeshLambertMaterial({
-    map: assets['controller_tex'],
-  });
-  model.getObjectByName('body').material = material;
-  model.getObjectByName('trigger').material = material;
-
   for (let i = 0;i < 2; i++) {
     let controller = controllers[i];
     controller.boundingBox = new THREE.Box3();
     controller.userData.grabbing = null;
     controller.addEventListener( 'connected', function ( event ) {
-      if (this.userData.controllerModel) this.remove(this.userData.controllerModel);
-      this.userData.controllerModel = model.clone();
-      this.add(this.userData.controllerModel);
+      // Visuals belong to gripSpace, not targetRaySpace. The shared local
+      // fallback works even when museum GLB assets are not part of the profile.
       const data = raycontrol.addController(this, event.data); data.grip = this.userData.gripObject;
     } );
     controller.addEventListener( 'disconnected', function () {
       if (this.userData.controllerModel) this.remove(this.userData.controllerModel);
       delete this.userData.controllerModel;
+      updateXRGrip(renderer, this, null, null);
       if (this.userData.gripObject) this.userData.gripObject.visible = false;
       if (context.editorXylophone && context.editorXylophone.releaseHeld) context.editorXylophone.releaseHeld(this);
       raycontrol.removeController(this);
@@ -941,8 +934,9 @@ function animate(time, frame) {
 
     // update controller bounding boxes
     for (let i = 0; i < controllers.length; i++) {
-      const model = controllers[i].getObjectByName('Scene');
-      if (model) controllers[i].boundingBox.setFromObject(model);
+      const grip = controllers[i].userData.gripObject;
+      if (grip && grip.visible) controllers[i].boundingBox.setFromCenterAndSize(grip.getWorldPosition(new THREE.Vector3()), new THREE.Vector3(.10, .10, .10));
+      else controllers[i].boundingBox.makeEmpty();
     }
     if (desktopController) desktopController.boundingBox.setFromObject(desktopController);
 
@@ -978,7 +972,7 @@ window.onload = async () => {
     start() { init(); },
     context() { return context; },
     capture() { return context.studio ? context.studio.captureExecution() : null; },
-    dispose() { clearKeyboardState(); if(context.sceneCapture)context.sceneCapture.dispose();if(context.studio)context.studio.sceneCaptureDisposed=true;if (renderer) renderer.setAnimationLoop(null); if (context.editor && context.editor.simulation) context.editor.simulation.stop(); }
+    dispose() { clearKeyboardState(); if(context.sceneCapture)context.sceneCapture.dispose();if(context.studio)context.studio.sceneCaptureDisposed=true;if (renderer) renderer.setAnimationLoop(null); if (context.editor && context.editor.simulation) context.editor.simulation.stop(); controllers.forEach(disposeXRGrip); if (raycontrol) raycontrol.dispose(); }
   };
   context.beforeVoicePanelOpen = () => {if (context.studio) {context.studio.close(); if (context.studio.immersiveMenu) context.studio.immersiveMenu.close();} clearKeyboardState(); if (context.vehicleDriving) context.vehicleDriving.resetInput(); if (controls && controls.unlock) controls.unlock();};
   context.beforeAssistantPanelOpen=context.beforeVoicePanelOpen;

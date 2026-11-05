@@ -119,10 +119,11 @@ mouseClick('powerOn'); mouseClick('start'); assert(cold.v.powered && cold.v.runn
 cold.driving.dispose(); look.dispose(); cold.runtime.stop();
 
 // Default VR cab reserves grip for physical controls. Traction uses the left
-// stick; the left trigger brakes, while right-stick clicking opens the panel.
+// stick; free sticks also steer/operate hydraulics as an immediate fallback.
+// The left trigger brakes, while right-stick clicking opens the panel.
 const cabMode = setup(true, true), cabLeft = pad('left'), cabRight = pad('right'); cabMode.ctx.raycontrol.controllers = [cabLeft, cabRight];
 const cabHead = cabMode.camera.quaternion.clone(), cabPosition = cabMode.camera.position.clone(); assert(cabMode.driving.mount(cabMode.record.id)); assert.equal(cabMode.driving.xrControlMode, 'cab'); cabMode.driving.beforeStep();
-axis(cabLeft, .7, -.8); axis(cabRight, .8, -.7); cabMode.driving.beforeStep(); assert(cabMode.driving.fineControlActive&&cabMode.v.input.throttle > .175&&cabMode.v.input.throttle<=.35,'Near a real pallet, default-cab traction is metered after the stick input.'); assert.equal(cabMode.v.input.steer, 0, 'The default cab uses the real wheel for steering.'); assert.equal(cabMode.v.input.lift, 0); assert.equal(cabMode.v.input.tilt, 0);
+axis(cabLeft, .7, -.8); axis(cabRight, .8, -.7); cabMode.driving.beforeStep(); assert(cabMode.driving.fineControlActive&&cabMode.v.input.throttle > .175&&cabMode.v.input.throttle<=.35,'Near a real pallet, default-cab traction is metered after the stick input.'); assert(cabMode.v.input.steer>0,'A free left stick steers in the default cab without requiring a mode change.'); assert(cabMode.v.input.lift>0&&cabMode.v.input.tilt>0,'A free right stick immediately controls the supported hydraulic channels.');
 press(cabLeft, 1, true); press(cabRight, 1, true); cabMode.driving.beforeStep(); assert.equal(cabMode.v.input.brake, 0, 'A free grip does not brake in cab mode.'); assert.equal(cabMode.v.entry, null); assert(!cabMode.commands.includes('pickup') && !cabMode.commands.includes('release'), 'A free right grip cannot take or drop cargo.');
 press(cabLeft, 0, true); cabMode.driving.beforeStep(); assert.equal(cabMode.v.input.brake, 1, 'The left trigger operates the cab brake.'); press(cabLeft, 0, false);
 axis(cabLeft, 0, 0); axis(cabRight, 0, 0); press(cabLeft, 1, false); press(cabRight, 1, false); cabMode.driving.beforeStep();

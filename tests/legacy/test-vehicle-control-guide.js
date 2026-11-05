@@ -58,7 +58,7 @@ assert.equal(evaluate(Object.assign({},held,{actualSpeed:1,pose:{lift:1}}),drop)
 assert.equal(evaluate(Object.assign({},held,{pose:{lift:1}}),Object.assign({},drop,{ready:false,destination:null})).action,'liftDown');
 const telehandler = vehicles.defaults('telehandler');
 assert.equal(evaluate(state({config:telehandler,entry:{id:'held'},pose:{lift:0,boomAngle:.2,reach:0}}),drop,{features:vehicles.supports(telehandler),intent:'transport'}).action,'depositIntent','Telescopic height comes from the real boom pose rather than the unused mast lift channel.');
-assert.notEqual(evaluate(state(),ready,{xr:true}).control,'G'); assert.match(evaluate(state(),ready,{xr:true}).control,/Botón Tomar carga/);
+assert.notEqual(evaluate(state(),ready,{xr:true}).control,'G'); assert.match(evaluate(state(),ready,{xr:true}).control,/Botón A.*gatillo.*Tomar/);
 assert.match(evaluate(state(),Object.assign({},near,{errors:{verticalM:.1}}),{xr:true}).control,/agarre/);
 const input = {vehicle:state(),features:forks,docking:ready}; const before = JSON.stringify(input); for(let index=0;index<100;index++) guide.evaluate(input); assert.equal(JSON.stringify(input),before);
 

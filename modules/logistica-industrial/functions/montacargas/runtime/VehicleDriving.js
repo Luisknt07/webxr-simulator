@@ -226,31 +226,49 @@ export default class VehicleDriving {
       const axes = pad.axes || [], index = axes.length >= 4 ? 2 : 0, x = dead(axes[index]), y = dead(axes[index + 1]), buttons = pad.buttons || [];
       const pressed = index => !!(buttons[index] && (buttons[index].pressed || buttons[index].value > .6));
       let state = this.padState.get(source);
-      if (!state) { state = {armed: false, grip: pressed(1), click: pressed(3), secondary: pressed(5)}; this.padState.set(source, state); }
-      const grip = pressed(1), click = pressed(3), secondary = pressed(5);
+      if (!state) { state = {armed: false, grip: pressed(1), click: pressed(3), primary: pressed(4), secondary: pressed(5)}; this.padState.set(source, state); }
+      const grip = pressed(1), click = pressed(3), primary = pressed(4), secondary = pressed(5), trigger = pressed(0);
+      const tracking = shown(data.controller) && !(source.gripSpace && data.grip && !shown(data.grip));
+      // A hand selecting a panel is not also a vehicle joystick. After a
+      // capture or lost pose, it must return to neutral before driving again.
+      if (!tracking || data.selectionCapture || data.captureConsumed) {
+        Object.assign(state, {armed: false, grip, click, primary, secondary});
+        continue;
+      }
       if (this.cab.releasedSources.has(source)) state.armed = false;
       const physical = this.cab.owns(source);
-      if (!x && !y && !grip && !click && !secondary) state.armed = true;
+      if (!x && !y && !grip && !trigger && !click && !primary && !secondary) state.armed = true;
       if (state.armed) {
         // Fine stick movement meters traction/direction gently; full travel
         // retains full authority. The runtime owns actual acceleration/rates.
         if (source.handedness === 'left') {
           input.throttle = progressive(-y, 1.35);
-          if (this.xrControlMode === 'controllers' || !this.cab.controls.some(control => control.channel === 'steer')) input.steer = progressive(x, 1.5);
+          // Physical controls take priority below, but a free stick remains a
+          // usable fallback without first finding a hidden mode switch.
+          input.steer = progressive(x, 1.5);
           if (this.xrControlMode === 'controllers' && grip && !physical) input.brake = 1;
           if (this.xrControlMode === 'cab' && pressed(0)) input.brake = Math.max(input.brake, Math.min(1, buttons[0].value || 1));
           if (click && !state.click) this.command('horn');
+          if (primary && !state.primary && !physical) {
+            state.primary = true; this.command('parkingBrake'); Object.assign(input, ZERO()); return;
+          }
         }
         else {
-          if (this.xrControlMode === 'controllers') {
+          if (!physical) {
             if (this.mode === 0) { input.lift = -y; input.tilt = x; } else if (this.mode === 1) { input.reach = -y; input.sideShift = x; } else { input.lift = -y; input.turret = x; }
-            if (grip && !state.grip && !physical) this.command(this.record().components.vehicle.entry ? 'release' : 'pickup');
+            if (this.xrControlMode === 'controllers' && grip && !state.grip) this.command(this.record().components.vehicle.entry ? 'release' : 'pickup');
+            if (primary && !state.primary) {
+              state.primary = true;
+              const vehicle = this.record().components.vehicle, features = this.features();
+              const action = features.hitch && !features.forks && !features.platform ? (vehicle.trailerId ? 'uncouple' : 'couple') : (vehicle.entry ? 'release' : 'pickup');
+              this.command(action); Object.assign(input, ZERO()); return;
+            }
           }
           if (click && !state.click) this.command(this.xrControlMode === 'cab' ? 'controls' : 'mode');
           if (secondary && !state.secondary) { this.unmount(); return; }
         }
       }
-      state.grip = grip; state.click = click; state.secondary = secondary;
+      state.grip = grip; state.click = click; state.primary = primary; state.secondary = secondary;
     }
   }
   beforeStep() {
@@ -581,7 +599,7 @@ export default class VehicleDriving {
     c.fillStyle = '#eff6fb'; text(Number(v.actualSpeed || 0).toFixed(2) + ' m/s · ' + Number(v.loadKg || 0).toFixed(0) + ' kg · ' + (v.enabled===false ? 'PREPARACIÓN PENDIENTE' : !v.powered ? 'APAGADO' : v.emergency ? 'EMERGENCIA' : v.running ? 'MARCHA' : 'PARADO') + ' · Freno ' + (v.parkingBrake ? 'P' : 'libre'), 28, 81, 965, 25, 1);
     c.fillStyle = '#f1d286'; text(next.title || 'Siguiente paso', 28, 120, 960, 26, 1);
     c.fillStyle = '#edf5f8'; text(next.instruction, 28, 154, 955, 24, full ? 1 : 2);
-    if (!full) { c.fillStyle = '#a9c5cf'; text(this.xrControlMode === 'cab' ? 'Agarre lateral: volante / palancas. Stick izq.: avanzar y retroceder. Gatillo izq.: frenar.' : 'Stick izq.: conducir. Stick der.: hidráulica. Agarre der.: tomar / depositar. Agarre izq.: frenar.', 28, 225, 960, 24, 2); }
+    if (!full) { c.fillStyle = '#a9c5cf'; text(this.xrControlMode === 'cab' ? 'GRIP: volante/palancas · Sticks: conducir/hidráulica. Gatillo: pulsar/frenar izq. X: freno P · A: carga · B: bajar · Y: menú.' : 'Sticks: conducir/hidráulica · GRIP der.: carga · GRIP izq.: frenar. X: freno P · A: carga · B: bajar · Y: menú.', 28, 225, 960, 24, 2); }
     const definitions = this.definitions().filter(value => !value.continuous && !['view', 'cursor', 'forkCameraSide', 'forkCameraMode'].includes(value.action) && (value.action !== 'depositIntent' || record.components.vehicle.entry));
     const supported = new Set(definitions.map(value => value.action));
     let actions = full ? definitions.map(value => [value.action, value.label]) : [!v.powered ? 'powerOn' : !v.running || v.paused ? 'start' : 'parkingBrake', record.components.vehicle.entry ? this.operatorIntent === 'deposit' ? 'release' : 'depositIntent' : 'pickup', 'emergency', 'exit'].filter(action => supported.has(action)).map(action => [action, VehicleControlGuide.actions.find(value => value.action === action).label]);

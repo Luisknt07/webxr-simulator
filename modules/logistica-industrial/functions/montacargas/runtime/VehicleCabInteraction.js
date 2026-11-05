@@ -49,7 +49,7 @@ export default class VehicleCabInteraction {
       connected.add(controller); let hand = this.hands.get(controller);
       if (hand && hand.source !== source) {this.removeHand(hand); hand = null;}
       if (!hand) {
-        hand = {data, source, controller, armed: false, previousGrip: false, eventGrip: null, control: null, hover: null};
+        hand = {data, source, controller, armed: false, previousGrip: false, eventGrip: null, control: null, hover: null, grabBlocked: false};
         hand.start = () => {hand.eventGrip = true;}; hand.end = () => {hand.eventGrip = false;};
         controller.addEventListener('squeezestart', hand.start); controller.addEventListener('squeezeend', hand.end);
         this.hands.set(controller, hand);
@@ -78,6 +78,14 @@ export default class VehicleCabInteraction {
     }
     if (hand.ghost.parent !== pose) pose.add(hand.ghost);
     hand.ghost.visible = !!(hand.hover || hand.control); hand.ghost.material.color.set(active ? '#f4cb62' : '#75efd0');
+  }
+  feedback(hand, reserved = false) {
+    const control = hand.control || hand.hover;
+    // Shared with the ray and hand presentation. Never move tracked poses;
+    // only the occupied hand loses its ray while the other remains usable.
+    hand.controller.userData.xrRaySuppressed = !!(hand.control || reserved);
+    if (control) hand.controller.userData.vehicleCabGrip = {kind: control.kind, channel: control.channel, held: !!hand.control};
+    else delete hand.controller.userData.vehicleCabGrip;
   }
   take(hand, control, point) {
     if (control.owner) return false;
@@ -132,18 +140,25 @@ export default class VehicleCabInteraction {
     this.controls.forEach(control => this.frame(control));
     for (const hand of this.hands.values()) {
       const pose = this.pose(hand), grip = pressed(hand);
-      if (!pose || hand.data.selectionCapture) {this.release(hand); hand.hover = null; hand.previousGrip = grip; if (hand.ghost) hand.ghost.visible = false; continue;}
+      if (!pose || hand.data.selectionCapture || hand.controller.userData.grabbing) {this.release(hand); hand.hover = null; hand.previousGrip = grip; this.feedback(hand); if (hand.ghost) hand.ghost.visible = false; continue;}
       const point = pose.getWorldPosition(new THREE.Vector3()); hand.hover = null;
-      if (!grip) {this.release(hand, false); if (neutral(hand)) hand.armed = true;}
+      if (!grip) {this.release(hand, false); hand.grabBlocked = false; if (neutral(hand)) hand.armed = true;}
       let nearest = null, best = Infinity;
-      this.controls.forEach(control => {const distance = this.distance(control, point); if (distance <= (control.descriptor.grabDistance || .105) && distance < best) {nearest = control; best = distance;}});
+      this.controls.forEach(control => {const distance = this.distance(control, point); if (distance <= (control.descriptor.grabDistance || (control.kind === 'wheel' ? .13 : .105)) && distance < best) {nearest = control; best = distance;}});
       hand.hover = nearest;
-      if (grip && hand.armed && !hand.previousGrip && nearest) {this.consumedSources.add(hand.source); this.take(hand, nearest, point);}
+      // Holding the side grip while reaching a rim/knob is a natural grasp;
+      // do not require the press and the contact to occur in the same frame.
+      // An already owned control still needs a fresh squeeze from a second
+      // hand after release, so one hand never steals from the other.
+      if (grip && hand.armed && !hand.grabBlocked && !hand.control && nearest) {
+        this.consumedSources.add(hand.source);
+        if (!this.take(hand, nearest, point)) hand.grabBlocked = true;
+      }
       if (hand.control && grip) {this.consumedSources.add(hand.source); this.updateControl(hand, point);}
       // A second hand cannot steal a control or turn its blocked grip into a
       // cargo action. A new release/press is required after the owner lets go.
       if (grip && nearest && !hand.control) this.consumedSources.add(hand.source);
-      this.ghost(hand, pose, !!hand.control); hand.previousGrip = grip;
+      this.feedback(hand, grip && !!nearest); this.ghost(hand, pose, !!hand.control); hand.previousGrip = grip;
     }
     this.neutralChannels.forEach(channel => {
       const handedness = channel === 'steer' ? 'left' : 'right', axis = ['steer', 'tilt', 'sideShift', 'turret'].includes(channel) ? 0 : 1;
@@ -161,11 +176,12 @@ export default class VehicleCabInteraction {
     this.controls.forEach(control => {if (control.owner) input[control.channel] = clamp(control.value * (control.descriptor.inputSign === undefined ? control.kind === 'lever' && control.channel === 'lift' ? -1 : 1 : control.descriptor.inputSign));});
   }
   reset() {
-    this.hands.forEach(hand => {this.release(hand); hand.hover = null; hand.previousGrip = pressed(hand); if (hand.ghost) hand.ghost.visible = false;}); this.consumedSources.clear();
+    this.hands.forEach(hand => {this.release(hand); hand.hover = null; hand.previousGrip = pressed(hand); hand.grabBlocked = true; this.feedback(hand); if (hand.ghost) hand.ghost.visible = false;}); this.consumedSources.clear();
     this.syncLabels();
   }
   removeHand(hand) {
     this.release(hand); hand.controller.removeEventListener('squeezestart', hand.start); hand.controller.removeEventListener('squeezeend', hand.end);
+    delete hand.controller.userData.vehicleCabGrip; delete hand.controller.userData.xrRaySuppressed;
     if (hand.ghost) {if (hand.ghost.parent) hand.ghost.parent.remove(hand.ghost); hand.ghost.geometry.dispose(); hand.ghost.material.dispose();}
     this.hands.delete(hand.controller);
   }

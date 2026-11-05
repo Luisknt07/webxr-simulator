@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import RayControl from './src/RayControl.js';
 import XRLocomotion from './src/XRLocomotion.js';
-import {createXRGrip, updateXRGrip} from './src/XRGripTracking.js';
+import Teleport from './src/Teleport.js';
+import {createXRGrip, updateXRGrip, disposeXRGrip} from './src/XRGripTracking.js';
 
 const UP = new THREE.Vector3(0, 1, 0), WALK_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
 const FLIGHT_KEYS = new Set(['KeyQ', 'KeyE', 'ControlLeft', 'ControlRight']);
@@ -20,6 +21,7 @@ export default class BrowserInput {
     ctx.shaders = {basic_vert: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}', beam_frag: 'varying vec2 vUv;uniform sampler2D tex;uniform float time;uniform float active;void main(){gl_FragColor=texture2D(tex,vUv);}'};
     const unusedMaterial = beam.material;
     this.ray = ctx.raycontrol = new RayControl(ctx, 'right'); this.ray.setLineStyle('basic'); unusedMaterial.dispose();
+    this.teleport = ctx.teleport = new Teleport(ctx); this.teleport.installRayState();
     this.desktop = new THREE.Group(); this.desktop.userData.isDesktop = true; this.desktop.userData.grabbing = null;
     this.desktop.position.set(.2, -.2, -.45); this.desktop.boundingBox = new THREE.Box3();
     const aim = new THREE.Group(); aim.name = 'raycasterContext'; aim.position.copy(this.desktop.position).negate(); aim.visible = false;
@@ -34,7 +36,7 @@ export default class BrowserInput {
       controller.boundingBox = new THREE.Box3(); controller.userData.grabbing = null;
       ctx.cameraRig.add(controller); ctx.cameraRig.add(grip); this.controllers.push(controller);
       this.listen(controller, 'connected', event => {const data = this.ray.addController(controller, event.data); data.grip = grip;});
-      this.listen(controller, 'disconnected', () => {this.ray.removeController(controller); grip.visible = false;});
+      this.listen(controller, 'disconnected', () => {this.ray.removeController(controller); updateXRGrip(ctx.renderer, controller, null, null);});
       this.listen(controller, 'selectstart', () => this.ray.onSelectStart({target: controller}));
       this.listen(controller, 'selectend', () => this.ray.onSelectEnd({target: controller}));
     }
@@ -157,7 +159,11 @@ export default class BrowserInput {
     this.ray.controllers.forEach(data => this.ray.cancelSelect(data));
     if (this.options.onReset) this.options.onReset();
   }
-  xrChanged(active) {this.reset(); this.ctx.desktopControllerData.enabled = !active; if (active) this.ctx.desktopLook.unlock();}
+  xrChanged(active) {
+    this.reset(); this.ctx.desktopControllerData.enabled = !active;
+    if (active) this.ctx.desktopLook.unlock();
+    else this.controllers.forEach(controller => {updateXRGrip(this.ctx.renderer, controller, null, null); controller.visible = false;});
+  }
   walkAllowed() {return !this.disposed && !this.ctx.publicDialogOpen && !this.ctx.studioMenuOpen && !(this.ctx.voicePanelOpen || this.ctx.assistantPanelOpen || this.ctx.externalDevicePanelOpen) && (!this.options.canWalk || this.options.canWalk());}
   step(delta, frame) {
     if (this.disposed) return;
@@ -199,10 +205,12 @@ export default class BrowserInput {
   }
   dispose() {
     this.unlockLook(); this.disposed = true; this.reset(); this.listeners.splice(0).forEach(off => off()); this.locomotion.dispose();
+    this.teleport.dispose();
     this.ray.controllers.slice().forEach(data => this.ray.removeController(data.controller));
     const geometry = new Set(), materials = new Set(); [this.ray.raycasterContext, this.desktop].forEach(root => root.traverse(node => {if (node.geometry) geometry.add(node.geometry); if (node.material) materials.add(node.material);}));
     geometry.forEach(value => value.dispose()); materials.forEach(value => value.dispose()); this.texture.dispose();
-    this.controllers.forEach(controller => {ctxRemove(controller); ctxRemove(controller.userData.gripObject);}); ctxRemove(this.desktop); this.touch.remove();
+    if (typeof this.ray.dispose === 'function') this.ray.dispose();
+    this.controllers.forEach(controller => {disposeXRGrip(controller); ctxRemove(controller); ctxRemove(controller.userData.gripObject);}); ctxRemove(this.desktop); this.touch.remove();
   }
 }
 function ctxRemove(object) {if (object && object.parent) object.parent.remove(object);}

@@ -231,7 +231,7 @@ async function run() {
   away(f, f.left); f.ctx.raycontrol.changeHandedness('right');
   // A tracked pointer without the app's optional animated trigger model still
   // reaches the production input bridge and releases its captured selection.
-  const trigger = f.right.getObjectByName('trigger'); trigger.parent.remove(trigger); press(f, 'powerOn', f.right); press(f, 'powerOff', f.right);
+  const trigger = f.right.getObjectByName('trigger'); if (trigger) trigger.parent.remove(trigger); press(f, 'powerOn', f.right); press(f, 'powerOff', f.right);
 
   const obscuredProduct = f.runtime.products.get(f.cartons[0]), obscuredCenter = obscuredProduct.bounds.getCenter(new THREE.Vector3()).applyMatrix4(f.cartons[0].matrixWorld);
   aim(f, f.left, obscuredCenter); const productWall = wall(f, obscuredCenter.clone().add(new THREE.Vector3(0, 0, 0.35))); advance(f);

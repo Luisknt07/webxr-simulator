@@ -336,7 +336,33 @@ export default class ImmersiveStudioMenu {
     if(!rows.length)this.text('No hay módulos habilitados para esta vista.',46,350,28,C.dim);
   }
   paintControls() {
-    const lines = ['X (izquierdo) / A (derecho): abrir o cerrar el menú.', 'Salir de RV: botón rojo en la parte superior del menú.', 'Stick izquierdo: caminar según la dirección de la mirada.', 'Stick derecho: girar 30°; céntralo para volver a girar.', 'Gatillo: seleccionar a distancia y usar el teclado.', 'Botones físicos: acerca la punta del mando al frente.', 'Retira el mando antes de volver a pulsar por contacto.', 'Grip lateral: agarrar y soltar productos.', 'Teletransporte: apunta al suelo con tu mano preferida.', 'El menú pausa las interacciones y el desplazamiento.', 'Puedes iniciar sesión sin salir de la realidad virtual.', 'El botón del sistema Meta pertenece al visor.'];
+    const lines = this.ctx.drivingVehicle ? [
+      'Y (izquierdo): abrir o cerrar el menú de la cabina.',
+      'B (derecho): bajar del vehículo cuando esté detenido.',
+      'Stick izquierdo: avanzar, retroceder y dirigir.',
+      'Stick derecho: elevar, bajar e inclinar la carga.',
+      'Grip lateral: mantener para agarrar volante o palanca.',
+      'Gira el volante; mueve la palanca y suelta para parar.',
+      'Gatillo de mano libre: pulsar el botón bajo el punto.',
+      'A (derecho): tomar o depositar la carga si es válido.',
+      'X (izquierdo): alternar el freno de estacionamiento.',
+      'El menú suelta los mandos; vuelve a neutral al cerrar.',
+      'Los dedos con mandos se animan según gatillo y grip.',
+      'Salir de RV: botón superior. Meta pertenece al visor.'
+    ] : [
+      'X (izquierdo) / A (derecho): abrir o cerrar el menú.',
+      'Salir de RV: botón rojo en la parte superior del menú.',
+      'Stick izquierdo: caminar según la dirección de la mirada.',
+      'Stick derecho lateral: girar 30°; vuelve a centrarlo.',
+      'Stick derecho hacia arriba: apuntar; soltar: teleportar.',
+      'Gatillo: pulsar el botón bajo el punto del rayo.',
+      'Botones físicos: acerca el mando al frente y retíralo.',
+      'Grip lateral: agarrar y soltar productos compatibles.',
+      'El arco verde confirma un destino libre; rojo lo impide.',
+      'El menú pausa las interacciones y el desplazamiento.',
+      'Los dedos con mandos se animan según gatillo y grip.',
+      'El botón del sistema Meta pertenece al visor.'
+    ];
     lines.forEach((line, index) => this.text(line, 46, 183 + index * 51, index === 0 ? 26 : 24, index === 0 ? C.accent : C.text));
     this.button('recenter', 'Recentrar este menú', 46, 795, 932, 65, () => this.placePanel());
   }
@@ -354,6 +380,8 @@ export default class ImmersiveStudioMenu {
   }
   tick(delta = 0) {
     if (this.disposed || !this.active || !this.ctx.vrMode) return;
+    const vehicle = this.ctx.drivingVehicle || null;
+    if (this.menuVehicle !== vehicle) {this.menuVehicle = vehicle; this.padButtons = new WeakMap();}
     const session = this.ctx.renderer && this.ctx.renderer.xr && this.ctx.renderer.xr.getSession && this.ctx.renderer.xr.getSession();
     if (session && session.visibilityState && session.visibilityState !== 'visible') { if (this.opened) this.close(); this.padButtons = new WeakMap(); return; }
     if (this.opened) this.installState();
@@ -362,11 +390,18 @@ export default class ImmersiveStudioMenu {
     let toggle = false;
     sources.forEach(data => {
       const source = data.inputSource, pad = source && source.gamepad;
-      if (!source || data.desktop || !['left', 'right'].includes(source.handedness) || !pad || pad.mapping !== 'xr-standard' || !pad.buttons || !pad.buttons[4]) return;
-      const pressed = Boolean(pad.buttons[4].pressed || pad.buttons[4].value > .6), previous = this.padButtons.get(source);
+      if (!source || data.desktop || !['left', 'right'].includes(source.handedness) || !pad || pad.mapping !== 'xr-standard' || !pad.buttons) return;
+      if (data.controller && data.controller.visible === false) {this.padButtons.delete(source); return;}
+      // X/A remain available while walking. In a cab they control brake/cargo;
+      // reserve left Y for the menu and right B for leaving the vehicle.
+      const mounted = !!this.ctx.drivingVehicle, index = mounted ? 5 : 4;
+      if (mounted && source.handedness !== 'left' || !pad.buttons[index]) return;
+      const binding = (mounted ? 'cab:' : 'walk:') + index;
+      const pressed = Boolean(pad.buttons[index].pressed || pad.buttons[index].value > .6), previous = this.padButtons.get(source);
       // A held xylophone stick may suspend this hand's target ray. Its physical
       // face button still opens the menu; the opening hook releases that grip.
-      this.padButtons.set(source, pressed); if (previous === false && pressed) toggle = true;
+      this.padButtons.set(source, {binding, pressed});
+      if (previous && previous.binding === binding && previous.pressed === false && pressed) toggle = true;
     });
     if (toggle) this.opened ? this.close() : this.open('home');
     if (this.pressedKey && this.lastTime >= this.pressedUntil && !this.presses.size) { this.pressedKey = ''; this.dirty = true; }

@@ -33,7 +33,7 @@ export default class VehicleCabLabels {
       const name = NAMES[control.channel]; if (!name) return; const column = index % 4, row = Math.floor(index / 4), x = column * 256, y = row * 128;
       context.fillStyle = '#14232d'; context.fillRect(x, y, 256, 128); context.fillStyle = '#eaf7ff'; context.fillRect(x, y, 5, 128);
       this.pictogram(context, control.channel, x + 35, y + 49); context.fillStyle = '#f0faff'; context.font = 'bold 25px sans-serif'; context.fillText(name[0], x + 69, y + 43);
-      context.font = '16px sans-serif'; context.fillText(name[1], x + 69, y + 70); context.font = 'bold 17px sans-serif'; context.fillStyle = '#a9c2cf'; context.fillText('Mantén AGARRE', x + 17, y + 108);
+      context.font = '16px sans-serif'; context.fillText(name[1], x + 69, y + 70); context.font = 'bold 17px sans-serif'; context.fillStyle = '#a9c2cf'; context.fillText('Mantén GRIP lateral', x + 17, y + 108);
       const geometry = new THREE.PlaneBufferGeometry(control.kind === 'wheel' ? .18 : .15, .065), uv = geometry.attributes.uv;
       for (let vertex = 0; vertex < uv.count; vertex++) uv.setXY(vertex, (column + uv.getX(vertex)) / 4, 1 - (row + 1 - uv.getY(vertex)) / 2); geometries.add(geometry);
       const material = new THREE.MeshBasicMaterial({map: texture, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, toneMapped: false});
