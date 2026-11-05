@@ -5,6 +5,7 @@ const path = require('node:path');
 const {createHash, randomUUID} = require('node:crypto');
 const {spawnSync} = require('node:child_process');
 const {discoverEditorTools} = require('./editor-tools.cjs');
+const {tutorialAssets} = require('./tutorial-assets.cjs');
 const ROOT = path.resolve(__dirname, '../..');
 const FORMAT = 'smarttwin.publication', PUBLIC_SCENE = 'vr-robot-dispatch';
 const PROFILES = ['public-viewer', 'core-empty', 'workspace'];
@@ -183,6 +184,7 @@ function makePlan(root, application, compilation) {
     configurablePracticeAssets(root).forEach(name=>add(name,name));
     practiceCardAssets(root).forEach(name=>add(name,name));
     cediProductAssets(root).forEach(name=>add(name,name));
+    tutorialAssets(root).forEach(name=>add(name,name));
     ASSET_ROOTS.forEach(folder => walk(root, folder, name => { if (allowedAsset(name)) add(name, name); }, {skipPrivate: true}));
     const moduleMetadata=safePath(root,'data/build/workspace-catalog.json',false);
     if(fs.existsSync(moduleMetadata)){

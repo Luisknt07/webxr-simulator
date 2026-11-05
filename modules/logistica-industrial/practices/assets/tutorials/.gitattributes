@@ -1,0 +1,2 @@
+# Preserve the caption bytes verified by the tutorial media manifest on Windows.
+*.vtt text eol=lf

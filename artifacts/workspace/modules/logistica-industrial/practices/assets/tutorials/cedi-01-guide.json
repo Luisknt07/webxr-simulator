@@ -1,0 +1,295 @@
+{
+  "format": "smarttwin.receiving-video-guide",
+  "version": 1,
+  "practiceId": "CEDI-01",
+  "title": "CEDI-01 · Configuración y seis misiones",
+  "language": "es",
+  "description": "Videoguía narrada con capturas reales y ampliaciones del simulador. Explica las acciones; no ejecuta ni valida misiones por el usuario.",
+  "video": {
+    "src": "modules/logistica-industrial/practices/assets/tutorials/cedi-01-guide.mp4",
+    "duration": 436.8666666666666,
+    "width": 1920,
+    "height": 1080
+  },
+  "poster": {
+    "src": "modules/logistica-industrial/practices/assets/tutorials/cedi-01-guide-poster.jpg",
+    "alt": "Videoguía CEDI-01: configuración y seis misiones con capturas del simulador"
+  },
+  "captions": {
+    "src": "modules/logistica-industrial/practices/assets/tutorials/cedi-01-guide.vtt",
+    "language": "es",
+    "label": "Español"
+  },
+  "chapters": [
+    {
+      "id": "configuration",
+      "title": "Antes de empezar · configura tu intento",
+      "summary": "Inicio → Explorar escenarios/Prácticas → CEDI-01 · Recepción, descarga y control de ingreso → Configurar práctica",
+      "transcript": [
+        "Empieza en Prácticas y abre CEDI cero uno: Recepción, descarga y control de ingreso. Elige Modo libre para aprender y repetir; el recorrido progresivo conserva el orden y desbloquea la siguiente práctica al aprobar. Para seguir este video, usa el caso A, dificultad Guiada y automatización Manual o mecanizada. Conserva el montaje preparado. En Productos y pedidos puedes elegir un lote preestablecido y consultar las fotos, embalajes y condiciones de almacenamiento. El resumen de este ejercicio debe indicar cuarenta y ocho cajas de ingreso: seis pallets de ocho. Mira la instalación desde los botones Dos D, Plano, y Tres D, Orbitar. La previsualización muestra lo que se va a abrir, pero todavía no ejecuta el proceso. Consulta Misiones y guía y pulsa Iniciar modo libre, o Iniciar práctica según el recorrido elegido. Si aparece Montaje de consulta, vuelve a los ajustes sugeridos para realizar el ejercicio comprobado.",
+        "Desde el catálogo selecciona CEDI y la tarjeta CEDI-01. En una práctica ya abierta, «Cambiar configuración» crea un nuevo intento; no modifica retroactivamente el actual.",
+        "Selecciona Caso A; Guiada; M · Manual / mecanizada; Escritorio; ayudas de texto y pistas Paso a paso. Evaluación puede ser Ensayo sin evaluación para familiarizarse o Con puntuación y evidencias.",
+        "En Productos y pedidos usa un lote preparado. Revisa 3 SKU/48 ingreso/24 inventario de referencia/12 demanda y capacidad coherente; los valores concretos del producto pueden variar.",
+        "Alterna la previsualización entre 2D y 3D; Ampliar y Reencuadrar ayudan. Comprueba los códigos de los equipos activos.",
+        "Pulsa Iniciar modo libre o Iniciar recorrido progresivo, según el recorrido elegido. Anota la orden y el muelle; abre Guía cuando necesites esta referencia."
+      ],
+      "start": 0,
+      "end": 67.6
+    },
+    {
+      "id": "step-1",
+      "title": "1 · Preparar el ingreso",
+      "summary": "Recepción al frente izquierdo de la nave: camión E01 y muelle E02. Registro en la columna derecha.",
+      "transcript": [
+        "La recepción está al frente izquierdo del CEDI. El camión se identifica como E cero uno y el muelle asignado como E cero dos. Para orientarte abre Guía, Layout en vivo; los códigos del plano corresponden a los equipos de la escena. En la columna derecha, Registrar la operación, lee la orden y despliega Identidades y carga de cada pallet: ahí están las etiquetas, las ocho cajas de cada carga y su masa con tara. En Operación del proceso elige Contrastar cita, vehículo y orden. Selecciona la orden que muestra tu intento, escribe cuarenta y ocho cajas y el muelle E cero dos. Pulsa Confirmar operación. Esto relaciona los documentos y no descarga mercancía. Después pulsa Verificar evidencia del paso para confirmar la primera misión. Si no ves el formulario, usa Abrir registro; si estás en cabina, Revisar orden de recepción abre la misma comprobación.",
+        "Consulta Guía → Layout en vivo y los letreros RECEPCIÓN. El proceso activo y el inventario real se identifican en la práctica; otras zonas son contexto.",
+        "En Registrar la operación, abre Identidades y carga de cada pallet y anota SKU/etiqueta, unidades y masa de la carga que vas a manipular.",
+        "Selecciona Contrastar cita, vehículo y orden. Elige la orden real, 48 cajas, muelle E02 y Confirmar operación.",
+        "Pulsa Verificar evidencia del paso una sola vez cuando los datos hayan sido aceptados."
+      ],
+      "start": 67.6,
+      "end": 131.6
+    },
+    {
+      "id": "step-2",
+      "title": "2 · Preparar y descargar",
+      "summary": "Muelle E02 → montacargas E03 → pallets del camión E01 → bahía de inspección E04",
+      "transcript": [
+        "Antes de conducir comprueba el acceso, el borde y la retención del camión. En Operación del proceso elige Verificar calzos y habilitación del muelle; selecciona Calzos, borde y muelle revisados y confirma. Ahora se habilita el montacargas. Camina hasta él y pulsa F para subir. Si hace falta, B enciende y V habilita Marcha. P solamente libera el freno de estacionamiento; mantén W para avanzar, S para retroceder y A o D para girar. Espacio frena. Acércate al primer pallet despacio y usa la cámara auxiliar. Q eleva y E baja las horquillas; deben entrar en ambos huecos del pallet. Detén el vehículo y pulsa G, Tomar carga, cuando la ayuda confirme compatibilidad. Lleva la carga baja hasta la bahía E cero cuatro, junto a las mesas de inspección. El lote tiene seis pallets: la misión Descargar no se confirma hasta retirar los seis del camión. Puedes inspeccionar, registrar y entregar cada pallet antes de regresar por el siguiente.",
+        "Revisa el muelle real y registra la comprobación. Habilitarlo no mueve la carga. En la cabina el botón Comprobar muelle E02 abre el formulario si aún está pendiente.",
+        "A menos de 5 m del montacargas, F sube. Conserva el freno hasta comprobar paso libre; B/V solo si el estado indica apagado/parado; P cambia Freno P activo/libre.",
+        "W/S/A/D son controles mantenidos; Espacio frena. Tab alterna cursor/mirada y Esc libera el mouse para usar formularios.",
+        "Q/E ajustan altura; G toma una carga con horquillas insertadas, vehículo detenido y capacidad compatible. C alterna cámara; Shift+C cambia vista; Shift+G alterna holograma manual cuando corresponda.",
+        "Traslada a baja altura por el pasillo. No atravieses transportadores, estantes ni protecciones. E04 es la bahía demarcada de inspección, no cualquier mesa.",
+        "El paso se verifica tras retirar las seis cargas originales del camión. Las inspecciones/registro de una carga ya pueden hacerse sin esperar a retirar las demás."
+      ],
+      "start": 131.6,
+      "end": 203.06666666666663
+    },
+    {
+      "id": "step-3",
+      "title": "3 · Verificar la carga",
+      "summary": "Bahía E04 · INSPECCIÓN DEL LOTE, delante del banco de rodillos y mesas QC",
+      "transcript": [
+        "En E cero cuatro detén el montacargas y mantén la carga baja. La inspección se acepta aquí, con la carga real presente, no desde el camión ni mientras circulas. Libera el cursor con Tab o Escape para usar Registrar la operación. Elige Contar e inspeccionar el pallet en E cero cuatro y selecciona la identidad que ahora indica en inspección. Comprueba ocho cajas, la masa total con tara que aparece en la tabla del intento y el lote de su etiqueta. Confirma la operación y lee el mensaje de aceptación. No uses una masa memorizada de otro producto. Repite la comprobación con cada uno de los seis pallets. La lista de misiones verifica la totalidad del lote; una sola inspección no completa esta etapa. Cuando las seis estén registradas y la descarga esté verificada, pulsa Verificar evidencia del paso.",
+        "Aparca el pallet en la zona E04, con vehículo realmente detenido y carga de transporte baja. El sistema reconoce una distancia de inspección, no cualquier lugar de la nave.",
+        "Selecciona la identidad correcta en Pallet real; el selector indica en inspección/en camión/en traslado/entregado.",
+        "Cajas observadas = 8 para este lote; Masa total con tara = valor observado de esa carga; Lote = el asignado en la orden.",
+        "Confirmar operación guarda la inspección de esa identidad. Repite por cada pallet; Verificar evidencia valida el paso del lote completo."
+      ],
+      "start": 203.06666666666663,
+      "end": 260.7333333333333
+    },
+    {
+      "id": "step-4",
+      "title": "4 · Resolver la condición de calidad",
+      "summary": "E04 para decidir; E07 para liberados y E05 para cuarentena cuando exista una no conformidad",
+      "transcript": [
+        "Después de inspeccionar, decide la calidad de esa misma identidad. En Operación del proceso elige Decidir la condición de calidad. Selecciona el pallet inspeccionado y su disposición. En el caso A preparado de este video las cargas son conformes: elige Liberar, conforme, y confirma. La carga queda autorizada para E cero siete. La opción Retener, no conforme, corresponde a una carga realmente no conforme y su destino es E cero cinco, Cuarentena; no debe elegirse solo para probar. La decisión queda ligada a la inspección y no teletransporta el material. Repite para las seis identidades y verifica la evidencia del paso cuando toda la recepción tenga su condición de calidad resuelta.",
+        "No mezcles identidades: selecciona el pallet que acabas de inspeccionar.",
+        "Caso A: Liberar · conforme para el estado good realmente presente. Otras decisiones requieren su estado material; no narrar un rechazo ficticio como hecho.",
+        "E05 es zona de retenidos y E07 zona de liberados. El sistema impide liberar una no conformidad y retener una conforme arbitrariamente.",
+        "Confirma cada decisión y verifica la misión solo cuando las seis identidades tengan disposición coherente."
+      ],
+      "start": 260.7333333333333,
+      "end": 310.99999999999994
+    },
+    {
+      "id": "step-5",
+      "title": "5 · Identificar y registrar",
+      "summary": "Registro de recepción en la columna derecha; terminal/tablero E08 como referencia documental",
+      "transcript": [
+        "Ahora registra cada recepción sin duplicar existencias. En Operación del proceso elige Registrar la recepción sin duplicar existencias. Selecciona la identidad ya inspeccionada y liberada y relaciona el Documento con la orden del intento. Pulsa Confirmar operación. El registro vincula la carga, su lote, la cantidad, la calidad y la orden; no crea cajas nuevas ni mueve el pallet por sí solo. Puedes consultar las mismas identidades en la orden y en los tableros de recepción. Completa este registro para las seis cargas. Después verifica la evidencia del quinto paso, en el orden de la lista. Si todavía estás en la misión Descargar, termina las seis descargas y verifica primero las etapas anteriores.",
+        "Selecciona Registrar la recepción sin duplicar existencias, Pallet real y Documento de la orden visible.",
+        "La identidad requiere inspección y disposición previas. Un formulario anticipado no sustituye esas comprobaciones.",
+        "El registro es idempotente: repetir la misma identidad no aumenta inventario ni concede recepción adicional. No lo repitas como forma de generar existencias.",
+        "Verifica la misión en orden cuando las seis identidades estén registradas."
+      ],
+      "start": 310.99999999999994,
+      "end": 362.3999999999999
+    },
+    {
+      "id": "step-6",
+      "title": "6 · Entregar al siguiente proceso",
+      "summary": "Desde E04 por la salida frontal y el pasillo hasta la posición individual E07 de liberados",
+      "transcript": [
+        "Conduce cada carga liberada hasta su posición de entrega E cero siete. Sigue las flechas y el plano; usa los pasillos, deja espacio para girar y mantén el pallet bajo durante el traslado. Cerca del destino la cámara de maniobra y la guía de depósito ayudan a ver su posición. Selecciona Descargar y el receptor asignado si fuera necesario. Alinea el pallet sobre la demarcación, detente y baja con E hasta que tenga apoyo. Shift más K prepara el depósito; K confirma Depositar cuando la ayuda lo permita. Retira las horquillas lentamente y vuelve por el siguiente pallet. Cuando las seis cargas estén físicamente depositadas, el indicador En destino debe mostrar cuarenta y ocho. En Registrar la operación elige Conciliar y cerrar la entrega a CEDI cero dos, escribe cuarenta y ocho cajas y confirma. Finalmente pulsa Verificar evidencia del paso. Revisa que aparezcan seis de seis misiones verificadas, Práctica superada y el resultado guardado. En modo progresivo se habilita la siguiente práctica; el modo libre permite repetir sin alterar ese recorrido.",
+        "Sal por el frente de E04 y utiliza el pasillo de recepción; no tomes atajos a través del banco de rodillos ni de la plataforma de pesaje.",
+        "La carga liberada se deposita en una posición individual real E07; cada pallet tiene receptor distinto. El plano/Objetivo permiten distinguirlos.",
+        "Cámara de maniobra al aproximarse, detención, E para apoyar, Shift+K para preparar y K para depositar. El registro documental no reemplaza el depósito.",
+        "Repite el ciclo con las seis cargas y comprueba En origen 0, Procesadas 48, En destino 48 en el caso A sin retenidos.",
+        "Elige Conciliar y cerrar la entrega a CEDI-02, Cajas conciliadas 48 y Confirmar operación.",
+        "Verifica la sexta misión; revisa resultado aprobado y confirmación de guardado. El progreso requiere resultado evaluado y recorrido progresivo para desbloquear CEDI-02."
+      ],
+      "start": 362.3999999999999,
+      "end": 436.8666666666666
+    }
+  ],
+  "provenance": {
+    "kind": "narrated-simulator-captures",
+    "captureWorkspaceSha256": "778ec44637f13e00008ffcb3a2a537d96333a172cb9488a3186645b5a2495763",
+    "captureManifestSha256": "c5fd519ca91505bf99f766342081503763f250ef654cb7de433f1836fa7c7546",
+    "voice": "Microsoft Sabina Desktop · es-MX · narración local",
+    "frames": [
+      {
+        "id": "s01",
+        "image": "00-library",
+        "captureSha256": "b6c7acab8f502f5225c33677d00fc46cb19d446cf84ceeb3a2adfb4517892dd8"
+      },
+      {
+        "id": "s02",
+        "image": "01-configuration",
+        "captureSha256": "8a0fa8d71493a084e00ae42bbaa6aff85c0af31cb237ee37abc3fe931c6b9193"
+      },
+      {
+        "id": "s03",
+        "image": "03-products",
+        "captureSha256": "e702831f64fbab9172e7128aa5304772107dd44455df02101bad4e669b7fd90e"
+      },
+      {
+        "id": "s04",
+        "image": "02-configuration-3d",
+        "captureSha256": "bc98be483a896da23042389054158741a09ed078002e0b94c80b565c22df46e8"
+      },
+      {
+        "id": "s05",
+        "image": "11-truck-dock",
+        "captureSha256": "78ca615721ff7fbdf32aa71e21ce696ffd107c13dae0f04821e55d27dcaad936"
+      },
+      {
+        "id": "s06",
+        "image": "20-live-layout-canvas",
+        "captureSha256": "e7910f6eb0fa69201e2615208ec4920c664237a1e17f7b7c703e7006f49f6e67"
+      },
+      {
+        "id": "s07",
+        "image": "08-arrival-form",
+        "captureSha256": "2e2e736d9033a7d4bce6c45549ab1bc407730be3846cc54a51b07f365829808f"
+      },
+      {
+        "id": "s08",
+        "image": "08-arrival-filled",
+        "captureSha256": "dcf9c61618729bb2780f7221fcfb366634f2969eca2f1091e4a91099df608a22"
+      },
+      {
+        "id": "s09",
+        "image": "07-order",
+        "captureSha256": "50a0da5399a6a0e638825b60c7443510aa47c794049cc763dac2d36a9a1f2e8d"
+      },
+      {
+        "id": "s10",
+        "image": "09-secure-filled",
+        "captureSha256": "10dbc2bfb3c6d066b173ea67c556c45fbc6e7a2e8966efc52803889e7fe5d5fc"
+      },
+      {
+        "id": "s11",
+        "image": "18-cockpit-controls",
+        "captureSha256": "26de077e8abc814c413709b361d7374495c41eef80ef3bd726704f6c09c3ed1b"
+      },
+      {
+        "id": "s12",
+        "image": "18-cockpit-controls",
+        "captureSha256": "26de077e8abc814c413709b361d7374495c41eef80ef3bd726704f6c09c3ed1b"
+      },
+      {
+        "id": "s13",
+        "image": "18-cockpit-controls",
+        "captureSha256": "26de077e8abc814c413709b361d7374495c41eef80ef3bd726704f6c09c3ed1b"
+      },
+      {
+        "id": "s14",
+        "image": "14-inspection-E04",
+        "captureSha256": "cc9f66d0b62ed01d0310ecf197a7ce7a008cde216793e7f8e4ba884ceff989c5"
+      },
+      {
+        "id": "s15",
+        "image": "14-inspection-E04",
+        "captureSha256": "cc9f66d0b62ed01d0310ecf197a7ce7a008cde216793e7f8e4ba884ceff989c5"
+      },
+      {
+        "id": "s16",
+        "image": "19-modal-inspect-pallet",
+        "captureSha256": "401bc5eec769654003a9eb6643309b599a4a09c46eb94895eca55ea8c1af6e76"
+      },
+      {
+        "id": "s17",
+        "image": "19-modal-inspect-pallet",
+        "captureSha256": "401bc5eec769654003a9eb6643309b599a4a09c46eb94895eca55ea8c1af6e76"
+      },
+      {
+        "id": "s18",
+        "image": "07-order",
+        "captureSha256": "50a0da5399a6a0e638825b60c7443510aa47c794049cc763dac2d36a9a1f2e8d"
+      },
+      {
+        "id": "s19",
+        "image": "19-modal-disposition",
+        "captureSha256": "0d811eba571162ecc261593a54b88228b444f594a41e398b30e2bdbc7509dfc0"
+      },
+      {
+        "id": "s20",
+        "image": "15-quarantine-E05",
+        "captureSha256": "a50b5c33b03ed4df162c31cfbce662489099451a57c152888c40694fcde5c656"
+      },
+      {
+        "id": "s21",
+        "image": "16-release-E07",
+        "captureSha256": "84cbb8b574db7ea18aadc7b4ca69ecb6db7f4bb113a11130326f87a367eb6a34"
+      },
+      {
+        "id": "s22",
+        "image": "19-modal-register-pallet",
+        "captureSha256": "b14c566556e4c55c82c49ed18c1ac615278177f80b93240376512257eddc331d"
+      },
+      {
+        "id": "s23",
+        "image": "17-analytics",
+        "captureSha256": "b63e5e81d494ec83dd7c9bd907c7c5ce382e995aba3511b4c747af5923c172f3"
+      },
+      {
+        "id": "s24",
+        "image": "07-order",
+        "captureSha256": "50a0da5399a6a0e638825b60c7443510aa47c794049cc763dac2d36a9a1f2e8d"
+      },
+      {
+        "id": "s25",
+        "image": "20-live-layout-canvas",
+        "captureSha256": "e7910f6eb0fa69201e2615208ec4920c664237a1e17f7b7c703e7006f49f6e67"
+      },
+      {
+        "id": "s26",
+        "image": "16-release-E07",
+        "captureSha256": "84cbb8b574db7ea18aadc7b4ca69ecb6db7f4bb113a11130326f87a367eb6a34"
+      },
+      {
+        "id": "s27",
+        "image": "19-modal-confirm-handover",
+        "captureSha256": "3a9a6ad1fe0f9f27ab534df464943f07db3098888045810f95c611213b094444"
+      },
+      {
+        "id": "s28",
+        "image": "06-player-overview",
+        "captureSha256": "842645ab0a923037b36ab36179217a2c3d836fdef72b08657db2ad83c88ef2d1"
+      }
+    ],
+    "noActorPoseAssignments": true,
+    "noAwardedMissionEvidence": true
+  },
+  "files": [
+    {
+      "path": "cedi-01-guide.mp4",
+      "bytes": 19557206,
+      "sha256": "1d9418b55d49b58269498c8974ee6c807f42777ffd67598813f532a14940e8c0"
+    },
+    {
+      "path": "cedi-01-guide.vtt",
+      "bytes": 8510,
+      "sha256": "973a906dea5ad9d59543dc920095b3cbc9098fe1bad911e4719c486f2fd1d529"
+    },
+    {
+      "path": "cedi-01-guide-poster.jpg",
+      "bytes": 423557,
+      "sha256": "f1022f001773d70f0f8412f4fbdbb5c02a8b0d62f00d7eba1bbaccaf869ae2f9"
+    }
+  ]
+}

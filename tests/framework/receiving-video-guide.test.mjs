@@ -1,0 +1,43 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+const source=fs.readFileSync('modules/logistica-industrial/practices/ui/ReceivingVideoGuide.js','utf8');
+const {default:Guide,validateReceivingVideoManifest:validate,holdReceivingVideoInput:hold}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const ROOT='modules/logistica-industrial/practices/assets/tutorials/';
+function manifest(){return{format:'smarttwin.receiving-video-guide',version:1,practiceId:'CEDI-01',title:'Recepción paso a paso',video:{src:ROOT+'cedi-01-guide.mp4',duration:420},poster:{src:ROOT+'cedi-01-guide-poster.jpg',alt:'Simulador de recepción'},captions:{src:ROOT+'cedi-01-guide.vtt',language:'es',label:'Español'},chapters:['configuration','step-1','step-2','step-3','step-4','step-5','step-6'].map((id,i)=>({id,title:i?'Misión '+i:'Configuración',start:i*60,end:(i+1)*60,summary:'Qué hacer en este capítulo',transcript:['Se usan los controles del simulador; consultar la orden del intento.']}))};}
+class Element{
+ constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.attributes={};this.listeners=new Map();this.readyState=0;this.currentTime=0;this.playCalls=0;this.pauseCalls=0;this.loadCalls=0;}
+ appendChild(child){child.parentNode=this;this.children.push(child);return child;}setAttribute(key,value){this.attributes[key]=String(value);}getAttribute(key){return this.attributes[key];}removeAttribute(key){delete this.attributes[key];if(key==='src')this.src='';}addEventListener(key,fn){if(!this.listeners.has(key))this.listeners.set(key,[]);this.listeners.get(key).push(fn);}async fire(key){for(const fn of this.listeners.get(key)||[])await fn({preventDefault(){}});}play(){this.playCalls++;return Promise.resolve();}pause(){this.pauseCalls++;}load(){this.loadCalls++;}querySelectorAll(tag){return this.children.flatMap(child=>[...(child.tagName===tag.toUpperCase()?[child]:[]),...child.querySelectorAll(tag)]);}remove(){if(this.parentNode)this.parentNode.children=this.parentNode.children.filter(row=>row!==this);this.parentNode=null;}
+ set textContent(text){this.text=String(text);this.children=[];}get textContent(){return(this.text||'')+this.children.map(row=>row.textContent).join(' ');}
+}
+function dom(){const listeners=new Map();return{baseURI:'https://localhost:8081/workspace/editor',hidden:false,body:new Element('body'),createElement:tag=>new Element(tag),listeners,addEventListener(key,fn){listeners.set(key,fn);},removeEventListener(key,fn){if(listeners.get(key)===fn)listeners.delete(key);}};}
+test('videoguide permits only local CEDI01 media, seven ordered chapters and bounded Spanish text',()=>{
+ assert.equal(validate(manifest()).chapters.length,7);
+ for(const path of ['https://example.org/movie.mp4','//example.org/movie.mp4',ROOT+'../private.mp4',ROOT+'cedi-01-guide.mp4?secret=1']){const value=manifest();value.video.src=path;assert.throws(()=>validate(value));}
+ for(const change of [value=>value.practiceId='SF-01',value=>value.chapters.pop(),value=>value.chapters[1].start=0,value=>value.chapters[2].end=9999,value=>value.chapters[1].transcript=['x'.repeat(3001)],value=>value.captions.language='en',value=>value.video.duration=901,value=>value.chapters[0].start=.02,value=>value.chapters[1].start=60.02,value=>value.chapters[1].start=59.98,value=>value.video.duration=421,value=>value.chapters[6].end=419]){const value=manifest();change(value);assert.throws(()=>validate(value));}
+ const rounding=manifest();rounding.chapters[1].start=60.005;rounding.video.duration=420.3;assert.equal(validate(rounding),rounding,'Small media rounding remains valid without gaps between chapters.');
+});
+test('watching the guide releases held driving input and blocks native movement without altering the vehicle or mission',()=>{
+ const calls=[],ctx={publicDialogOpen:false,vehicleDriving:{resetInput:()=>calls.push('reset'),releaseCursor:()=>calls.push('cursor')},editor:{clearNavigation:()=>calls.push('walk'),hooks:{unlock:()=>calls.push('unlock')}}};const release=hold(ctx);assert.equal(ctx.publicDialogOpen,true);assert.deepEqual(calls,['reset','cursor','walk','unlock']);release();assert.equal(ctx.publicDialogOpen,false);assert.deepEqual(calls.slice(4),['reset','walk']);release();assert.equal(calls.length,6);ctx.publicDialogOpen=true;const nested=hold(ctx);nested();assert.equal(ctx.publicDialogOpen,true);
+});
+test('the real mounted vehicle keyboard adapter leaves browser video keys untouched while a dialog is open',()=>{
+ const {Driving}=require('../support/load-vehicle-driving.js')(require('three'));let reset=0;
+ const adapter={ctx:{publicDialogOpen:true},id:'forklift',keys:new Set(['KeyW']),blockedKeys:new Set(['KeyQ']),resetInput(){reset++;this.keys.clear();this.blockedKeys.clear();},blocked(){throw Error('A video key must return before consuming gameplay input.');}};
+ for(const code of ['Space','ArrowRight','ArrowLeft','Tab','KeyP','KeyF'])for(const down of [true,false]){let prevented=false,stopped=false;Driving.prototype.key.call(adapter,{code,target:{tagName:'VIDEO'},preventDefault(){prevented=true;},stopImmediatePropagation(){stopped=true;}},down);assert.equal(prevented,false,code);assert.equal(stopped,false,code);assert.equal(adapter.keys.size,0);}
+ assert.equal(reset,12);
+});
+test('native video does not autoplay or preload, chapter choice seeks, background and close release playback',async()=>{
+ const previous=globalThis.document,document=dom();globalThis.document=document;
+ try{const guide=new Guide(document.body,{loadManifest:async()=>manifest(),chapter:'step-3'});await guide.ready;const video=guide.video;assert.equal(video.controls,true);assert.equal(video.preload,'none');assert.equal(video.autoplay,undefined);assert.equal(video.playCalls,0);assert.equal(guide.selectedId,'step-3');assert.match(video.src,/^https:\/\/localhost:8081\/workspace\/modules\//);assert.equal(video.children[0].kind,'captions');assert.equal(video.children[0].default,true);video.readyState=1;guide.select('step-5',true);assert.equal(video.currentTime,300);assert.equal(video.playCalls,1);assert.equal(guide.buttons.get('step-5').getAttribute('aria-current'),'step');video.currentTime=61;await video.fire('timeupdate');assert.equal(guide.selectedId,'step-1');document.hidden=true;document.listeners.get('visibilitychange')();assert.equal(video.pauseCalls,1);guide.dispose();assert.equal(video.pauseCalls,2);assert.equal(video.src,'');assert.equal(video.loadCalls,1);assert.equal(video.children[0].src,'');assert.equal(document.listeners.size,0);assert.equal(document.body.children.length,0);guide.dispose();assert.equal(video.loadCalls,1);}finally{globalThis.document=previous;}
+});
+test('late manifest cannot resurrect a disposed guide and media failures preserve readable transcript',async()=>{
+ const previous=globalThis.document,document=dom();globalThis.document=document;
+ try{let resolve;const held=new Promise(done=>resolve=done),guide=new Guide(document.body,{loadManifest:()=>held});await Promise.resolve();guide.dispose();resolve(manifest());await guide.ready;assert.equal(guide.video,undefined);assert.equal(document.body.children.length,0);const second=new Guide(document.body,{loadManifest:async()=>manifest()});await second.ready;await second.video.fire('error');assert.match(second.status.textContent,/transcripción/);assert.equal(second.reading.children.at(-1).tagName,'DETAILS');second.dispose();}finally{globalThis.document=previous;}
+});
+test('CEDI01 tutorial is reachable from setup, active workspace and guide without changing workflow commands',()=>{
+ const base='modules/logistica-industrial/practices/',host=fs.readFileSync(base+'runtime/PracticeCampaignHost.js','utf8'),setup=fs.readFileSync(base+'ui/PracticeSetupForm.js','utf8'),controller=fs.readFileSync(base+'runtime/PracticeController.js','utf8'),panel=fs.readFileSync(base+'ui/PracticePanel.js','utf8');
+ assert.match(host,/requestedId==='CEDI-01'\?\[\['video','Videoguía'\]\]/);assert.match(host,/this\.guide!==dialog/);assert.match(host,/this\.guideCleanup=\(\)=>viewer\.dispose\(\)/);assert.match(setup,/record\.id==='CEDI-01'/);assert.match(setup,/data-practice-video-guide/);assert.match(setup,/onClose:\(\)=>\{this\.videoDialog=null/);assert.match(controller,/video\(\)\{return this\.current\(\)&&this\.config\.practiceId==='CEDI-01'/);assert.match(panel,/\['video','Videoguía paso a paso'\]/);assert.match(panel,/method==='video'&&plan\.id!=='CEDI-01'/);
+ assert(!source.includes('.perform('));assert(!source.includes('.act('));assert(!source.includes('innerHTML'));
+});

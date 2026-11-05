@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "e39c8e516bf3f29dc862a3ee245fae08f7f24c0a",
-  "bundleSha256": "778ec44637f13e00008ffcb3a2a537d96333a172cb9488a3186645b5a2495763",
+  "revision": "b1eda2c74f52c8da9c50d37d0382f6cb6028e2a8",
+  "bundleSha256": "c3dc1669a6a56fa5213e455c583b558f6b9f715b1589dcbde888428a40bba872",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -43,32 +43,32 @@
   ],
   "files": [
     {
-      "path": "12.js",
-      "sha256": "4996c46cbc9dfc023bfe772409a0df8d5d4be500a8a87e610e123e4b9d2f418a"
-    },
-    {
       "path": "13.js",
-      "sha256": "66227d538ba684416e0ce5e32cf93ba1a136b7df129c1bf4f687d8c3d10b250c"
+      "sha256": "6d16ff265ad2a87903538146ddf2430874ee90609a257a2bbff3f561064a32b8"
     },
     {
       "path": "14.js",
-      "sha256": "d94f3ba2efb64faff9dd85778fe9f6b28bbbf718ab7c65eff6fdb8239db553e1"
+      "sha256": "ce285e6f42b063215662cd3b5d08aecee0bef475d041bd6960d25671aeba2dcb"
     },
     {
       "path": "15.js",
-      "sha256": "3010b122c68805f7dd9653ad82b56836d1170349ce6998ef0a0a102b88b9efab"
+      "sha256": "dcdb43da9b60eaeb83cc99b016921c0e9c58aae886e450232fc18bc778dba9dc"
     },
     {
       "path": "16.js",
-      "sha256": "56cd8314be9d89bbbddb625e356842e0d8ca4db15a669449c138f681d4f6a3f5"
+      "sha256": "b3ae5c225f92647b28b585c803aa8eefe8f1e6a529356795e7f5c189b0827e66"
     },
     {
       "path": "17.js",
-      "sha256": "944f104c4609a63300fffc2300350c23b5454bd137e90641ba19aab2bddac42b"
+      "sha256": "af5f1e82a7d64916300d26cc19a82e80ab32d54bae932c12c4aa501462cebc70"
+    },
+    {
+      "path": "18.js",
+      "sha256": "61b79d4cba026c4bf1224a79a588b3c5e62c6bb3340462e8f578ff2a89a463b0"
     },
     {
       "path": "3.js",
-      "sha256": "a86afc13b69c6b6add69d389a36720f5e65610e3999a07e3efdad296cac62567"
+      "sha256": "e2464ed0e57b503f9319920d9cb37e6b4b9fe640658a599c3b77a4e87cac1ed5"
     },
     {
       "path": "apps/workspace/scenario-library.css",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "778ec44637f13e00008ffcb3a2a537d96333a172cb9488a3186645b5a2495763"
+      "sha256": "c3dc1669a6a56fa5213e455c583b558f6b9f715b1589dcbde888428a40bba872"
     },
     {
       "path": "cad-worker.js",
@@ -2719,6 +2719,22 @@
       "sha256": "3245464c96b41ffb23473cbc498abf5278c3b57334741ca6be92398f8061a71c"
     },
     {
+      "path": "modules/logistica-industrial/practices/assets/tutorials/cedi-01-guide-poster.jpg",
+      "sha256": "f1022f001773d70f0f8412f4fbdbb5c02a8b0d62f00d7eba1bbaccaf869ae2f9"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/tutorials/cedi-01-guide.json",
+      "sha256": "be24d75569920a3649a04fb7574c4ce473855dc805f09466315073ccc984c9cc"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/tutorials/cedi-01-guide.mp4",
+      "sha256": "1d9418b55d49b58269498c8974ee6c807f42777ffd67598813f532a14940e8c0"
+    },
+    {
+      "path": "modules/logistica-industrial/practices/assets/tutorials/cedi-01-guide.vtt",
+      "sha256": "973a906dea5ad9d59543dc920095b3cbc9098fe1bad911e4719c486f2fd1d529"
+    },
+    {
       "path": "modules/logistica-industrial/practices/configurable/assets/catalog/CEDI-01.webp",
       "sha256": "8f86ad6086d3b08de0ad918ddd59716648f477d234e4d00663bdf867e1ad3ee0"
     },
@@ -2960,7 +2976,7 @@
     },
     {
       "path": "modules/logistica-industrial/practices/ui/practice.css",
-      "sha256": "0b6647f2940d907c6afe50881582c342fa02a81ad670c6fa1a33d4fb45e05107"
+      "sha256": "14762824bc4d7629a3554d98808e5696608e642f98ec95d5511bcc165a0437a5"
     },
     {
       "path": "modules/turismo/assets/angel.basis",
@@ -3576,7 +3592,7 @@
     },
     {
       "path": "practice-configuration-preview.js",
-      "sha256": "b0ade2eed2f7cd969b579882fbdc36157d522c37d6ed259f50ffd1724ca5ca32"
+      "sha256": "83be6520cc9b2ac75f43cd3b1cf0643b485cc85a30079ecc972100a0a49a575c"
     },
     {
       "path": "projects/smarttwin/branding/apple-touch-icon-114x114.png",
@@ -3915,37 +3931,41 @@
       "sha256": "3050b674e8d88348068eca45ed8ddd8b1cf4e0527d804063e45c01e5be7bb2a7"
     },
     {
+      "path": "receiving-video-guide.js",
+      "sha256": "d50f8d52f53297a21b68bc11f568a9e1e2fd5193eec6593fd278c7a282feba87"
+    },
+    {
       "path": "scenario-library.js",
-      "sha256": "464b16e2d51a5eb209ebcc4989ff76de144d8b2c31cbcddb085673377154b603"
+      "sha256": "76dd41f45910475406052e3595cd046f973b7d23f9d2b1dd9890d8ceb0a3e3c0"
     }
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "7b97b0463614b4e11dcb",
-    "statsSha256": "c229d01c6ed237a6fec8ef28144868b6f69dbb664e732a5d7eb5d4ec52ab9203",
+    "hash": "4215b193b85b2539c6a9",
+    "statsSha256": "474a5366061a67e17d6b48cbf6dc389755b71513cb6a783ae963db170dfa7cf9",
     "assets": [
       {
-        "path": "12.js",
-        "size": 61456
-      },
-      {
         "path": "13.js",
-        "size": 17353
+        "size": 62345
       },
       {
         "path": "14.js",
-        "size": 2047
+        "size": 17353
       },
       {
         "path": "15.js",
-        "size": 2050
+        "size": 2047
       },
       {
         "path": "16.js",
-        "size": 3390
+        "size": 2050
       },
       {
         "path": "17.js",
+        "size": 3390
+      },
+      {
+        "path": "18.js",
         "size": 3313
       },
       {
@@ -3954,7 +3974,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7025459
+        "size": 7027803
       },
       {
         "path": "configurable-practice-reference.js",
@@ -3990,11 +4010,15 @@
       },
       {
         "path": "practice-configuration-preview.js",
-        "size": 3150455
+        "size": 3150456
+      },
+      {
+        "path": "receiving-video-guide.js",
+        "size": 8556
       },
       {
         "path": "scenario-library.js",
-        "size": 849610
+        "size": 849637
       }
     ]
   }

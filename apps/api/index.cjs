@@ -6,6 +6,7 @@ const {createHash,randomBytes}=require('node:crypto');
 const {createApiHandler}=require("./server/api.js");
 const {ApiError}=require("./server/validation.js");
 const {playEntry}=require('../workspace/PlayRoute.cjs');
+const {mediaRange}=require('./media-range.cjs');
 const ROOT=path.resolve(__dirname,'../..'),PUBLIC_SCENE='vr-robot-dispatch';
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const ip=value=>String(value||'').replace(/^::ffff:/,'');
@@ -80,8 +81,16 @@ function createApplication(options={}){
     res.writeHead(200,{'Content-Type':TYPES['.js'],'Content-Length':bytes.length,'Cache-Control':'no-store','ETag':'"'+digest(bytes)+'"'});
     return res.end(req.method==='HEAD'?undefined:bytes);
    }
-   res.writeHead(200,{'Content-Type':TYPES[path.extname(relative).toLowerCase()]||'application/octet-stream','Content-Length':file.size,'Cache-Control':privateRoute?'private, no-store':'public, max-age=0, must-revalidate','ETag':'"'+file.sha256+'"',...(privateRoute?{Vary:'Cookie'}:{})});
-   if(req.method==='HEAD')return res.end();const stream=fs.createReadStream(file.absolute);stream.on('error',()=>res.destroy());res.on('close',()=>stream.destroy());stream.pipe(res);
+   const extension=path.extname(relative).toLowerCase(),media=['.mp4','.webm'].includes(extension),etag='"'+file.sha256+'"';
+   const headers={'Content-Type':({'.mp4':'video/mp4','.webm':'video/webm','.vtt':'text/vtt; charset=utf-8'})[extension]||TYPES[extension]||'application/octet-stream','Content-Length':file.size,'Cache-Control':privateRoute?'private, no-store':'public, max-age=0, must-revalidate','ETag':etag,...(privateRoute?{Vary:'Cookie'}:{}),...(media?{'Accept-Ranges':'bytes'}:{})};
+   let range=null;
+   if(media&&req.method==='GET'&&req.headers.range&&(!req.headers['if-range']||req.headers['if-range']===etag)){
+    range=mediaRange(req.headers.range,file.size);
+    if(!range){res.writeHead(416,{...headers,'Content-Range':'bytes */'+file.size,'Content-Length':0});return res.end();}
+    headers['Content-Range']='bytes '+range.start+'-'+range.end+'/'+file.size;headers['Content-Length']=range.end-range.start+1;
+   }
+   res.writeHead(range?206:200,headers);
+   if(req.method==='HEAD')return res.end();const stream=fs.createReadStream(file.absolute,range||undefined);stream.on('error',()=>res.destroy());res.on('close',()=>stream.destroy());stream.pipe(res);
   }catch(error){if(!(error instanceof ApiError)&&options.onError)options.onError(error);if(!res.headersSent)json(res,error instanceof ApiError?error.status:500,{error:error instanceof ApiError?error.message:'No se pudo completar la solicitud.',code:error instanceof ApiError?error.code:'server_error'});else res.destroy();}
  };
  const server=options.tls?https.createServer(options.tls,handler):http.createServer(handler);server.requestTimeout=30000;server.headersTimeout=15000;server.keepAliveTimeout=5000;

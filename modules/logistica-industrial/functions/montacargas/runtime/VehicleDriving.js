@@ -201,7 +201,9 @@ export default class VehicleDriving {
   key(event, down) {
     const target = event.target || {}, typing = target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || '');
     if (!down) { this.blockedKeys.delete(event.code); this.keys.delete(event.code); }
-    if (this.ctx.externalDevicePanelOpen) return;
+    // A native video/dialog must retain Space, arrows and Tab for playback and
+    // focus. Reset driving without consuming those browser controls.
+    if (this.ctx.externalDevicePanelOpen || this.ctx.publicDialogOpen) { this.resetInput(); return; }
     if (!this.id) { if (down && event.code === 'KeyF' && !event.repeat && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey && !event.isComposing && !typing && !(this.ctx.editor && this.ctx.editor.active)) { const record = this.nearest(); if (record) { event.preventDefault(); this.mount(record.id); } } return; }
     if (!DRIVE_KEYS.has(event.code) || typing || event.ctrlKey || event.altKey || event.metaKey) return;
     event.preventDefault(); if (event.stopImmediatePropagation) event.stopImmediatePropagation();

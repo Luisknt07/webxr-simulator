@@ -95,6 +95,7 @@ export default class PracticeController{
  next(){if(!this.current()||!this.campaign||!this.completionSaved||!this.nextPracticeId||typeof this.options.onNext!=='function')return false;return this.options.onNext(this.nextPracticeId);}
  requirement(){return this.state().documentaryStep||null;}
  guide(){return this.current()&&this.options.onGuide&&this.options.onGuide('guide',this.manifest);}
+ video(){return this.current()&&this.config.practiceId==='CEDI-01'&&this.options.onGuide&&this.options.onGuide('video',this.manifest);}
  diagram(){return this.current()&&this.options.onGuide&&this.options.onGuide('diagram',this.manifest);}
  documentation(){return this.current()&&(this.options.onDocumentation?this.options.onDocumentation({articleId:this.plan.key||'nexus-practices-2026:'+this.config.practiceId}):this.options.onGuide&&this.options.onGuide('documentation',this.manifest));}
  layout(){return this.current()&&(this.options.onLayout?this.options.onLayout(this.manifest):this.options.onGuide&&this.options.onGuide('layout',this.manifest));}
