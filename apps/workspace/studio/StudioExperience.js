@@ -193,8 +193,9 @@ export default class StudioExperience {
     this.flightButton = button(actions, 'Vuelo dron', () => this.setDesktopFlight(!this.ctx.desktopFlight), 'studio-flight');
     this.flightButton.setAttribute('aria-pressed', 'false'); this.flightButton.title = 'Volar en escritorio · WASD · Q subir · E bajar · Ctrl acelerar';
     if (this.editor.appendAudioControls) this.editor.appendAudioControls(actions);
-    actions.appendChild(vrButton); vrButton.classList.add('studio-vr');
-    this.menuButton = button(actions, 'Menú', () => this.drawer.hidden ? this.open('personal') : this.close(),'studio-menu'); this.menuButton.setAttribute('aria-expanded', 'false');studioIcon(this.menuButton,'rows');
+    actions.appendChild(vrButton); vrButton.classList.add('studio-vr'); studioIcon(vrButton,'vr');
+    vrButton.setAttribute('aria-label','Realidad virtual');vrButton.title='Entrar en realidad virtual con un visor compatible';
+    this.menuButton = button(actions, 'Menú', () => this.drawer.hidden ? this.open('personal') : this.close(),'studio-menu'); this.menuButton.setAttribute('aria-expanded', 'false');this.menuButton.setAttribute('aria-label','Menú de la experiencia');this.menuButton.title='Menú · prácticas, voz, asistente y ajustes';studioIcon(this.menuButton,'menu');
     this.shade = el('div', undefined, document.body, 'studio-shade'); this.shade.hidden = true; this.shade.addEventListener('click', () => this.close());
     this.drawer = el('aside', undefined, document.body, 'studio-drawer'); this.drawer.hidden = true; this.drawer.setAttribute('role', 'dialog'); this.drawer.setAttribute('aria-label', 'Mi espacio'); this.drawer.setAttribute('aria-modal', 'true');
     this.drawer.addEventListener('keydown', event => { event.stopPropagation(); if (event.key === 'Escape') this.close(); if (event.key === 'Tab') { const buttons = Array.from(this.drawer.querySelectorAll('button,input,select,a')).filter(node => !node.disabled && !node.hidden && (!node.getClientRects || node.getClientRects().length)); const first = buttons[0], last = buttons[buttons.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } } });

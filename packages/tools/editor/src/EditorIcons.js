@@ -34,7 +34,9 @@ const PATHS = {
   environment:'m3 10 9-8 9 8v12H3V10ZM8 22v-8h8v8',
   person:'M12 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM4 10h16M12 7v8M12 15l-5 8M12 15l5 8',
   info:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 10v7M12 6v.1',
-  sound:'M3 9h4l5-5v16l-5-5H3V9ZM16 8a6 6 0 0 1 0 8M19 5a10 10 0 0 1 0 14'
+  sound:'M3 9h4l5-5v16l-5-5H3V9ZM16 8a6 6 0 0 1 0 8M19 5a10 10 0 0 1 0 14',
+  menu:'M4 6h16M4 12h16M4 18h16',
+  vr:'M3 6h18l1 10-5 2-3-4h-4l-3 4-5-2L3 6ZM7 10h.01M17 10h.01'
 };
 export function iconData(name) {
   const d=PATHS[name]||PATHS.cube;

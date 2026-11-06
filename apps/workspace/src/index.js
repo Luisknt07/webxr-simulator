@@ -597,7 +597,7 @@ export function init() {
 }
 
 function onKeyDown(event) {
-  if ((context.voicePanelOpen || context.assistantPanelOpen || context.externalDevicePanelOpen) || context.editor && context.editor.active || context.drivingVehicle) return;
+  if ((context.voicePanelOpen || context.assistantPanelOpen || context.externalDevicePanelOpen || context.practiceReadingPanelOpen) || context.editor && context.editor.active || context.drivingVehicle) return;
   const target = event.target;
   if (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || '')) {
     return;
@@ -919,7 +919,7 @@ function animate(time, frame) {
     if (context.editor && context.editor.conveyorViewer) context.editor.conveyorViewer.tick(delta);
     if (context.frameworkHost) context.frameworkHost.step(delta);
     if(context.editor&&context.editor.projectModules){const modules=context.editor.projectModules;modules.sync({viewer:!context.editor.active}).catch(()=>{});if(modules.graphicsLayer)modules.graphicsLayer.visible=!modules.busy&&!context.editor.loadingProject&&!context.roomTransition;modules.step(delta);}
-    if ((context.voicePanelOpen || context.assistantPanelOpen || context.externalDevicePanelOpen)) clearKeyboardState();
+    if ((context.voicePanelOpen || context.assistantPanelOpen || context.externalDevicePanelOpen || context.practiceReadingPanelOpen)) clearKeyboardState();
     if (context.editor && context.editor.active && !context.vrMode) {
       context.editor.render(delta);
       return;

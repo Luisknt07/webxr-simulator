@@ -54,3 +54,111 @@
  body:has(.st-practice-panel[data-presentation=workspace]) .equipment-study-trigger{bottom:76px}
  body:has(.st-practice-panel[data-presentation=workspace]:not([data-practice-pane=scene])) .equipment-study-trigger{display:none!important}
 }
+
+/* Learner game chrome floats above the full-size scene. The editor, catalogue
+   and XR world-space menus keep their own surfaces and input handling. */
+body[data-practice-game=true]:not(.vr-mode):not(.editor-active) .studio-header{
+ inset:12px 16px auto;height:48px;padding:0;gap:12px;background:none;border:0;box-shadow:none;pointer-events:none;
+}
+body[data-practice-game=true] .studio-header .studio-brand{
+ display:flex!important;padding:9px 13px;border:1px solid #48c8b65c;border-radius:14px;background:#092831e8;
+ pointer-events:auto;box-shadow:0 4px 20px #08242e33;gap:9px;
+}
+body[data-practice-game=true] .studio-header .studio-brand-copy strong{font-size:13px;color:#e7fffa;letter-spacing:.25px}
+body[data-practice-game=true] .studio-header .studio-brand-copy small{font-size:8px;color:#8bc8c3;display:block;letter-spacing:.5px}
+body[data-practice-game=true] .studio-header .studio-cube{width:24px;height:26px}
+body[data-practice-game=true] .studio-header-actions{width:auto!important;flex:0 0 auto;gap:8px;pointer-events:none}
+body[data-practice-game=true] .studio-header-actions>:not(.studio-menu):not(.studio-vr){display:none!important}
+body[data-practice-game=true] .studio-header .studio-menu,
+body[data-practice-game=true] .studio-header .studio-vr{
+ display:inline-flex!important;position:relative!important;inset:auto!important;transform:none!important;align-items:center;justify-content:center;
+ flex:0 0 46px;width:46px!important;height:46px;min-width:46px!important;max-width:46px;min-height:46px;padding:0!important;
+ border-radius:50%!important;border:1px solid #58d9cd!important;background:#0a303deb!important;color:#89fff0!important;
+ font-size:0!important;pointer-events:auto;box-shadow:0 0 0 3px #082d3b99,0 4px 18px #08293433;
+}
+body[data-practice-game=true] .studio-header .studio-menu::before,
+body[data-practice-game=true] .studio-header .studio-vr::before{width:23px;height:23px;flex:0 0 23px;margin:0}
+body[data-practice-game=true] .studio-header .studio-vr:disabled,body[data-practice-game=true] .studio-header .studio-vr[aria-disabled=true]{opacity:.65;background:#15343c!important;color:#9db8b8!important;border-color:#79b9b4!important;cursor:default}
+body[data-practice-game=true] .studio-header .studio-menu:hover,
+body[data-practice-game=true] .studio-header .studio-vr:hover{background:#115163!important;border-color:#a2fff2!important}
+body[data-practice-game=true] .studio-header .studio-menu[aria-expanded=true]{background:#176859!important;color:#c5fff1!important}
+body[data-practice-game=true] .studio-shade{inset:0;z-index:170}
+body[data-practice-game=true] .studio-drawer{top:72px;right:16px;max-height:calc(100dvh - 88px);z-index:175}
+body[data-practice-game=true] .studio-notice{bottom:100px;font-size:13px;max-width:min(620px,calc(100vw - 140px))}
+body[data-practice-game=true] .studio-context{max-width:min(320px,calc(100vw - 148px))}
+body[data-practice-game=true] .equipment-study-trigger{
+ position:fixed!important;left:auto!important;right:max(16px,env(safe-area-inset-right));bottom:max(22px,env(safe-area-inset-bottom));
+ transform:none!important;width:48px;max-width:48px;height:48px;padding:0;font-size:0!important;border-radius:50%;
+ border:1px solid #5bdacb;background:#0b3341ed;color:#83ffea;box-shadow:0 0 0 3px #082d3b88;z-index:42;
+}
+body[data-practice-game=true] .equipment-study-trigger::before{
+ content:'';display:block;width:25px;height:25px;margin:auto;background:currentColor;
+ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 2 10 5v10l-10 5L2 17V7l10-5Zm0 10v10M2 7l10 5 10-5'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+body[data-practice-game=true] .equipment-study-trigger:hover{background:#135c64;color:#d7fff7}
+
+/* The native forklift instruments are consulted from HUD icons. Hide with
+   display, rather than opacity, so concealed buttons cannot intercept input. */
+body[data-practice-game=true] #vehicle-operation-panels .vehicle-guidance-panel,
+body[data-practice-game=true] #vehicle-operation-panels .vehicle-operator-column .vehicle-driving-hud[data-layout][data-controls],
+body[data-practice-game=true] #vehicle-operation-panels .vehicle-navigation-display{display:none!important}
+body[data-practice-game=true][data-practice-instrument=controls] #vehicle-operation-panels .vehicle-operator-column .vehicle-driving-hud[data-layout][data-controls]:not([hidden]){
+ display:block!important;position:fixed!important;inset:auto!important;top:84px!important;left:84px!important;bottom:auto!important;
+ width:min(520px,calc(100vw - 168px))!important;height:auto!important;max-height:calc(100dvh - 184px)!important;
+ overflow:auto!important;overscroll-behavior:contain;border-color:#42b5a9;background:#0b2936f5;box-shadow:0 12px 38px #071b2d55;z-index:79!important;
+}
+body[data-practice-game=true][data-practice-instrument=layout] #vehicle-operation-panels .vehicle-navigation-display:not([hidden]){
+ display:block!important;position:fixed!important;inset:auto!important;top:84px!important;right:100px!important;left:auto!important;transform:none!important;
+ width:min(700px,calc(100vw - 168px))!important;max-height:calc(100dvh - 184px)!important;height:auto!important;padding:8px!important;
+ overflow:auto!important;overscroll-behavior:contain;background:#0a2935f5;border-color:#47bfb2;box-shadow:0 12px 38px #071b2d55;z-index:79!important;
+}
+body[data-practice-game=true][data-practice-instrument=layout] #vehicle-operation-panels .vehicle-navigation-display[data-expanded=true]:not([hidden]){
+ width:min(1100px,calc(100vw - 168px))!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;
+}
+body[data-practice-game=true][data-practice-instrument=layout] #vehicle-operation-panels .vehicle-navigation-display[data-display] .vehicle-docking-body .vehicle-docking-plan canvas{
+ width:100%!important;height:auto!important;max-height:calc(100dvh - 330px)!important;object-fit:contain;
+}
+body[data-practice-game=true] #vehicle-operation-panels .vehicle-operator-column .vehicle-driving-hud[data-layout][data-controls] .vehicle-control-key{font-size:10px}
+body[data-practice-game=true][data-practice-reading=true] #vehicle-operation-panels{visibility:hidden!important;pointer-events:none!important}
+body[data-practice-game=true][data-practice-reading=true] .equipment-study-trigger{display:none!important}
+@media(max-width:700px){
+ body[data-practice-game=true] .studio-header{inset:10px 10px auto!important}
+ body[data-practice-game=true] .studio-header .studio-brand{padding:9px!important;gap:0;border-radius:50%;width:46px;height:46px;justify-content:center}
+ body[data-practice-game=true] .studio-header .studio-brand-copy{display:none}
+ body[data-practice-game=true] .studio-header .studio-menu,body[data-practice-game=true] .studio-header .studio-vr{width:44px!important;min-width:44px!important;height:44px;min-height:44px;flex-basis:44px}
+ body[data-practice-game=true] .studio-header-actions{gap:7px}
+ body[data-practice-game=true] .studio-drawer{inset:66px 8px 8px;width:calc(100vw - 16px);max-height:none;overflow:auto}
+ body[data-practice-game=true] .equipment-study-trigger{left:14px!important;right:auto!important;top:128px;bottom:auto;width:46px;height:46px;max-width:46px}
+ body[data-practice-game=true][data-practice-instrument=controls] #vehicle-operation-panels .vehicle-operator-column .vehicle-driving-hud[data-layout][data-controls]:not([hidden]),
+ body[data-practice-game=true][data-practice-instrument=layout] #vehicle-operation-panels .vehicle-navigation-display:not([hidden]){
+  top:124px!important;left:8px!important;right:86px!important;width:calc(100vw - 94px)!important;max-height:calc(100dvh - 216px)!important;
+ }
+ body[data-practice-game=true][data-practice-instrument=layout] #vehicle-operation-panels .vehicle-navigation-display[data-expanded=true]:not([hidden]){left:8px!important;transform:none!important;width:calc(100vw - 94px)!important}
+ body[data-practice-game=true][data-practice-instrument=layout] #vehicle-operation-panels .vehicle-navigation-display[data-display] .vehicle-docking-body .vehicle-docking-plan canvas{max-height:calc(100dvh - 350px)!important}
+ body[data-practice-game=true] .studio-notice{bottom:108px;max-width:calc(100vw - 32px)}
+}
+@media(max-height:600px) and (min-width:701px){
+ body[data-practice-game=true] .equipment-study-trigger{left:14px!important;right:auto!important;top:76px;bottom:auto}
+ body[data-practice-game=true][data-practice-instrument=controls] #vehicle-operation-panels .vehicle-operator-column .vehicle-driving-hud[data-layout][data-controls]:not([hidden]),
+ body[data-practice-game=true][data-practice-instrument=layout] #vehicle-operation-panels .vehicle-navigation-display:not([hidden]){top:72px!important;max-height:calc(100dvh - 144px)!important}
+ body[data-practice-game=true][data-practice-instrument=layout] #vehicle-operation-panels .vehicle-navigation-display[data-display] .vehicle-docking-body .vehicle-docking-plan canvas{max-height:calc(100dvh - 245px)!important}
+}
+
+@media(max-height:600px) and (min-width:701px){
+ body[data-practice-game=true][data-practice-instrument=layout] #vehicle-operation-panels .vehicle-navigation-display:not([hidden]){right:142px!important;width:min(700px,calc(100vw - 158px))!important}
+}
+
+@media(max-width:700px) and (max-height:600px){
+ body[data-practice-game=true] .equipment-study-trigger{top:76px}
+}
+
+/* Match the opened experience menu to the learner HUD without changing editor pages. */
+body[data-practice-game=true] .studio-drawer{background:#0b2b37f7;color:#e5fcfa;border-color:#408b8e;--st-ink:#e5fcfa;--st-muted:#b9d8da;--st-border:#3d737c;--st-teal:#75e6ce}
+body[data-practice-game=true] .studio-drawer-head{background:#0a303c;border-bottom-color:#3d737c}
+body[data-practice-game=true] .studio-drawer :is(h1,h2,h3,strong){color:#eafffa}
+body[data-practice-game=true] .studio-drawer :is(p,.studio-muted){color:#b9d8da}
+body[data-practice-game=true] .studio-drawer :is(button,input,select,textarea){background:#123d4a;color:#e5fcfa;border-color:#48828a}
+body[data-practice-game=true] .studio-drawer button:hover{background:#20565e}
+body[data-practice-game=true] .studio-drawer :is(button.primary,button[aria-selected=true]){background:#86e5cc;color:#092d33;border-color:#a3f2de}
+body[data-practice-game=true] .studio-drawer .studio-card{background:#103844;color:#d1e9e8;border-color:#3e7079}
+body[data-practice-game=true] .studio-drawer a{color:#8cf1d8}
