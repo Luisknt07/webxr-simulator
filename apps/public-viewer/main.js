@@ -56,7 +56,7 @@ function pose(ctx, mode) {
     // Only the rig changes in XR. The native headset pose remains untouched.
     ctx.cameraRig.position.set(4, ctx.xrReferenceSpaceType === 'local' ? 1.65 : 0, 8);
   } else if (mode === 'overview') {
-    ctx.camera.position.set(11.5, 4.4, 8.6); ctx.camera.lookAt(4.4, 1, 1.2);
+    ctx.camera.position.set(-7.4, 4.6, 7.8); ctx.camera.lookAt(3, 1, -2.8);
   } else {ctx.camera.position.set(4, 1.65, 8); ctx.camera.lookAt(2, 1.2, 0);}
   ctx.cameraRig.updateWorldMatrix(true, true); return true;
 }
@@ -96,7 +96,12 @@ async function start() {
     if (window.smartTwinViewer && window.smartTwinViewer.context === ctx) window.smartTwinViewer = null;});
   const dispose = () => browser.dispose();
   const menu = byId('viewer-menu'), menuToggle = byId('viewer-menu-toggle');
-  const closeMenu = () => {if (menu.open) menu.close();};
+  const closeMenu = () => {
+    if (menu.open) menu.close();
+    // The dialog's close event is queued. Release its input gate before a
+    // menu action tries to mount the forklift in the same click handler.
+    ctx.publicDialogOpen = false; input.reset(); menuToggle.setAttribute('aria-expanded', 'false');
+  };
   listen(menuToggle, 'click', () => {
     if (ctx.vrMode) return;
     ctx.publicDialogOpen = true; input.reset(); ctx.desktopLook.unlock();
@@ -147,7 +152,7 @@ async function start() {
     listen(byId('drive'), 'click', () => {
       if (ctx.demo.paused) ctx.demo.setPaused(false);
       const driving = ctx.demo.driving, vehicle = driving.nearest();
-      if (driving.id) driving.unmount(); else if (vehicle) {driving.mount(vehicle.id); closeMenu();}
+      if (driving.id) driving.unmount(); else if (vehicle) {closeMenu(); driving.mount(vehicle.id);}
       else notice('Acércate al montacargas y pulsa F para subir.');
       input.reset();
     });
@@ -171,7 +176,8 @@ async function start() {
       const nearby = !driving && ctx.demo.driving.nearest();
       byId('navigation-hint').textContent = driving ? '' : locked ? nearby ? 'F · Subir al montacargas    Esc · Liberar mouse' : 'W A S D · Caminar    Esc · Liberar mouse' : input.pointerLockUnavailable ? 'Mantén clic y arrastra · Mirar con el puntero    W A S D · Caminar' : 'Clic en la escena · Mirar con el puntero    W A S D · Caminar';
       byId('pause').textContent = stats.paused ? 'Continuar' : 'Pausar'; byId('pause').setAttribute('aria-pressed', String(stats.paused));
-      byId('demo-progress').textContent = ctx.publicFrameFailure ? 'Simulación interrumpida · Menú → Reiniciar.' : stats.paused ? 'Simulación en pausa · puedes seguir explorando.' : stats.vehicle && stats.vehicle.delivered >= 2 ? 'Práctica completada · 2 pallets entregados.' : stats.vehicle && stats.vehicle.carrying ? 'Pallet recogido · baja la carga y sigue la ruta hasta su destino.' : stats.belt && stats.belt.packages ? 'Pallet de cuatro cajas listo en la banda · alinea las horquillas y recoge la carga.' : stats.palletizer ? 'El robot coloca cajas individuales: '+(stats.palletizer.cartons%stats.palletizer.perPallet)+' / '+stats.palletizer.perPallet+' en el pallet actual · '+stats.palletizer.completed+' / '+stats.palletizer.limit+' pallets completados.' : 'El robot prepara la primera carga · observa el proceso.';
+      const robotProgress = (stats.robots || []).map((robot, index) => 'Robot '+(index+1)+': '+robot.completed+' cajas').join(' · ');
+      byId('demo-progress').textContent = ctx.publicFrameFailure ? 'Simulación interrumpida · Menú → Reiniciar.' : stats.paused ? 'Simulación en pausa · puedes seguir explorando.' : stats.vehicle && stats.vehicle.delivered >= 2 ? 'Dos pallets entregados · explora la estantería y consulta el monitor.' : stats.vehicle && stats.vehicle.carrying ? 'Pallet recogido · baja la carga y sigue la ruta hasta su destino.' : stats.belt && stats.belt.packages ? 'Pallet listo en la banda · alinea las horquillas y recoge la carga. '+robotProgress : robotProgress+' · Observa las dos líneas y consulta sus datos en el monitor.';
       byId('reticle').classList.toggle('hovering', !!ctx.desktopControllerData.currentIntersection);
     }
     browser.setFrameHandler({
@@ -232,6 +238,7 @@ try {
   });
   window.smartTwinGallery = Object.freeze({getStats: () => ({...gallery.getStats(), screen: navigation.getStats().screen}), ready: gallery.ready});
   const follow = action => Promise.resolve(action()).catch(fail);
+  byId('explore-demo').addEventListener('click', () => follow(() => navigation.openDemo()));
   byId('explore-scenes').addEventListener('click', () => practiceURL?window.location.assign(practiceURL):follow(() => navigation.gallery()));
   byId('back-scenes').addEventListener('click', () => follow(() => navigation.gallery()));
   byId('home-link').addEventListener('click', () => follow(() => navigation.home()));

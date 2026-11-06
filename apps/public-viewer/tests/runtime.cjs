@@ -22,12 +22,25 @@ const simulation = new fixtures.Runtime(ctx, document);
 const VehicleRuntime = require(__layout.map(path.join(ROOT, "tests/support/load-vehicle-runtime.js")))(THREE);
 simulation.vehicleRuntime = new VehicleRuntime(simulation);
 simulation.start('hall');
+const seedPublicDemoStock = require(path.join(ROOT, 'projects/smarttwin/PublicDemoStock.cjs'));
+assert.equal(seedPublicDemoStock(THREE, simulation), 1, 'The production demo seed adopts its physically placed pallet into native rack custody.');
 const vehicle = [...simulation.records.values()].find(record => record.components.vehicle), robot = [...simulation.records.values()].find(record => record.components.robot), belt = simulation.records.get(vehicle.components.vehicle.config.sourceId);
-assert(robot && belt && vehicle); assert.equal(document.additions.size, 22);
-assert.equal([...simulation.records.values()].filter(record=>record.components.conveyor).length,2,'The public URL now uses the existing two-conveyor transfer recipe.');
-const transferSnapshot=JSON.parse(fs.readFileSync(path.join(ROOT,'projects/smarttwin/scenes/vr-robot-transfer.json'),'utf8'));
-for(const row of transferSnapshot.project.document.rooms.hall.additions)for(const behavior of row.behaviors||[])if(behavior.type==='vehicle'&&behavior.forkColor==='#677682')behavior.forkColor=schema.vehicles.DEFAULTS.forkColor;
-assert.deepEqual(snapshot.project.document,transferSnapshot.project.document,'The demonstration uses the same complete scene document as the maintained transfer lesson.');
+const records = [...simulation.records.values()], robots = records.filter(record => record.components.robot), conveyors = records.filter(record => record.components.conveyor);
+const racks = records.filter(record => record.components.palletQueue && record.components.palletQueue.rack);
+const monitors = [...document.additions.values()].filter(entry => document.getBehaviors(entry.object).some(config => config.type === 'lineMonitor'));
+const sources = records.filter(record => record.components.source);
+assert(robot && belt && vehicle); assert.equal(robots.length, 2, 'The public demo must contain two operational robot runtimes.');
+assert(conveyors.length >= 3 && conveyors.length <= 5, 'Both robot branches use real, bounded conveyor modules.');
+assert(document.additions.size < 80, 'The public installation must remain a compact authored scene.');
+assert.equal(racks.length, 1, 'The public rack must have a real warehouse runtime, not a decorative primitive.');
+assert(racks[0].components.palletQueue.rack.layout.cells.length >= 4, 'The rack has individually addressed pallet slots.');
+assert(racks[0].components.palletQueue.queue.length > 0, 'The public rack starts with real stocked loads.');
+assert.equal(monitors.length, 2, 'The two independent branches have native live monitor screens, without invented process links.');
+assert(sources.length >= 2);
+for (const record of sources) assert(record.components.source.config.totalLimit > 0 && record.components.source.config.totalLimit <= 8,
+  'Every demo source has a finite production limit.');
+for (const record of robots) assert(record.components.robot.config.enabled && record.components.robot.config.powered,
+  'Both robots must be enabled and powered in the published configuration.');
 const architecture = [...document.additions.values()].map(entry => entry.object), walls = architecture.filter(object => /CEDI.*RV pared/.test(object.name)), roof = architecture.filter(object => /CEDI.*RV cubierta industrial cerrada/.test(object.name));
 assert.equal(walls.length, 4, 'The selected public cell must have four distinct industrial walls.');
 assert.equal(roof.length, 1, 'The selected public cell must have one enclosed industrial roof.');
@@ -40,10 +53,24 @@ for (let i=0;i<walls.length;i++) for (let j=i+1;j<walls.length;j++) {
 }
 assert.equal(document.getObject('custom-public-2').visible, false, 'The camera marker must not render in the lesson.');
 for (const entry of document.additions.values()) for (const node of entry.nodes.values()) for (const behavior of document.getBehaviors(node)) assert.notEqual(behavior.targetId, '@root');
-for (let frame = 0; frame < 60 * 60 && !belt.components.conveyor.packages.length; frame++) {scene.updateMatrixWorld(true); simulation.execute(1 / 60);}
+let peakProducts = simulation.products.size;
+const advance = (seconds, stop = () => false) => {
+  for (let frame = 0; frame < Math.ceil(60 * seconds) && !stop(); frame++) {
+    scene.updateMatrixWorld(true); simulation.execute(1 / 60); peakProducts = Math.max(peakProducts, simulation.products.size);
+    for (const record of robots) assert.equal(record.components.robot.fault, '', record.id + ': ' + record.components.robot.warning);
+  }
+};
+advance(90, () => belt.components.conveyor.packages.length && robots.every(record => record.components.robot.completed >= 1));
 assert.equal(robot.components.robot.fault, '', robot.components.robot.warning);
-assert.equal(robot.components.robot.completed, 1, 'The actual source pallet must complete the robot cycle.');
-for (let frame = 0; frame < 60 * 30 && belt.components.conveyor.actualSpeed; frame++) {scene.updateMatrixWorld(true); simulation.execute(1 / 60);}
+assert(robots.every(record => record.components.robot.completed >= 1), 'Both real robots must complete a fault-free cycle.');
+advance(30, () => !belt.components.conveyor.actualSpeed);
+const analytics = monitors.map(entry => {
+  const config = document.getBehaviors(entry.object).find(config => config.type === 'lineMonitor');
+  return simulation.getAnalyticsSnapshot(config.targetId, config.scope || 'line');
+});
+assert(analytics.every(value => value && value.observedSeconds > 0 && value.machines.length > 0),
+  'Both authored monitor targets must resolve to measured simulation telemetry.');
+for (const record of robots) assert(analytics.some(value => value.machines.some(machine => machine.id === record.id)), 'Both robots appear in measured monitor telemetry.');
 const item = belt.components.conveyor.packages[0], product = item && item.product;
 assert(product); assert.equal(belt.components.conveyor.actualSpeed, 0, 'The real belt must stop for manual fork collection.');
 const metadata = simulation.productMetadata(product), entry = product.sourceEntry;
@@ -58,9 +85,23 @@ for (let frame = 0; dock.position.clone().sub(vehicle.object.position).dot(direc
 for (let frame = 0; frame < 90; frame++) tick({brake: 1});
 assert(api.getDockingState(vehicle).ready, v.warning); assert(api.pickup(vehicle, product), v.warning);
 assert.equal(v.entry, entry); assert.equal(belt.components.conveyor.packages.length, 0); assert.equal(entry.product.object, product.object);
-assert.equal(simulation.productMetadata(product).units, 4); assert.equal(JSON.stringify(snapshot), saved, 'Read-only loading and simulation must not mutate the snapshot.');
+assert.equal(simulation.productMetadata(product).units, 4);
+api.setInput(vehicle, {brake: 1}); advance(120);
+const completed = robots.map(record => ({id: record.id, completed: record.components.robot.completed, fault: record.components.robot.fault}));
+assert(completed.every(record => record.completed > 0 && !record.fault));
+assert.equal(completed.find(record => record.id === 'custom-public-4').completed, 8, 'The main robot places eight individual boxes onto two pallets.');
+assert.equal(completed.find(record => record.id === 'custom-public-25').completed, 4, 'The secondary robot finishes its finite four-box lot.');
+assert.equal(simulation.records.get('custom-public-27').components.palletQueue.receivedUnits, 4, 'All four secondary boxes reach the real receiver.');
+const finite = sources.map(record => ({id: record.id, generated: record.components.source.generated, limit: record.components.source.config.totalLimit}));
+assert(finite.every(source => source.generated <= source.limit));
+assert(peakProducts <= 20 && simulation.products.size <= 20, 'Finite stock must prevent unbounded product growth.');
+assert.equal(JSON.stringify(snapshot), saved, 'Read-only loading and simulation must not mutate the snapshot.');
 simulation.stop(); assert.equal(simulation.products.size, 0);
-simulation.start('hall'); assert.equal(simulation.records.get(robot.id).components.robot.completed, 0, 'Restart restores the authored robot pose and counters.'); simulation.stop();
+simulation.start('hall');
+assert.equal(seedPublicDemoStock(THREE, simulation), 1);
+for (const record of robots) assert.equal(simulation.records.get(record.id).components.robot.completed, 0, 'Restart restores both robot counters.');
+assert(simulation.records.get(racks[0].id).components.palletQueue.queue.length > 0, 'Restart restores the authored rack stock.'); simulation.stop();
 document.dispose(); assert.equal(document.objects.size, 0); assert.equal(document.root.parent, null);
 assert.throws(() => new SelectedSceneDocument({project: {document: {format: 'other'}}}, scene), /compatible/);
-console.log(JSON.stringify({app: 'public-viewer',objects: 22,conveyors:2,maintainedTransferRecipe:true,walls:4,roof:1,robotCycle: true,beltStop: true,physicalForkPickup: true,sameEntry: true,units: 4,mass: 33,restart: true,dispose: true}));
+console.log(JSON.stringify({app: 'public-viewer', objects: architecture.length, robots: completed, conveyors: conveyors.length, rackSlots: racks[0].components.palletQueue.rack.layout.cells.length,
+  monitorMachines: analytics.map(value => value.machines.length), finiteSources: finite, peakProducts, walls:4, roof:1, beltStop:true, physicalForkPickup:true, sameEntry:true, units:4, mass:33, restart:true, dispose:true}));

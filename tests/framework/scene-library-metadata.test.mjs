@@ -6,10 +6,11 @@ import {publicSceneEntry, normalizeSceneSearch, DIFFICULTY_LABELS, MODE_LABELS} 
 import {sceneEntries, filterSceneEntries, PUBLIC_SCENE} from '../../apps/public-viewer/GalleryData.mjs';
 const catalog=JSON.parse(fs.readFileSync(new URL('../../projects/smarttwin/scenes/catalog.json',import.meta.url),'utf8'));
 
-test('startup library shares menu metadata and omits the replaced demo alias',()=>{
-  const rows=catalog.scenes.filter(scene=>scene.id!=='vr-robot-dispatch');
+test('startup library shares menu metadata and retains the dedicated public demo recipe',()=>{
+  const rows=catalog.scenes;
   const cards=sceneEntries(catalog,true);assert.equal(cards.length,rows.length);assert.deepEqual(cards.map(card=>card.id),rows.map(scene=>scene.id));
-  for(const row of rows){const expected=publicSceneEntry(row,true),card=cards.find(entry=>entry.id===row.id);for(const key of ['title','category','description','objective','tasks','difficulty','mode','searchable'])assert.deepEqual(card[key],expected[key],row.id+' shares '+key);}
+  for(const row of rows.filter(scene=>scene.id!=='vr-robot-dispatch')){const expected=publicSceneEntry(row,true),card=cards.find(entry=>entry.id===row.id);for(const key of ['title','category','description','objective','tasks','difficulty','mode','searchable'])assert.deepEqual(card[key],expected[key],row.id+' shares '+key);}
+  const demo=cards.find(card=>card.id==='vr-robot-dispatch');assert(demo.public);assert.equal(demo.templateId,'vr-robot-dispatch');assert.equal(demo.category,'Demostración pública');
   const compact=cards.filter(card=>card.category==='Realidad virtual compacta');
   assert.deepEqual(compact.map(card=>card.id),STUDY_SCENES.filter(scene=>scene.compactVR&&scene.id!=='vr-robot-dispatch').map(scene=>scene.id));assert(compact.some(card=>card.id==='vr-warehouse-missions'));
   const warehouse=compact.find(card=>card.id==='vr-warehouse-missions');assert.equal(warehouse.mode,'manual');assert.equal(warehouse.tasks.length,3);assert.match(warehouse.objective,/ubicación exacta/);
@@ -17,9 +18,9 @@ test('startup library shares menu metadata and omits the replaced demo alias',()
   assert.equal(MODE_LABELS.explore,'Exploración');assert.equal(DIFFICULTY_LABELS[2],'Intermedia');
 });
 
-test('public fallback is a full lesson with its only public static image; other previews remain authenticated',()=>{
-  assert.equal(PUBLIC_SCENE.included,true);assert.equal(PUBLIC_SCENE.templateId,'vr-robot-transfer');assert(PUBLIC_SCENE.description&&PUBLIC_SCENE.objective&&PUBLIC_SCENE.tasks.length);
-  assert.equal(PUBLIC_SCENE.title,'RV · Transferencia guiada');
+test('public fallback is its own integrated demo with one public static image; private previews require authentication',()=>{
+  assert.equal(PUBLIC_SCENE.included,true);assert.equal(PUBLIC_SCENE.templateId,'vr-robot-dispatch');assert(PUBLIC_SCENE.description&&PUBLIC_SCENE.objective&&PUBLIC_SCENE.tasks.length);
+  assert.equal(PUBLIC_SCENE.title,'SMART-TWIN · Demostración integrada');assert.match(PUBLIC_SCENE.description,/Dos robots/);
   assert.equal(PUBLIC_SCENE.thumbnailURL,'projects/smarttwin/previews/vr-robot-dispatch.png');
   const cards=sceneEntries(catalog,true);for(const card of cards)assert.equal(card.thumbnailURL,card.public?'projects/smarttwin/previews/vr-robot-dispatch.png':'/workspace/projects/smarttwin/previews/'+card.id+'.png');
   assert.deepEqual(sceneEntries(catalog).map(card=>card.id),['vr-robot-dispatch']);

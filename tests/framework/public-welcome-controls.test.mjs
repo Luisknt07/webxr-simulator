@@ -25,8 +25,15 @@ function fixture(configuration={},baseURI='https://studio.example/'){
 }
 
 test('the public welcome keeps a real editor CTA and a separately packaged welcome stylesheet',()=>{
- assert.match(html,/<link\b[^>]*href="welcome\.css"/);assert.match(html,/<a\b[^>]*id="editor-access"[^>]*>[\s\S]*?Ir al editor[\s\S]*?<\/a>/);
- assert.match(html,/<button\b[^>]*id="explore-scenes"/);assert.match(html,/Cinco procesos de CEDI y cinco de Smart Factory/);
+ assert.match(html,/<link\b[^>]*href="welcome\.css"/);assert.match(html,/<a\b[^>]*id="editor-access"[^>]*>[\s\S]*?Modo editor[\s\S]*?<\/a>/);
+ assert.match(html,/<button\b[^>]*id="explore-scenes"[^>]*>[\s\S]*?Modo juego/);assert.match(html,/Cinco procesos de CEDI y cinco de Smart Factory/);
+});
+
+test('the demo entry opens only the public experience without login or private navigation',async()=>{
+ for(const configuration of [{backendAvailable:false},{backendAvailable:true,apiOrigin:'https://studio.example'}]){
+  const f=fixture(configuration);await f.elements.get('explore-demo').click();
+  assert.deepEqual(f.navigationCalls,['demo']);assert.deepEqual(f.assignments,[]);assert.deepEqual(f.errors,[]);
+ }
 });
 
 test('server exploration opens the independent catalogue through login, without preselecting a 3D scene',async()=>{

@@ -3,9 +3,13 @@
 // Preview applies only to bundled examples. User permissions and the saved
 // selection of two public rooms remain independent and reversible.
 const POLICY = Object.freeze({previewAllExamples: true});
-// Keep the bounded public URL stable, but use the maintained transfer lesson
-// rather than a separate demonstration layout.
-const PUBLIC_DEMO = Object.freeze({id: 'vr-robot-dispatch', templateId: 'vr-robot-transfer', name: 'RV · Transferencia guiada'});
+// One public scene only. Its dedicated recipe extends the native transfer cell
+// without modifying private lessons or publishing user-authored projects.
+const PUBLIC_DEMO = Object.freeze({id: 'vr-robot-dispatch', templateId: 'vr-robot-dispatch', baseTemplateId: 'vr-robot-transfer',
+  name: 'SMART-TWIN · Demostración integrada',
+  description: 'Dos robots, transportadores, montacargas y estantería con analítica de producción en vivo.',
+  objective: 'Explorar dos células robóticas reales, seguir los pallets y probar su transporte y almacenamiento.',
+  tasks: Object.freeze(['Observa la manipulación de cajas y el paletizado físico.', 'Conduce el montacargas desde los rodillos hasta las bahías o la estantería.', 'Consulta los monitores y estudia los equipos.'])});
 const SCENES = Object.freeze([
   Object.freeze({id: 'l-transfer', name: 'Transferencia rectangular a 90°', roomId: 'hall'}),
   Object.freeze({id: 'inspection-sorting', name: 'Inspección y clasificación', roomId: 'sound'})

@@ -2,7 +2,7 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "ac9d093b4e720b94bc5d42659a0ea70ecac60346",
+  "revision": "d0d1abb7b2e8801ec81c84c48dc91345e7a5e6be",
   "bundleSha256": "d3828a60298b11cdc06c78a6a7d4001b37d73396be5843e039a19066a9244b6f",
   "scenes": [
     "advanced-packing",
@@ -3776,7 +3776,7 @@
     },
     {
       "path": "projects/smarttwin/previews/vr-robot-dispatch.png",
-      "sha256": "f94a7f3ad42a4185442ddeba83a5d5fbc080cf650900f9724764c26582ad22f6"
+      "sha256": "7e818fce124a6b3f7da8bc31c852df45ebf6724b3bd837e1d76579de7fad0d50"
     },
     {
       "path": "projects/smarttwin/previews/vr-robot-transfer.png",
@@ -3804,7 +3804,7 @@
     },
     {
       "path": "projects/smarttwin/scenes/catalog.json",
-      "sha256": "b025078724fe9ef14a27c8f096a10a1b4a64db312093c7ce585fa09ae9121597"
+      "sha256": "732e286ce841d37a59d154369fb5acd141289e1c25fa60516d33ed022fbf7095"
     },
     {
       "path": "projects/smarttwin/scenes/cedi-packing-robotics.json",
@@ -3920,7 +3920,7 @@
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-dispatch.json",
-      "sha256": "f6341e98b45cc3de78e213f78c913bde8279351f916201dfe2a57ee880ad5109"
+      "sha256": "5e1f47806e3454e20fdc9bbd4a9db453cb4ef72ea732874b42095eacad087a38"
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-transfer.json",
@@ -3946,7 +3946,7 @@
   "compilation": {
     "compiler": "workspace",
     "hash": "98844bf0654888dda80d",
-    "statsSha256": "711dcb3f6147743de1f333655c0850713ef6270a8d9148f736bd51af496b7e62",
+    "statsSha256": "f6e72b24f936df31391745de8da2f137179884c4c9a53a89ee5d785c67bebcea",
     "assets": [
       {
         "path": "13.js",

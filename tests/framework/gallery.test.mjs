@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {backendOrigin, loadGallery, sceneEntries, sceneURL, PUBLIC_SCENE_ID} from '../../apps/public-viewer/GalleryData.mjs';
+import {backendOrigin, loadGallery, sceneEntries, sceneURL, PUBLIC_SCENE_ID, PUBLIC_SCENE} from '../../apps/public-viewer/GalleryData.mjs';
 
 const origin = 'http://localhost:8081', settings = {configuration: {backendAvailable: true, apiOrigin: origin}, baseURI: origin + '/'};
 const response = data => ({ok:true,json:async()=>data});
@@ -40,14 +40,14 @@ test('catalogue failures and foreign capability URLs fall back without disclosin
 
 test('catalogue rows are bounded, deduplicated and anonymous output stays restricted',()=>{
   const catalog={scenes:[{id:'vr-robot-turn',name:'Private'},{id:PUBLIC_SCENE_ID,name:'<img src=x onerror=evil()>',collection:'Public'},{id:PUBLIC_SCENE_ID,name:'Duplicate'},...Array.from({length:150},(_,i)=>({id:'scene-'+i,name:'Scene '+i}))]};
-  const anonymous=sceneEntries(catalog);assert.equal(anonymous.length,1);assert.equal(anonymous[0].id,PUBLIC_SCENE_ID);assert.equal(anonymous[0].name,'<img src=x onerror=evil()>');
+  const anonymous=sceneEntries(catalog);assert.equal(anonymous.length,1);assert.equal(anonymous[0].id,PUBLIC_SCENE_ID);assert.equal(anonymous[0].name,PUBLIC_SCENE.name);
   assert(sceneEntries(catalog,true).length<=128);assert.equal(new Set(sceneEntries(catalog,true).map(scene=>scene.id)).size,sceneEntries(catalog,true).length);
 });
 
-test('authenticated transfer opens the regular system scenario without a duplicate test card',()=>{
+test('the dedicated public cell stays separate from the authenticated transfer lesson',()=>{
   const catalog={scenes:[{id:PUBLIC_SCENE_ID,name:'Old demo'},{id:'vr-robot-transfer',name:'Transferencia entre dos bandas'},{id:'vr-robot-turn',name:'Giro'}]};
-  assert.deepEqual(sceneEntries(catalog,true).map(scene=>scene.id),['vr-robot-transfer','vr-robot-turn']);
-  assert.equal(sceneURL({id:PUBLIC_SCENE_ID},origin,true),origin+'/editor?libraryScene=vr-robot-transfer');
+  assert.deepEqual(sceneEntries(catalog,true).map(scene=>scene.id),[PUBLIC_SCENE_ID,'vr-robot-transfer','vr-robot-turn']);
+  assert.equal(sceneURL({id:PUBLIC_SCENE_ID},origin,true),null);
   assert.equal(sceneURL({id:'vr-robot-transfer'},origin,true),origin+'/editor?libraryScene=vr-robot-transfer');
   assert.deepEqual(sceneEntries(catalog,false).map(scene=>scene.id),[PUBLIC_SCENE_ID]);
   assert.equal(sceneURL({id:PUBLIC_SCENE_ID},origin,false),null);

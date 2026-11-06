@@ -2,6 +2,7 @@ const __layout = require("../layout.cjs");
 'use strict';
 const fs = require('node:fs'), path = require('node:path'), THREE = require('three');
 const schema = require('../../modules/logistica-industrial/contracts/behaviors'), {POLICY, PUBLIC_DEMO, project} = require('../../projects/smarttwin/public-scenes');
+const {buildPublicDemoScene} = require('../../projects/smarttwin/PublicDemoScene.cjs');
 const read = file => fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/generate-public-scenes.js"), '..', file)), 'utf8').replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
 const dependencies = require('../../tests/support/load-robot-prefabs')(THREE);
 const factory = new Function('THREE', 'behaviorSchema', 'require', read("modules/logistica-industrial/functions/presentacion/runtime/IndustrialPrefabs.js") + '\nreturn createIndustrialPrefab;')(THREE, schema, dependencies.resolve);
@@ -43,10 +44,11 @@ async function generate(root = __layout.map(path.resolve(__layout.oldDir("script
   const ordered = templates.slice().sort((a, b) => {const rank = id => id === 'lab-transfer-l' ? 0 : id === 'lab-sorting' ? 1 : 2; return rank(a.id) - rank(b.id);});
   for (const definition of ordered) {
     const roomId = definition.id === 'lab-sorting' ? 'sound' : 'hall', id = definition.id === 'lab-transfer-l' ? 'l-transfer' : definition.id === 'lab-sorting' ? 'inspection-sorting' : definition.id;
-    const template = id === PUBLIC_DEMO.id ? compiler.STUDY_SCENES.find(row => row.id === PUBLIC_DEMO.templateId) : definition;
-    const metadata = {id, roomId, name: id === PUBLIC_DEMO.id ? PUBLIC_DEMO.name : template.title, templateId: template.id, collection: template.family, difficulty: template.difficulty, mode: template.mode};
+    const template = id === PUBLIC_DEMO.id ? compiler.STUDY_SCENES.find(row => row.id === PUBLIC_DEMO.baseTemplateId) : definition;
+    const metadata = {id, roomId, name: id === PUBLIC_DEMO.id ? PUBLIC_DEMO.name : template.title, templateId: id === PUBLIC_DEMO.id ? PUBLIC_DEMO.templateId : template.id, collection: template.family, difficulty: template.difficulty, mode: template.mode};
     if (only && only !== id) {append(metadata); continue;}
-    const w = workspace(); compiler.studySceneBase(w.document, roomId); compiler.buildStudyScene(w.document, roomId, template.id, {scene: w.scene, continuous: true,publicDemo:id===PUBLIC_DEMO.id});
+    const w = workspace(); compiler.studySceneBase(w.document, roomId); const built = compiler.buildStudyScene(w.document, roomId, template.id, {scene: w.scene, continuous: true,publicDemo:id===PUBLIC_DEMO.id});
+    if (id === PUBLIC_DEMO.id) buildPublicDemoScene({THREE, schema, document: w.document, roomId, scene: w.scene, base: built, ConveyorAssembly: compiler.ConveyorAssembly});
     const document = await w.document.serialize(); document.rooms[roomId].overrides = Array.from({length: counts[roomId]}, (_, index) => ({id: 'native:' + roomId + ':root.' + index, visible: false}));
     if (id === PUBLIC_DEMO.id) authorPublicAdvisoryRoute(document, roomId);
     append(metadata, document);

@@ -3,7 +3,7 @@ import behaviorSchema from '../../modules/logistica-industrial/contracts/behavio
 import {createIndustrialPrefab} from '../../modules/logistica-industrial/functions/presentacion/runtime/IndustrialPrefabs.js';
 
 const copy = value => JSON.parse(JSON.stringify(value));
-const PREFABS = new Set(['source', 'robot', 'conveyor', 'palletQueue', 'vehicle']);
+const PREFABS = new Set(['source', 'robot', 'conveyor', 'palletQueue', 'vehicle', 'product']);
 const PRIMITIVES = new Set(['box', 'cylinder', 'sphere', 'plane']);
 
 function state(object, record) {

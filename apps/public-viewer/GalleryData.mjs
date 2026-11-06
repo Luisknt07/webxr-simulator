@@ -13,7 +13,7 @@ function galleryEntry(row) {
     thumbnailURL: view.thumbnail ? (open ? 'projects/smarttwin/previews/' : '/workspace/projects/smarttwin/previews/') + row.id + '.png' : null};
 }
 export const PUBLIC_SCENE = Object.freeze(galleryEntry({id: PUBLIC_SCENE_ID, roomId: 'hall',
-  name: publicExamples.PUBLIC_DEMO.name, collection: 'Realidad virtual compacta', templateId: publicExamples.PUBLIC_DEMO.templateId, included: true, public: true}));
+  ...publicExamples.PUBLIC_DEMO, collection: 'Demostración pública', included: true, public: true}));
 
 export function backendOrigin(configuration, baseURI) {
   if (configuration.backendAvailable !== true) return null;
@@ -27,17 +27,14 @@ export function backendOrigin(configuration, baseURI) {
 
 export function sceneEntries(catalog, authenticated = false) {
   const rows = catalog && Array.isArray(catalog.scenes) ? catalog.scenes : [], seen = new Set(), scenes = [];
-  const standardTransfer = authenticated && rows.some(row => row && row.id === publicExamples.PUBLIC_DEMO.templateId);
   for (const row of rows.slice(0, 128)) {
     if (!row || typeof row.id !== 'string' || !identifier.test(row.id) || seen.has(row.id) || !authenticated && row.id !== PUBLIC_SCENE_ID) continue;
     seen.add(row.id);
-    // Signed-in users open the maintained library scene, not a second demo card.
-    if (standardTransfer && row.id === PUBLIC_SCENE_ID) continue;
     // The public fallback is a real recipe too. Retain its trusted template
     // identity even if an older API returns only id/name for this one card.
-    scenes.push(galleryEntry(row.id === PUBLIC_SCENE_ID ? {...row, included: true, templateId: publicExamples.PUBLIC_DEMO.templateId} : row));
+    scenes.push(galleryEntry(row.id === PUBLIC_SCENE_ID ? {...row, ...publicExamples.PUBLIC_DEMO, collection: 'Demostración pública', included: true} : row));
   }
-  if (!standardTransfer && !seen.has(PUBLIC_SCENE_ID)) scenes.unshift({...PUBLIC_SCENE});
+  if (!seen.has(PUBLIC_SCENE_ID)) scenes.unshift({...PUBLIC_SCENE});
   // Match the in-world menu's source/category order. Alphabetical sorting puts
   // “Giro” before “Transferencia” and changes the compact lessons' progression.
   return scenes.slice(0, 128);
@@ -66,7 +63,8 @@ export async function loadGallery({configuration = {}, baseURI, fetcher, signal}
 
 export function sceneURL(scene, origin, authenticated = false) {
   if (!scene || !identifier.test(scene.id)) throw new Error('El escenario no es válido.');
-  if (scene.id === PUBLIC_SCENE_ID && !authenticated) return null;
+  // This dedicated, read-only demonstration is distinct from private lessons.
+  if (scene.id === PUBLIC_SCENE_ID) return null;
   if (!origin) throw new Error('Inicia sesión para abrir este escenario.');
   const url = new URL('/editor', origin); url.searchParams.set('libraryScene', scene.id === PUBLIC_SCENE_ID ? publicExamples.PUBLIC_DEMO.templateId : scene.id); return url.href;
 }
