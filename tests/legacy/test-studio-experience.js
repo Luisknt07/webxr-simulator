@@ -18,10 +18,11 @@ const windowListeners = new Map();
 const createAvatar = config => { const avatar = new THREE.Group(); avatar.userData.dispose = () => { avatar.userData.disposed = true; }; return avatar; };
 class ImmersiveMenuMock { constructor(studio) { this.studio = studio; } open(page) { calls.push(['immersiveOpen', page]); } close() { calls.push(['immersiveClose']); } setVR(active) { calls.push(['immersiveVR', active]); } identityChanged() { calls.push(['immersiveIdentity']); } }
 class AdministrationMock { close() { calls.push(['administrationClose']); } }
-const Experience = new Function('THREE', 'StudioClient', 'StudioRoomConnection', 'StudioTools', 'EducationRuntime', 'SharedGrabs', 'RemotePresentation', 'createAvatar', 'avatarBadge', 'DEFAULT_AVATAR', 'captureSimulation', 'restoreSimulation', 'window', 'AdminWorkspace', 'ImmersiveStudioMenu', 'document', 'VehicleMissionOverlay', 'PracticeCampaignHost', 'setEditorIcon','getSceneCameraMode','setDroneFlight',
+class PracticeGuideMock { constructor(options) { this.context=options.context;this.updates=0; } mount() {this.mounted=true;} update(){this.updates++;} dispose(){this.disposed=true;} }
+const Experience = new Function('THREE', 'StudioClient', 'StudioRoomConnection', 'StudioTools', 'EducationRuntime', 'SharedGrabs', 'RemotePresentation', 'createAvatar', 'avatarBadge', 'DEFAULT_AVATAR', 'captureSimulation', 'restoreSimulation', 'window', 'AdminWorkspace', 'ImmersiveStudioMenu', 'document', 'VehicleMissionOverlay', 'PracticeCampaignHost', 'setEditorIcon','getSceneCameraMode','setDroneFlight','PracticeGuideAvatar',
   code + '\nreturn StudioExperience;')(THREE, class {}, class {}, class {}, class {}, class {}, class {}, createAvatar, () => ({}), {},
   (runtime, options) => { captures.push(options); if (runtime.held && !options.allowHeld) throw new Error('Suelta las cargas'); return {version: 1, time: runtime.time}; },
-  (runtime, state, options) => { restores.push({runtime, state, options}); }, {location, addEventListener(type, listener) { windowListeners.set(type, listener); }}, AdministrationMock, ImmersiveMenuMock, {querySelectorAll() { return []; }}, VehicleMissionOverlay, PracticeCampaignHost, setEditorIcon,getSceneCameraMode,setDroneFlight);
+  (runtime, state, options) => { restores.push({runtime, state, options}); }, {location, addEventListener(type, listener) { windowListeners.set(type, listener); }}, AdministrationMock, ImmersiveMenuMock, {querySelectorAll() { return []; }}, VehicleMissionOverlay, PracticeCampaignHost, setEditorIcon,getSceneCameraMode,setDroneFlight,PracticeGuideMock);
 
 function setup() {
   const experience = Object.create(Experience.prototype), cameraRig = new THREE.Group(), camera = new THREE.PerspectiveCamera();
@@ -53,6 +54,8 @@ async function run() {
   const lifecycle = [], constructorCtx = {}, constructorEditor = {ctx: constructorCtx, projectClient: {}, enter() {}, startRuntime() {}, async applyServerProject() {}};
   constructorCtx.editor = constructorEditor;
   const constructed = new ConstructorExperience(constructorEditor); await constructed.ready;
+  assert(constructed.practiceGuideAvatar.mounted,'The native practice guide is mounted during Studio startup.');
+  assert.strictEqual(constructed.practiceGuideAvatar.context,constructorCtx);
   let restoredReloads=0;location.reload=()=>restoredReloads++;const restored=windowListeners.get('pageshow');
   for(const route of ['/play?practice=CEDI-01','/editor?project=qa-saved']){location.href='https://localhost:8080'+route;restored({persisted:false});assert.equal(restoredReloads,route.startsWith('/play')?0:1);restored({persisted:true});assert.equal(location.pathname+location.search,route,'Restoring the document preserves its saved project/practice route.');}
   assert.equal(restoredReloads,2,'Both learner and editor documents reconstruct resources retired on pagehide.');location.href='https://localhost:8080/';restored({persisted:true});assert.equal(restoredReloads,2);
@@ -63,9 +66,11 @@ async function run() {
   const overlayUpdate = constructed.missionOverlay.update.bind(constructed.missionOverlay);
   constructed.missionOverlay.update = ctx => { lifecycle.push(['update', ctx]); return overlayUpdate(ctx); };
   constructed.education.tick = () => {}; constructed.sharedGrabs.tick = () => {}; constructed.tick();
+  assert.equal(constructed.practiceGuideAvatar.updates,1,'The guide follows live practice state each Studio tick.');
   assert.deepEqual(lifecycle, [['update', constructorCtx]], 'The Studio frame forwards the current context to the walking coach.');
   constructed.education.saveProgress = () => lifecycle.push(['progress']); constructed.connection.stop = () => lifecycle.push(['stop']);
   windowListeners.get('pagehide')();
+  assert(constructed.practiceGuideAvatar.disposed,'Page exit retires the guide and its listeners.');
   assert.equal(constructed.missionOverlay.disposed, true, 'Page exit disposes the mission panel and its listeners.');
   assert.deepEqual(lifecycle.slice(1), [['stop'], ['progress']]);
   const home = setup(); location.href = 'https://localhost:8080/editor?libraryScene=vr-robot-turn'; home.editor.dirty = true;

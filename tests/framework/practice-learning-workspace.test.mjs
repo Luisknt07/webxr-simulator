@@ -28,14 +28,14 @@ class Element {
 }
 const matches=(node,selector)=>selector.startsWith('.')?node.className.split(' ').includes(selector.slice(1)):selector.startsWith('[')?(()=>{const match=/^\[([^=\]]+)(?:=["']?([^"'\]]+)["']?)?\]$/.exec(selector);return !!match&&node.getAttribute(match[1])!==undefined&&(match[2]===undefined||node.getAttribute(match[1])===match[2]);})():selector.toUpperCase()===node.tagName;
 const all=root=>[root,...root.children.flatMap(all)];
-function fixture(){
+function fixture(options={}){
  let driving=false;const events=[];
  const documentListeners={};const document={body:new Element('body'),activeElement:null,createElement:tag=>{const node=new Element(tag);node.ownerDocument=document;return node;},createElementNS:(_namespace,tag)=>document.createElement(tag),querySelector:selector=>selector==='.vehicle-driving-hud:not([hidden])'&&driving?{}:null,addEventListener:(type,listener)=>{(documentListeners[type]||(documentListeners[type]=[])).push(listener);},removeEventListener:(type,listener)=>{documentListeners[type]=(documentListeners[type]||[]).filter(row=>row!==listener);},fire:async(type,values={})=>{const event={preventDefault(){},stopPropagation(){this.stopped=true;},...values};for(const callback of documentListeners[type]||[])await callback(event);return event;}};
  const listeners={},timers=new Map();let timerSequence=0;const window={innerWidth:1440,innerHeight:900,addEventListener:(type,callback)=>{listeners[type]=callback;},removeEventListener:(type,callback)=>{if(listeners[type]===callback)delete listeners[type];},dispatchEvent:event=>events.push(event.type),setInterval:callback=>{const id=++timerSequence;timers.set(id,callback);return id;},clearInterval:id=>timers.delete(id)};
  const source=fs.readFileSync('modules/logistica-industrial/practices/ui/PracticePanel.js','utf8').replace(/^import[^\n]+\n/gm,'').replace('export default class PracticePanel','class PracticePanel');
  const Panel=new Function('document','window','practiceIcon',source+'\nreturn PracticePanel;')(document,window,name=>{const icon=new Element('svg');icon.setAttribute('data-icon',name);return icon;});
  const state={plan:{id:'CEDI-01',title:'Recepción, descarga y control de ingreso',objective:'Recibir la mercancía',steps:Array.from({length:6},(_,index)=>({title:'Misión fuente '+(index+1)})),expectedUnits:48},session:{score:20,completedSteps:['identify'],stepIndex:1,mode:'manual',caseId:'A',difficulty:1},world:{sourceUnits:48,processedUnits:0,receiverUnits:0},step:{guard:'prepare',title:'Asegurar el muelle',action:'Comprueba los enclavamientos.'},canConfigureAll:true};
- let configured=0;const controller={state:()=>state,perform(){},configure:()=>{configured++;}};
+ let configured=0;const controller={state:()=>state,perform(){},configure:()=>{configured++;},...options};
  const panel=new Panel({controller,host:document.body});
  return{panel,state,events,window,document,listeners,documentListeners,timers,setDriving:value=>{driving=value;},configured:()=>configured};
 }
@@ -105,11 +105,36 @@ test('automatic dismissal never interrupts active reading, typing, a pending com
  assert.equal(p.dismissIdlePanels(elapsed()),true);assert.equal(p.sku.value,'Escribiendo');p.dispose();
 });
 
-test('cab instruments are mutually exclusive and remain usable while driving without blocking controls',async()=>{
- const f=fixture(),p=f.panel,ctx={drivingVehicle:'forklift',vehicleDriving:{resetInput(){}}};p.controller.editor={ctx};
- await p.sidebarButtons.instructions.fire('click');assert.equal(ctx.practiceReadingPanelOpen,true);await p.dockButtons.controls.fire('click');assert.equal(ctx.practiceInstrument,'controls');assert.equal(ctx.practiceReadingPanelOpen,false);assert.equal(p.sidebarOpen.instructions,false);assert.equal(p.dockButtons.controls.getAttribute('aria-pressed'),'true');
- await p.dockButtons.layout.fire('click');assert.equal(ctx.practiceInstrument,'layout');assert.equal(p.dockButtons.controls.getAttribute('aria-pressed'),'false');assert.equal(ctx.practiceReadingPanelOpen,false);
- await p.dockButtons.layout.fire('click');assert.equal(ctx.practiceInstrument,null);assert.equal(f.document.body.getAttribute('data-practice-instrument'),undefined);p.dispose();
+test('boarding automatically keeps controls and proximity camera/map visible together without idle or scene dismissal',async()=>{
+ const expanded=[],driving={controlsExpanded:false,controlsMinimized:true,controlSection:'load',resetInput(){},setControlSection(section,value){expanded.push({section,value});this.controlsExpanded=value;this.controlsMinimized=false;}},docking={cameraEnabled:true,mode:'isometric',displayMode:'automatic'},ctx={drivingVehicle:'forklift',vehicleDriving:driving,docking},f=fixture({editor:{ctx}}),p=f.panel;
+ assert.equal(ctx.practiceInstrument,'driving');assert.deepEqual(p.instrumentPreferences,{controls:true,layout:true});assert.equal(f.document.body.getAttribute('data-practice-instrument'),'driving');
+ assert.equal(f.document.body.getAttribute('data-practice-controls-visible'),'true');assert.equal(f.document.body.getAttribute('data-practice-layout-visible'),'true');assert.equal(ctx.practiceReadingPanelOpen,false);
+ assert.deepEqual(expanded,[{section:'load',value:true}]);p.update();p.notifyLayout();assert.equal(expanded.length,1,'Frame updates must not repeatedly clear held driving input.');
+ assert.equal(p.dismissIdlePanels(p.lastHudActivity+600000),false);await f.document.fire('pointerdown',{target:p.sceneFrame});await f.document.fire('keydown',{key:'Escape'});assert.equal(ctx.practiceInstrument,'driving','Driving instruments remain available when returning to the scene.');
+ for(const id of ['missions','instructions','help']){
+  p.setSidebar(id,true);assert.equal(ctx.practiceInstrument,null);assert.equal(f.document.body.getAttribute('data-practice-controls-visible'),'false');assert.equal(ctx.practiceReadingPanelOpen,true);assert.deepEqual(p.instrumentPreferences,{controls:true,layout:true});
+  await p.sceneFocusButton.fire('click');assert.equal(ctx.practiceInstrument,'driving');assert.equal(ctx.practiceReadingPanelOpen,false);
+ }
+ p.setSidebar('instructions',true);assert.equal(p.dismissIdlePanels(p.lastHudActivity+p.hudIdleMs+1),true);assert.equal(ctx.practiceInstrument,'driving','Only the idle reading drawer closes; operating instruments resume.');
+ assert.deepEqual(docking,{cameraEnabled:true,mode:'isometric',displayMode:'automatic'},'The native automatic camera and shortcuts retain their own configuration.');p.dispose();
+});
+
+test('controls and camera/map toggle independently and cleanly reset on vehicle exit or a different vehicle',async()=>{
+ const ctx={drivingVehicle:'forklift-1',vehicleDriving:{resetInput(){}}},f=fixture({editor:{ctx}}),p=f.panel;
+ await p.dockButtons.controls.fire('click');assert.equal(ctx.practiceInstrument,'layout');assert.deepEqual(p.instrumentPreferences,{controls:false,layout:true});assert.equal(p.dockButtons.controls.getAttribute('aria-pressed'),'false');assert.equal(p.dockButtons.layout.getAttribute('aria-pressed'),'true');
+ await p.dockButtons.layout.fire('click');assert.equal(ctx.practiceInstrument,null);assert.equal(f.document.body.getAttribute('data-practice-instrument'),undefined);assert.deepEqual(p.instrumentPreferences,{controls:false,layout:false});
+ await p.dockButtons.controls.fire('click');assert.equal(ctx.practiceInstrument,'controls');await p.dockButtons.layout.fire('click');assert.equal(ctx.practiceInstrument,'driving');
+ await p.sidebarButtons.instructions.fire('click');assert.equal(ctx.practiceInstrument,null);await p.dockButtons.controls.fire('click');assert.equal(ctx.practiceInstrument,'driving','Selecting an operating instrument while reading returns to both preferred instruments.');assert.equal(p.sidebarOpen.instructions,false);
+ await p.dockButtons.controls.fire('click');p.setSidebar('missions',true);p.closePanels('escape');assert.equal(ctx.practiceInstrument,'layout','A deliberately hidden console stays hidden after consulting information.');
+ ctx.drivingVehicle='forklift-2';p.update();assert.equal(ctx.practiceInstrument,'driving','A new cab starts with both instruments available.');ctx.drivingVehicle=null;p.update();assert.equal(ctx.practiceInstrument,null);assert.deepEqual(p.instrumentPreferences,{controls:false,layout:false});assert(Object.values(p.sidebarOpen).every(value=>!value));assert.equal(f.document.body.getAttribute('data-practice-controls-visible'),'false');
+ ctx.drivingVehicle='forklift-1';p.update();assert.equal(ctx.practiceInstrument,'driving');p.dispose();assert.equal(ctx.practiceInstrument,null);for(const key of ['data-practice-instrument','data-practice-controls-visible','data-practice-layout-visible'])assert.equal(f.document.body.getAttribute(key),undefined);
+});
+
+test('external dialogs temporarily suspend both driving instruments and restore the native full controls after a viewport change',()=>{
+ const driving={controlsExpanded:false,controlsMinimized:false,controlSection:'drive',expanded:0,resetInput(){},setControlSection(section,value){this.expanded++;this.controlsExpanded=value;this.controlsMinimized=false;}},ctx={drivingVehicle:'forklift',vehicleDriving:driving},f=fixture({editor:{ctx}}),p=f.panel;
+ assert.equal(ctx.practiceInstrument,'driving');ctx.assistantPanelOpen=true;p.update();assert.equal(ctx.practiceInstrument,null);assert.deepEqual(p.instrumentPreferences,{controls:true,layout:true});ctx.assistantPanelOpen=false;p.update();assert.equal(ctx.practiceInstrument,'driving');
+ p.workflowDialog=new Element('dialog');p.syncSidebarLayout();assert.equal(ctx.practiceInstrument,null);p.workflowDialog=null;p.syncSidebarLayout();assert.equal(ctx.practiceInstrument,'driving');
+ driving.controlsExpanded=false;driving.controlsMinimized=true;f.window.innerWidth=390;f.listeners.resize();assert.equal(driving.controlsExpanded,true);assert.equal(driving.controlsMinimized,false);assert.equal(driving.expanded,2);assert.equal(ctx.practiceInstrument,'driving');assert.equal(p.dismissIdlePanels(p.lastHudActivity+600000),false);p.dispose();
 });
 
 test('native instruments receive the measured scene bounds after layout and remove them on exit',()=>{

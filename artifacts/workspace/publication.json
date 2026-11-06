@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "117dca696c90b25bb9934734b9f785f79016cf97",
-  "bundleSha256": "441c9f2790f952784e9fb273877719ffbf0b41940597bbb6a80abcd009a014c9",
+  "revision": "ac9d093b4e720b94bc5d42659a0ea70ecac60346",
+  "bundleSha256": "d3828a60298b11cdc06c78a6a7d4001b37d73396be5843e039a19066a9244b6f",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -80,7 +80,7 @@
     },
     {
       "path": "apps/workspace/studio/interface.css",
-      "sha256": "0f1b3f780e5ba8eb01c5e32961dab6e8d306de1825f88cbe493260caf816b764"
+      "sha256": "2b8f9af5db0d7667946c2430525321e96adc52994ba018caaa6fb1b18fc2b5d4"
     },
     {
       "path": "apps/workspace/studio/studio.css",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "441c9f2790f952784e9fb273877719ffbf0b41940597bbb6a80abcd009a014c9"
+      "sha256": "d3828a60298b11cdc06c78a6a7d4001b37d73396be5843e039a19066a9244b6f"
     },
     {
       "path": "cad-worker.js",
@@ -112,7 +112,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "9534ee94ac831984ca543ad900a940085a665452dcd713a10f9ce49b9c23ec6e"
+      "sha256": "872bb411ec131ea8efc9b14ea817be87f7d45ac024e26c7d015b3794efa0707d"
     },
     {
       "path": "logistics-documentation.js",
@@ -3347,6 +3347,10 @@
       "sha256": "1e360aa9a506ee1ded106bbeb4a09d4927f8c246075a63ad0cc8623dd2c0006e"
     },
     {
+      "path": "packages/assistant-ui/practice-guide-avatar.css",
+      "sha256": "218006909e175d8e959a2b5538646b3ca6fa91468c81ffc2604778854680f508"
+    },
+    {
       "path": "packages/documentation/documentation.css",
       "sha256": "42fc200b1c8fa64605e28ed31b5f7b072a8ae95ffec371721e6a1fd16f28fd48"
     },
@@ -3941,8 +3945,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "cde073e5847ae5053b19",
-    "statsSha256": "35284cf3eec619b084a1093d6e1d65be60567e24e1716294f9d25540f3726322",
+    "hash": "98844bf0654888dda80d",
+    "statsSha256": "711dcb3f6147743de1f333655c0850713ef6270a8d9148f736bd51af496b7e62",
     "assets": [
       {
         "path": "13.js",
@@ -3974,7 +3978,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7066708
+        "size": 7080862
       },
       {
         "path": "configurable-practice-reference.js",

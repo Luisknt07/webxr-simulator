@@ -1,0 +1,72 @@
+.st-practice-guide {
+  position: fixed;
+  z-index: 117;
+  left: max(16px, env(safe-area-inset-left));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: 82px 140px;
+  align-items: end;
+  gap: 6px;
+  width: 228px;
+  color: #e5fff9;
+  font: 500 12px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  pointer-events: none;
+  isolation: isolate;
+}
+.st-practice-guide[hidden], .st-practice-guide [hidden] {display: none !important;}
+.st-practice-guide, .st-practice-guide * {box-sizing: border-box;}
+.st-practice-guide button {font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; pointer-events: auto;}
+.st-practice-guide button:focus-visible {outline: 3px solid #9affde; outline-offset: 3px;}
+.st-guide-launcher {position: relative; display: flex; flex-direction: column; align-items: center; justify-content: end; min-width: 82px; min-height: 92px; border: 0; border-radius: 18px; padding: 0 2px 2px; background: transparent;}
+.st-guide-portrait {display: block; width: 66px; height: 76px; filter: drop-shadow(0 3px 5px #001b2b90); transition: transform .18s ease;}
+.st-guide-launcher:hover .st-guide-portrait, .st-guide-launcher[aria-expanded="true"] .st-guide-portrait {transform: translateY(-3px);}
+.st-guide-identity {display: flex; flex-direction: column; position: absolute; bottom: -1px; left: -2px; right: -2px; padding: 4px 6px; text-align: center; background: #06333eea; border: 1px solid #3ac9c3; border-radius: 10px; box-shadow: 0 3px 14px #00151b45;}
+.st-guide-identity strong {font-size: 12px; font-weight: 750;}
+.st-guide-activity {font-size: 9px; color: #bce8e2; white-space: nowrap;}
+.st-guide-actions {display: flex; gap: 4px; padding-bottom: 0;}
+.st-guide-action {display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 44px; padding: 9px; border: 1px solid #3d8c94; border-radius: 12px; background: #073340f2; box-shadow: 0 2px 10px #00151b38; transition: background .15s ease, border-color .15s ease;}
+.st-guide-actions .st-guide-action {flex-direction: column; gap: 3px; padding: 7px 3px; min-width: 44px;}
+.st-guide-action svg {display: block; width: 20px; height: 20px; flex: 0 0 auto;}
+.st-guide-action:hover, .st-guide-action[aria-pressed="true"] {background: #11656c; border-color: #65efd9;}
+.st-guide-action span {font-size: 10px; font-weight: 650;}
+.st-guide-bubble {position: absolute; left: 0; bottom: 108px; width: min(342px, calc(100vw - 36px)); padding: 15px 17px; border: 1px solid #45c9be; border-radius: 16px 16px 16px 4px; background: #062f3cf5; box-shadow: 0 8px 30px #001b2b50; backdrop-filter: blur(8px); pointer-events: auto; max-height: min(360px, calc(100dvh - 140px)); overflow: auto; scrollbar-width: thin; scrollbar-color: #328f91 transparent;}
+.st-guide-bubble-header {position: static; width: auto; margin: 0; text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 10px;}
+.st-guide-step {color: #8ef1d5; font-size: 10px; font-weight: 750; letter-spacing: .09em;}
+.st-guide-bubble-header .st-guide-action {flex: 0 0 44px; min-height: 44px; min-width: 44px; padding: 5px; border-radius: 8px; box-shadow: none; background: transparent;}
+.st-guide-bubble-header .st-guide-action span {position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;}
+.st-guide-bubble h3 {margin: 7px 0 9px; color: #effffc; font-size: 16px; line-height: 1.3; font-weight: 750;}
+.st-guide-instruction {margin: 0; color: #e0f7f2; font-size: 13px; line-height: 1.55; overflow-wrap: anywhere;}
+.st-guide-status {margin: 12px 0 0; padding-top: 10px; border-top: 1px solid #58a29d66; color: #aad4d0; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere;}
+.st-guide-bubble > .st-guide-action {margin-top: 10px; min-height: 36px; padding: 6px 9px; font-size: 11px; background: transparent; box-shadow: none;}
+.st-practice-guide[data-voice-state="listening"] .st-guide-action-mic, .st-practice-guide[data-voice-state="speaking"] .st-guide-action-voice {border-color: #9cffe5; background: #16847d; box-shadow: 0 0 0 3px #5bf3cd20;}
+.st-practice-guide[data-microphone-permission="denied"] .st-guide-action-mic {color: #ffc4a3; border-color: #ac765b;}
+body[data-practice-reading="true"] .st-guide-bubble {display: none !important;}
+
+@media (max-width: 700px) {
+  .st-practice-guide {left: max(14px, env(safe-area-inset-left)); bottom: 18px; width: 208px; grid-template-columns: 64px 138px; gap: 6px;}
+  .st-guide-launcher {min-width: 64px; min-height: 72px;}
+  .st-guide-portrait {width: 52px; height: 60px;}
+  .st-guide-identity {padding: 3px 4px; bottom: -2px;}
+  .st-guide-identity strong {font-size: 10px;}
+  .st-guide-activity {font-size: 8px;}
+  .st-guide-actions {gap: 3px;}
+  .st-guide-actions .st-guide-action {min-width: 44px; min-height: 45px; border-radius: 10px;}
+  .st-guide-bubble {bottom: 88px; width: min(330px, calc(100vw - 28px)); max-height: calc(100dvh - 180px);}
+  body.mobile-navigation-active .st-practice-guide {top: 184px; bottom: auto;}
+  body.mobile-navigation-active .st-guide-bubble {top: 82px; bottom: auto; max-height: calc(100dvh - 390px);}
+  body[data-practice-controls-visible="true"] .st-practice-guide {top: auto; bottom: max(18px, env(safe-area-inset-bottom));}
+  body[data-practice-controls-visible="true"] .st-guide-bubble {top: auto; bottom: 88px; max-height: calc(100dvh - 200px);}
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .st-practice-guide {left: 14px; bottom: 18px; width: 208px; grid-template-columns: 64px 138px;}
+  .st-guide-launcher {min-width: 64px; min-height: 72px;}
+  .st-guide-portrait {width: 52px; height: 60px;}
+  .st-guide-identity {padding: 3px 4px;}
+  .st-guide-identity strong {font-size: 10px;}
+  .st-guide-activity {font-size: 8px;}
+  body.mobile-navigation-active .st-practice-guide {top: 134px; bottom: auto;}
+  body.mobile-navigation-active .st-guide-bubble {left: 204px; top: -62px; bottom: auto; width: min(330px, calc(100vw - 236px)); max-height: calc(100dvh - 90px);}
+  body[data-practice-controls-visible="true"] .st-practice-guide {top: auto; bottom: max(18px, env(safe-area-inset-bottom));}
+  body[data-practice-controls-visible="true"] .st-guide-bubble {left: 204px; top: auto; bottom: 0; width: min(330px, calc(100vw - 236px)); max-height: calc(100dvh - 90px);}
+}
+@media (prefers-reduced-motion: reduce) {.st-practice-guide * {transition: none !important;}}

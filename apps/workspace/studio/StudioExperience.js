@@ -14,6 +14,7 @@ import {setEditorIcon} from '../../../packages/tools/editor/src/EditorIcons.js';
 import {getSceneCameraMode,setDroneFlight} from '../../../packages/render-three/SceneCameraMode.js';
 import SceneCaptureController from '../../../packages/scene-capture/SceneCaptureController.js';
 import SceneCaptureToolbar from '../../../packages/scene-capture/SceneCaptureToolbar.js';
+import PracticeGuideAvatar from '../../../packages/assistant-ui/PracticeGuideAvatar.js';
 
 const ROOM_IDS = ['hall', 'sound', 'photogrammetry', 'vertigo', 'panoramastereo', 'panorama1', 'panorama2', 'panorama3', 'panorama4', 'panorama5'];
 function el(tag, text, parent, className) { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; if (parent) parent.appendChild(node); return node; }
@@ -40,6 +41,8 @@ export default class StudioExperience {
     this.build(vrButton); this.bindSimulation(); this.sharedGrabs = new SharedGrabs(this); this.presentation = new RemotePresentation();
     this.immersiveMenu = new ImmersiveStudioMenu(this);
     this.missionOverlay = new VehicleMissionOverlay();
+    this.practiceGuideAvatar = new PracticeGuideAvatar({context:this.ctx,document,window});
+    this.practiceGuideAvatar.mount();
     const startRuntime = editor.startRuntime.bind(editor);
     editor.startRuntime = () => { if (this.sharedGrabs) this.sharedGrabs.detach(); startRuntime(); this.applySpawn(); };
     const applyProject = editor.applyServerProject.bind(editor);
@@ -49,7 +52,7 @@ export default class StudioExperience {
       const result = await applyProject(project, ...options); this.tools.refreshLabels(); await this.education.restoreProgress(); return result;
     };
     this.ready = this.initialize();
-    window.addEventListener('pagehide', () => { this.sceneCaptureDisposed=true;if(this.sceneToolbars)for(const toolbar of [...this.sceneToolbars])toolbar.dispose();if(this.sceneCapture)this.sceneCapture.dispose();this.connection.stop(); this.education.saveProgress(); this.missionOverlay.dispose(); });
+    window.addEventListener('pagehide', () => { this.sceneCaptureDisposed=true;if(this.sceneToolbars)for(const toolbar of [...this.sceneToolbars])toolbar.dispose();if(this.sceneCapture)this.sceneCapture.dispose();this.practiceGuideAvatar.dispose();this.connection.stop(); this.education.saveProgress(); this.missionOverlay.dispose(); });
     // A cached execution document has already retired its module resources on
     // pagehide. Reconstruct it once instead of resuming a half-disposed world.
     window.addEventListener('pageshow', event => { if (event.persisted && ['/play','/editor'].includes(new URL(window.location).pathname)) window.location.reload(); });
@@ -534,6 +537,7 @@ export default class StudioExperience {
     if (this.ctx.vrMode && !this.drawer.hidden) this.close();
     this.education.tick();
     if (this.missionOverlay) this.missionOverlay.update(this.ctx);
+    if (this.practiceGuideAvatar) this.practiceGuideAvatar.update();
     if (this.sharedGrabs) {
       this.sharedGrabs.tick();
       if (this.pendingRoomState && !this.sharedGrabs.holding && this.room && this.room.role !== 'host') { const state = this.pendingRoomState; this.pendingRoomState = null; try { this.applyRemoteState(state); } catch (error) { this.message(error.message); } }
