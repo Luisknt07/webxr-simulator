@@ -2,13 +2,13 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "core-empty",
-  "revision": "77902691cff87cbf0f28750d41dacfc319e98551",
-  "bundleSha256": "c60d56ba06fe3b78b331b93b9a3beedc52f8b1e8c44dbc95fd2aafcb1726f561",
+  "revision": "e8bd45cd11e7de24adb2ead7bbc7f053f4c1d56c",
+  "bundleSha256": "cc9e13248f01ef7c337d3a19ad0c9a465404d0ad2fd991edc71d7ec20ef18aea",
   "scenes": [],
   "files": [
     {
       "path": "core-empty.js",
-      "sha256": "c60d56ba06fe3b78b331b93b9a3beedc52f8b1e8c44dbc95fd2aafcb1726f561"
+      "sha256": "cc9e13248f01ef7c337d3a19ad0c9a465404d0ad2fd991edc71d7ec20ef18aea"
     },
     {
       "path": "core.css",

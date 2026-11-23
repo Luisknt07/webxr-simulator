@@ -189,6 +189,7 @@ export default class VehicleDriving {
       if (action === 'forkCamera') { this.docking.toggleCamera(); this.updateHUD(); return true; }
       if (['stop', 'powerOff', 'emergency', 'parkingBrake'].includes(action)) this.resetInput();
       const result = this.simulation.command(record.id, action);
+      if(action==='horn'&&result!==false)this.cab.hornUntil=(this.simulation.time||0)+.28;
       if (result !== false && action === 'pickup' && record.components.vehicle.entry) this.operatorIntent = 'transport';
       if (result !== false && action === 'release' && !record.components.vehicle.entry) this.operatorIntent = 'auto';
       if (['pickup', 'release', 'powerOn', 'start', 'stop', 'powerOff', 'emergency', 'resetEmergency', 'parkingBrake'].includes(action)) this.holographicGuide.update(true);
@@ -282,7 +283,7 @@ export default class VehicleDriving {
       if (!this.machineInputBlocked) this.resetInput(); this.machineInputBlocked = true;
       // A stopped cockpit retains command buttons (including B to exit), but
       // cannot forward hydraulic/drive axes or stale held controls.
-      if (this.ctx.vrMode) this.xrInput(ZERO()); this.resetInput(true); this.updateHUD(); return;
+      this.cab.sample();if (this.ctx.vrMode) this.xrInput(ZERO());this.simulation.vehicleRuntime.setInput(record,ZERO());this.cab.showInput(ZERO()); this.updateHUD(); return;
     }
     if (this.machineInputBlocked) { this.resetInput(); this.machineInputBlocked = false; }
     const key = code => this.keys.has(code) || [...this.touches.values()].includes(code), axis = (a, b) => Number(key(a)) - Number(key(b));
@@ -300,7 +301,7 @@ export default class VehicleDriving {
     if (vehicle.entry && input.lift < -.05) this.operatorIntent = 'deposit';
     Object.keys(input).forEach(key => { input[key] = Math.max(-1, Math.min(1, input[key])); });
     this.applyFineControl(record,input);
-    if (this.id) this.simulation.vehicleRuntime.setInput(record, input); this.updateHUD();
+    if (this.id){this.simulation.vehicleRuntime.setInput(record, input);this.cab.showInput(input);} this.updateHUD();
   }
   sampleExternalInput() {
     if(!this.externalInput)return null;
@@ -374,6 +375,7 @@ export default class VehicleDriving {
   }
   cycleView() {
     if (this.ctx.vrMode) { this.docking.toggle(); this.updateHUD(); return true; }
+    this.cab.pointer.reset();
     this.viewIndex = (this.viewIndex + 1) % VIEWS.length; this.chase = this.viewIndex === 1;
     if (this.ctx.desktopLook && this.ctx.desktopLook.reset) this.ctx.desktopLook.reset();
     this.ctx.camera.position.set(0, 0, 0); this.ctx.camera.quaternion.set(0, 0, 0, 1);

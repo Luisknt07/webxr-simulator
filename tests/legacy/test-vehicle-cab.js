@@ -22,6 +22,7 @@ function neutral(f) {for (const hand of [f.left, f.right]) {h.axis(hand, 0, 0); 
 const f = setup(), rig = f.api.rig(f.record), wheel = rig.controls.wheel, lift = rig.controls.levers.find(control => control.id === 'lift'); assert(wheel && lift);
 const trackedHead = f.camera.quaternion.clone(), trackedPosition = f.camera.position.clone(), trackedController = f.left.controller.quaternion.clone();
 wheelAt(f, f.left, wheel, 3); f.driving.beforeStep(); squeeze(f.left, true); f.driving.beforeStep(); assert(f.driving.cab.hands.get(f.left.controller).control, 'Native gripSpace can grab even when the target ray origin is elsewhere.');
+f.ctx.raycontrol.updatePointer(f.left);assert(f.driving.cab.hands.get(f.left.controller).control,'The real ray-update cancellation must not release a physically held control.');
 wheelAt(f, f.left, wheel, 3.2); f.driving.beforeStep(); assert(f.v.input.steer < -.1 && f.v.input.steer > -.3, 'Counter-clockwise left turn unwraps across ±pi without a jump.');
 for (const angle of [3.4, 3.6, 3.8, 4, 4.2, 4.4, 4.6]) {wheelAt(f, f.left, wheel, angle); f.driving.beforeStep();} assert.equal(f.v.input.steer, -1, 'Left steering reaches its bounded mechanical limit.');
 h.axis(f.left, .9, -.7); f.driving.beforeStep(); assert.equal(f.v.input.steer, -1, 'Physical left turn owns steering over a conflicting right stick.'); assert(f.v.input.throttle > .5); assert.equal(f.v.input.brake, 0, 'Holding the physical steering wheel is not a brake command.');

@@ -10,7 +10,7 @@ test('the real forklift hydraulic bank sits right of the wheel, with parallel re
  for(let index=0;index<levers.length;index++){
   const lever=levers[index];assert.equal(lever.object.position.z,z,'Primary pivots form a bank across the console.');
   assert(lever.object.position.z>wheel.position.z+.15,'The bank is mounted at the front console.');
-  assert(lever.grip.position.z<-.20,'The real handles extend rearward toward the seated operator.');
+  assert(lever.grip.position.z<-.12,'The real handles extend rearward toward the seated operator.');
   root.updateWorldMatrix(true,true);const local=rig.cabin.worldToLocal(lever.grip.getWorldPosition(new THREE.Vector3()));
   assert(local.x<-.28&&Math.abs(local.z-wheel.position.z)<.12,'Handles are beside the rim rather than beside the seat.');
   assert(Math.abs(local.y-wheel.position.y)<.15);assert(lever.labelCompact);

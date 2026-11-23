@@ -52,6 +52,39 @@ async function run({publicSha256,workspaceSha256,baseline=false}={}){
    await modelView('after-native-cab');
    report.controls=await b.call(()=>{const {r,rig}=__cabQA;return{bank:rig.hydraulicBank,seat:rig.driverSeat.position.toArray(),wheel:rig.controls.wheel.object.position.toArray(),levers:rig.controls.levers.map(v=>({id:v.id,pivot:v.object.position.toArray(),grip:rig.cabin.worldToLocal(v.grip.getWorldPosition(new smartTwinViewer.THREE.Vector3())).toArray(),travel:v.travel})),components:[...new Set(rig.controls.levers.flatMap(v=>v.object.children.map(o=>o.userData.equipmentComponentId)))]};});
    assert.equal(report.controls.bank.layout,'front-right');assert(report.controls.levers.every(l=>l.grip[0]<0&&l.grip[2]>.05&&l.grip[2]<.35));
+   await b.call(()=>{const d=smartTwinViewer.context.demo;if(!d.driving.mount(d.stats().vehicle.id))throw Error('Native cab boarding failed.');const p=d.driving.cab.pointer,reset=p.reset;window.__cabQAResets=[];window.__cabQAEvents=[];p.reset=function(){if(p.states.size)__cabQAResets.push(String(new Error('Capture reset').stack).slice(0,1400));return reset.apply(this,arguments);};for(const method of ['move','up']){const original=p[method];p[method]=function(e){if(p.states.size&&__cabQAEvents.length<100)__cabQAEvents.push({method,type:e.type,id:e.pointerId,buttons:e.buttons,pointerType:e.pointerType});return original.apply(this,arguments);};}});
+   const aim=async id=>{
+    await b.call(id=>{const a=smartTwinViewer,c=a.context,control=c.demo.driving.cab.controls.find(v=>v.channel===id);c.camera.lookAt(control.descriptor.grip.getWorldPosition(new a.THREE.Vector3()));c.camera.updateMatrixWorld(true);},id);await delay(180);
+    return b.call(id=>{const c=smartTwinViewer.context.demo.driving.cab,control=c.controls.find(v=>v.channel===id);return c.pointer.project(control.descriptor.grip.getWorldPosition(new smartTwinViewer.THREE.Vector3()));},id);
+   };
+   const sample=()=>b.call(()=>{const d=smartTwinViewer.context.demo,v=d.driving.record().components.vehicle;return{input:{...v.input},pose:{...v.pose},powered:v.powered,running:v.running,emergency:v.emergency,lights:v.lights,parkingBrake:v.parkingBrake,horn:v.hornCount,captures:d.driving.cab.pointer.states.size,locked:!!document.pointerLockElement,resets:window.__cabQAResets,events:window.__cabQAEvents};});
+   report.physicalDrags=[];
+   for(const [id,amount]of [['lift',-.7],['tilt',.6],['sideShift',.6]]){
+    const point=await aim(id),before=await sample();await b.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',buttons:1,clickCount:1,x:point.x,y:point.y});
+    await b.until(()=>b.evaluate('smartTwinViewer.context.demo.driving.cab.pointer.states.size===1'),'Visible '+id+' knob did not capture a real mouse pointer.',5000);
+    const drag=await b.call(()=>{const s=[...smartTwinViewer.context.demo.driving.cab.pointer.states.values()][0];return{x:s.startX,y:s.startY,axis:s.axis,travel:s.travel,id:s.control.channel};});assert.equal(drag.id,id);
+    const end={x:drag.x+drag.axis.x*drag.travel*amount,y:drag.y+drag.axis.y*drag.travel*amount};await b.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,...end});await delay(400);const held=await sample();
+    report.physicalDrags.push({id,before,held,drag,end});assert(held.input[id]>.02,'Native mouse drag never reached '+id+' input: '+JSON.stringify(held));if(id==='lift')assert(held.pose.lift>before.pose.lift+.005,'Actual forks never moved: '+JSON.stringify({before,held}));assert.equal(held.locked,false,'A knob drag must not lock or turn the camera.');
+    await b.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',buttons:0,clickCount:1,...end});await delay(100);const released=await sample();assert.equal(released.input[id],0);assert.equal(released.captures,0);report.physicalDrags[report.physicalDrags.length-1].released=released;
+   }
+   await b.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});await delay(200);const touchPoint=await aim('sideShift');
+   await b.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:touchPoint.x,y:touchPoint.y,id:1}]});
+   await b.until(()=>b.evaluate('smartTwinViewer.context.demo.driving.cab.pointer.states.size===1'),'A native touch could not capture the knob.',5000);
+   const touch=await b.call(()=>{const s=[...smartTwinViewer.context.demo.driving.cab.pointer.states.values()][0];return{x:s.startX,y:s.startY,axis:s.axis,travel:s.travel};});
+   await b.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:touch.x+touch.axis.x*touch.travel*.6,y:touch.y+touch.axis.y*touch.travel*.6,id:1}]});await delay(300);report.physicalTouch=await sample();assert(report.physicalTouch.input.sideShift>.02);
+   await b.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await delay(100);assert.equal((await sample()).input.sideShift,0);await b.send('Emulation.setTouchEmulationEnabled',{enabled:false});
+   const physicalButton=async id=>{const p=await aim(id);await b.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',buttons:1,clickCount:1,x:p.x,y:p.y});await delay(60);await b.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',buttons:0,clickCount:1,x:p.x,y:p.y});await delay(100);return sample();};
+   const initialButtons=await sample();report.physicalButtons={};
+   report.physicalButtons.horn=await physicalButton('horn');assert(report.physicalButtons.horn.horn>initialButtons.horn);
+   report.physicalButtons.lights=await physicalButton('lights');assert.equal(report.physicalButtons.lights.lights,!initialButtons.lights);
+   report.physicalButtons.parking=await physicalButton('parkingBrake');assert.equal(report.physicalButtons.parking.parkingBrake,!initialButtons.parkingBrake);
+   report.physicalButtons.emergency=await physicalButton('emergency');assert(report.physicalButtons.emergency.emergency&&!report.physicalButtons.emergency.running);
+   report.physicalButtons.reset=await physicalButton('resetEmergency');assert(!report.physicalButtons.reset.emergency&&!report.physicalButtons.reset.running,'Reset must not restart the forklift.');
+   report.physicalButtons.started=await physicalButton('ignition');assert(report.physicalButtons.started.running);
+   report.physicalButtons.off=await physicalButton('ignition');assert(!report.physicalButtons.off.powered&&!report.physicalButtons.off.running);
+   report.physicalButtons.restarted=await physicalButton('ignition');assert(report.physicalButtons.restarted.powered&&report.physicalButtons.restarted.running);
+   await b.call(()=>{const a=smartTwinViewer,c=a.context;c.camera.lookAt(__cabQA.rig.cabin.localToWorld(new a.THREE.Vector3(-.10,1.05,.32)));c.camera.updateMatrixWorld(true);});await shot('physical-cab-labelled-and-functional');
+   await b.call(()=>smartTwinViewer.context.demo.driving.unmount(true));
    // Inspect snapshots of this same operational machine; never replace it
    // with a stand-in model or write an exploded pose into the simulation.
    assert(await b.call(()=>smartTwinViewer.context.demo.equipmentStudy.open(__cabQA.r.object)));

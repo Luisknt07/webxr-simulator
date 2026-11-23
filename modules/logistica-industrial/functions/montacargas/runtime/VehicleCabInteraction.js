@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import vehicles from '../schema/vehicles.js';
 import VehicleCabLabels from './VehicleCabLabels.js';
+import VehicleCabPointerInput from './VehicleCabPointerInput.js';
 
 const CHANNELS = new Set(['lift', 'tilt', 'reach', 'sideShift', 'turret']);
 const clamp = value => Math.max(-1, Math.min(1, value));
@@ -14,12 +15,23 @@ const neutral = hand => !pressed(hand) && !(hand.source.gamepad && (hand.source.
 export default class VehicleCabInteraction {
   constructor(driving) {
     this.driving = driving; this.ctx = driving.ctx; this.hands = new Map(); this.controls = []; this.consumedSources = new Set(); this.releasedSources = new Set(); this.neutralChannels = new Set();
-    this.input = this.ctx.raycontrol; this.cancelled = () => this.reset();
+    this.input = this.ctx.raycontrol;this.cancelled=data=>{
+      // An inactive ray (desktop mirror or disconnected second controller)
+      // does not own another hand's control or a native mouse/touch capture.
+      if(!this.ctx.vrMode||data&&data.desktop)return;
+      if(!data||!data.controller){this.reset();return;}
+      const hand=this.hands.get(data.controller);if(!hand)return;
+      // Hiding the ray of an occupied hand is deliberate, not tracking loss.
+      // RayControl cancels its empty ray selection when that flag is set.
+      if(hand.control&&data.controller.userData.xrRaySuppressed&&data.enabled!==false&&(!this.input||this.input.enabled!==false)&&!this.driving.blocked()&&this.pose(hand))return;
+      this.release(hand);hand.hover=null;hand.grabBlocked=true;this.feedback(hand);if(hand.ghost)hand.ghost.visible=false;this.syncLabels();
+    };
     this.labels = new VehicleCabLabels(this.ctx, {document: driving.document});
+    this.pointer=new VehicleCabPointerInput(this);
     if (this.input && this.input.addEventListener) this.input.addEventListener('controllerInputCancelled', this.cancelled);
   }
   mount(root) {
-    this.clear(); const rig = root && root.userData.vehicleRig, controls = rig && rig.controls;
+    this.clear();this.root=root; const rig = root && root.userData.vehicleRig, controls = rig && rig.controls;
     if (!controls) return;
     const features = vehicles.supports(rig.config || {});
     const add = (descriptor, kind) => {
@@ -29,9 +41,10 @@ export default class VehicleCabInteraction {
       u.addScaledVector(axis, -u.dot(axis)).normalize(); const v = new THREE.Vector3().crossVectors(axis, u).normalize();
       this.controls.push({descriptor, kind, object: descriptor.object, channel: kind === 'wheel' ? 'steer' : descriptor.id, axis, u, v,
         rest: descriptor.restQuaternion ? descriptor.restQuaternion.clone() : descriptor.object.quaternion.clone(), frame: new THREE.Matrix4(), inverse: new THREE.Matrix4(),
-        origin: new THREE.Vector3().fromArray(descriptor.pivotLocal || [0, 0, 0]), value: 0, owner: null});
+        origin: new THREE.Vector3().fromArray(descriptor.pivotLocal || [0, 0, 0]), restPosition:descriptor.restPosition?descriptor.restPosition.clone():descriptor.object.position.clone(),value: 0, owner: null});
     };
     add(controls.wheel || controls.steering, 'wheel'); (controls.levers || []).forEach(value => add(value, 'lever'));
+    (controls.buttons||[]).forEach(value=>add(value,'button'));(controls.pedals||[]).forEach(value=>add(value,'pedal'));
     this.labels.mount(root, this.controls); this.syncLabels();
   }
   setGuidance(control) {this.labels.setGuidance(control); this.syncLabels();}
@@ -67,7 +80,7 @@ export default class VehicleCabInteraction {
   angle(control, point) {const local = this.local(control, point); return Math.atan2(local.dot(control.v), local.dot(control.u));}
   distance(control, point) {
     const descriptor = control.descriptor;
-    if (control.kind === 'lever' || descriptor.gripOnly) return descriptor.grip ? descriptor.grip.getWorldPosition(new THREE.Vector3()).distanceTo(point) : control.object.getWorldPosition(new THREE.Vector3()).distanceTo(point);
+    if (control.kind !== 'wheel' || descriptor.gripOnly) return descriptor.grip ? descriptor.grip.getWorldPosition(new THREE.Vector3()).distanceTo(point) : control.object.getWorldPosition(new THREE.Vector3()).distanceTo(point);
     const local = this.local(control, point), plane = local.clone().addScaledVector(control.axis, -local.dot(control.axis));
     if (plane.lengthSq() < 1e-6) return Infinity;
     return plane.normalize().multiplyScalar(descriptor.radius || .17).add(control.origin).applyMatrix4(control.frame).distanceTo(point);
@@ -89,7 +102,7 @@ export default class VehicleCabInteraction {
     else delete hand.controller.userData.vehicleCabGrip;
   }
   take(hand, control, point) {
-    if (control.owner) return false;
+    if (!this.canTake(control)) return false;
     const record = this.driving.record(), vehicle = record && record.components.vehicle;
     // Start from the physical control angle, not the logical steering sign.
     // A rim faces the operator (inputSign=-1); a rear-pointing tiller uses+1.
@@ -105,6 +118,8 @@ export default class VehicleCabInteraction {
     }
     hand.control = control; control.owner = hand; hand.startPoint = this.local(control, point); hand.lastLocal = hand.startPoint.clone();
     hand.lastAngle = this.angle(control, point); hand.rotation = control.value * (control.descriptor.maxAngle || 1.25);
+    if(control.kind==='button'){control.repeatAt=0;this.pressButton(control);}
+    if(control.kind==='pedal')this.setValue(control,1);
     this.haptic(hand, .25); return true;
   }
   haptic(hand, strength) {
@@ -113,9 +128,10 @@ export default class VehicleCabInteraction {
   release(hand, requireNeutral = true) {
     const control = hand.control;
     if (control) {
-      this.releasedSources.add(hand.source); delete control.object.userData.cabControlValue;
-      this.neutralChannels.add(control.channel);
-      if (control.kind === 'lever') control.object.quaternion.copy(control.rest);
+      if(hand.source)this.releasedSources.add(hand.source); delete control.object.userData.cabControlValue;
+      if(control.kind!=='button')this.neutralChannels.add(control.channel);
+      if (control.kind === 'lever'||control.kind==='pedal') control.object.quaternion.copy(control.rest);if(control.kind==='pedal')control.object.position.copy(control.restPosition);
+      if(control.kind==='button')control.object.position.copy(control.restPosition);
       control.owner = null; control.value = 0; hand.control = null;
     }
     if (requireNeutral) hand.armed = false;
@@ -124,22 +140,47 @@ export default class VehicleCabInteraction {
     const control = hand.control, descriptor = control.descriptor;
     const local = this.local(control, point);
     if (hand.lastLocal.distanceTo(local) > .4 || this.distance(control, point) > (descriptor.releaseDistance || .42)) {this.release(hand); return;}
+    if(control.kind==='button'||control.kind==='pedal')return;
     if (control.kind === 'wheel') {
       const angle = this.angle(control, point); let delta = angle - hand.lastAngle;
       if (delta > Math.PI) delta -= Math.PI * 2; if (delta < -Math.PI) delta += Math.PI * 2;
       if (Math.abs(delta) > Math.PI / 2) {this.release(hand); return;}
       const limit = descriptor.maxAngle || 1.25; hand.rotation = Math.max(-limit, Math.min(limit, hand.rotation + delta)); control.value = hand.rotation / limit; hand.lastAngle = angle;
     } else control.value = clamp(local.clone().sub(hand.startPoint).dot(control.axis) / (descriptor.travel || .13));
-    hand.lastLocal.copy(local); control.object.userData.cabControlValue = control.value;
+    hand.lastLocal.copy(local);this.setValue(control,control.value);
+  }
+  canTake(control){const r=this.driving.record(),v=r&&r.components.vehicle;return !!(!control.owner&&this.driving.id&&!this.driving.blocked()&&(control.kind==='button'||v&&v.enabled!==false&&v.powered!==false&&v.running!==false&&!v.paused&&!v.emergency));}
+  pressButton(control){const r=this.driving.record(),v=r&&r.components.vehicle;if(!v)return;const action=control.descriptor.action;if(action==='ignition'){if(v.running)this.driving.command('powerOff');else{if(!v.powered)this.driving.command('powerOn');this.driving.command('start');}}else this.driving.command(action);control.repeatAt=(this.driving.simulation&&this.driving.simulation.time||0)+.28;}
+  setValue(control,value){control.value=clamp(value);control.object.userData.cabControlValue=control.value;this.poseValue(control,control.value);}
+  poseValue(control,value){
+    const descriptor=control.descriptor;
     const rotationAxis = new THREE.Vector3().fromArray(control.kind === 'wheel' ? descriptor.axis || [0, 0, 1] : descriptor.rotationAxis || [1, 0, 0]).normalize();
-    control.object.quaternion.copy(control.rest).multiply(new THREE.Quaternion().setFromAxisAngle(rotationAxis, control.value * (descriptor.maxAngle || (control.kind === 'wheel' ? 1.25 : .35))));
+    control.object.quaternion.copy(control.rest).multiply(new THREE.Quaternion().setFromAxisAngle(rotationAxis, value * (descriptor.maxAngle || (control.kind === 'wheel' ? 1.25 : .35))));
+    if(control.kind==='pedal'){const hinge=new THREE.Vector3().fromArray(descriptor.pivotLocal||[0,0,0]);control.object.position.copy(control.restPosition).add(hinge.clone().applyQuaternion(control.rest)).sub(hinge.applyQuaternion(control.object.quaternion));}
+  }
+  showInput(input){
+    const r=this.driving.record(),v=r&&r.components.vehicle;
+    for(const c of this.controls){
+      if(c.kind==='lever'||c.kind==='pedal'){
+        const sign=c.descriptor.inputSign===undefined?(c.channel==='lift'?-1:1):c.descriptor.inputSign,value=c.kind==='pedal'?(v&&v.powered&&v.running&&!v.emergency?Math.max(0,input[c.channel]||0):0):(input[c.channel]||0)*sign;
+        c.object.userData.cabDisplayValue=value;
+        if(!c.owner)this.poseValue(c,value);
+      }
+      if(c.kind==='button'){
+        const active=!!(c.owner||v&&(c.channel==='ignition'?v.powered:c.channel==='emergency'?v.emergency:c.channel==='parkingBrake'?v.parkingBrake:c.channel==='lights'?v.lights:c.channel==='horn'?(this.hornUntil||0)>(this.driving.simulation&&this.driving.simulation.time||0):false));
+        c.object.position.copy(c.restPosition).addScaledVector(new THREE.Vector3().fromArray(c.descriptor.pressAxis||[0,0,1]),active?(c.descriptor.pressTravel||.005):0);
+        if(c.channel==='ignition'){const key=c.object.children.find(n=>n.name==='Llave de contacto');if(key)key.rotation.z=v&&v.powered?Math.PI/3:0;}
+      }
+    }
   }
   sample() {
     this.consumedSources.clear(); this.releasedSources.clear(); this.syncHands();
-    const active = this.ctx.vrMode && this.driving.id && !this.driving.blocked() && (!this.input || this.input.enabled !== false);
+    const active = this.driving.id && !this.driving.blocked() && (!this.ctx.vrMode || !this.input || this.input.enabled !== false);
     if (!active) {this.reset(); return;}
     this.controls.forEach(control => this.frame(control));
+    for(const c of this.controls)if(c.kind==='button'&&c.owner&&c.channel==='horn'&&(this.driving.simulation&&this.driving.simulation.time||0)>=c.repeatAt)this.pressButton(c);
     for (const hand of this.hands.values()) {
+      if(!this.ctx.vrMode){this.release(hand);hand.hover=null;this.feedback(hand);continue;}
       const pose = this.pose(hand), grip = pressed(hand);
       if (!pose || hand.data.selectionCapture || hand.controller.userData.grabbing) {this.release(hand); hand.hover = null; hand.previousGrip = grip; this.feedback(hand); if (hand.ghost) hand.ghost.visible = false; continue;}
       const point = pose.getWorldPosition(new THREE.Vector3()); hand.hover = null;
@@ -174,9 +215,10 @@ export default class VehicleCabInteraction {
   owns(source) {return this.consumedSources.has(source);}
   apply(input) {
     this.neutralChannels.forEach(channel => {input[channel] = 0;});
-    this.controls.forEach(control => {if (control.owner) input[control.channel] = clamp(control.value * (control.descriptor.inputSign === undefined ? control.kind === 'lever' && control.channel === 'lift' ? -1 : 1 : control.descriptor.inputSign));});
+    this.controls.forEach(control => {if (control.owner&&control.kind!=='button') input[control.channel] = clamp(control.value * (control.descriptor.inputSign === undefined ? control.kind === 'lever' && control.channel === 'lift' ? -1 : 1 : control.descriptor.inputSign));});
   }
   reset() {
+    this.pointer.reset();for(const c of this.controls){delete c.object.userData.cabDisplayValue;if(c.kind==='lever'||c.kind==='pedal')c.object.quaternion.copy(c.rest);if(c.kind==='pedal')c.object.position.copy(c.restPosition);}
     this.hands.forEach(hand => {this.release(hand); hand.hover = null; hand.previousGrip = pressed(hand); hand.grabBlocked = true; this.feedback(hand); if (hand.ghost) hand.ghost.visible = false;}); this.consumedSources.clear();
     this.syncLabels();
   }
@@ -186,6 +228,6 @@ export default class VehicleCabInteraction {
     if (hand.ghost) {if (hand.ghost.parent) hand.ghost.parent.remove(hand.ghost); hand.ghost.geometry.dispose(); hand.ghost.material.dispose();}
     this.hands.delete(hand.controller);
   }
-  clear() {Array.from(this.hands.values()).forEach(hand => this.removeHand(hand)); this.controls = []; this.consumedSources.clear(); this.releasedSources.clear(); this.neutralChannels.clear(); this.labels.clear();}
-  dispose() {this.clear(); if (this.input && this.input.removeEventListener) this.input.removeEventListener('controllerInputCancelled', this.cancelled);}
+  clear() {this.pointer.reset();Array.from(this.hands.values()).forEach(hand => this.removeHand(hand));this.controls.forEach(c=>{delete c.object.userData.cabControlValue;delete c.object.userData.cabDisplayValue;}); this.controls = [];this.root=null; this.consumedSources.clear(); this.releasedSources.clear(); this.neutralChannels.clear(); this.labels.clear();}
+  dispose() {this.clear();this.pointer.dispose(); if (this.input && this.input.removeEventListener) this.input.removeEventListener('controllerInputCancelled', this.cancelled);}
 }

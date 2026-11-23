@@ -94,8 +94,8 @@ optional hands and local-floor fallback continue through the shared VRButton.
 
 The generic hydraulic bank follows the user's forklift photographs, rather
 than verified OEM drawings. In the existing metre-scale cab, the operator
-faces +Z and right is -X. The pivots sit on the forward right console; bent
-stems bring parallel handles rearward beside the rim. Narrow variants use an
+faces +Z and right is -X. The pivots sit on the forward right console; inclined
+stems bring rounded handles rearward beside the rim. Narrow variants use an
 additional row to retain spacing. Each visible knob and its XR grip share
 the same pivot. Feature-specific channels, neutral return, steering/seat
 frames, forks, load contact envelopes and TCP remain functional. Compact
@@ -107,3 +107,29 @@ rejection, and assembled/isolated/exploded views of the same native machine.
 `--baseline` captures the preceding public model before deployment. Native
 cab tests exercise actual hydraulic movement from adapted controller/hand
 poses. A physical headset run is still separate from these checks.
+
+Physical controls also accept native mouse and multi-touch events against
+the visible meshes. Pointer capture keeps a drag active outside the knob;
+release, cancellation, blur, menus, tracking loss and unmount neutralize it.
+Camera look is suspended only while that contact owns a cab control. A second
+touch can operate a different lever; ownership cannot be stolen. Keyboard,
+calibrated gamepad/wheel inputs, XR grips and measured hand pinches retain the
+same runtime paths. Lever and pedal presentation follows actual input from
+all these sources.
+
+The photo-guided grips use small rounded lathe profiles, 11 mm steel stems
+and inclined ribbed bellows. The standard electric cab identifies elevation,
+tilt and side shift as 1/2/3. A rim spinner and actual horn, ignition/start,
+lights, parking, emergency and separate reset controls are connected to
+existing runtime commands. Ignition cannot bypass an emergency; reset never
+starts the vehicle. Two existing pedals accept held input, with keyboard or
+stick reverse retained. This electric variant has no simulated clutch/manual
+gearbox or turn-signal circuit, so those controls from the reference are not
+added as decorative buttons. No source contact geometry or fork TCP changes.
+
+`tests/framework/vehicle-physical-controls.test.mjs` covers native picking,
+mouse/touch cancellation, simultaneous touches, keyboard/external visual
+feedback, pedal input, and controller/hand commands while stopped, including
+emergency/reset/start sequencing. Cab labels share one atlas capped at
+1024×512 for the expanded controls. Headset tracking and physical headset FPS
+remain outside the claims of software-adapter tests.

@@ -88,7 +88,7 @@ export default class BrowserInput {
     const drag = this.drag; this.drag = null;
     if (drag && this.canvas.hasPointerCapture && this.canvas.hasPointerCapture(drag.id)) this.canvas.releasePointerCapture(drag.id);
   }
-  lookAllowed() {return !this.disposed && !this.ctx.vrMode && !this.ctx.publicDialogOpen && !this.ctx.studioMenuOpen && !(this.ctx.voicePanelOpen || this.ctx.assistantPanelOpen || this.ctx.externalDevicePanelOpen);}
+  lookAllowed() {return !this.disposed && !this.ctx.vrMode && !this.ctx.vehicleCabPointerActive && !this.ctx.publicDialogOpen && !this.ctx.studioMenuOpen && !(this.ctx.voicePanelOpen || this.ctx.assistantPanelOpen || this.ctx.externalDevicePanelOpen);}
   disablePointerLock() {this.pointerLockUnavailable = true; this.clearDrag(); this.lockPress = null;}
   lockLook() {
     if (!this.lookAllowed() || this.pointerLockUnavailable || this.canvas.isConnected === false) return;

@@ -5,7 +5,8 @@ const __layout = require("../../tooling/layout.cjs");
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), THREE = require('three');
 const vehicles = require('../../modules/logistica-industrial/functions/montacargas/schema/vehicles'), prefabs = require('../support/load-vehicle-prefabs')(THREE), Labels = require('../support/load-vehicle-cab-labels')(THREE);
 const source = fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-vehicle-cab-labels.js"), '../src/editor/VehicleCabInteraction.js')), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default class VehicleCabInteraction', 'return class VehicleCabInteraction');
-const Cab = new Function('THREE', 'vehicles', 'VehicleCabLabels', source)(THREE, vehicles, Labels);
+const Pointer=require('../../modules/logistica-industrial/functions/montacargas/runtime/VehicleCabPointerInput.js').default;
+const Cab = new Function('THREE', 'vehicles', 'VehicleCabLabels','VehicleCabPointerInput', source)(THREE, vehicles, Labels,Pointer);
 function fixture(variant = 'forklift-electric-4w', vr = true) {
   const root = prefabs.createVehicle(vehicles.defaults(variant)), rig = root.userData.vehicleRig, scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(), canvases = [];
   root.position.set(3, 0, -2); root.rotation.y = .53; scene.add(root, camera); camera.position.set(.03, 1.63, -.04); camera.rotation.set(.07, .12, -.04);
@@ -19,10 +20,10 @@ function squeeze(hand, value) {hand.inputSource.gamepad.buttons[1] = {pressed: v
 function localPoint(control, amount = 0) {control.object.updateWorldMatrix(true, true); return control.descriptor.grip.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3().fromArray(control.descriptor.axis).transformDirection(control.frame).multiplyScalar(amount));}
 for (const definition of vehicles.VARIANTS) {
   const f = fixture(definition.id), features = vehicles.supports(f.rig.config), labels = f.cab.labels, expected = f.cab.controls.length;
-  assert(expected <= 6); assert.equal(labels.entries.length, expected); if (!expected) {assert.equal(f.canvases.length, 0); f.cab.dispose(); continue;} assert.equal(f.canvases.length, 1); assert.equal(labels.getStats().cabLabelAtlases, 1); assert.equal(labels.getStats().cabLabelMeshes, expected * 2); assert.equal(labels.getStats().cabLabelAtlasBytes, 1048576);
+  assert(expected <= 16); assert.equal(labels.entries.length, expected); if (!expected) {assert.equal(f.canvases.length, 0); f.cab.dispose(); continue;} assert.equal(f.canvases.length, 1); assert.equal(labels.getStats().cabLabelAtlases, 1); assert.equal(labels.getStats().cabLabelMeshes, expected * 2); assert.equal(labels.getStats().cabLabelAtlasBytes, 1024*f.canvases[0].height*4);
   assert(f.canvases[0].paths > expected); assert(f.canvases[0].texts.some(value => value === 'Dirección'));
   labels.entries.forEach(entry => {
-    assert(entry.channel === 'steer' || features[entry.channel], 'Only controls physically supported by ' + definition.id + ' receive a label.');
+    assert(entry.channel === 'steer' || ['button','pedal'].includes(entry.control.kind)||features[entry.channel], 'Only controls physically supported by ' + definition.id + ' receive a label.');
     assert.equal(entry.plate.material.map, labels.texture); assert(entry.plate.visible); assert(!entry.ring.visible); assert.equal(entry.plate.material.depthTest, true);
     assert.notEqual(entry.plate.parent, f.camera); assert(entry.plate.userData.editorRuntimeHelper && entry.ring.userData.editorRuntimeHelper);
     const positions = entry.plate.geometry.attributes.position; assert(positions.array.every(value => Math.abs(value) < .1), 'Labels remain console-sized instead of becoming a headset overlay.');
@@ -43,8 +44,8 @@ move(f, left, localPoint(lift, -lift.descriptor.travel * .6)); f.cab.sample(); c
 squeeze(left, false); f.cab.sample(); assert.equal(lift.owner, null); assert(lift.object.quaternion.angleTo(lift.rest) < 1e-8, 'Hydraulic levers spring back to their physical neutral pose.');
 left.grip.visible = false; right.grip.visible = false; f.cab.sample(); assert.equal(entry.state, 'guide', 'Lost tracking clears stale hover feedback.');
 f.cab.setGuidance(null); assert.equal(entry.state, 'idle'); assert(!entry.ring.visible); f.driving.menuOpen = true; f.cab.sample(); assert(labels.entries.every(value => !value.plate.visible && !value.ring.visible));
-f.driving.menuOpen = false; f.cab.reset(); assert(labels.entries.every(value => value.plate.visible)); f.ctx.vrMode = false; f.cab.reset(); assert(labels.entries.every(value => !value.plate.visible));
+f.driving.menuOpen = false; f.cab.reset(); assert(labels.entries.every(value => value.plate.visible)); f.ctx.vrMode = false; f.cab.reset(); assert(labels.entries.every(value => value.plate.visible),'Physical identification remains available to mouse and touch users.');
 assert(f.camera.matrix.equals(head) && left.controller.quaternion.equals(rotation), 'Labels and direct interaction never alter headset/controller tracking poses.');
 f.cab.clear(); assert.equal(f.cab.hands.size, 0); assert.equal(f.cab.labels.texture, null);
-const desktop = fixture('forklift-electric-4w', false); assert.equal(desktop.canvases.length, 0); assert.equal(desktop.cab.labels.getStats().cabLabelAtlases, 0); desktop.ctx.vrMode = true; desktop.cab.reset(); assert.equal(desktop.canvases.length, 1); desktop.cab.dispose();
+const desktop = fixture('forklift-electric-4w', false); assert.equal(desktop.canvases.length, 1); assert.equal(desktop.cab.labels.getStats().cabLabelAtlases, 1); desktop.ctx.vrMode = true; desktop.cab.reset(); assert.equal(desktop.canvases.length, 1,'Changing devices reuses the one mount atlas.'); desktop.cab.dispose();
 console.log('Vehicle cab labels: all real variants, feature-correct pictograms/names, one bounded mount atlas, physical console anchors, guide/hover/grip feedback, bilateral ownership, lever return, tracking/menu/Desktop guards and exactly-once cleanup passed.');

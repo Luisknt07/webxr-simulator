@@ -49,7 +49,7 @@ function cab(b,rig,c,parent,standing=false) {
   const x=c.width*.38,z=Math.min(.67,c.length*.28),top=Math.max(1.72,c.height),floor=.42;
   rig.cabDimensions={x,z,top,floor};rig.continuity=[];
   const structural=object=>{object.userData.vehiclePreserve=true;return object;},join=(a,b)=>{rig.continuity.push([a,b]);};
-  rig.driverSeat=group(cabin,'Vista del operador',[0,standing?1.65:1.58,-.18]);rig.controls={wheel:null,levers:[]};
+  rig.driverSeat=group(cabin,'Vista del operador',[0,standing?1.65:1.58,-.18]);rig.controls={wheel:null,levers:[],buttons:[],pedals:[]};
   const cabFloor=structural(d.solid('Piso y umbral de cabina',[x*2,.07,z*2],'accent',cabin,[0,floor,0]));rig.cabFloor=cabFloor;
   for(let i=-3;i<=3;i++)b.box('Canal antideslizante',[x*1.75,.006,.012],'rubber',cabin,[0,floor+.041,i*.11]);
   // A real footwell separates the rear power module from the operator's seat.
@@ -65,7 +65,7 @@ function cab(b,rig,c,parent,standing=false) {
     for(const side of [-1,1]){d.solid('Refuerzo lateral de asiento',[.065,.10,.38],'seat',cabin,[side*.215,.87,-.25]);b.rod('Soporte de apoyabrazos',[side*.28,.75,-.35],[side*.28,1.02,-.35],.018,'steel',cabin);d.solid('Apoyabrazos acolchado',[.085,.065,.29],'seat',cabin,[side*.28,1.03,-.28]);}
     const belt=b.box('Cinturón de retención',[.40,.025,.045],'accent',cabin,[0,.89,-.22]);belt.rotation.y=.12;d.solid('Hebilla de cinturón',[.055,.03,.065],'red',cabin,[.05,.903,-.21],.004);
     for(let i=-2;i<=2;i++)b.box('Costura del asiento',[.003,.003,.33],'accent',cabin,[i*.055,.868,-.25]);
-    rig.pedals={};for(const side of [-1,1]){const accelerator=side<0,pedal=d.solid(accelerator?'Pedal de acelerador':'Pedal de freno',[.10,.028,.18],'rubber',cabin,[side*.14,.49,.25],.008);pedal.rotation.x=.22;rig.pedals[accelerator?'accelerator':'brake']=pedal;for(let row=-2;row<=2;row++)b.box('Estría de pedal',[.088,.005,.009],'steel',pedal,[0,.017,row*.027]);}
+    rig.pedals={};for(const side of [-1,1]){const accelerator=side<0,id=accelerator?'throttle':'brake',pedal=d.solid(accelerator?'Pedal de acelerador':'Pedal de freno',[.10,.028,.18],'rubber',cabin,[side*.14,.515,.25],.008);pedal.rotation.x=.22;rig.pedals[accelerator?'accelerator':'brake']=pedal;for(let row=-2;row<=2;row++)b.box('Estría de pedal',[.088,.005,.009],'steel',pedal,[0,.017,row*.027]);rig.controls.pedals.push({id,object:pedal,grip:group(pedal,'Contacto '+id,[0,.025,0]),axis:[1,0,0],pivotLocal:[0,0,-.09],maxAngle:.12,restQuaternion:pedal.quaternion.clone(),restPosition:pedal.position.clone(),grabDistance:.08});}
   }else if(standing){d.solid('Apoyo lumbar de pie',[.27,.48,.10],'seat',cabin,[-c.width*.27,.97,-.36]);d.shapeExtrusion('Pedestal de apoyo del operador',[[-.07,-.20],[.07,-.20],[.09,.20],[-.09,.20]],.09,'accent',cabin,[-c.width*.27,.65,-.36],.007);}
   // Open protective frame; the former opaque roof no longer hides its bars.
   rig.cabPosts=[];
@@ -83,7 +83,7 @@ function cab(b,rig,c,parent,standing=false) {
   const dashSupport=structural(d.shapeExtrusion('Pedestal inclinado de salpicadero',[[-.105,-.24],[.105,-.24],[.17,.24],[-.17,.24]],.19,'accent',cabin,[0,.69,.40],.012));rig.dashSupport=dashSupport;join(cabFloor,dashSupport);
   const console=d.solid('Consola de instrumentos',[Math.min(.54,c.width*.5),.20,.22],'accent',cabin,[0,1.03,.37]);console.rotation.x=-.15;structural(console);rig.dashboard=console;join(dashSupport,console);
   const screen=b.box('Display de estado',[.21,.10,.009],'light',console,[0,.015,-.116]);screen.userData.vehiclePreserve=true;
-  for(const side of [-1,1]){const gauge=b.cylinder('Aro de indicador',.038,.012,'steel',console,[side*.17,.025,-.12],14);gauge.rotation.x=Math.PI/2;const dot=b.cylinder('Piloto del tablero',.011,.009,side<0?'red':'light',console,[side*.17,-.055,-.13],8);dot.rotation.x=Math.PI/2;}
+  for(const side of [-1,1]){const gauge=b.cylinder('Aro de indicador',.038,.012,'steel',console,[side*.17,.025,-.12],14);gauge.rotation.x=Math.PI/2;const dot=b.cylinder('Piloto del tablero',.009,.009,side<0?'red':'light',console,[side*.22,-.01,-.13],8);dot.rotation.x=Math.PI/2;}
   const wheelAngle=-(Math.PI/2+.58),wheelCenter=[0,1.12,.18],normal=new THREE.Vector3(0,-Math.sin(wheelAngle),Math.cos(wheelAngle));
   const columnBottom=new THREE.Vector3().fromArray(wheelCenter).addScaledVector(normal,-(1.12-.455)/normal.y);
   const column=structural(b.rod('Columna de dirección conectada',columnBottom.toArray(),wheelCenter,.035,'accent',cabin));rig.steeringColumn=column;join(cabFloor,column);
@@ -110,15 +110,31 @@ function cab(b,rig,c,parent,standing=false) {
   leverIds.forEach((id,index)=>{
     const px=-(inner+(index%columns)*spacing),pz=.43+Math.floor(index/columns)*.09;
     const pivot=group(cabin,'Palanca '+id,[px,1.024,pz]);
-    const stem=d.hose('Vástago curvado de palanca',[[0,0,0],[0,.075,-.03],[0,.15,-.13],[0,.15,-.28]],.008,pivot,'steel');
-    const knob=d.solid('Pomo de '+id,[Math.min(.042,spacing*.78),.045,.10],'rubber',pivot,[0,.15,-.28],.012);stem.userData.vehiclePreserve=knob.userData.vehiclePreserve=true;
-    const boot=d.torus('Fuelle de mando',.026,.008,'rubber',pivot,[0,.012,0]);boot.rotation.x=Math.PI/2;
+    const stem=b.rod('Vástago inclinado de palanca',[0,.015,0],[0,.19,-.148],.0055,'steel',pivot),radius=Math.min(.0175,spacing*.36);
+    const knobGeometry=b.geometry('cab-knob:'+radius+':'+c.detail,()=>new THREE.LatheBufferGeometry([[0,-.031],[radius*.62,-.029],[radius*.94,-.019],[radius,0],[radius*.93,.020],[radius*.63,.030],[0,.033]].map(p=>new THREE.Vector2(...p)),c.detail==='low'?12:c.detail==='high'?24:18));
+    knobGeometry.userData.manufacturedProfile='ergonomic-lathe-grip';const knob=b.mesh('Pomo ergonómico de '+id,knobGeometry,'rubber',pivot,[0,.205,-.16]);knob.rotation.x=-.66;stem.userData.vehiclePreserve=knob.userData.vehiclePreserve=true;
+    const bootGeometry=b.geometry('cab-bellows:'+c.detail,()=>{const g=new THREE.LatheBufferGeometry([[.021,-.004],[.026,0],[.026,.005],[.017,.011],[.025,.016],[.017,.022],[.024,.028],[.016,.034],[.022,.040],[.014,.047],[.011,.050]].map(p=>new THREE.Vector2(...p)),c.detail==='low'?8:12),p=g.attributes.position;for(let i=0;i<p.count;i++)p.setZ(i,p.getZ(i)-Math.max(0,p.getY(i)-.012)*(.148/.175));g.computeVertexNormals();return g;});
+    bootGeometry.userData.manufacturedProfile='inclined-flexible-bellows';const boot=b.mesh('Fuelle flexible de mando',bootGeometry,'rubber',pivot,[0,0,0]);
     for(const part of [pivot,stem,knob,boot])part.userData.equipmentComponentId='vehicle.controls';
-    const grip=group(pivot,'Agarre '+id,[0,.15,-.28]);rig.controls.levers.push({id,object:pivot,pivot,grip,axis:[0,0,1],rotationAxis:[1,0,0],pivotLocal:[0,0,0],travel:Math.sin(.35)*.15,maxAngle:.35,restQuaternion:pivot.quaternion.clone(),labelPosition:[px,1.021,pz-.085],labelWidth:Math.min(.068,spacing*.88),labelCompact:true});
+    const grip=group(pivot,'Agarre '+id,[0,.205,-.16]);rig.controls.levers.push({id,number:index+1,object:pivot,pivot,grip,hitObject:knob,axis:[0,0,1],rotationAxis:[1,0,0],pivotLocal:[0,0,0],travel:Math.sin(.32)*.205,maxAngle:.32,restQuaternion:pivot.quaternion.clone(),labelPosition:[px,1.021,pz-.085],labelWidth:Math.min(.068,spacing*.88),labelCompact:true});
   });
   d.decal(cabin,1,[.15,.075],[leverX+bankWidth/2+.001,.96,leverZ],[0,Math.PI/2,0],leverConsole);
   if(rig.seatBack)d.decal(rig.seatBack,3,[.16,.08],[0,.055,-.0595],[0,Math.PI,0],rig.seatBack);
   d.bolts(cabin,[-1,1].flatMap(side=>[-1,1].map(end=>[side*(x+.035),floor+.10,end*z])),.014);
+  // Controls are appended, retaining the existing descendant ordering. They
+  // dispatch existing runtime commands; no manual clutch is invented here.
+  const spinner=b.cylinder('Soporte de perilla de volante',.009,.035,'steel',wheel,[.122,.118,.035],8);spinner.rotation.x=Math.PI/2;
+  const spinnerCap=b.mesh('Perilla de volante',b.geometry('cab-spinner:'+c.detail,()=>new THREE.SphereBufferGeometry(.022,c.detail==='low'?8:12,c.detail==='low'?6:8)),'rubber',wheel,[.122,.118,.064]);spinner.userData.vehiclePreserve=spinnerCap.userData.vehiclePreserve=true;spinner.userData.equipmentComponentId=spinnerCap.userData.equipmentComponentId='vehicle.steering';
+  const button=(id,parent,position,role='accent',radius=.017,pressSign=1)=>{
+    const root=group(parent,'Mando físico '+id,position);root.userData.equipmentComponentId='vehicle.controls';
+    const cap=b.cylinder('Pulsador '+id,radius,.012,role,root,[0,0,0],c.detail==='low'?10:12);cap.rotation.x=Math.PI/2;cap.userData.vehiclePreserve=true;cap.userData.equipmentComponentId='vehicle.controls';
+    const descriptor={id,action:id,object:root,grip:group(root,'Contacto '+id),pressAxis:[0,0,pressSign],pressTravel:.005,grabDistance:.055,labelCompact:true,labelWidth:.025,labelHeight:.025,labelAnchor:root,labelPosition:[0,0,pressSign>0?-.007:.007],labelRotation:pressSign>0?[0,Math.PI,0]:[0,0,0],button:true};rig.controls.buttons.push(descriptor);return descriptor;
+  };
+  button('horn',wheel,[0,0,.034],'accent',.033,-1);
+  ['ignition','lights','parkingBrake','emergency','resetEmergency'].forEach((id,index)=>{
+    const control=button(id,console,[id==='parkingBrake'?.22:-.16+index*.08,id==='parkingBrake'?.07:-.073,-.116],id==='emergency'?'red':'accent',id==='emergency'?.019:.016);
+    if(id==='ignition'){const key=b.box('Llave de contacto',[.007,.027,.009],'steel',control.object,[0,0,-.010]);key.userData.vehiclePreserve=true;}
+  });
 }
 function wheels(b,rig,c,parent) {
   const d=rig.detail,warehouse=['reach','stacker','pallet-truck'].includes(c.family),rearOnly=c.variant==='forklift-electric-3w'||warehouse;
@@ -411,7 +427,7 @@ export function updateVehiclePose(root,pose={}) {const rig=RIGS.get(root)||root.
   // logical right gives chassis yaw<0 and rear-wheel yaw>0 in the +Z-forward rig.
   const steering=pose.steer||0,ackermann=(c.family==='counterbalance'&&c.variant!=='forklift-electric-3w'||c.family==='rough-terrain')&&Math.abs(steering)>1e-6;
   rig.wheels.forEach(wheel=>{let angle=steering;if(wheel.steering&&ackermann){const sign=Math.sign(steering),radius=c.wheelbase/Math.tan(Math.abs(steering));angle=sign*Math.atan2(c.wheelbase,Math.max(.05,radius+sign*wheel.pivot.position.x));}wheel.pivot.rotation.y=wheel.steering?angle:0;wheel.roll.rotation.x=pose.wheelRoll||0;});
-  if(rig.controls){const wheel=rig.controls.wheel;if(wheel){const override=wheel.object.userData.cabControlValue,value=override===undefined?(pose.steer||0)/c.steerLimit*(wheel.inputSign===undefined?1:wheel.inputSign):override;wheel.object.quaternion.copy(wheel.restQuaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3().fromArray(wheel.axis),clamp(value,-1,1)*wheel.maxAngle));}rig.controls.levers.forEach(control=>{control.object.quaternion.copy(control.restQuaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3().fromArray(control.rotationAxis||[1,0,0]),clamp(control.object.userData.cabControlValue||0,-1,1)*control.maxAngle));});}
+  if(rig.controls){const wheel=rig.controls.wheel;if(wheel){const override=wheel.object.userData.cabControlValue,value=override===undefined?(pose.steer||0)/c.steerLimit*(wheel.inputSign===undefined?1:wheel.inputSign):override;wheel.object.quaternion.copy(wheel.restQuaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3().fromArray(wheel.axis),clamp(value,-1,1)*wheel.maxAngle));}rig.controls.levers.forEach(control=>{const value=control.object.userData.cabControlValue===undefined?control.object.userData.cabDisplayValue:control.object.userData.cabControlValue;control.object.quaternion.copy(control.restQuaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3().fromArray(control.rotationAxis||[1,0,0]),clamp(value||0,-1,1)*control.maxAngle));});(rig.controls.pedals||[]).forEach(control=>{control.object.quaternion.copy(control.restQuaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),(control.object.userData.cabDisplayValue||0)*control.maxAngle));const hinge=new THREE.Vector3().fromArray(control.pivotLocal);control.object.position.copy(control.restPosition).add(hinge.clone().applyQuaternion(control.restQuaternion)).sub(hinge.applyQuaternion(control.object.quaternion));});}
   rig.lights.forEach(light=>{light.material.emissiveIntensity=pose.lights?.8:.08;});rig.pose=Object.assign({},pose,{lift,reach,tilt});root.updateWorldMatrix(true,true);return rig.pose;
 }
 export function getVehicleForkTransform(root) {const rig=RIGS.get(root)||root.userData.vehicleRig;if(!rig||!rig.forks)return null;root.updateWorldMatrix(true,true);const inverse=new THREE.Matrix4().getInverse(root.matrixWorld),matrix=new THREE.Matrix4().multiplyMatrices(inverse,rig.forks.matrixWorld),position=new THREE.Vector3(),quaternion=new THREE.Quaternion(),scale=new THREE.Vector3();matrix.decompose(position,quaternion,scale);return {position,quaternion,matrix,tool:rig.forks};}
