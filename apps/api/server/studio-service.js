@@ -336,7 +336,9 @@ class StudioService {
 
     if (parts.length === 1 && parts[0] === 'me' && method === 'GET') {
       const user = this.user(req, false);
+      const ownerConfigured=!!this.db.prepare("SELECT value FROM studio_settings WHERE key='owner'").get();
       send(200, {user: user && this._profile(user), configured: !!this.db.prepare('SELECT 1 FROM studio_users LIMIT 1').get(),
+        registration: {enabled: ownerConfigured || this.allowBootstrapRegistration, invitationRequired: !!(ownerConfigured && this.administration && this.administration.policy().invitationOnly)},
         capabilities: {accounts: true, avatars: AVATAR_BASES, recovery: false, rooms: true, roomTransport: 'http-poll',
           checkpointVersion: 1, maxStateBytes: MAX_STATE_BYTES, sharedEditing: true, privateProjects: true, publicSceneCatalog: true}});
     } else if (parts.length === 1 && parts[0] === 'register' && method === 'POST') {

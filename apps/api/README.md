@@ -4,6 +4,8 @@ Requiere Node.js 24 o posterior. `node apps/api/index.cjs` inicia la API indepen
 
 El visor `/` es público y contiene únicamente `vr-robot-dispatch`. `/login` es público; `/editor`, `/workspace/*`, proyectos privados, catálogo completo e importaciones requieren sesión. Una entrada privada sin sesión redirige al login; un recurso privado sin sesión responde `401`. Una operación autenticada sin permiso responde `403`, y los proyectos genéricos de otra cuenta responden `404`.
 
+La pantalla `/login` incluye **Iniciar sesión** y **Crear cuenta**. El registro valida el usuario y una contraseña de 12 a 256 caracteres con confirmación, muestra si se requiere una invitación y abre el destino solicitado al crear la sesión. `GET /api/studio/me` publica únicamente la disponibilidad de registro y si el código es obligatorio mediante `registration.enabled` y `registration.invitationRequired`. La pantalla respeta la política del servidor; no habilita el registro ni crea una cuenta administradora por sí sola.
+
 ## Administrador y datos existentes
 
 Ejecutar una sola vez desde la raíz del repositorio, en el servidor:
