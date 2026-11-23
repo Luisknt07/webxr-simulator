@@ -36,6 +36,18 @@ async function run({expectedWorkspaceSha256,expectedPublicSha256,renderBackend}=
    await b.until(()=>b.evaluate('!!window.smartTwinGallery&&!!document.querySelector(".scene-open[data-scene-id=vr-robot-dispatch]")'),'Public gallery did not initialize.',90000);
    await b.evaluate('smartTwinGallery.ready');await click('.scene-open[data-scene-id="vr-robot-dispatch"]');
    await b.until(()=>b.evaluate('!!window.smartTwinViewer&&!!smartTwinViewer.context.demo'),'Public native demonstration did not initialize.',90000);
+   await b.until(()=>b.call(()=>[...smartTwinViewer.context.demo.simulation.products.values()].some(p=>p.object.userData.sourceProduct&&p.object.userData.sourceProduct.type==='pallet'&&p.object.userData.editorDefaultBehaviors)),'The actual runtime pallet did not materialize.',15000);
+   report.productInspection=await b.call(()=>{
+    const a=smartTwinViewer,d=a.context.demo,p=[...d.simulation.products.values()].find(p=>p.object.userData.sourceProduct&&p.object.userData.sourceProduct.type==='pallet'&&p.object.userData.editorDefaultBehaviors),object=p.object;
+    const behavior=a.document.getBehaviors(object)[0],ancestors=[];
+    // This exact native ancestry read threw "no compatible: pallet" in the
+    // user's console. No cargo is moved or artificial ray hit introduced.
+    for(let node=object;node;node=node.parent)ancestors.push({name:node.name,study:d.equipmentStudy.canStudy(node)});
+    d.equipmentStudy.focusFromView();
+    return{type:behavior.type,productType:behavior.productType,ancestors,stats:a.getStats()};
+   });
+   assert.equal(report.productInspection.type,'product');assert.equal(report.productInspection.productType,'pallet');
+   assert.equal(report.productInspection.ancestors[0].study,false);assert.deepEqual(report.productInspection.stats.displayErrors,[]);assert.equal(report.productInspection.stats.frameError,null);
    report.optionalStart=await b.call(()=>{
     const a=smartTwinViewer,d=a.context.demo,original=d.monitors.sync;
     window.__optionalDisplayQA={original,calls:0};

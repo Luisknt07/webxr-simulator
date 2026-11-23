@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "b1bdd021529c02e14bd07204220b53ed92d37461",
-  "bundleSha256": "5a81b94da1b1e978ab57b82bcada35cc2a905bfa1761a9c12a9ccbd6ef7910a9",
+  "revision": "d61edd718155283d663328a0a2ba8ad095829502",
+  "bundleSha256": "784ccbf497c882188870f299b223c72b91d12378f1c41acc8af3f2b452ab3bc9",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "5a81b94da1b1e978ab57b82bcada35cc2a905bfa1761a9c12a9ccbd6ef7910a9"
+      "sha256": "784ccbf497c882188870f299b223c72b91d12378f1c41acc8af3f2b452ab3bc9"
     },
     {
       "path": "cad-worker.js",
@@ -3596,7 +3596,7 @@
     },
     {
       "path": "practice-configuration-preview.js",
-      "sha256": "327c411682b4d7e115dcf057e19fc50bfbb46a809fcdc3effb8941418551621a"
+      "sha256": "920ae0aab0b315df97e0a4e467a50ff20090ff42bd0aeb736a66471ef0cd7071"
     },
     {
       "path": "projects/smarttwin/branding/apple-touch-icon-114x114.png",
@@ -3945,8 +3945,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "fea788660475798ca2f3",
-    "statsSha256": "ab40f3634422a6e1fecca8dd6bd3c55336f637e7c50727c5ac76b823ae939abb",
+    "hash": "0c2d0dcd5ea6f7cfa27d",
+    "statsSha256": "df7b19bb040ac6d834b498f539c1fdc5ed20e67133d5c1d68c2d9888f7518b81",
     "assets": [
       {
         "path": "13.js",
@@ -3978,7 +3978,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7300950
+        "size": 7301064
       },
       {
         "path": "configurable-practice-reference.js",
@@ -4014,7 +4014,7 @@
       },
       {
         "path": "practice-configuration-preview.js",
-        "size": 3150465
+        "size": 3150467
       },
       {
         "path": "receiving-video-guide.js",

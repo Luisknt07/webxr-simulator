@@ -257,7 +257,9 @@ export function createProduct(variant, value = {}) {
   }));
   root.name = (productEquipment.getDefinition(config.variant) || {}).name || 'Producto';
   root.userData.editorPrefabKey = 'product'; root.userData.editorPrefabVariant = config.variant;
-  root.userData.editorDefaultBehaviors = [Object.assign({type: 'product', enabled: true, sourceId: '', initialVelocity: 0}, config)];
+  // Inventory specs use `type` for the cargo (box/pallet/etc.). The behavior
+  // discriminator must stay `product`; cargo identity lives in productType.
+  root.userData.editorDefaultBehaviors = [Object.assign({enabled: true, sourceId: '', initialVelocity: 0}, config, {type: 'product'})];
   root.userData.productUnits = config.units;
   root.userData.industrialStickerAnchors = [
     {id: 'shipping', position: [-config.width * .19, config.height * .62, config.depth / 2], normal: [0, 0, 1], size: [Math.min(.18, config.width * .3), Math.min(.12, config.height * .22)]},

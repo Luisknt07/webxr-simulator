@@ -58,7 +58,14 @@ const ROBOT_COMPONENT_GROUPS={base:['robot.base'],shoulder:['robot.shoulder','ro
 CONTENT.robot.parts.forEach(part=>{part.componentIds=ROBOT_COMPONENT_GROUPS[part.id]||[];});
 const VEHICLE_COMPONENT_GROUPS={chassis:['vehicle.chassis','vehicle.counterweight','vehicle.power','vehicle.cooling'],mast:['vehicle.mast'],forks:['vehicle.forks'],wheels:['vehicle.wheels','vehicle.steering'],cab:['vehicle.controls','vehicle.seat','vehicle.safety'],hydraulics:['vehicle.hydraulics']};
 CONTENT.vehicle.parts.forEach(part=>{part.componentIds=VEHICLE_COMPONENT_GROUPS[part.id]||[];if(part.id==='forks')part.preferredRoles=['forkSteel'];if(part.id==='hydraulics')part.preferredNames=['Placas de cadena de elevación'];});
-function configuration(object, document) { const values=document&&document.getBehaviors?document.getBehaviors(object):object&&object.userData&&(object.userData.editorBehaviors||object.userData.editorDefaultBehaviors)||[];return (values||[]).find(value=>TYPES.includes(value.type))||null; }
+function configuration(object, document) {
+ if(!object)return null;
+ // Ray hits walk through product meshes and runtime pallets on their way to
+ // an authored machine. Only document-owned nodes can be study equipment.
+ if(document&&document.getObject){const id=object.userData&&object.userData.editorId;if(!id||document.getObject(id)!==object)return null;}
+ const values=document&&document.getBehaviors?document.getBehaviors(object):object.userData&&(object.userData.editorBehaviors||object.userData.editorDefaultBehaviors)||[];
+ return (values||[]).find(value=>TYPES.includes(value.type))||null;
+}
 function componentJointId(object){for(let node=object;node;node=node.parent){const data=node.userData||{},id=data.robotJointId||data.robotJoint;if(typeof id==='string'&&id)return id;}return '';}
 function visualDesign(object,type){if(type!=='vehicle'&&type!=='robot')return null;let rig,integratedBaseDetails=false,separateHarness=false;object.traverse(node=>{const value=node.userData||{};if(!rig)rig=type==='vehicle'?value.vehicleRig:type==='robot'?value.robotRig:null;if(type==='robot'&&value.robotReferenceCAD&&value.equipmentComponentId==='robot.base')integratedBaseDetails=true;if(type==='robot'&&value.equipmentComponentId==='robot.harness')separateHarness=true;});const id=rig&&(rig.visualModel||rig.design&&rig.design.visualModel);return id?{id:String(id),fallback:typeof rig.visualModelFallback==='string'?rig.visualModelFallback:'',integratedBaseDetails:integratedBaseDetails&&!separateHarness}:null;}
 function jointEntries(object,config){

@@ -74,3 +74,11 @@ the exact compiled artifact under native RAF, verifies automatic recovery,
 bounded retries, real menu recovery and subsequent carton/pallet custody.
 `--hardware` selects the Windows D3D11 backend. These injected failures are
 regression coverage, not a reproduction of a user-reported exception.
+
+The reported `Función de objeto no compatible: pallet` was traced to a runtime
+cargo specification overwriting the product behavior discriminator. Native
+product meshes now keep `type: product` and retain their cargo kind in
+`productType`. Study selection ignores meshes outside the authored document
+before reading their behaviors, including runtime pallet ancestry. The native
+regression and compiled browser QA exercise this read without moving cargo or
+silently weakening authored behavior validation.
