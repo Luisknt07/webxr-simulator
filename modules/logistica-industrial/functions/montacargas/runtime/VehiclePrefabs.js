@@ -96,18 +96,27 @@ function cab(b,rig,c,parent,standing=false) {
   // counter-clockwise/left. Logical steering is positive to the driver's right.
   const grip=group(wheel,'Agarre del aro',[0,.17,0]);rig.controls.wheel={id:'steering',object:wheel,pivot:wheel,grip,axis:[0,0,1],inputSign:-1,pivotLocal:[0,0,0],radius:.17,maxAngle:1.25,restQuaternion:wheel.quaternion.clone()};rig.controls.steering=rig.controls.wheel;rig.steeringWheel=wheel;
   const features=vehicles.supports(c),leverIds=['lift','tilt','reach','sideShift','turret'].filter(id=>features[id]);
-  // The operator faces +Z: their right is -X. Keep the knobs beside the
-  // wheel and ahead of the seat, in the same frame used by direct XR grabs.
-  const leverX=-x*.82,leverZ=.03+(leverIds.length-1)*.045;
-  const leverDepth=Math.max(.30,leverIds.length*.09+.04),leverSupport=structural(d.shapeExtrusion('Pedestal de consola hidráulica',[[-.065,-.175],[.065,-.175],[.077,.175],[-.077,.175]],leverDepth*.88,'accent',cabin,[leverX,.625,leverZ],.009));rig.leverSupport=leverSupport;join(cabFloor,leverSupport);
-  const leverConsole=structural(d.solid('Módulo de mandos hidráulicos',[.16,.16,leverDepth],'accent',cabin,[leverX,.88,leverZ]));rig.leverConsole=leverConsole;join(leverSupport,leverConsole);
+  // Generic photo-guided hydraulic bank, in metres, not an OEM replica. The
+  // operator faces +Z (right=-X). Front pivots and rearward bent handles put
+  // the controls beside the wheel rather than in a row beside the seat.
+  const inner=Math.min(Math.min(.54,c.width*.5)/2+.048,x-.10),outer=Math.max(inner,x-.065);
+  const columns=Math.max(1,Math.min(leverIds.length,Math.floor((outer-inner)/.04)+1)),rows=Math.max(1,Math.ceil(leverIds.length/columns));
+  const spacing=columns>1?Math.min(.07,(outer-inner)/(columns-1)):.06,bankWidth=(columns-1)*spacing+.064;
+  const leverX=-(inner+(columns-1)*spacing/2),leverZ=.405+(rows-1)*.045,leverDepth=.24+(rows-1)*.09;
+  const leverSupport=structural(d.shapeExtrusion('Pedestal de consola hidráulica',[[-bankWidth*.33,-.225],[bankWidth*.33,-.225],[bankWidth*.43,.225],[-bankWidth*.43,.225]],.19,'accent',cabin,[leverX,.68,leverZ],.009));rig.leverSupport=leverSupport;join(cabFloor,leverSupport);
+  const leverConsole=structural(d.solid('Módulo de mandos hidráulicos',[bankWidth,.12,leverDepth],'accent',cabin,[leverX,.96,leverZ]));rig.leverConsole=leverConsole;join(leverSupport,leverConsole);
+  leverSupport.userData.equipmentComponentId=leverConsole.userData.equipmentComponentId='vehicle.controls';
+  rig.hydraulicBank={layout:'front-right',columns,rows,spacing,width:bankWidth};
   leverIds.forEach((id,index)=>{
-    const pivot=group(cabin,'Palanca '+id,[leverX,.97,.03+index*.09]);const stem=b.rod('Vástago de palanca',[0,0,0],[0,.19,0],.009,'steel',pivot);
-    const knob=d.solid('Pomo de '+id,[.044,.062,.052],'rubber',pivot,[0,.215,0],.013);stem.userData.vehiclePreserve=knob.userData.vehiclePreserve=true;
+    const px=-(inner+(index%columns)*spacing),pz=.43+Math.floor(index/columns)*.09;
+    const pivot=group(cabin,'Palanca '+id,[px,1.024,pz]);
+    const stem=d.hose('Vástago curvado de palanca',[[0,0,0],[0,.075,-.03],[0,.15,-.13],[0,.15,-.28]],.008,pivot,'steel');
+    const knob=d.solid('Pomo de '+id,[Math.min(.042,spacing*.78),.045,.10],'rubber',pivot,[0,.15,-.28],.012);stem.userData.vehiclePreserve=knob.userData.vehiclePreserve=true;
     const boot=d.torus('Fuelle de mando',.026,.008,'rubber',pivot,[0,.012,0]);boot.rotation.x=Math.PI/2;
-    const grip=group(pivot,'Agarre '+id,[0,.215,0]);rig.controls.levers.push({id,object:pivot,pivot,grip,axis:[0,0,1],rotationAxis:[1,0,0],pivotLocal:[0,0,0],travel:Math.sin(.35)*.215,maxAngle:.35,restQuaternion:pivot.quaternion.clone()});
+    for(const part of [pivot,stem,knob,boot])part.userData.equipmentComponentId='vehicle.controls';
+    const grip=group(pivot,'Agarre '+id,[0,.15,-.28]);rig.controls.levers.push({id,object:pivot,pivot,grip,axis:[0,0,1],rotationAxis:[1,0,0],pivotLocal:[0,0,0],travel:Math.sin(.35)*.15,maxAngle:.35,restQuaternion:pivot.quaternion.clone(),labelPosition:[px,1.021,pz-.085],labelWidth:Math.min(.068,spacing*.88),labelCompact:true});
   });
-  d.decal(cabin,1,[.15,.075],[leverX+.082,.88,leverZ],[0,Math.PI/2,0],leverConsole);
+  d.decal(cabin,1,[.15,.075],[leverX+bankWidth/2+.001,.96,leverZ],[0,Math.PI/2,0],leverConsole);
   if(rig.seatBack)d.decal(rig.seatBack,3,[.16,.08],[0,.055,-.0595],[0,Math.PI,0],rig.seatBack);
   d.bolts(cabin,[-1,1].flatMap(side=>[-1,1].map(end=>[side*(x+.035),floor+.10,end*z])),.014);
 }

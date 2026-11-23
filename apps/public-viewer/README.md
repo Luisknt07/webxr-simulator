@@ -82,3 +82,28 @@ product meshes now keep `type: product` and retain their cargo kind in
 before reading their behaviors, including runtime pallet ancestry. The native
 regression and compiled browser QA exercise this read without moving cargo or
 silently weakening authored behavior validation.
+
+## VR entry and hydraulic controls
+
+The top navigation always shows **Realidad virtual** while a scene is open.
+A compatible browser requests `immersive-vr` directly from that user action.
+Without a detected headset, the same action opens instructions and a support
+recheck; it does not fake a session. HTTPS, browser support, permissions and a
+connected visor are required for actual immersive entry. Retry, end-session,
+optional hands and local-floor fallback continue through the shared VRButton.
+
+The generic hydraulic bank follows the user's forklift photographs, rather
+than verified OEM drawings. In the existing metre-scale cab, the operator
+faces +Z and right is -X. The pivots sit on the forward right console; bent
+stems bring parallel handles rearward beside the rim. Narrow variants use an
+additional row to retain spacing. Each visible knob and its XR grip share
+the same pivot. Feature-specific channels, neutral return, steering/seat
+frames, forks, load contact envelopes and TCP remain functional. Compact
+pictograms are placed separately under the corresponding lever.
+
+`tooling/qa/public-xr-cab.cjs` verifies exact artifact hashes, desktop/mobile
+header visibility, compatibility help/input cleanup, an emulated permission
+rejection, and assembled/isolated/exploded views of the same native machine.
+`--baseline` captures the preceding public model before deployment. Native
+cab tests exercise actual hydraulic movement from adapted controller/hand
+poses. A physical headset run is still separate from these checks.

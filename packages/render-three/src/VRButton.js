@@ -17,6 +17,9 @@ var VRButton = {
 	createButton: function ( renderer, callback, canStart, options ) {
 
 		options = options || {};
+		var enterLabel = options.enterLabel || 'Entrar en VR';
+		var exitLabel = options.exitLabel || 'Salir de VR';
+		var retryLabel = options.retryLabel || 'Reintentar VR';
 
 		function showEnterVR( /*device*/ ) {
 
@@ -113,7 +116,8 @@ var VRButton = {
 				}
 				if ( currentSession !== session ) return;
 
-				button.textContent = 'Salir de VR';
+				button.textContent = exitLabel;
+				button.setAttribute( 'data-xr-state', 'presenting' );
 				button.title = '';
 				setPending( false );
 				notified = true;
@@ -126,7 +130,8 @@ var VRButton = {
 				if ( !currentSession ) return;
 				currentSession.removeEventListener( 'end', onSessionEnded );
 
-				button.textContent = 'Entrar en VR';
+				button.textContent = enterLabel;
+				button.setAttribute( 'data-xr-state', 'ready' );
 
 				currentSession = null;
 				setPending( false );
@@ -145,8 +150,13 @@ var VRButton = {
 			button.style.left = 'calc(50% - 50px)';
 			button.style.width = '100px';
 
-			button.textContent = 'Entrar en VR';
+			button.textContent = enterLabel;
+			button.disabled = false;
+			button.setAttribute( 'aria-busy', 'false' );
+			button.setAttribute( 'data-xr-state', 'ready' );
 			button.removeAttribute('aria-disabled');
+			button.removeAttribute('aria-haspopup');
+			button.refreshSupport = null;
 
 			button.onmouseenter = function () {
 
@@ -186,7 +196,7 @@ var VRButton = {
 						await onSessionStarted( session );
 					} catch ( error ) {
 						setPending( false );
-						button.textContent = error && error.cancelled ? 'Entrar en VR' : 'Reintentar VR';
+						button.textContent = error && error.cancelled ? enterLabel : retryLabel;
 						button.title = error && error.cancelled ? '' : 'No se pudo iniciar la sesión inmersiva. Revisa el permiso del visor.';
 					}
 
@@ -219,14 +229,36 @@ var VRButton = {
 
 		}
 
-		function showWebXRNotFound() {
+		function showWebXRNotFound( reason ) {
 
 			disableButton();
 
-			button.textContent = 'VR no disponible';
-			button.setAttribute('aria-disabled', 'true');
-			button.title = 'Puedes explorar con teclado y ratón.';
+			button.textContent = options.unavailableLabel || 'VR no disponible';
+			button.setAttribute( 'data-xr-state', 'unavailable' );
+			button.disabled = false;
+			button.setAttribute( 'aria-busy', 'false' );
+			if ( options.onUnavailable ) {
+				button.removeAttribute( 'aria-disabled' );
+				button.setAttribute( 'aria-haspopup', 'dialog' );
+				button.title = 'Realidad virtual: ver compatibilidad e instrucciones.';
+				button.onclick = function () { options.onUnavailable( {reason: reason} ); };
+				button.refreshSupport = detectSupport;
+			} else {
+				button.setAttribute('aria-disabled', 'true');
+				button.title = 'Puedes explorar con teclado y ratón.';
+			}
 
+		}
+
+		function detectSupport() {
+			if ( window.isSecureContext === false ) {showWebXRNotFound( 'insecure' ); return Promise.resolve( false );}
+			if ( !navigator.xr ) {showWebXRNotFound( 'missing' ); return Promise.resolve( false );}
+			button.disabled = true;
+			button.setAttribute( 'aria-busy', 'true' );
+			return navigator.xr.isSessionSupported( 'immersive-vr' ).then( function ( supported ) {
+				supported ? showEnterVR() : showWebXRNotFound( 'unsupported' );
+				return supported;
+			} ).catch( function () {showWebXRNotFound( 'blocked' ); return false;} );
 		}
 
 		function stylizeElement( element ) {
@@ -251,19 +283,25 @@ var VRButton = {
 		if ( 'xr' in navigator && window.isSecureContext !== false ) {
 
 			var button = document.createElement( 'button' );
+			button.type = 'button';
 			button.style.display = 'none';
+			button.textContent = options.enterLabel || 'Comprobando VR…';
 
 			stylizeElement( button );
 
-			navigator.xr.isSessionSupported( 'immersive-vr' ).then( function ( supported ) {
-
-				supported ? showEnterVR() : showWebXRNotFound();
-
-			} ).catch(showWebXRNotFound);
+			detectSupport();
 
 			return button;
 
 		} else {
+
+			if ( options.onUnavailable ) {
+				button = document.createElement( 'button' );
+				button.type = 'button';
+				stylizeElement( button );
+				showWebXRNotFound( window.isSecureContext === false ? 'insecure' : 'missing' );
+				return button;
+			}
 
 			var message = document.createElement( 'a' );
 

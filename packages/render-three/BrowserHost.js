@@ -102,7 +102,8 @@ export function createBrowserHost(options = {}) {
           if (desktop) {camera.position.copy(desktop.position); camera.quaternion.copy(desktop.quaternion); cameraRig.position.copy(desktop.rig); cameraRig.quaternion.copy(desktop.rotation); desktop = null;}
         }
         input.xrChanged(active); lastTime = null; if (settings.afterChange) settings.afterChange(active, details);
-      }, () => !disposed && !lost && (!settings.canStart || settings.canStart()) || 'Espera a que termine la carga.', {preferredFrameRate: settings.preferredFrameRate || 72});
+      }, () => !disposed && !lost && (!settings.canStart || settings.canStart()) || 'Espera a que termine la carga.', {...settings.buttonOptions, preferredFrameRate: settings.preferredFrameRate || 72,
+        onUnavailable: settings.onUnavailable ? details => {if(!disposed)settings.onUnavailable(details,xrButton);} : undefined});
       xrButton.removeAttribute('style'); xrButton.className = settings.className || 'xr-browser-button'; target.appendChild(xrButton); return xrButton;
     },
     async dispose() {

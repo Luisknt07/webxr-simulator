@@ -141,6 +141,18 @@ async function run() {
   assert.equal(insecurePolyfill.button.textContent, 'VR requiere HTTPS'); assert.deepEqual(insecurePolyfill.requests, [], 'An exposed/polyfilled navigator.xr never bypasses the secure-origin requirement.');
   const noXR = await setup({noXR: true}); assert.equal(noXR.button.attrs['aria-disabled'], 'true');
 
+  const help=[],deviceOptions={supported:false,vrOptions:{enterLabel:'Realidad virtual',unavailableLabel:'Realidad virtual',onUnavailable:value=>help.push(value)}};
+  const publicEntry=await setup(deviceOptions);
+  assert.equal(publicEntry.button.textContent,'Realidad virtual');assert.equal(publicEntry.button.attrs['aria-haspopup'],'dialog');assert.equal(publicEntry.button.attrs['aria-disabled'],undefined);
+  publicEntry.button.onclick();assert.deepEqual(help,[{reason:'unsupported'}]);assert.deepEqual(publicEntry.requests,[],'The compatibility action never fabricates an immersive session.');
+  deviceOptions.supported=true;assert.equal(await publicEntry.button.refreshSupport(),true);assert.equal(publicEntry.button.attrs['data-xr-state'],'ready');assert.equal(publicEntry.button.attrs['aria-haspopup'],undefined);
+  await publicEntry.button.onclick();assert.equal(publicEntry.requests.length,1,'A detected visor can enter from a fresh original user action.');await publicEntry.assigned[0].end();assert.equal(publicEntry.button.textContent,'Realidad virtual');
+  for(const missing of [{noXR:true},{insecure:true},{supportFailure:true}]){
+    const reasons=[],entry=await setup({...missing,vrOptions:{unavailableLabel:'Realidad virtual',onUnavailable:value=>reasons.push(value.reason)}});
+    assert.equal(entry.button.tagName,'BUTTON');assert.equal(entry.button.textContent,'Realidad virtual');entry.button.onclick();assert.deepEqual(reasons,[missing.insecure?'insecure':missing.noXR?'missing':'blocked']);
+    assert.deepEqual(entry.requests,[]);assert.equal(await entry.button.refreshSupport(),false);
+  }
+
   const context = {cameraRig: new THREE.Group(), editor: {document: {}, toast() {}}};
   const helpers = productionHelpers(context);
   assert.equal(helpers.keepRoomOnVREntry(null, 'sound'), false);

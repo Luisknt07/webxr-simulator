@@ -11,6 +11,7 @@ import createIndustrialEnvironment from './IndustrialEnvironment.js';
 import {createVoiceModule} from '../../packages/voice-assistant/index.js';
 import {voicePort} from '../../modules/logistica-industrial/integrations/VoiceAssistantBridge.js';
 import {DemoRecovery} from './SceneResilience.js';
+import XRAccessDialog from './XRAccessDialog.js';
 
 const byId = id => document.getElementById(id);
 const configuration = window.SMARTTWIN_PUBLIC_VIEWER_CONFIG || {};
@@ -155,7 +156,10 @@ async function start() {
       getContext: () => ({active: !stopped && !ctx.publicFrameFailure, xr: !!ctx.vrMode, identity: VIEWER_WORLD_ID}), label: () => 'SmartTwin-demostracion-industrial'});
     const captureToolbar = new SceneCaptureToolbar({controller: capture, document, window, onInteract: releaseInput}); captureToolbar.mount(mediaHost);
     browser.onDispose(() => {captureToolbar.dispose(); capture.dispose(); tools.remove(); if (ctx.sceneCapture === capture) ctx.sceneCapture = null;});
+    const xrHelp=new XRAccessDialog(ctx);browser.onDispose(()=>xrHelp.dispose());
     browser.mountXR(byId('xr-action'), {className: 'viewer-xr-button', spawn: [4, 0, 8],
+      buttonOptions:{enterLabel:'Realidad virtual',exitLabel:'Salir de RV',retryLabel:'Reintentar RV',unavailableLabel:'Realidad virtual'},
+      onUnavailable:(details,entry)=>xrHelp.open(details,entry),
       beforeChange: () => ctx.demo.driving.unmount(true),
       afterChange: active => {if (active) pose(ctx, 'walk'); document.body.classList.toggle('immersive', active);}});
     listen(byId('overview'), 'click', () => {const next = !overview; if (pose(ctx, next ? 'overview' : 'walk')) {overview = next; byId('overview').textContent = overview ? 'Volver a caminar' : 'Vista general';}});
