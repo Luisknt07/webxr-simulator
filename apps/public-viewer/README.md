@@ -50,3 +50,27 @@ snapshot immutability, restart and disposal. Browser QA must run against the
 packaged artifact and its exact bundle hash, assert an empty API/telemetry/model
 request list, check desktop/mobile and capture real WebGL screenshots. Emulated
 XR inputs do not replace a physical Quest test.
+
+## Contained failures in the public demo
+
+Optional monitors, equipment-study prompts, lighting, visual indicators and the
+inspection camera have separate error guards. A failing display waits one
+second before retrying and disables itself after three consecutive failures;
+physics and the remaining controls continue. Equipment selection also skips
+its hidden desktop raycast while the operator is in the cab, in XR or using a
+dialog.
+
+A critical simulation error first neutralizes input and pauses material flow.
+After 500 ms the disposable demonstration restarts from its authored inventory;
+it never retries a partially executed physics step. An occupied cab is mounted
+again with neutral controls and its authored parking brake. This discards the
+current demo progress. A second critical error within 30 seconds stays paused
+with **Menú → Reiniciar** available, avoiding a continuous restart loop.
+
+`smartTwinViewer.getStats()` retains `lastFailure`, recovery attempt counts and
+optional `displayErrors`, even after automatic recovery. Browser QA in
+`tooling/qa/public-frame-recovery.cjs` injects optional and critical errors into
+the exact compiled artifact under native RAF, verifies automatic recovery,
+bounded retries, real menu recovery and subsequent carton/pallet custody.
+`--hardware` selects the Windows D3D11 backend. These injected failures are
+regression coverage, not a reproduction of a user-reported exception.

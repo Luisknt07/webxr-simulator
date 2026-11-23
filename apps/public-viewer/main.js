@@ -10,6 +10,7 @@ import {createWelcomeNavigation} from './WelcomeNavigation.mjs';
 import createIndustrialEnvironment from './IndustrialEnvironment.js';
 import {createVoiceModule} from '../../packages/voice-assistant/index.js';
 import {voicePort} from '../../modules/logistica-industrial/integrations/VoiceAssistantBridge.js';
+import {DemoRecovery} from './SceneResilience.js';
 
 const byId = id => document.getElementById(id);
 const configuration = window.SMARTTWIN_PUBLIC_VIEWER_CONFIG || {};
@@ -62,11 +63,12 @@ function pose(ctx, mode) {
 }
 
 async function start() {
-  let ctx;
+  let ctx, recovery=null;
   function frameFailure(event) {
     if (!ctx || ctx.publicFrameFailure) return;
     if(event.recoverable){ctx.publicPresentationFailure={phase:event.phase,message:event.message};ctx.input.reset();notice('Recuperando la imagen y los controles…');console.error('Public viewer presentation ('+event.phase+'):',event.error||event.message);return;}
-    ctx.publicFrameFailure = {phase: event.phase, message: event.message};
+    ctx.publicFrameFailure = {phase: event.phase, stage:event.error&&event.error.smartTwinStage||event.phase, message: event.message};
+    ctx.lastPublicFrameFailure={...ctx.publicFrameFailure};
     if (ctx.demo) {
       // A partially executed material-flow step must never be retried silently.
       // Keep navigation/rendering alive; restart restores the authored custody.
@@ -75,7 +77,8 @@ async function start() {
     }
     ctx.input.reset();
     byId('drive').disabled = true; byId('pause').disabled = true;
-    notice('Se interrumpió la simulación. Abre Menú → Reiniciar para recuperar el escenario.');
+    const recovering=recovery&&recovery.request();
+    notice(recovering?'Recuperando la demostración tras un error…':'No se pudo recuperar '+ctx.publicFrameFailure.stage+'. Abre Menú → Reiniciar.');
     clearTimeout(notice.timer);
     byId('viewer-notice').setAttribute('role', 'alert');
     console.error('Public viewer frame (' + event.phase + '):', event.error || event.message);
@@ -94,7 +97,7 @@ async function start() {
   let host, documentModel, lighting, stopped = false, uiElapsed = 0, overview = false;
   const abort = new AbortController(), listeners = [];
   const listen = (target, name, handler, options) => {target.addEventListener(name, handler, options); listeners.push(() => target.removeEventListener(name, handler, options));};
-  browser.onDispose(async () => {stopped = true; abort.abort(); listeners.splice(0).forEach(off => off()); clearTimeout(notice.timer);
+  browser.onDispose(async () => {stopped = true;if(recovery)recovery.dispose(); abort.abort(); listeners.splice(0).forEach(off => off()); clearTimeout(notice.timer);
     if (host) await host.dispose({force: true}); if (lighting) lighting.dispose(); if (documentModel) documentModel.dispose(); if (activeBrowser === browser) activeBrowser = null;
     if (window.smartTwinViewer && window.smartTwinViewer.context === ctx) window.smartTwinViewer = null;});
   const dispose = () => browser.dispose();
@@ -165,13 +168,18 @@ async function start() {
       input.reset();
     });
     listen(byId('pause'), 'click', () => {ctx.demo.setPaused(!ctx.demo.paused); input.reset();});
+    function restoreDemonstration(automatic=false){
+      const vehicleId=automatic&&ctx.demo.driving.id;
+      input.reset();ctx.demo.restart();closeMenu();
+      if(vehicleId&&ctx.demo.simulation.records.has(vehicleId))ctx.demo.driving.mount(vehicleId);else pose(ctx,overview?'overview':'walk');
+      ctx.publicFrameFailure=null;browser.clearFrameError();
+      byId('drive').disabled=false;byId('pause').disabled=false;byId('viewer-notice').removeAttribute('role');
+    }
+    recovery=new DemoRecovery({restart:()=>restoreDemonstration(true),onRecovered:()=>notice('Demostración recuperada. Se restablecieron las cargas y los mandos; el freno queda activado.'),onFailure:error=>{ctx.lastPublicFrameFailure={phase:'recovery',stage:'recuperación',message:error.message};notice('No se pudo recuperar el escenario. Abre Menú → Reiniciar.');console.error('Public demo recovery:',error);}});
     listen(byId('restart'), 'click', () => {
-      input.reset();
+      recovery.reset();input.reset();
       try {
-        ctx.demo.restart(); pose(ctx, overview ? 'overview' : 'walk'); closeMenu();
-        ctx.publicFrameFailure = null; browser.clearFrameError();
-        byId('drive').disabled = false; byId('pause').disabled = false;
-        byId('viewer-notice').removeAttribute('role'); notice('Escenario reiniciado.');
+        restoreDemonstration();notice('Escenario reiniciado.');
       } catch (error) {frameFailure({phase:'restart',message:error.message,error});}
     });
     function updateUI() {
@@ -189,7 +197,12 @@ async function start() {
       byId('reticle').classList.toggle('hovering', !!ctx.desktopControllerData.currentIntersection);
     }
     browser.setFrameHandler({
-      before({delta}) {if (lighting.sync) lighting.sync(); if (!ctx.publicDialogOpen && !ctx.publicFrameFailure) host.step(delta); ctx.demo.driving.docking.renderBefore(scene, delta);},
+      before({delta}) {
+        const presentation=ctx.demo.presentation;
+        if(lighting.sync)presentation.run('la iluminación',()=>lighting.sync());
+        if(!ctx.publicDialogOpen&&!ctx.publicFrameFailure)host.step(delta);
+        presentation.run('la cámara de inspección',()=>ctx.demo.driving.docking.renderBefore(scene,delta));
+      },
       after({delta}) {capture.afterRender(); ctx.demo.driving.docking.postRender(); uiElapsed += delta; if (uiElapsed > .2) {uiElapsed = 0; updateUI();}}
     });
     browser.start(); updateUI(); byId('loading').hidden = true; document.body.classList.add('ready');
@@ -197,7 +210,8 @@ async function start() {
       getStats: () => ({app: 'public-viewer', sceneId: 'vr-robot-dispatch', frameCount: browser.stats().frames, primaryRenders: browser.stats().primaryRenders, contextLost: browser.stats().contextLost,
         render: {...renderer.info.render}, memory: {...renderer.info.memory}, graphics: graphics.getStats(), simulation: ctx.demo.stats(),
         activeFunctions: [DEMO_FUNCTION_ID,'assistant.voice'], requestsAPI: configuration.backendAvailable === true, immersive: ctx.vrMode,
-        frameError: browser.stats().frameError, frameErrors: browser.stats().frameErrors, lastFrameError:browser.stats().lastFrameError}),
+        frameError: browser.stats().frameError, frameErrors: browser.stats().frameErrors, lastFrameError:browser.stats().lastFrameError,
+        lastFailure:ctx.lastPublicFrameFailure||null,recovery:recovery.stats(),displayErrors:ctx.demo.presentation.stats()}),
       dispose,
       // Explicit QA facade: no editor or networking object is constructed.
       context: ctx, host, document: documentModel, THREE

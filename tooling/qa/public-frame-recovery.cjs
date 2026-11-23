@@ -1,5 +1,5 @@
 'use strict';
-// Compiled app, normal native RAF throughout. One deliberate, contained error
+// Compiled app, normal native RAF throughout. Deliberate, contained errors
 // exercises recovery; it is not a reproduction of the reported user failure.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {createHash,randomBytes}=require('node:crypto');
@@ -13,13 +13,14 @@ function guard(app,file,expected){
  assert.equal(hash(fs.readFileSync(path.join(directory,file))),expected,'Reviewed bundle changed: '+app);
  assert.equal(JSON.parse(fs.readFileSync(path.join(directory,'publication.json'))).bundleSha256,expected);
 }
-async function run({expectedWorkspaceSha256,expectedPublicSha256}={}){
+async function run({expectedWorkspaceSha256,expectedPublicSha256,renderBackend}={}){
  guard('workspace','bundle.js',expectedWorkspaceSha256);guard('public-viewer','viewer.js',expectedPublicSha256);
  fs.mkdirSync(OUT,{recursive:true});fs.mkdirSync(path.join(ROOT,'data/qa-studio/workspace-production'),{recursive:true});
  const report={startedAt:new Date().toISOString(),workspaceSha256:expectedWorkspaceSha256,publicSha256:expectedPublicSha256,anonymous:true,temporaryDataOnly:true,
   normalRAF:true,manualPhysicsTicks:0,fabricatedPoses:false,artificialFaultCoverage:true,userFailureReproduced:false,physicalQuestTest:false,
   exceptions:[],consoleErrors:[],failedRequests:[],responses:[],screenshots:[],samples:[]};
  const fixture=await startFixture('Disposable-Frame-Recovery-'+randomBytes(16).toString('hex'),{voice:{enabled:false,key:''}});
+ fixture.renderBackend=renderBackend;
  try{
   const served=await request(fixture.origin,'/viewer.js');assert.equal(served.status,200);assert.equal(served.sha256,expectedPublicSha256);report.servedPublicBundleSha256=served.sha256;
   await withBrowser(fixture,report,async b=>{
@@ -35,6 +36,20 @@ async function run({expectedWorkspaceSha256,expectedPublicSha256}={}){
    await b.until(()=>b.evaluate('!!window.smartTwinGallery&&!!document.querySelector(".scene-open[data-scene-id=vr-robot-dispatch]")'),'Public gallery did not initialize.',90000);
    await b.evaluate('smartTwinGallery.ready');await click('.scene-open[data-scene-id="vr-robot-dispatch"]');
    await b.until(()=>b.evaluate('!!window.smartTwinViewer&&!!smartTwinViewer.context.demo'),'Public native demonstration did not initialize.',90000);
+   report.optionalStart=await b.call(()=>{
+    const a=smartTwinViewer,d=a.context.demo,original=d.monitors.sync;
+    window.__optionalDisplayQA={original,calls:0};
+    d.monitors.sync=function(){window.__optionalDisplayQA.calls++;throw Error('SMARTTWIN_QA_OPTIONAL_MONITOR');};
+    return{time:d.simulation.time,frames:a.getStats().primaryRenders};
+   });
+   await b.until(()=>b.evaluate('smartTwinViewer.getStats().displayErrors.some(row=>row.disabled)'),'Optional display was not disabled after bounded retries.',15000);
+   report.optionalFailure=await b.call(()=>{
+    const a=smartTwinViewer,d=a.context.demo;d.monitors.sync=__optionalDisplayQA.original;
+    return{stats:a.getStats(),calls:__optionalDisplayQA.calls};
+   });
+   assert.equal(report.optionalFailure.calls,3);assert.equal(report.optionalFailure.stats.frameError,null);
+   assert(report.optionalFailure.stats.simulation.time>report.optionalStart.time+1);
+   await b.call(()=>{const d=smartTwinViewer.context.demo,id=[...d.simulation.records.values()].find(r=>r.components.vehicle).id;if(!d.driving.mount(id))throw Error('Could not board the real forklift.');});
    // Observe, without changing pause, timestamps, joints, cargo or inventories.
    await b.until(()=>b.call(()=>{const s=smartTwinViewer.context.demo.simulation,r=[...s.records.values()].find(v=>v.components.robot).components.robot;return !!r.entry&&r.phase==='carry';}),'The first individual carton never entered the native carry phase.',60000);
    report.injection=await b.call(marker=>{
@@ -51,27 +66,29 @@ async function run({expectedWorkspaceSha256,expectedPublicSha256}={}){
     alert:document.getElementById('viewer-notice').getAttribute('role'),driveDisabled:document.getElementById('drive').disabled,pauseDisabled:document.getElementById('pause').disabled,camera:smartTwinViewer.context.camera.position.toArray()}));
    assert.match(report.latched.stats.frameError.message,new RegExp(MARKER));assert.equal(report.latched.stats.frameError.phase,'before');assert.equal(report.latched.stats.frameErrors,1);
    assert.equal(report.latched.stats.simulation.paused,true);assert.equal(report.latched.alert,'alert');assert.equal(report.latched.driveDisabled,true);assert.equal(report.latched.pauseDisabled,true);
-   await delay(2500);
-   report.containment=await b.call(()=>({stats:smartTwinViewer.getStats(),camera:smartTwinViewer.context.camera.position.toArray()}));
-   assert.equal(report.containment.stats.simulation.time,report.latched.stats.simulation.time,'A partially failed material-flow step was silently retried.');
-   assert(report.containment.stats.primaryRenders>=report.latched.stats.primaryRenders+3,'Native primary rendering stopped after a simulation error.');assert.equal(report.containment.stats.frameErrors,1);
-   await click('#overview');
-   report.overview=await b.call(()=>({camera:smartTwinViewer.context.camera.position.toArray(),label:document.getElementById('overview').textContent,stats:smartTwinViewer.getStats()}));
-   assert.notDeepEqual(report.overview.camera,report.containment.camera,'The overview camera control stopped responding during recovery.');
-   assert.equal(report.overview.stats.simulation.time,report.latched.stats.simulation.time);await shot('contained-error-navigation-alive');
-   await click('#viewer-menu-toggle');await b.until(()=>b.evaluate('document.getElementById("viewer-menu").open'),'The real menu stopped responding after a frame error.',5000);
-   report.menuOpened=true;await click('#restart');
-   // dialog.close() updates .open synchronously; its native close event clears
-   // the app's input gate in a later task. Wait for that real event as well.
-   await b.until(()=>b.evaluate('!smartTwinViewer.getStats().frameError&&!smartTwinViewer.context.publicFrameFailure&&!smartTwinViewer.context.publicDialogOpen&&!document.getElementById("viewer-menu").open'),'The UI restart did not clear the explicit recovery latch and menu input gate.',15000);
+   assert.equal(report.latched.stats.recovery.pending,true);
+   await b.until(()=>b.evaluate('!smartTwinViewer.getStats().frameError&&!smartTwinViewer.context.publicFrameFailure&&!smartTwinViewer.context.publicDialogOpen'),'The automatic full restart did not clear the failure and input gate.',15000);
    report.restarted=await b.call(previousObject=>{
     const a=smartTwinViewer,d=a.context.demo,s=d.simulation,records=[...s.records.values()],source=records.find(v=>v.components.source).components.source,r=records.find(v=>v.components.robot).components.robot,p=records.find(v=>v.components.palletQueue&&v.components.palletQueue.config.palletize).components.palletQueue;
     return{stats:a.getStats(),sourceGenerated:source.generatedUnits,robotCompleted:r.completed,robotCarrying:!!r.entry,palletCompleted:p.assembly.completed,palletCartons:p.received,
-     oldCargoStillActive:[...s.products.values()].some(v=>v.object.uuid===previousObject),driveDisabled:document.getElementById('drive').disabled,pauseDisabled:document.getElementById('pause').disabled,dialog:!!a.context.publicDialogOpen};
+     oldCargoStillActive:[...s.products.values()].some(v=>v.object.uuid===previousObject),driving:!!d.driving.id,vehicle:{parkingBrake:d.driving.record().components.vehicle.parkingBrake,actualSpeed:d.driving.record().components.vehicle.actualSpeed},driveDisabled:document.getElementById('drive').disabled,pauseDisabled:document.getElementById('pause').disabled,dialog:!!a.context.publicDialogOpen};
    },report.injection.object);
    assert.equal(report.restarted.stats.simulation.paused,false);assert.equal(report.restarted.robotCompleted,0);assert.equal(report.restarted.robotCarrying,false);
    assert.equal(report.restarted.palletCompleted,0);assert.equal(report.restarted.palletCartons,0);assert.equal(report.restarted.oldCargoStillActive,false);
    assert(report.restarted.sourceGenerated<=1);assert.equal(report.restarted.driveDisabled,false);assert.equal(report.restarted.pauseDisabled,false);assert.equal(report.restarted.dialog,false);
+   assert.equal(report.restarted.driving,true);assert.equal(report.restarted.vehicle.parkingBrake,true);assert.equal(report.restarted.vehicle.actualSpeed,0);
+   assert.equal(report.restarted.stats.recovery.attempts,1);assert.match(report.restarted.stats.lastFailure.message,new RegExp(MARKER));
+   assert.deepEqual(report.restarted.stats.displayErrors,[]);await shot('automatic-recovery-restored-cab-and-inventory');
+   // A second critical fault within the cooldown must remain contained, with
+   // a working real menu, rather than repeatedly discarding scene state.
+   await b.call(marker=>{const d=smartTwinViewer.context.demo,original=d.step;d.step=function(){d.step=original;throw Error(marker+'_SECOND');};},MARKER);
+   await b.until(()=>b.evaluate('!!smartTwinViewer.getStats().frameError'),'Second failure was not contained.',10000);
+   await delay(1000);
+   report.repeated=await b.evaluate('smartTwinViewer.getStats()');
+   assert.equal(report.repeated.recovery.attempts,1);assert.equal(report.repeated.recovery.pending,false);assert(report.repeated.frameError);
+   await click('#viewer-menu-toggle');await b.until(()=>b.evaluate('document.getElementById("viewer-menu").open'),'The real menu stopped responding after a frame error.',5000);
+   report.menuOpened=true;await click('#restart');
+   await b.until(()=>b.evaluate('!smartTwinViewer.getStats().frameError&&!smartTwinViewer.context.publicFrameFailure&&!smartTwinViewer.context.publicDialogOpen&&!document.getElementById("viewer-menu").open'),'The real menu restart did not clear the repeated failure.',15000);
    await shot('real-menu-restart-restored-inventory');
    await b.call(()=>{
     const a=smartTwinViewer,c=a.context,d=c.demo,s=d.simulation,rows=[...s.records.values()],source=rows.find(v=>v.components.source),robot=rows.find(v=>v.components.robot),vehicle=rows.find(v=>v.components.vehicle),pickup=s.records.get(vehicle.components.vehicle.config.sourceId);
@@ -113,7 +130,7 @@ async function run({expectedWorkspaceSha256,expectedPublicSha256}={}){
    assert.equal(last.ready.id,last.pallets[0].id);assert.equal(last.accountedUnits,last.generated);assert(last.generated<=8);assert(report.samples.length>=4);
    await shot('normal-raf-four-carton-pallet-at-pickup');report.finalGL=await b.evaluate('smartTwinViewer.context.renderer.getContext().getError()');assert.equal(report.finalGL,0);
    const cookies=await b.send('Network.getCookies',{urls:[fixture.origin]});assert(!cookies.cookies.some(v=>v.name==='hello_studio_session'));
-   report.intentionalConsoleErrors=report.consoleErrors.filter(v=>v.includes(MARKER));assert.equal(report.intentionalConsoleErrors.length,1,'Exactly one deliberate contained failure should be logged.');
+   report.intentionalConsoleErrors=report.consoleErrors.filter(v=>v.includes(MARKER));assert.equal(report.intentionalConsoleErrors.length,2,'Exactly two deliberate contained critical failures should be logged.');
    assert.deepEqual(report.consoleErrors.filter(v=>!v.includes(MARKER)),[]);assert.deepEqual(report.exceptions,[]);
    report.blockedExternalFonts=report.failedRequests.filter(v=>/^https:\/\/(?:code\.cdn\.mozilla\.net|fonts\.googleapis\.com|fonts\.gstatic\.com)\//.test(v.url||''));
    assert.deepEqual(report.failedRequests.filter(v=>!report.blockedExternalFonts.includes(v)),[]);assert.deepEqual(report.responses.filter(v=>v.url.startsWith(fixture.origin+'/')&&v.status>=400),[]);assert.deepEqual(fixture.errors,[]);
@@ -123,4 +140,4 @@ async function run({expectedWorkspaceSha256,expectedPublicSha256}={}){
  finally{report.completedAt=new Date().toISOString();report.serverErrors=fixture.errors;fs.writeFileSync(path.join(OUT,'report.json'),JSON.stringify(report,null,2));await fixture.close();console.log(JSON.stringify({passed:!!report.passed,normalWallSeconds:report.normalWallSeconds,simulatedSeconds:report.final&&report.final.time,screenshots:report.screenshots.length,report:path.join(OUT,'report.json')}));}
 }
 module.exports={run};
-if(require.main===module){const arg=key=>{const at=process.argv.indexOf(key);return at<0?undefined:process.argv[at+1];};run({expectedWorkspaceSha256:arg('--expected-workspace-sha256'),expectedPublicSha256:arg('--expected-public-sha256')}).catch(error=>{console.error(error);process.exitCode=1;});}
+if(require.main===module){const arg=key=>{const at=process.argv.indexOf(key);return at<0?undefined:process.argv[at+1];};run({expectedWorkspaceSha256:arg('--expected-workspace-sha256'),expectedPublicSha256:arg('--expected-public-sha256'),renderBackend:process.argv.includes('--hardware')?'d3d11':undefined}).catch(error=>{console.error(error);process.exitCode=1;});}

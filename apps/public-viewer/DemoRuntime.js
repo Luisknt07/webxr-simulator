@@ -8,6 +8,7 @@ import LineMonitorSystem from '../../modules/logistica-industrial/functions/alma
 import * as THREE from 'three';
 import seedPublicDemoStock from '../../projects/smarttwin/PublicDemoStock.cjs';
 import DemoVehicleEntry from './DemoVehicleEntry.js';
+import {PresentationGuard} from './SceneResilience.js';
 
 export const DEMO_FUNCTION_ID = 'smarttwin/public-demo/logistics';
 export const DEMO_MODULE_ID = 'smarttwin/public-demo';
@@ -26,16 +27,20 @@ export const demoFunction = defineFunction({
     const equipmentStudy = new EquipmentStudyViewer(ctx, document, simulation, {notify:ctx.notify});
     const monitors = new LineMonitorSystem(ctx, document, simulation);
     const vehicleEntry=new DemoVehicleEntry(ctx,simulation,driving);
+    const presentation=new PresentationGuard({onError(record,error){console.warn('Public display ('+record.name+'):',error);if(record.disabled&&ctx.notify)ctx.notify('Se desactivó temporalmente '+record.name+'. La simulación continúa.');}});
     const session = {
-      simulation, driving, visuals, equipmentStudy, monitors, vehicleEntry, paused: false,
+      simulation, driving, visuals, equipmentStudy, monitors, vehicleEntry, presentation, paused: false,
       step(delta) {
-        equipmentStudy.update(delta);
-        monitors.sync(document.roomId, delta, false);
-        vehicleEntry.sync();
+        presentation.run('la ficha de equipos',()=>equipmentStudy.update(delta));
+        presentation.run('los monitores de producción',()=>monitors.sync(document.roomId,delta,false));
+        presentation.run('el acceso a la cabina',()=>vehicleEntry.sync());
         if (session.paused) return;
-        driving.beforeStep(); simulation.execute(delta); driving.follow(); visuals.sync(document.roomId, delta, false);
+        try{driving.beforeStep();}catch(error){error.smartTwinStage='controles del montacargas';throw error;}
+        try{simulation.execute(delta);}catch(error){error.smartTwinStage='flujo de materiales';throw error;}
+        try{driving.follow();}catch(error){error.smartTwinStage='vista de la cabina';throw error;}
+        presentation.run('los indicadores visuales',()=>visuals.sync(document.roomId,delta,false));
       },
-      restart() {equipmentStudy.close(); driving.unmount(true); simulation.start(document.roomId); seedPublicDemoStock(THREE, simulation); session.paused = false; visuals.dirty = true;},
+      restart() {equipmentStudy.close(); driving.unmount(true); simulation.start(document.roomId); seedPublicDemoStock(THREE, simulation); presentation.reset(); session.paused = false; visuals.dirty = true;},
       setPaused(value) {session.paused = !!value; driving.resetInput(); if (session.paused) simulation.releaseHeldProducts();},
       stats() {
         const records = Array.from(simulation.records.values()), robotRecords = records.filter(record => record.components.robot);

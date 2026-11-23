@@ -39,7 +39,7 @@ export default class EquipmentStudyViewer{
  current(){const s=this.scope,e=this.editor;return !!s&&ownerId(this.ctx)===s.identity&&(!e||e.document===s.document&&e.roomId===s.roomId&&e.projectGeneration===s.generation)&&(!this.documentModel.getObject||this.documentModel.getObject(s.id)===s.object)&&s.object.parent;}
  editable(){return !!(this.editor&&this.editor.active&&!this.ctx.vrMode&&this.current()&&this.editor.canEditDocument()&&!this.editor.loadingProject&&!this.editor.document.loading);}
  focusFromView(){
-  const ctx=this.ctx;if(this.opened||ctx.vrMode||this.editor&&this.editor.active||!ctx.camera||ctx.publicDialogOpen){this.focused=null;return;}
+  const ctx=this.ctx;if(this.opened||ctx.vrMode||ctx.drivingVehicle||this.editor&&this.editor.active||!ctx.camera||ctx.publicDialogOpen){this.focused=null;return;}
   const camera=ctx.camera,point=this.document.pointerLockElement?new THREE.Vector2():this.pointer;camera.updateWorldMatrix(true,false);this.ray.setFromCamera(point,camera);this.ray.far=12;
   const room=this.editor?this.editor.roomId:this.documentModel.roomId||'hall',objects=this.documentModel.getObjects?this.documentModel.getObjects(room):[],candidates=[];let checked=0;
   for(const object of objects){if(++checked>160)break;if(!object.visible||!this.canStudy(object))continue;const box=new THREE.Box3().setFromObject(object),hit=this.ray.ray.intersectBox(box,new THREE.Vector3());if(hit){const distance=hit.distanceTo(this.ray.ray.origin);if(distance<=12)candidates.push({object,distance});}}
@@ -48,6 +48,7 @@ export default class EquipmentStudyViewer{
  }
  update(delta=0){
   if(!this.document)return;if(this.opened){if(!this.current()||this.ctx.vrMode){this.close();return;}if(this.taskPanel)this.taskPanel.update(delta);this.elapsed+=delta;if(this.elapsed>.35){this.elapsed=0;this.refreshState();}this.render();return;}
+  if(this.ctx.drivingVehicle||this.ctx.vrMode||this.ctx.publicDialogOpen){this.focused=null;this.trigger.hidden=true;return;}
   this.elapsed+=delta;if(this.elapsed<.3)return;this.elapsed=0;this.focusFromView();this.trigger.hidden=!!(this.ctx.vrMode||this.ctx.publicDialogOpen||this.editor&&this.editor.active||this.ctx.drivingVehicle||!this.focused&&!this.equipmentObjects().length);
   this.trigger.textContent=this.focused?'Estudiar '+(this.focused.name||'equipo')+' · I':'Estudiar equipos · I';
  }
