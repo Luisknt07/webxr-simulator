@@ -2,21 +2,21 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "core-empty",
-  "revision": "d0d1abb7b2e8801ec81c84c48dc91345e7a5e6be",
-  "bundleSha256": "82b83a1d799a04e41cdaed870b8f278a5b0f55efd6ff7d038fb8edbb7ec3dd86",
+  "revision": "8932ac4e5b7080903efb407ad7629c761c129d80",
+  "bundleSha256": "050aa89b80692f4a291893de592720e63717adcbcd21d304d6cb4bc6394d6e0a",
   "scenes": [],
   "files": [
     {
       "path": "core-empty.js",
-      "sha256": "82b83a1d799a04e41cdaed870b8f278a5b0f55efd6ff7d038fb8edbb7ec3dd86"
+      "sha256": "050aa89b80692f4a291893de592720e63717adcbcd21d304d6cb4bc6394d6e0a"
     },
     {
       "path": "core.css",
-      "sha256": "7968f17b91561ab228eba4ba10d685a7061601437bff1eb5eeb9727ace7f1251"
+      "sha256": "66c505786e86e8eb73210c1c0ec7ef048ed8a1183abaae3922554a5a9f63f1fc"
     },
     {
       "path": "index.html",
-      "sha256": "c65b7b702405195845d277b6a7ab2ddb39b4be272e449f4371af3bd855e6289b"
+      "sha256": "523648f7ccd64612cfa4a22588459004b580ec7c2d4f282923b4f31fe02e7b19"
     }
   ]
 }

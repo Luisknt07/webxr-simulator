@@ -65,6 +65,7 @@ async function start() {
   let ctx;
   function frameFailure(event) {
     if (!ctx || ctx.publicFrameFailure) return;
+    if(event.recoverable){ctx.publicPresentationFailure={phase:event.phase,message:event.message};ctx.input.reset();notice('Recuperando la imagen y los controles…');console.error('Public viewer presentation ('+event.phase+'):',event.error||event.message);return;}
     ctx.publicFrameFailure = {phase: event.phase, message: event.message};
     if (ctx.demo) {
       // A partially executed material-flow step must never be retried silently.
@@ -83,7 +84,9 @@ async function start() {
     inputBlocked: () => !!ctx.publicDialogOpen,
     input: {desktopPointerLock: true, canWalk: () => !ctx.drivingVehicle && !ctx.publicDialogOpen, canInteract: () => !!ctx.demo && !ctx.demo.paused && !ctx.publicDialogOpen,
       onReset: () => {if (ctx && ctx.demo) ctx.demo.driving.resetInput();}, time: () => ctx.demo ? ctx.demo.simulation.time : 0},
+    recoverPresentationErrors: true,
     onFrameError: frameFailure,
+    onFrameRecovered: () => {if(ctx){ctx.publicPresentationFailure=null;notice('Imagen recuperada. Puedes continuar.');}},
     onContextLost: () => notice('Se ha interrumpido la imagen. Esperando la recuperación del navegador…'), onContextRestored: () => notice('Imagen recuperada.')});
   ctx = browser.context; ctx.room = 0; ctx.roomId = 'hall';
   activeBrowser = browser;
@@ -140,6 +143,11 @@ async function start() {
     });
     for (const name of ['pointerdown', 'keydown', 'keyup']) listen(modes, name, event => {event.stopPropagation(); if (name === 'pointerdown') releaseInput();});
     const mediaHost = document.createElement('div'); mediaHost.className = 'public-scene-media'; tools.appendChild(mediaHost); document.body.appendChild(tools);
+    const header=document.querySelector('.viewer-header');
+    const layoutTools=()=>{if(header)document.body.style.setProperty('--viewer-scene-top',Math.ceil(header.getBoundingClientRect().bottom+8)+'px');};
+    const toolObserver=typeof ResizeObserver==='function'?new ResizeObserver(layoutTools):null;
+    if(toolObserver&&header)toolObserver.observe(header);listen(window,'resize',layoutTools);layoutTools();
+    browser.onDispose(()=>{if(toolObserver)toolObserver.disconnect();document.body.style.removeProperty('--viewer-scene-top');});
     const capture = ctx.sceneCapture = new SceneCaptureController({getCanvas: () => renderer.domElement, document, window,
       getContext: () => ({active: !stopped && !ctx.publicFrameFailure, xr: !!ctx.vrMode, identity: VIEWER_WORLD_ID}), label: () => 'SmartTwin-demostracion-industrial'});
     const captureToolbar = new SceneCaptureToolbar({controller: capture, document, window, onInteract: releaseInput}); captureToolbar.mount(mediaHost);
@@ -189,7 +197,7 @@ async function start() {
       getStats: () => ({app: 'public-viewer', sceneId: 'vr-robot-dispatch', frameCount: browser.stats().frames, primaryRenders: browser.stats().primaryRenders, contextLost: browser.stats().contextLost,
         render: {...renderer.info.render}, memory: {...renderer.info.memory}, graphics: graphics.getStats(), simulation: ctx.demo.stats(),
         activeFunctions: [DEMO_FUNCTION_ID,'assistant.voice'], requestsAPI: configuration.backendAvailable === true, immersive: ctx.vrMode,
-        frameError: browser.stats().frameError, frameErrors: browser.stats().frameErrors}),
+        frameError: browser.stats().frameError, frameErrors: browser.stats().frameErrors, lastFrameError:browser.stats().lastFrameError}),
       dispose,
       // Explicit QA facade: no editor or networking object is constructed.
       context: ctx, host, document: documentModel, THREE

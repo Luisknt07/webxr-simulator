@@ -68,13 +68,15 @@ function verifyWorldGrid(f) {
     try {
       regions.forEach((region, index) => {
         assert(region.w > 0 && region.h > 0 && region.x >= 0 && region.y >= 0 && region.x + region.w <= 1024 && region.y + region.h <= 640);
-        f.driving.worldState.state.onSelectStart({uv: {x: (region.x + region.w / 2) / 1024, y: 1 - (region.y + region.h / 2) / 640}}); assert.equal(hits[index], region.action);
+        const controller=new THREE.Group(),definition=f.driving.definitions().find(value=>value.action===region.action);
+        f.driving.worldState.state.onSelectStart({uv: {x: (region.x + region.w / 2) / 1024, y: 1 - (region.y + region.h / 2) / 640}},controller);
+        if(definition&&definition.continuous){assert.equal(f.driving.touches.get(controller),definition.code);f.driving.worldState.state.onSelectEnd(null,controller);assert(!f.driving.touches.has(controller));}else assert.equal(hits[hits.length-1],region.action);
       });
-      f.driving.worldState.state.onSelectStart({uv: {x: .01, y: .99}}); assert.equal(hits.length, regions.length, 'The informational header cannot issue a vehicle command.');
+      const count=hits.length;f.driving.worldState.state.onSelectStart({uv: {x: .01, y: .99}}); assert.equal(hits.length,count, 'The informational header cannot issue a vehicle command.');
     } finally {f.driving.command = invoke;}
     return hits;
   };
-  assert.equal(f.driving.worldPage, 'cab'); const compact = page(); assert(compact.length <= 6 && compact.includes('controls') && compact.includes('exit'));
+  assert.equal(f.driving.worldPage, 'cab'); const compact = page(); assert(compact.length <= 6 && compact.includes('controls') && compact.includes('exit'));assert(f.driving.worldPanel.regions.length<=9);
   assert(f.driving.command('controls')); assert.equal(f.driving.worldPage, 'controls'); const secondary = page();
   assert.ok(['lights', 'powerOff', 'stop', 'pause', 'resetEmergency', 'controls'].every(action => secondary.includes(action)), 'All safety and energy commands remain available on the complete panel.');
   const hitch = f.driving.features().hitch || f.record.components.vehicle.config.maxTowKg > 0;

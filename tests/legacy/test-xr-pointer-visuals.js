@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), THREE = require('three');
 const read = file => fs.readFileSync(path.join(__dirname, '../../packages/render-three/src/', file), 'utf8').replace(/^import .*;\r?\n/gm, '');
 const Ray = new Function('THREE', 'EventDispatcher', read('RayControl.js').replace('export var rayMaterial;', 'var rayMaterial;').replace('export default class RayControl', 'class RayControl') + '\nreturn RayControl;')(THREE, class {dispatchEvent() {}});
-const {createXRGrip, updateXRGrip, disposeXRGrip} = new Function('THREE', read('XRGripTracking.js').replace(/^export /gm, '') + '\nreturn {createXRGrip,updateXRGrip,disposeXRGrip};')(THREE);
+const {createXRGrip, updateXRGrip, disposeXRGrip} = require('../support/load-xr-grip.js')(THREE);
 const close = (a, b, message) => assert(Math.abs(a - b) < 1e-5, message || `${a} != ${b}`);
 
 // A real ray starts at targetRaySpace. A distant button retains its exact UVs
@@ -49,10 +49,11 @@ const reference = {}, renderer = {xr: {getReferenceSpace: () => reference}}, con
 const grip = createXRGrip(renderer, controller, 0); rig.add(grip); const visual = grip.xrInputVisual;
 const source = {handedness: 'right', gripSpace: {}, gamepad: {buttons: [{value: 0}, {value: 0}]}};
 const matrix = new THREE.Matrix4().makeTranslation(.2, 1.2, -.4).toArray(), frame = {getPose: () => ({transform: {matrix}})};
-updateXRGrip(renderer, controller, source, frame); assert(grip.visible && visual.root.visible); assert.equal(controller.userData.xrHandVisualMode, 'controller-animated');
-const neutralIndex = visual.fingers[0][0].rotation.x, neutralGrip = visual.fingers[1][0].rotation.x;
+updateXRGrip(renderer, controller, source, frame); assert(grip.visible && visual.skin.root.visible);assert(visual.skin.mesh.isSkinnedMesh);assert.equal(visual.skin.skeleton.bones.length,25);assert(visual.skin.geometry.index.count/3<2400); assert.equal(controller.userData.xrHandVisualMode, 'controller-animated');
+const neutralIndex = visual.fingers[0][0].rotation.x, neutralGrip = visual.fingers[1][0].rotation.x,skinIndex=visual.skin.bones.get('index-finger-phalanx-proximal').quaternion.clone();
 source.gamepad.buttons[0].value = .9; source.gamepad.buttons[1].value = 1; updateXRGrip(renderer, controller, source, frame);
-assert(visual.fingers[0][0].rotation.x > neutralIndex && visual.fingers[1][0].rotation.x > neutralGrip);
+assert(Math.abs(visual.fingers[0][0].rotation.x) > Math.abs(neutralIndex) && Math.abs(visual.fingers[1][0].rotation.x) > Math.abs(neutralGrip));
+assert(!visual.skin.bones.get('index-finger-phalanx-proximal').quaternion.equals(skinIndex),'Trigger animation bends the continuous hand skin, not only a helper skeleton.');
 const allocation = [visual.geometry.size, visual.materials.size, grip.children.length, rig.children.length];
 for (let index = 0; index < 1000; index++) updateXRGrip(renderer, controller, source, frame);
 assert.deepEqual([visual.geometry.size, visual.materials.size, grip.children.length, rig.children.length], allocation, 'Pose updates allocate no geometry, materials or scene nodes.');
@@ -67,7 +68,15 @@ const tracked = {handedness: 'left', hand, targetRayMode: 'tracked-pointer'}, po
 updateXRGrip(renderer, controller, tracked, {getJointPose: joint => poses.get(joint)});
 assert(!visual.root.visible && visual.tracked.visible); assert.equal(controller.userData.xrHandVisualMode, 'tracked'); assert.equal(visual.tracked.parent, rig);
 assert(visual.joints.get('wrist').visible); assert(!visual.joints.get('thumb-tip').visible); close(visual.joints.get('wrist').position.y, 1.1);
+for(const [name,bind]of visual.skin.bind){if(!hand.has(name))hand.set(name,{});poses.set(hand.get(name),{radius:.007,transform:{matrix:new THREE.Matrix4().makeTranslation(.1,1.2,-.4).multiply(bind).toArray()}});}
+updateXRGrip(renderer,controller,tracked,{getJointPose:joint=>poses.get(joint)});assert(visual.skin.root.visible&&!visual.tracked.visible,'All measured joints drive the continuous skin.');visual.skin.root.updateMatrixWorld(true);close(visual.skin.bones.get('wrist').getWorldPosition(new THREE.Vector3()).y,1.2);
+controller.visible=false;updateXRGrip(renderer,controller,tracked,{getJointPose:joint=>poses.get(joint)});assert(visual.skin.root.visible,'Measured hands remain visible for direct grasp even when no pointing ray pose is available.');controller.visible=true;
 poses.clear(); updateXRGrip(renderer, controller, tracked, {getJointPose: joint => poses.get(joint)}); assert(!visual.tracked.visible);
+// A real hand grip uses the measured thumb/index pinch centre, not a missing
+// controller gripSpace. Hysteresis tolerates finger jitter, loss releases it.
+for(const name of ['wrist','thumb-tip','index-finger-tip'])hand.set(name,{});
+function pinch(distance){for(const [name,joint]of hand)poses.set(joint,{radius:.007,transform:{matrix:new THREE.Matrix4().makeTranslation(name==='thumb-tip'?distance:0,1.2,-.4).toArray()}});updateXRGrip(renderer,controller,tracked,{getJointPose:joint=>poses.get(joint)});}
+pinch(.06);assert(grip.visible&&controller.userData.xrHandContact.valid);assert(!controller.userData.xrHandContact.pinching);pinch(.02);assert(controller.userData.xrHandContact.pinching);close(grip.position.x,.01);pinch(.035);assert(controller.userData.xrHandContact.pinching);pinch(.06);assert(!controller.userData.xrHandContact.pinching);poses.clear();updateXRGrip(renderer,controller,tracked,{getJointPose:joint=>poses.get(joint)});assert(!grip.visible&&!controller.userData.xrHandContact.valid);
 updateXRGrip(renderer, controller, null); assert(!visual.root.visible && !visual.tracked.visible);
 const owned = [...visual.geometry, ...visual.materials]; let disposed = 0; owned.forEach(value => value.addEventListener('dispose', () => disposed++));
 disposeXRGrip(controller); assert.equal(disposed, owned.length); assert(!grip.xrInputVisual); assert(!rig.children.includes(visual.tracked)); assert.equal(grip.children.length, 0); disposeXRGrip(controller);

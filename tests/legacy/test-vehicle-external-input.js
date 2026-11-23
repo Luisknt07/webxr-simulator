@@ -69,6 +69,10 @@ const external=device(),xr=fixture({vr:true,devices:[external]}),left=pad('left'
 external.axes[1]=-1;axis(left,.5,-1);axis(right,0,0);const pose=[xr.camera.position.toArray(),xr.camera.quaternion.toArray()];tick(xr);assert(xr.v.input.throttle>0);assert(xr.driving.externalInput.getState().armed===false);assert.deepEqual([xr.camera.position.toArray(),xr.camera.quaternion.toArray()],pose);
 axis(left,0,0);tick(xr);near(xr.v.input.throttle,0);xr.ctx.vrMode=false;tick(xr);near(xr.v.input.throttle,0);neutral(xr,external);external.axes[1]=-1;tick(xr);assert(xr.v.input.throttle>0);close(xr);
 
+// An immersive session can own focus while its HTML document reports blur.
+// Only XR visibility may suspend native controls in that case.
+const blurred=fixture({vr:true}),xrLeft=pad('left'),xrRight=pad('right');blurred.ctx.raycontrol.controllers=[xrLeft,xrRight];blurred.dom.hasFocus=()=>false;blurred.driving.externalFocused=false;tick(blurred);tick(blurred);axis(xrLeft,0,-1);tick(blurred);assert(blurred.v.input.throttle>.9,'A blurred 2D document must not disable a visible XR session.');blurred.session.visibilityState='visible-blurred';tick(blurred);near(blurred.v.input.throttle,0);near(blurred.v.input.brake,1);close(blurred);
+
 // Device buttons issue edges, never repeated commands on every frame. Power
 // buttons can recover a stopped vehicle without forwarding held analog axes.
 const commandsPad=device(),commands=fixture({devices:[commandsPad]});neutral(commands,commandsPad);button(commandsPad,4,1);tick(commands);tick(commands);assert.equal(commands.commands.filter(name=>name==='parkingBrake').length,1);button(commandsPad,4,0);tick(commands);button(commandsPad,4,1);tick(commands);assert.equal(commands.commands.filter(name=>name==='parkingBrake').length,2);neutral(commands,commandsPad);

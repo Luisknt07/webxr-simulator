@@ -75,3 +75,15 @@ assert(grip.visible); assert.deepEqual(grip.position.toArray(), [.2, 1.2, -.4]);
 for (let index = 0; index < 100; index++) gripAPI.updateXRGrip(renderer, controller, source, {getPose: () => ({transform: {matrix}})}); assert.equal(parent.children.length, 1, 'Hot pose updates never allocate extra grip Groups.');
 gripAPI.updateXRGrip(renderer, controller, null); assert(!grip.visible);
 console.log('Vehicle direct cab: real wheel/lever rigs, bilateral native grip poses, unwrap/clamps, stick arbitration, physical lift, menu/pause/tracking/session/disconnect rearm, cleanup and r112 gripSpace tracking passed.');
+
+// Measured hands have no gripSpace or gamepad. Pinching at the real rim and
+// hydraulic knob must reach the same runtime, and tracking loss must release.
+{
+ const f=setup(),rig=f.api.rig(f.record),wheel=rig.controls.wheel,lift=rig.controls.levers.find(c=>c.id==='lift');
+ assert(lift.object.position.x<0,'The +Z-facing operator has hydraulic levers on their right.');
+ for(const hand of [f.left,f.right]){hand.inputSource.hand=new Map([['wrist',{}],['thumb-tip',{}],['index-finger-tip',{}]]);delete hand.inputSource.gripSpace;delete hand.inputSource.gamepad;hand.controller.userData.xrHandContact={valid:true,pinching:false};}
+ f.driving.beforeStep();wheelAt(f,f.left,wheel,.2);f.driving.beforeStep();f.left.controller.userData.xrHandContact.pinching=true;f.driving.beforeStep();wheelAt(f,f.left,wheel,.6);f.driving.beforeStep();assert(f.v.input.steer<-.2,'Pinching a measured hand turns the actual steering input.');
+ const start=lift.grip.getWorldPosition(new THREE.Vector3());handAt(f,f.right,start);f.driving.beforeStep();f.right.controller.userData.xrHandContact.pinching=true;f.driving.beforeStep();handAt(f,f.right,start.clone().add(new THREE.Vector3(0,0,-1).transformDirection(frame(lift)).multiplyScalar(lift.travel*.6)));f.driving.beforeStep();assert(f.v.input.lift>.4,'Measured hand pinch moves the real lift lever.');
+ f.right.controller.userData.xrHandContact.valid=false;f.driving.beforeStep();assert.equal(f.v.input.lift,0);assert(!f.driving.cab.hands.get(f.right.controller).control);
+ f.driving.dispose();f.runtime.stop();
+}

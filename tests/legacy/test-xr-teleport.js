@@ -18,7 +18,7 @@ function fixture(options = {}) {
   const headPose = new THREE.Matrix4().makeTranslation(.3, 1.7, .1), session = {visibilityState: 'visible'};
   const xr = {isPresenting: true, getSession: () => session, getCamera() {rig.updateWorldMatrix(true, false); tracked.matrixWorld.multiplyMatrices(rig.matrixWorld, headPose); return tracked;}};
   const beamRoot = new THREE.Group(), beam = new THREE.Mesh(new THREE.BoxBufferGeometry(.004, .004, 1), new THREE.MeshBasicMaterial()); beam.name = 'beam'; beamRoot.add(beam);
-  const ctx = {scene, cameraRig: rig, camera, renderer: {xr}, vrMode: true, goto: null, assets: {teleport_model: {scene: beamRoot}, beam_tex: new THREE.Texture()}, shaders: {basic_vert: '', beam_frag: ''}};
+  const ctx = {scene, cameraRig: rig, camera, renderer: {xr}, vrMode: true, goto: null, xrTeleportArc: true, assets: {teleport_model: {scene: beamRoot}, beam_tex: new THREE.Texture()}, shaders: {basic_vert: '', beam_frag: ''}};
   const ray = ctx.raycontrol = new RayControl(ctx, 'right'), teleport = ctx.teleport = new Teleport(ctx); teleport.installRayState();
   const sources = ['left', 'right'].map(handedness => ({handedness, gamepad: {mapping: 'xr-standard', axes: [0, 0, 0, 0], buttons: []}}));
   const controllers = sources.map((source, index) => {const controller = new THREE.Group(); controller.position.set(index ? .2 : -.2, 1.3, -.2); rig.add(controller); ray.addController(controller, source); return controller;});
@@ -88,3 +88,6 @@ for (const key of ['drivingVehicle', 'studioMenuOpen', 'publicDialogOpen', 'voic
   f.dispose(); assert(!f.ctx.teleport); assert(!f.ray.states['xr-browser-teleport']); assert(!f.teleport.teleportEntity.parent);
 }
 console.log('XR teleport: native/public procedural arc and footprint, stick neutral/trigger confirmation, authored floors, destination height/capsule and wall guards, transformed tracked rigs, menus/driving/reconnect cancellation and disposal passed.');
+{
+ const f=fixture();delete f.ctx.xrTeleportArc;const start=f.head();f.axes(1,0,-1);f.frame();f.axes(1,0,0);f.frame();assert(f.head().equals(start));assert(!f.teleport.arc.visible,'The original point-and-trigger teleport is the default; stick teleport requires explicit opt-in.');f.dispose();
+}

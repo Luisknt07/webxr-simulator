@@ -29,9 +29,12 @@ export function createBrowserHost(options = {}) {
   function containFrameError(error, phase, time) {
     let message = 'Unknown frame error', stack = '';
     try {message = String(error && error.message || error).slice(0, 1000); stack = String(error && error.stack || '').slice(0, 5000);} catch (_) { /* Even diagnostic coercion must not escape the native RAF callback. */ }
-    const detail = Object.freeze({phase, message, stack, time, frameAttempt: frameAttempts, simulationBlocked: true});
+    // Presentation stages can be retried without replaying a partially run
+    // material-flow step. Hold simulation until that same stage succeeds.
+    const recoverable=options.recoverPresentationErrors===true&&['graphics','render','after'].includes(phase);
+    const detail = Object.freeze({phase, message, stack, time, frameAttempt: frameAttempts, simulationBlocked: !recoverable, recoverable});
     lastFrameError = detail; frameErrors++;
-    if (frameError) return;
+    if (frameError && (!frameError.recoverable || recoverable)) return;
     frameError = detail;
     // Reset a held input once, while still allowing subsequent input/render
     // frames. The app must explicitly repair/restart before clearing the latch.
@@ -46,7 +49,7 @@ export function createBrowserHost(options = {}) {
     frameAttempts++;
     const now = Number.isFinite(time) ? time : performance.now(), delta = lastTime === null ? 0 : Math.max(0, Math.min(.1, (now - lastTime) / 1000)); lastTime = now;
     let failed = false;
-    const attempt = (phase, action) => {try {action(); return true;} catch (error) {failed = true; containFrameError(error, phase, now); return false;}};
+    const attempt = (phase, action) => {try {action(); if(frameError&&frameError.recoverable&&frameError.phase===phase){const recovered=frameError;frameError=null;lastTime=null;if(options.onFrameRecovered)try{options.onFrameRecovered(recovered);}catch(_){notificationErrors++;}}return true;} catch (error) {failed = true; containFrameError(error, phase, now); return false;}};
     attempt('graphics', () => graphics.tick(delta, {hidden: document.hidden, xr: ctx.vrMode, camera, renderWorkMs: workMs}));
     if (disposed || lost || document.hidden && !ctx.vrMode) {if (failed) failedFrames++; return;}
     const start = performance.now(), collision = ctx.collisionWorld;

@@ -313,7 +313,10 @@ export default class VehicleDriving {
     const commands=this.externalCommands.splice(0),safety=commands.find(action=>['emergency','stop','powerOff'].includes(action));
     for(const action of safety?[safety]:commands){if(!this.id||this.blocked()||!focused||this.ctx.vrMode)break;if(this.definitions().some(row=>row.action===action))this.command(action);}
     state=this.externalInput.getState();ready=ready&&state.armed&&state.status==='ready';
-    return {input:input||ZERO(),ready,stopped,suspended:!focused,waiting:active&&!this.ctx.vrMode&&state.status==='rearm'&&(state.selectedKeys||[]).length>0};
+    // Immersive browsers may blur the 2D document while XR stays visible.
+    // Desktop gamepad focus must not suspend native hands/Quest controls;
+    // blocked() already checks the XR session's own visibility and menus.
+    return {input:input||ZERO(),ready,stopped,suspended:!this.ctx.vrMode&&!focused,waiting:active&&!this.ctx.vrMode&&state.status==='rearm'&&(state.selectedKeys||[]).length>0};
   }
   buildExternalPanel(parent) {
     const options=this.options||{},dom=this.document;
@@ -579,8 +582,12 @@ export default class VehicleDriving {
     const name = this.simulation.statePrefix + 'vehicle-driving-panel', state = {colliderMesh: plane, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
       isSelectable: (hit, controller) => !!this.id && !!this.ctx.vrMode && plane.visible && !this.blocked() && this.panelSelectable(controller),
       onSelectStart: (hit, controller) => { if (!state.isSelectable(hit, controller) || !hit || !hit.uv) return; const x = hit.uv.x * 1024, y = (1 - hit.uv.y) * 640;
-        const region = this.worldPanel.regions.find(value => x >= value.x && x < value.x + value.w && y >= value.y && y < value.y + value.h); if (region) this.command(region.action);
-      }};
+        const region = this.worldPanel.regions.find(value => x >= value.x && x < value.x + value.w && y >= value.y && y < value.y + value.h);
+        const definition=region&&VehicleControlGuide.actions.find(value=>value.action===region.action);
+        if(definition&&definition.continuous)this.touches.set(controller,definition.code);else if(region)this.command(region.action);
+      },
+      onSelectEnd: (hit,controller)=>this.touches.delete(controller),
+      onSelectCancel: (hit,controller)=>this.touches.delete(controller)};
     const input = this.ctx.raycontrol; if (input) { input.addState(name, state); input.activateState(name); this.worldState = {name, state}; }
     this.paintWorldPanel();
   }
@@ -599,14 +606,14 @@ export default class VehicleDriving {
     c.fillStyle = '#eff6fb'; text(Number(v.actualSpeed || 0).toFixed(2) + ' m/s · ' + Number(v.loadKg || 0).toFixed(0) + ' kg · ' + (v.enabled===false ? 'PREPARACIÓN PENDIENTE' : !v.powered ? 'APAGADO' : v.emergency ? 'EMERGENCIA' : v.running ? 'MARCHA' : 'PARADO') + ' · Freno ' + (v.parkingBrake ? 'P' : 'libre'), 28, 81, 965, 25, 1);
     c.fillStyle = '#f1d286'; text(next.title || 'Siguiente paso', 28, 120, 960, 26, 1);
     c.fillStyle = '#edf5f8'; text(next.instruction, 28, 154, 955, 24, full ? 1 : 2);
-    if (!full) { c.fillStyle = '#a9c5cf'; text(this.xrControlMode === 'cab' ? 'GRIP: volante/palancas · Sticks: conducir/hidráulica. Gatillo: pulsar/frenar izq. X: freno P · A: carga · B: bajar · Y: menú.' : 'Sticks: conducir/hidráulica · GRIP der.: carga · GRIP izq.: frenar. X: freno P · A: carga · B: bajar · Y: menú.', 28, 225, 960, 24, 2); }
+    if (!full) { c.fillStyle = '#a9c5cf'; text(this.xrControlMode === 'cab' ? 'Volante/palancas: acercar + GRIP o pinza. Tirar de la palanca eleva; empujar baja. Stick izq.: avance/giro. Sin mandos: mantener Avanzar/Retroceder.' : 'Sticks: conducir/hidráulica · GRIP der.: carga · GRIP izq.: frenar. X: freno P · A: carga · B: bajar · Y: menú.', 28, 215, 960, 23, 3); }
     const definitions = this.definitions().filter(value => !value.continuous && !['view', 'cursor', 'forkCameraSide', 'forkCameraMode'].includes(value.action) && (value.action !== 'depositIntent' || record.components.vehicle.entry));
     const supported = new Set(definitions.map(value => value.action));
     let actions = full ? definitions.map(value => [value.action, value.label]) : [!v.powered ? 'powerOn' : !v.running || v.paused ? 'start' : 'parkingBrake', record.components.vehicle.entry ? this.operatorIntent === 'deposit' ? 'release' : 'depositIntent' : 'pickup', 'emergency', 'exit'].filter(action => supported.has(action)).map(action => [action, VehicleControlGuide.actions.find(value => value.action === action).label]);
     if(v.operatorInterlock)actions=v.enabled===false&&!full?[['practicePreparation',v.operatorInterlock.label],['emergency','Emergencia'],['exit','Bajar del vehículo']]:[['practicePreparation',v.operatorInterlock.label]].concat(actions);
-    actions = actions.concat([['xrControls', this.xrControlMode === 'cab' ? 'RV: Cabina → Sticks' : 'RV: Sticks → Cabina'], ['controls', full ? 'Volver a la cabina' : 'Todos los mandos']]);
+    actions = actions.concat([['driveForward','Avanzar · mantener'],['driveReverse','Retroceder · mantener'],['brake','Frenar · mantener'],['xrControls', this.xrControlMode === 'cab' ? 'RV: Cabina → Sticks' : 'RV: Sticks → Cabina'], ['controls', full ? 'Volver a la cabina' : 'Todos los mandos']]);
     panel.actions = actions; panel.regions = [];
-    const columns = full ? 3 : 2, rows = Math.ceil(actions.length / columns), top = full ? 190 : 310, bottom = 590, height = (bottom - top) / rows, width = 1024 / columns;
+    const columns = 3, rows = Math.ceil(actions.length / columns), top = full ? 190 : 310, bottom = 590, height = (bottom - top) / rows, width = 1024 / columns;
     const active = {powerOn: v.powered, start: v.running && !v.paused && !v.emergency, parkingBrake: v.parkingBrake, lights: v.lights, emergency: v.emergency, holographicGuide: this.holographicGuide.enabled, rearView: this.docking.forkCamera.selectedFeed === 'mirror'};
     actions.forEach(([action, label], index) => {
       const x = index % columns * width + 12, y = top + Math.floor(index / columns) * height + 4, w = width - 24, h = height - 8;

@@ -7,6 +7,7 @@ import EquipmentStudyViewer from '../../modules/logistica-industrial/functions/p
 import LineMonitorSystem from '../../modules/logistica-industrial/functions/almacenamiento/runtime/LineMonitorSystem.js';
 import * as THREE from 'three';
 import seedPublicDemoStock from '../../projects/smarttwin/PublicDemoStock.cjs';
+import DemoVehicleEntry from './DemoVehicleEntry.js';
 
 export const DEMO_FUNCTION_ID = 'smarttwin/public-demo/logistics';
 export const DEMO_MODULE_ID = 'smarttwin/public-demo';
@@ -24,11 +25,13 @@ export const demoFunction = defineFunction({
     const visuals = new IndustrialVisuals(ctx, document, simulation);
     const equipmentStudy = new EquipmentStudyViewer(ctx, document, simulation, {notify:ctx.notify});
     const monitors = new LineMonitorSystem(ctx, document, simulation);
+    const vehicleEntry=new DemoVehicleEntry(ctx,simulation,driving);
     const session = {
-      simulation, driving, visuals, equipmentStudy, monitors, paused: false,
+      simulation, driving, visuals, equipmentStudy, monitors, vehicleEntry, paused: false,
       step(delta) {
         equipmentStudy.update(delta);
         monitors.sync(document.roomId, delta, false);
+        vehicleEntry.sync();
         if (session.paused) return;
         driving.beforeStep(); simulation.execute(delta); driving.follow(); visuals.sync(document.roomId, delta, false);
       },
@@ -50,7 +53,7 @@ export const demoFunction = defineFunction({
       }
     };
     // Register cleanup before any attach/start operation can throw.
-    scope.onDispose(() => {monitors.dispose();equipmentStudy.dispose();driving.dispose(); visuals.dispose(); simulation.stop(); if (ctx.collisionWorld === collision) delete ctx.collisionWorld; if (ctx.demo === session) delete ctx.demo;});
+    scope.onDispose(() => {vehicleEntry.dispose();monitors.dispose();equipmentStudy.dispose();driving.dispose(); visuals.dispose(); simulation.stop(); if (ctx.collisionWorld === collision) delete ctx.collisionWorld; if (ctx.demo === session) delete ctx.demo;});
     scope.register('systems', 'logistics', session);
     ctx.demo = session; simulation.start(document.roomId); seedPublicDemoStock(THREE, simulation); visuals.sync(document.roomId, 0, false);
   }

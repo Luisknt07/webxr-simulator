@@ -63,3 +63,10 @@ test('default consumers receive one visible fault notification and disposal reti
  const notices=[],f=fixture({onFrameError:undefined,notify:text=>notices.push(text)});let ended=0;f.ctx.collisionWorld={beginFrame(){},endFrame(){ended++;}};f.host.setFrameHandler({before(){throw Error('Cannot continue safely');}});f.host.start();f.pump();f.pump();assert.equal(notices.length,1);assert(notices[0].includes('Cannot continue safely'));assert.equal(ended,2);assert.equal(f.host.stats().frameAttempts,2);
  await f.host.dispose();assert(f.ctx.renderer.disposed&&f.ctx.input.disposed&&f.ctx.graphics.disposed);assert.equal(f.container.children.length,0);const scheduled=f.pending.shift();assert.doesNotThrow(()=>scheduled(48));assert.equal(f.pending.length,0,'The real Three scheduler retires the already queued callback after stop.');assert.equal(ended,2);assert.equal([...f.window.listeners.values()].reduce((sum,list)=>sum+list.size,0),0);assert.throws(()=>f.host.clearFrameError(),/disposed/);
 });
+
+test('public presentation recovery waits for successful drawing and never retries a failed simulation step',async()=>{
+ const recovered=[],f=fixture({recoverPresentationErrors:true,onFrameRecovered:event=>recovered.push(event)});let steps=0;
+ f.host.setFrameHandler({before(){steps++;}});f.ctx.renderer.renderFault=Error('Temporary GPU draw failure');f.host.start();f.pump();f.pump();assert.equal(steps,1);assert(f.host.stats().frameError.recoverable);assert.equal(f.events.length,1);
+ f.ctx.renderer.renderFault=null;f.pump();assert.equal(steps,1);assert.equal(f.host.stats().frameError,null);assert.equal(recovered.length,1);f.pump();assert.equal(steps,2);
+ f.host.setFrameHandler({before(){steps++;throw Error('Invalid custody');}});f.pump();f.pump();assert.equal(steps,3);assert.equal(f.host.stats().frameError.phase,'before');assert(!f.host.stats().frameError.recoverable);assert.equal(recovered.length,1);await f.host.dispose();
+});

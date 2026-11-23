@@ -96,15 +96,18 @@ function cab(b,rig,c,parent,standing=false) {
   // counter-clockwise/left. Logical steering is positive to the driver's right.
   const grip=group(wheel,'Agarre del aro',[0,.17,0]);rig.controls.wheel={id:'steering',object:wheel,pivot:wheel,grip,axis:[0,0,1],inputSign:-1,pivotLocal:[0,0,0],radius:.17,maxAngle:1.25,restQuaternion:wheel.quaternion.clone()};rig.controls.steering=rig.controls.wheel;rig.steeringWheel=wheel;
   const features=vehicles.supports(c),leverIds=['lift','tilt','reach','sideShift','turret'].filter(id=>features[id]);
-  const leverDepth=Math.max(.30,leverIds.length*.09+.04),leverSupport=structural(d.shapeExtrusion('Pedestal de consola hidráulica',[[-.065,-.175],[.065,-.175],[.077,.175],[-.077,.175]],leverDepth*.88,'accent',cabin,[x*.82,.625,-.02],.009));rig.leverSupport=leverSupport;join(cabFloor,leverSupport);
-  const leverConsole=structural(d.solid('Módulo de mandos hidráulicos',[.16,.16,leverDepth],'accent',cabin,[x*.82,.88,-.02]));rig.leverConsole=leverConsole;join(leverSupport,leverConsole);
+  // The operator faces +Z: their right is -X. Keep the knobs beside the
+  // wheel and ahead of the seat, in the same frame used by direct XR grabs.
+  const leverX=-x*.82,leverZ=.03+(leverIds.length-1)*.045;
+  const leverDepth=Math.max(.30,leverIds.length*.09+.04),leverSupport=structural(d.shapeExtrusion('Pedestal de consola hidráulica',[[-.065,-.175],[.065,-.175],[.077,.175],[-.077,.175]],leverDepth*.88,'accent',cabin,[leverX,.625,leverZ],.009));rig.leverSupport=leverSupport;join(cabFloor,leverSupport);
+  const leverConsole=structural(d.solid('Módulo de mandos hidráulicos',[.16,.16,leverDepth],'accent',cabin,[leverX,.88,leverZ]));rig.leverConsole=leverConsole;join(leverSupport,leverConsole);
   leverIds.forEach((id,index)=>{
-    const pivot=group(cabin,'Palanca '+id,[x*.82,.97,-.16+index*.09]);const stem=b.rod('Vástago de palanca',[0,0,0],[0,.19,0],.009,'steel',pivot);
+    const pivot=group(cabin,'Palanca '+id,[leverX,.97,.03+index*.09]);const stem=b.rod('Vástago de palanca',[0,0,0],[0,.19,0],.009,'steel',pivot);
     const knob=d.solid('Pomo de '+id,[.044,.062,.052],'rubber',pivot,[0,.215,0],.013);stem.userData.vehiclePreserve=knob.userData.vehiclePreserve=true;
     const boot=d.torus('Fuelle de mando',.026,.008,'rubber',pivot,[0,.012,0]);boot.rotation.x=Math.PI/2;
     const grip=group(pivot,'Agarre '+id,[0,.215,0]);rig.controls.levers.push({id,object:pivot,pivot,grip,axis:[0,0,1],rotationAxis:[1,0,0],pivotLocal:[0,0,0],travel:Math.sin(.35)*.215,maxAngle:.35,restQuaternion:pivot.quaternion.clone()});
   });
-  d.decal(cabin,1,[.15,.075],[x*.82-.082,.88,-.02],[0,-Math.PI/2,0],leverConsole);
+  d.decal(cabin,1,[.15,.075],[leverX+.082,.88,leverZ],[0,Math.PI/2,0],leverConsole);
   if(rig.seatBack)d.decal(rig.seatBack,3,[.16,.08],[0,.055,-.0595],[0,Math.PI,0],rig.seatBack);
   d.bolts(cabin,[-1,1].flatMap(side=>[-1,1].map(end=>[side*(x+.035),floor+.10,end*z])),.014);
 }

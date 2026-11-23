@@ -33,13 +33,13 @@ export default class VehicleCabLabels {
       const name = NAMES[control.channel]; if (!name) return; const column = index % 4, row = Math.floor(index / 4), x = column * 256, y = row * 128;
       context.fillStyle = '#14232d'; context.fillRect(x, y, 256, 128); context.fillStyle = '#eaf7ff'; context.fillRect(x, y, 5, 128);
       this.pictogram(context, control.channel, x + 35, y + 49); context.fillStyle = '#f0faff'; context.font = 'bold 25px sans-serif'; context.fillText(name[0], x + 69, y + 43);
-      context.font = '16px sans-serif'; context.fillText(name[1], x + 69, y + 70); context.font = 'bold 17px sans-serif'; context.fillStyle = '#a9c2cf'; context.fillText('Mantén GRIP lateral', x + 17, y + 108);
+      context.font = '16px sans-serif'; context.fillText(name[1], x + 69, y + 70); context.font = 'bold 17px sans-serif'; context.fillStyle = '#a9c2cf'; context.fillText('GRIP lateral / pinza', x + 17, y + 108);
       const geometry = new THREE.PlaneBufferGeometry(control.kind === 'wheel' ? .18 : .15, .065), uv = geometry.attributes.uv;
       for (let vertex = 0; vertex < uv.count; vertex++) uv.setXY(vertex, (column + uv.getX(vertex)) / 4, 1 - (row + 1 - uv.getY(vertex)) / 2); geometries.add(geometry);
       const material = new THREE.MeshBasicMaterial({map: texture, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, toneMapped: false});
       const plate = new THREE.Mesh(geometry, material); plate.name = 'Mando · ' + name[0]; plate.userData.editorRuntimeHelper = true; plate.userData.vehicleCabLabel = control.channel; plate.raycast = () => {}; plate.rotation.set(-Math.PI / 2, 0, Math.PI);
       if (control.kind === 'wheel' && rig.dashboard) {rig.dashboard.add(plate); plate.position.set(0, .108, .008);}
-      else if (rig.leverConsole && control.kind === 'lever') {rig.leverConsole.add(plate); plate.position.set(-.082, .088, control.object.position.z - rig.leverConsole.position.z);}
+      else if (rig.leverConsole && control.kind === 'lever') {rig.leverConsole.add(plate); plate.position.set(rig.leverConsole.position.x<0?.082:-.082, .088, control.object.position.z - rig.leverConsole.position.z);}
       else {control.object.parent.add(plate); plate.position.copy(control.object.position).add(new THREE.Vector3(control.kind === 'lever' ? -.09 : 0, .025, -.08));}
       const ringMaterial = new THREE.MeshBasicMaterial({color: COLORS.guide, transparent: true, opacity: .85, depthWrite: false, toneMapped: false});
       const ring = new THREE.Mesh(control.kind === 'wheel' && !control.descriptor.gripOnly ? wheelRing : leverRing, ringMaterial); ring.name = 'Guía de mando · ' + name[0]; ring.userData.editorRuntimeHelper = true; ring.raycast = () => {};

@@ -233,8 +233,10 @@
 .scene-active #home-link{display:inline-flex}
 .scene-active .scene-navigation-hint{display:block;position:fixed;bottom:18px;left:50%;transform:translateX(-50%);margin:0;padding:8px 14px;max-width:calc(100vw - 32px);box-sizing:border-box;border:1px solid #71999d55;border-radius:24px;background:#162731d9;color:#d3e5e7;font-size:11px;line-height:1.4;text-align:center;pointer-events:none;z-index:3}
 .scene-active.look-locked .scene-navigation-hint{opacity:.55}
+.scene-active .equipment-study-trigger{bottom:calc(64px + env(safe-area-inset-bottom,0px));max-width:calc(100vw - 32px);min-height:44px}
+.scene-active .scene-navigation-hint{bottom:calc(14px + env(safe-area-inset-bottom,0px));max-height:38px;overflow:hidden}
 .scene-active.driving .scene-navigation-hint,.immersive .scene-navigation-hint,.immersive .scene-navigation-action{display:none}
-.scene-active .viewer-notice{bottom:70px}
+.scene-active .viewer-notice{bottom:124px}
 .viewer-scene-options{display:flex;flex-wrap:wrap;gap:8px}
 .viewer-scene-menu .demo-progress{margin:14px 0;color:#9bdac8;font-size:12px}
 .scene-active .xr-browser-touch{bottom:22px}
@@ -645,6 +647,9 @@ body:not(.scene-active) .public-scene-tools,.immersive .public-scene-tools{displ
 @media(max-width:650px),(pointer:coarse){.public-scene-tools{top:74px;gap:5px;padding:5px}.public-camera-modes button{min-height:44px;padding:8px;font-size:11px}}
 @media(max-width:450px){.public-scene-tools{width:max-content;max-width:calc(100vw - 16px)}.public-scene-media .scene-capture-toolbar{justify-content:center}.xr-browser-touch{left:12px;right:12px}.xr-browser-touch .touch-flight button{min-width:54px}.xr-browser-touch .touch-use{right:96px}}
 @media(max-height:560px){.public-scene-tools{top:68px}.xr-browser-touch{bottom:26px!important}}
+.scene-active .public-scene-tools{top:var(--viewer-scene-top,78px)}
+.scene-active #vehicle-operation-panels{--vehicle-hud-top:var(--viewer-scene-top,84px)}
+@media(max-width:1200px){.scene-active #vehicle-operation-panels{--vehicle-hud-top:calc(var(--viewer-scene-top,78px) + 64px)}}
 /* Keep touch altitude and interaction above the thumb pads and study shortcut. */
 @media(pointer:coarse){.xr-browser-touch .touch-flight{position:absolute;right:0;bottom:110px}.xr-browser-touch .touch-use{left:50%;right:auto;bottom:104px;transform:translateX(-50%);min-height:44px}}
 @media(pointer:coarse){.scene-active .viewer-notice{bottom:200px}}

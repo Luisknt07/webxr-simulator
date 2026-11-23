@@ -106,7 +106,7 @@ export default class XRLocomotion {
       if (!state.armed) continue;
       if (source.handedness === 'left') {
         if (ctx.studioLocomotion !== 'teleport') { moveX = axes.x; moveY = axes.y; }
-      } else if (axes.y < -.65 && Math.abs(axes.x) < .4 && ctx.teleport && ctx.teleport.beginAim) {
+      } else if (ctx.xrTeleportArc === true && axes.y < -.65 && Math.abs(axes.x) < .4 && ctx.teleport && ctx.teleport.beginAim) {
         // Right stick forward aims a curved teleport; return it to centre to
         // confirm. Horizontal right-stick motion keeps the existing snap turn.
         state.teleport = ctx.teleport.beginAim(data.controller); state.armed = false;

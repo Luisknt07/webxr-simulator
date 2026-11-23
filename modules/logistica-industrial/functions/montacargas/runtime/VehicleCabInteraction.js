@@ -5,8 +5,8 @@ import VehicleCabLabels from './VehicleCabLabels.js';
 const CHANNELS = new Set(['lift', 'tilt', 'reach', 'sideShift', 'turret']);
 const clamp = value => Math.max(-1, Math.min(1, value));
 const visible = object => {for (let node = object; node; node = node.parent) if (!node.visible) return false; return true;};
-const pressed = hand => {const pad = hand.source.gamepad, button = pad && pad.mapping === 'xr-standard' && pad.buttons && pad.buttons[1]; return button ? !!(button.pressed || button.value > .6) : hand.eventGrip === true;};
-const neutral = hand => !(hand.source.gamepad && (hand.source.gamepad.axes || []).some(value => Number.isFinite(value) && Math.abs(value) > .18)) &&
+const pressed = hand => {if (hand.source.hand) {const contact=hand.controller.userData.xrHandContact;return !!(contact&&contact.valid&&contact.pinching);} const pad = hand.source.gamepad, button = pad && pad.buttons && pad.buttons[1]; return button ? !!(button.pressed || button.value > .6) : hand.eventGrip === true;};
+const neutral = hand => !pressed(hand) && !(hand.source.gamepad && (hand.source.gamepad.axes || []).some(value => Number.isFinite(value) && Math.abs(value) > .18)) &&
   !(hand.source.gamepad && (hand.source.gamepad.buttons || []).some(button => button && (button.pressed || button.value > .6)));
 
 /** Local cab interactions only. Tracking remains owned by WebXR, while the
@@ -38,6 +38,7 @@ export default class VehicleCabInteraction {
   syncLabels() {this.labels.sync(!!this.driving.id && !this.driving.blocked(), this.hands);}
   pose(hand) {
     // A lost gripSpace pose must release the control, never reuse a stale hand.
+    if (hand.source.hand) {const contact=hand.controller.userData.xrHandContact;return contact&&contact.valid&&hand.data.grip&&visible(hand.data.grip)?hand.data.grip:null;}
     if (hand.data.grip && hand.source.gripSpace) return visible(hand.data.grip) ? hand.data.grip : null;
     return hand.data.grip && visible(hand.data.grip) ? hand.data.grip : visible(hand.data.controller) ? hand.data.controller : null;
   }
@@ -45,7 +46,7 @@ export default class VehicleCabInteraction {
     const connected = new Set();
     for (const data of this.input && this.input.controllers || []) {
       const source = data.inputSource, controller = data.controller;
-      if (!controller || data.desktop || data.enabled === false || !source || source.hand || source.targetRayMode && source.targetRayMode !== 'tracked-pointer' || !['left', 'right'].includes(source.handedness)) continue;
+      if (!controller || data.desktop || data.enabled === false || !source || source.targetRayMode && source.targetRayMode !== 'tracked-pointer' || !['left', 'right'].includes(source.handedness)) continue;
       connected.add(controller); let hand = this.hands.get(controller);
       if (hand && hand.source !== source) {this.removeHand(hand); hand = null;}
       if (!hand) {
