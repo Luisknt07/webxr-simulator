@@ -344,6 +344,8 @@ export default class StudioExperience {
   }
   beforeImmersiveMenuOpen() {
     this.close();
+    if(this.ctx.voicePanel)this.ctx.voicePanel.close();
+    if(this.ctx.assistantWorkspace)this.ctx.assistantWorkspace.close();
     if (this.administration) this.administration.close();
     if (this.editor.simulation && this.editor.simulation.onInputModeChange) this.editor.simulation.onInputModeChange();
     if (this.ctx.editorXylophone && this.ctx.editorXylophone.releaseHeld) this.ctx.editorXylophone.releaseHeld();

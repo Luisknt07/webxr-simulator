@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import PracticeImmersivePages from '../../../modules/logistica-industrial/practices/ui/PracticeImmersivePages.js';
+import XRMenuLauncher from '../../../packages/navigation-ui/XRMenuLauncher.js';
 
 const WIDTH = 1024, HEIGHT = 960, PAGE_SIZE = 6;
 const ROOM_IDS = ['hall', 'sound', 'photogrammetry', 'vertigo', 'panoramastereo', 'panorama1', 'panorama2', 'panorama3', 'panorama4', 'panorama5'];
@@ -18,6 +19,7 @@ export default class ImmersiveStudioMenu {
     this.fields = {username: '', password: '', code: ''}; this.keyboardField = ''; this.keyboardMode = 'letters'; this.shift = false;
     this.items = []; this.listPage = 0; this.generation = 0; this.busy = false; this.notice = ''; this.error = ''; this.dirty = true;
     this.practicePages=new PracticeImmersivePages(this);
+    this.handLauncher=new XRMenuLauncher(this.ctx,{open:()=>this.open('home'),isOpen:()=>this.opened,enabled:()=>this.active});
     this.position = new THREE.Vector3(); this.headQuaternion = new THREE.Quaternion(); this.rotation = new THREE.Matrix4();
     this.forward = new THREE.Vector3(); this.right = new THREE.Vector3(); this.target = new THREE.Vector3(); this.lastTime = 0;
     this.controllerDisconnected = data => { this.release(data && data.controller); this.hovers.delete(data && data.controller); this.clearCredentials(); this.dirty = true; };
@@ -33,7 +35,7 @@ export default class ImmersiveStudioMenu {
       const drawing = canvas.getContext && canvas.getContext('2d'); if (!drawing) return null;
       const texture = new THREE.CanvasTexture(canvas); texture.encoding = THREE.sRGBEncoding; texture.generateMipmaps = false;
       texture.minFilter = THREE.LinearFilter; texture.magFilter = THREE.LinearFilter;
-      const material = new THREE.MeshBasicMaterial({map: texture, toneMapped: false, depthTest: false, depthWrite: false});
+      const material = new THREE.MeshBasicMaterial({map: texture, toneMapped: false, transparent: true, depthTest: false, depthWrite: false});
       const mesh = helper(new THREE.Mesh(new THREE.PlaneBufferGeometry(meshWidth, meshHeight), material)); mesh.name = name;
       return {canvas, drawing, texture, mesh};
     };
@@ -64,9 +66,9 @@ export default class ImmersiveStudioMenu {
     enabled = Boolean(enabled);
     if (this.active === enabled) return;
     this.active = enabled; this.padButtons = new WeakMap();
-    // Entering/re-entering VR never opens a panel or allocates a floating label.
-    // Only a fresh X/A press creates the menu, once the XR pose is available.
-    if (!enabled) { this.ctx.xrExitPending = false; this.close(); this.releaseResources(); }
+    // Entry never opens the panel automatically. Controllers use a fresh face
+    // button; measured hands get the lazy wrist/body entry in tick().
+    if (!enabled) { this.ctx.xrExitPending = false; this.close(); this.releaseResources();this.handLauncher.releaseResources(); }
   }
   headPose() {
     const renderer = this.ctx.renderer, camera = this.ctx.camera;
@@ -279,7 +281,7 @@ export default class ImmersiveStudioMenu {
     if (user && user.permissions.manageUsers) actions.push(['users', 'Usuarios · resumen', () => this.navigate('users')]);
     if (user) actions.push(['logout', 'Cerrar sesión', () => this.run(async () => { await this.studio.logout(); if (this.active && this.opened) { this.navigate('home'); this.notice = 'Sesión cerrada.'; } })]);
     actions.forEach(([key, label, action], index) => this.button(key, label, 46, 225 + index * 74, 932, 58, action, {accent: key === 'account'}));
-    this.text('X (izquierdo) / A (derecho): abrir o cerrar el menú.', 46, 902, 25, C.dim);
+    this.text(this.ctx.drivingVehicle?'Y (izquierdo): menú · manos: Menú RV.':'X (izquierdo) / A (derecho): menú · manos: Menú RV.', 46, 902, 25, C.dim);
   }
   paintAccount() {
     const register = this.page === 'register';
@@ -347,20 +349,20 @@ export default class ImmersiveStudioMenu {
       'A (derecho): tomar o depositar la carga si es válido.',
       'X (izquierdo): alternar el freno de estacionamiento.',
       'El menú suelta los mandos; vuelve a neutral al cerrar.',
-      'Los dedos con mandos se animan según gatillo y grip.',
+      'Con manos: Menú RV junto a la muñeca o frente a ti.',
       'Salir de RV: botón superior. Meta pertenece al visor.'
     ] : [
       'X (izquierdo) / A (derecho): abrir o cerrar el menú.',
       'Salir de RV: botón rojo en la parte superior del menú.',
       'Stick izquierdo: caminar según la dirección de la mirada.',
       'Stick derecho lateral: girar 30°; vuelve a centrarlo.',
-      'Stick derecho hacia arriba: apuntar; soltar: teleportar.',
+      this.ctx.xrTeleportArc===true?'Stick derecho hacia arriba: apuntar; soltar: teleportar.':'Suelo: mantener gatillo o pinza; soltar: teleportar.',
       'Gatillo: pulsar el botón bajo el punto del rayo.',
       'Botones físicos: acerca el mando al frente y retíralo.',
       'Grip lateral: agarrar y soltar productos compatibles.',
-      'El arco verde confirma un destino libre; rojo lo impide.',
+      'Marca verde: destino libre. Rojo: destino bloqueado.',
       'El menú pausa las interacciones y el desplazamiento.',
-      'Los dedos con mandos se animan según gatillo y grip.',
+      'Con manos: toca o haz pinza. Menú RV junto a la muñeca.',
       'El botón del sistema Meta pertenece al visor.'
     ];
     lines.forEach((line, index) => this.text(line, 46, 183 + index * 51, index === 0 ? 26 : 24, index === 0 ? C.accent : C.text));
@@ -370,7 +372,7 @@ export default class ImmersiveStudioMenu {
     if (!this.drawing || !this.opened) return; this.regions = [];
     const d = this.drawing; d.fillStyle = C.bg; d.fillRect(0, 0, WIDTH, HEIGHT); d.fillStyle = '#1a3443'; d.fillRect(0, 0, WIDTH, 126);
     const names = {home: 'SMART-TWIN Simulator', account: 'Iniciar sesión', register: 'Crear cuenta', scenes: 'Rutas de prácticas', practiceRoute:'Prácticas de la ruta', practiceSetup:'Configurar ensayo',practice:'Misión activa',practiceGuide:'Guía y planos', projects: 'Mis proyectos', projectScenes: 'Escenarios del proyecto', settings: 'Ajustes del visor', controls: 'Controles VR', users: 'Usuarios · resumen', classroom: 'Mis prácticas', progress: 'Mi progreso'};
-    this.text(names[this.page] || 'SMART-TWIN Simulator', 46, 70, this.page === 'home' ? 32 : 35, C.text, 'bold'); this.text(this.busy ? 'Procesando…' : 'Apunta y pulsa el gatillo', 46, 110, 22, C.dim);
+    this.text(names[this.page] || 'SMART-TWIN Simulator', 46, 70, this.page === 'home' ? 32 : 35, C.text, 'bold'); this.text(this.busy ? 'Procesando…' : 'Apunta y pulsa · con manos: toca o haz pinza', 46, 110, 22, C.dim);
     this.button('exit-vr', this.exiting ? 'Saliendo…' : 'Salir de RV', 500, 28, 184, 64, () => this.exitVR(), {size: 23, danger: true, disabled: this.exiting});
     this.button('close', '×', 886, 24, 92, 72, () => this.close(), {size: 42});
     if (this.page !== 'home') this.button('home', '← Menú', 704, 28, 158, 64, () => this.navigate('home'), {size: 25});
@@ -379,6 +381,7 @@ export default class ImmersiveStudioMenu {
     this.texture.needsUpdate = true; this.dirty = false;
   }
   tick(delta = 0) {
+    this.handLauncher.update();
     if (this.disposed || !this.active || !this.ctx.vrMode) return;
     const vehicle = this.ctx.drivingVehicle || null;
     if (this.menuVehicle !== vehicle) {this.menuVehicle = vehicle; this.padButtons = new WeakMap();}
@@ -416,7 +419,7 @@ export default class ImmersiveStudioMenu {
     this.group = this.panel = this.surface = this.canvas = this.drawing = this.texture = this.state = null;
   }
   dispose() {
-    if (this.disposed) return; if(this.practicePages)this.practicePages.dispose();this.close(); this.active = false; this.releaseResources(); this.padButtons = new WeakMap();
+    if (this.disposed) return;this.handLauncher.dispose(); if(this.practicePages)this.practicePages.dispose();this.close(); this.active = false; this.releaseResources(); this.padButtons = new WeakMap();
     if (this.ctx.raycontrol && this.ctx.raycontrol.removeEventListener) this.ctx.raycontrol.removeEventListener('controllerDisconnected', this.controllerDisconnected); this.disposed = true;
   }
 }

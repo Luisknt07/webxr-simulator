@@ -2,7 +2,7 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "core-empty",
-  "revision": "17b2535860a9b2c49f499003b392cd0767b20dc6",
+  "revision": "771ac8eb5bf0fc9d7783c06e1d4900bb5cb7bc71",
   "bundleSha256": "906650c68ecc4c0910573132929f3a1e7bea3d9cb8ec89e427dca29be22d4476",
   "scenes": [],
   "files": [

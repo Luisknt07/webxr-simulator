@@ -13,6 +13,7 @@ button(0, 4, true); assert(!menu.opened, 'Left X is free for the parking brake i
 button(1, 4, true); assert(!menu.opened, 'Right A is free for cargo in a cab.');
 button(1, 5, true); assert(!menu.opened, 'Right B is free for native unmount.');
 button(0, 5, true); assert(menu.opened, 'Left Y opens the cab menu.');
+assert(menu.canvas.text.some(line=>line.includes('Y (izquierdo): menú')),'Cab menu home must describe Y rather than the brake/cargo buttons.');
 menu.navigate('controls'); menu.tick(.016);
 assert(menu.canvas.text.some(line => line.includes('Y (izquierdo)')));
 assert(menu.canvas.text.some(line => line.includes('A (derecho): tomar')));
@@ -21,7 +22,8 @@ f.ctx.drivingVehicle = null; menu.tick(.016);
 assert(!menu.opened, 'An A held across unmount must not open the walking menu.');
 button(1, 4, false); button(1, 4, true); assert(menu.opened);
 menu.navigate('controls'); menu.tick(.016);
-assert(menu.canvas.text.some(line => line.includes('apuntar; soltar: teleportar')));
+assert(menu.canvas.text.some(line => line.includes('mantener gatillo o pinza; soltar: teleportar')));
+f.ctx.xrTeleportArc=true;menu.dirty=true;menu.tick(.016);assert(menu.canvas.text.some(line=>line.includes('apuntar; soltar: teleportar')));delete f.ctx.xrTeleportArc;
 menu.close(); f.session.visibilityState = 'visible-blurred'; menu.tick(.016);
 f.session.visibilityState = 'visible'; menu.tick(.016); assert(!menu.opened, 'A held across tracking suspension must be released before reuse.');
 button(1, 4, false); f.controls[1].controller.visible = false;

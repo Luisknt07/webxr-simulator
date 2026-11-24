@@ -38,7 +38,7 @@ async function run({publicSha256,workspaceSha256,baseline=false}={}){
    for(const [width,height]of [[1600,1000],[1280,720],[640,360],[390,844]]){
     await b.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await delay(400);
     const layout=await b.call(()=>{
-     const button=document.querySelector('#xr-action button'),r=button.getBoundingClientRect(),tools=document.querySelector('.public-scene-tools').getBoundingClientRect(),header=document.querySelector('.viewer-header').getBoundingClientRect();
+     const button=document.querySelector('#xr-action button'),r=button.getBoundingClientRect(),tools=document.querySelector('.st-tour-shortcuts').getBoundingClientRect(),header=document.querySelector('.viewer-header').getBoundingClientRect();
      const items=[...document.querySelectorAll('.header-actions button,.header-actions>a')].map(el=>({id:el.id||el.className,rect:el.getBoundingClientRect()})).filter(v=>v.rect.width>0);
      const overlaps=[];for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const a=items[i].rect,b=items[j].rect;if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>1&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>1)overlaps.push([items[i].id,items[j].id]);}
      return{width:innerWidth,height:innerHeight,label:button.textContent,visible:r.width>0&&r.height>0,x:r.x,right:r.right,bottom:r.bottom,headerBottom:header.bottom,toolsTop:tools.top,overlaps};

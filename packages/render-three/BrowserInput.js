@@ -178,6 +178,7 @@ export default class BrowserInput {
         if (previous) controller.dispatchEvent({type: 'disconnected', data: previous.inputSource});
         if (source) controller.dispatchEvent({type: 'connected', data: source});
       });
+      if(ctx.beforeXRInput)ctx.beforeXRInput(delta);
       this.locomotion.tick(delta);
     } else if (!ctx.vrMode && !ctx.drivingVehicle && this.walkAllowed()) {
       const key = code => Number(this.keys.has(code)), x = key('KeyD') + key('ArrowRight') - key('KeyA') - key('ArrowLeft') + this.axes.x,

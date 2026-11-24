@@ -229,7 +229,8 @@ async function run() {
   immersive.immersiveMenu.opened = true; Experience.prototype.open.call(immersive, 'account');
   assert.deepEqual(calls.pop(), ['immersiveOpen', 'account'], 'An already open VR menu may show its login form.');
   immersive.ctx.goto = 8; immersive.ctx.teleport = {active: true, onHoverLeave() { calls.push(['teleportLeave']); }}; immersive.ctx.editorXylophone = {releaseHeld() { calls.push(['releaseStick']); }}; immersive.editor.simulation.onInputModeChange = () => calls.push(['inputModeChanged']);
-  immersive.beforeImmersiveMenuOpen(); assert.equal(immersive.ctx.goto, null); assert.equal(immersive.ctx.teleport.active, false); assert(calls.some(value => value[0] === 'inputModeChanged')); assert(calls.some(value => value[0] === 'releaseStick'));
+  immersive.ctx.voicePanel={close(){calls.push(['closeVoice']);}};immersive.ctx.assistantWorkspace={close(){calls.push(['closeAssistant']);}};
+  immersive.beforeImmersiveMenuOpen(); assert.equal(immersive.ctx.goto, null); assert.equal(immersive.ctx.teleport.active, false); assert(calls.some(value => value[0] === 'inputModeChanged')); assert(calls.some(value => value[0] === 'releaseStick'));assert(calls.some(value=>value[0]==='closeVoice')&&calls.some(value=>value[0]==='closeAssistant'),'Opening the native XR menu removes competing modal input gates.');
   assert.match(code, /password\.minLength = 12/, 'registration form matches actual password requirements');
   console.log('Studio experiencia: permisos, mandos con ámbito, autoridad, rechazo de acciones, snapshots sin recarga GPU y reanudación contextual OK.');
 }

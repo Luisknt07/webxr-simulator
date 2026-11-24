@@ -15,6 +15,7 @@ import XRAccessDialog from './XRAccessDialog.js';
 import {connectExperienceHeader} from '../../packages/navigation-ui/ExperienceHeader.js';
 import {decorateMenuAction,setMenuActionLabel,mountTourShortcuts} from '../../packages/navigation-ui/ExperienceMenu.js';
 import PracticeGuideAvatar from '../../packages/assistant-ui/PracticeGuideAvatar.js';
+import XRSceneMenu from '../../packages/navigation-ui/XRSceneMenu.js';
 
 const byId = id => document.getElementById(id);
 const experienceHeader=connectExperienceHeader(document.querySelector('.viewer-header'),{
@@ -144,6 +145,12 @@ async function start() {
   listen(menu, 'close', () => {if(menu.open)return;ctx.publicDialogOpen = !!document.querySelector('dialog[open]'); input.reset(); menuToggle.setAttribute('aria-expanded', 'false');});
   browser.onDispose(closeMenu);
   const releaseTourInput=()=>{input.reset();ctx.desktopLook.unlock();if(ctx.demo)ctx.demo.driving.resetInput();};
+  const toggleVehicle=()=>{
+    if(ctx.demo.paused)ctx.demo.setPaused(false);
+    const driving=ctx.demo.driving,vehicle=driving.nearest();closeMenu();let result=false;
+    if(driving.id)result=driving.unmount();else if(vehicle)result=driving.mount(vehicle.id);else notice('Acércate al montacargas y pulsa F para subir.');
+    input.reset();return result;
+  };
   const shortcuts=mountTourShortcuts({document,actions:[
     {id:'scenes',label:'Escenarios',icon:'scenes',action:()=>byId('back-scenes').click()},
     {id:'overview',label:'Vista',icon:'overview',action:()=>byId('overview').click(),getState:()=>({pressed:overview})},
@@ -155,6 +162,9 @@ async function start() {
   browser.onDispose(()=>shortcuts.dispose());
   const tourGuide=new PracticeGuideAvatar({context:ctx,document,window,onInteract:releaseTourInput,getTourState:()=>ctx.demo&&!stopped?{title:'Demostración industrial',lastMessage:ctx.drivingVehicle?'Usa el volante, las palancas y los pedales. El menú conserva la guía completa del montacargas.':ctx.desktopFlight?'Explora en dron con WASD. Q sube y E baja; vuelve a Caminar desde el botón Dron o Cámara.':'Recorre la instalación, apunta a un equipo y selecciónalo. Abre Ayuda para conocer el proceso o Chat para consultar.'}:null});
   browser.onDispose(()=>tourGuide.dispose());
+  const xrMenu=ctx.xrSceneMenu=new XRSceneMenu(ctx,{beforeOpen:()=>{closeMenu();if(ctx.voicePanel)ctx.voicePanel.close();},onBoard:toggleVehicle,onPause:()=>byId('pause').click(),onRestart:()=>byId('restart').click()});
+  browser.onDispose(()=>{xrMenu.dispose();if(ctx.xrSceneMenu===xrMenu)delete ctx.xrSceneMenu;});
+  ctx.beforeXRInput=()=>xrMenu.tick();browser.onDispose(()=>delete ctx.beforeXRInput);
   try {
     const response = await fetch(new URL(SCENE_URL, document.baseURI).href, {signal: abort.signal, credentials: 'omit'});
     if (!response.ok) throw new Error('No se pudo cargar la demostración (' + response.status + ').');
@@ -195,16 +205,10 @@ async function start() {
       buttonOptions:{enterLabel:'Realidad virtual',exitLabel:'Salir de RV',retryLabel:'Reintentar RV',unavailableLabel:'Realidad virtual'},
       onUnavailable:(details,entry)=>xrHelp.open(details,entry),
       beforeChange: () => ctx.demo.driving.unmount(true),
-      afterChange: active => {if (active) pose(ctx, 'walk'); document.body.classList.toggle('immersive', active);}});
+      afterChange: active => {if (active) pose(ctx, 'walk');else {xrMenu.close();xrMenu.releaseResources();} document.body.classList.toggle('immersive', active);}});
     listen(byId('overview'), 'click', () => {const next = !overview; if (pose(ctx, next ? 'overview' : 'walk')) {overview = next; byId('overview').textContent = overview ? 'Volver a caminar' : 'Vista general';}});
     byId('overview').textContent = 'Vista general';
-    listen(byId('drive'), 'click', () => {
-      if (ctx.demo.paused) ctx.demo.setPaused(false);
-      const driving = ctx.demo.driving, vehicle = driving.nearest();
-      if (driving.id) driving.unmount(); else if (vehicle) {closeMenu(); driving.mount(vehicle.id);}
-      else notice('Acércate al montacargas y pulsa F para subir.');
-      input.reset();
-    });
+    listen(byId('drive'), 'click', toggleVehicle);
     listen(byId('pause'), 'click', () => {ctx.demo.setPaused(!ctx.demo.paused); input.reset();});
     function restoreDemonstration(automatic=false){
       const vehicleId=automatic&&ctx.demo.driving.id;
@@ -240,7 +244,7 @@ async function start() {
       before({delta}) {
         const presentation=ctx.demo.presentation;
         if(lighting.sync)presentation.run('la iluminación',()=>lighting.sync());
-        if(!ctx.publicDialogOpen&&!ctx.publicFrameFailure)host.step(delta);
+        if(!ctx.publicDialogOpen&&!ctx.publicFrameFailure&&!ctx.studioMenuOpen)host.step(delta);
         presentation.run('la cámara de inspección',()=>ctx.demo.driving.docking.renderBefore(scene,delta));
       },
       after({delta}) {capture.afterRender(); ctx.demo.driving.docking.postRender(); uiElapsed += delta; if (uiElapsed > .2) {uiElapsed = 0; updateUI();}}

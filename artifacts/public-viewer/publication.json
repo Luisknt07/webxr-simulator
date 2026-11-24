@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "public-viewer",
-  "revision": "17b2535860a9b2c49f499003b392cd0767b20dc6",
-  "bundleSha256": "3c2cfb342e38f393b6a39cf03402eadb9d2e1186a42095030a69e900c798d573",
+  "revision": "771ac8eb5bf0fc9d7783c06e1d4900bb5cb7bc71",
+  "bundleSha256": "4df681ec20701e33bf6f34671a3294cc240d4700d7665379ef220d98898b646d",
   "scenes": [
     "vr-robot-dispatch"
   ],
@@ -130,7 +130,7 @@
     },
     {
       "path": "viewer.js",
-      "sha256": "3c2cfb342e38f393b6a39cf03402eadb9d2e1186a42095030a69e900c798d573"
+      "sha256": "4df681ec20701e33bf6f34671a3294cc240d4700d7665379ef220d98898b646d"
     },
     {
       "path": "welcome.css",
