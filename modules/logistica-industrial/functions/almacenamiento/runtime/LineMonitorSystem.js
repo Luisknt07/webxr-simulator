@@ -187,7 +187,7 @@ export default class LineMonitorSystem {
     // geometry preserves readable text and identical button coordinates there.
     const entry = {owner, config, canvas, drawing, texture, plane, backPlane, planes: [plane, backPlane], selectedId: config.targetId, page: 'diagram', detailPage: 0, eventPage: 0, analysisPage: 0, equipmentPage: 0, equipmentOffset: 0,
       moduleOnly: false, focused: false, selectedProductId: null, previewPart: '', preview: null, regions: [], presses: new Map(), dirty: true, elapsed: 0, editing: true, active: false, notice: '', signature: '', model: null};
-    const state = {colliderMesh: entry.planes, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
+    const state = {colliderMesh: entry.planes, handTouchable: true, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
       isSelectable: (hit, controller) => this.valid(entry, hit, controller),
       onSelectStart: (hit, controller) => this.press(entry, hit, controller),
       onSelectEnd: (hit, controller) => this.release(entry, controller),

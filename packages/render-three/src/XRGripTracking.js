@@ -85,7 +85,8 @@ class XRInputVisual {
       this.joints.forEach((mesh, name) => {
         const joint = source.hand.get ? source.hand.get(name) : source.hand[name]; let pose;
         try {pose = joint && frame.getJointPose(joint, reference);} catch (_) {pose = null;}
-        mesh.visible = Boolean(pose && pose.transform && pose.transform.matrix);
+        const values=pose&&pose.transform&&pose.transform.matrix;
+        mesh.visible = Boolean(values&&values.length===16&&Array.from(values).every(Number.isFinite));
         if (mesh.visible) {const matrix=this.jointMatrices.get(name)||new THREE.Matrix4();matrix.fromArray(pose.transform.matrix);this.jointMatrices.set(name,matrix);mesh.position.setFromMatrixPosition(matrix); mesh.scale.setScalar(Math.min(.012, Math.max(.004, pose.radius || .007))); count++;}else this.jointMatrices.set(name,null);
       });
       this.links.forEach(link => {
@@ -134,11 +135,19 @@ export function updateXRGrip(renderer, controller, source, frame) {
     // Hands have joint spaces, usually no gripSpace. Use the measured pinch
     // centre for contact and the wrist orientation; never invent a joint pose.
     const jointPose = name => {try {const joint=source.hand.get?source.hand.get(name):source.hand[name];return joint&&reference&&frame&&frame.getJointPose?frame.getJointPose(joint,reference):null;} catch (_) {return null;}};
-    const wrist=jointPose('wrist'),thumb=jointPose('thumb-tip'),index=jointPose('index-finger-tip');
-    const matrixOf = pose => pose&&pose.transform&&pose.transform.matrix;
+    const wrist=jointPose('wrist'),thumb=jointPose('thumb-tip'),index=jointPose('index-finger-tip'),distal=jointPose('index-finger-phalanx-distal');
+    const matrixOf = pose => {const matrix=pose&&pose.transform&&pose.transform.matrix;return matrix&&matrix.length===16&&Array.from(matrix).every(Number.isFinite)?matrix:null;};
     const valid=!!(matrixOf(wrist)&&matrixOf(thumb)&&matrixOf(index));
     const prior=controller.userData.xrHandContact;
     const contact=controller.userData.xrHandContact={valid,pinching:false};
+    // Reference-space measurements, transformed by the current rig by each
+    // consumer. Poking does not require a thumb pose or a target-ray pose.
+    contact.pokeValid=!!(matrixOf(wrist)&&matrixOf(index)&&matrixOf(distal));
+    if(contact.pokeValid){
+      const point=pose=>new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().fromArray(matrixOf(pose)));
+      contact.indexTip=point(index);contact.indexDistal=point(distal);contact.wrist=point(wrist);
+      contact.indexRadius=Number.isFinite(index.radius)?Math.max(.003,Math.min(.012,index.radius)):.007;
+    }
     grip.visible=valid;
     if(valid){
       const a=new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().fromArray(matrixOf(thumb))),b=new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().fromArray(matrixOf(index)));

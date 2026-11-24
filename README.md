@@ -114,6 +114,8 @@ La comprobación de navegador exige el SHA-256 del bundle de Workspace que se ha
 
 `test:legacy` incluye una prueba de simulación prolongada que puede tardar bastante. Las pruebas gráficas automatizadas usan un navegador de escritorio; la estabilidad y el rendimiento final en Quest 3 necesitan una sesión física en el visor.
 
+Las manos WebXR usan una piel articulada local de 25 juntas por mano. El índice medido pulsa los botones industriales, los mandos de cabina y los paneles 3D; el contacto exige retirar el dedo antes de repetir y se cancela si se pierde el seguimiento, cambia la visibilidad de la sesión o se cierra la interfaz. La pinza permite seleccionar, agarrar las cajas y soltar al abrir los dedos; el agarre cercano conserva el desplazamiento respecto a la mano sin saltos. Volante y palancas mantienen el agarre físico con pinza. El teletransporte original se confirma apuntando al suelo y soltando la acción principal; rechaza obstáculos y se bloquea al conducir. El seguimiento depende de que el visor/navegador conceda `hand-tracking` ([WebXR Hand Input](https://immersive-web.github.io/webxr-hand-input/)); con mandos continúa disponible el gatillo y se reenvían los eventos nativos de agarre que Three r112 no expone. `node --test tests/framework/xr-hand-interaction.test.mjs` verifica medidas, UV, pulsación, pinza, pérdida de seguimiento y teletransporte con entradas XR emuladas; no certifica un visor físico.
+
 - [Referencia histórica de la propuesta modular](docs/modular-framework-proposal.md)
 - [SDK, módulos y composición](docs/framework-modules.md)
 - [Organización reutilizable, gestor de módulos y nuevos proyectos](docs/modular-projects.md)

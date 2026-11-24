@@ -43,7 +43,7 @@ export default class ImmersiveStudioMenu {
     this.panel = panel.mesh; this.group = helper(new THREE.Group()); this.group.name = 'SMART-TWIN Simulator · interfaz VR';
     this.group.visible = false; this.panel.visible = false;
     this.group.add(this.panel); this.ctx.scene.add(this.group);
-    this.state = {xrMenu: true, vrOnly: true, controller: 'both', raycaster: true, captureSelect: true, consumeSelect: true,
+    this.state = {xrMenu: true, handTouchable: true, vrOnly: true, controller: 'both', raycaster: true, captureSelect: true, consumeSelect: true,
       colliderMesh: this.panel, isSelectable: (hit, controller) => this.valid(hit, controller),
       onHover: (hit, pressed, controller) => this.hover(hit, controller), onHoverLeave: (hit, pressed, controller) => this.hover(null, controller),
       onSelectStart: (hit, controller) => this.press(hit, controller), onSelectEnd: (hit, controller) => this.release(controller), onSelectCancel: (hit, controller) => this.release(controller)};

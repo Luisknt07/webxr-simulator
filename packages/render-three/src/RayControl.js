@@ -196,6 +196,7 @@ export default class RayControl extends EventDispatcher {
     this.previousLineStyle = 'pretty';
     this.enabled = true;
     this.raycaster = new THREE.Raycaster();
+    this.touchRaycaster = new THREE.Raycaster();
     this.states = {};
     this.currentStates = [];
 
@@ -255,6 +256,7 @@ export default class RayControl extends EventDispatcher {
   }
 
   dispose() {
+    this.syncXRSession(null);
     this.disable(); this.controllers.slice().forEach(data => this.removeController(data.controller));
     [this.line0.geometry, this.lineBasic.geometry, this.pointerRingGeometry, this.pointerDotGeometry].forEach(geometry => geometry.dispose());
     this.line0.material.dispose(); this.lineBasic.material.dispose(); if (this.ownedTexture) this.ownedTexture.dispose();
@@ -264,7 +266,7 @@ export default class RayControl extends EventDispatcher {
   updatePointer(data) {
     const pointer = data.pointer; if (!pointer) return;
     const current = data.currentIntersection, hit = current && current.intersection;
-    pointer.visible = Boolean(this.enabled && data.enabled && data.controller.visible !== false && !data.controller.userData.xrRaySuppressed && hit && hit.point && current.state.teleport !== true);
+    pointer.visible = Boolean(this.enabled && data.enabled && data.controller.visible !== false && !data.controller.userData.xrRaySuppressed && !data.controller.userData.xrTouchActive && hit && hit.point && current.state.teleport !== true);
     if (!pointer.visible) return;
     data.raycasterContext.updateWorldMatrix(true, false);
     pointer.position.copy(hit.point); data.raycasterContext.worldToLocal(pointer.position); pointer.position.z += .002;
@@ -278,7 +280,7 @@ export default class RayControl extends EventDispatcher {
     const basic = lineStyle === 'basic';
     const apply = data => {
       if (!data.line0) return;
-      const visible = this.enabled && data.enabled && (data.desktop || data.controller.visible !== false) && !data.controller.userData.xrRaySuppressed;
+      const visible = this.enabled && data.enabled && (data.desktop || data.controller.visible !== false) && !data.controller.userData.xrRaySuppressed && !data.controller.userData.xrTouchActive;
       data.lineBasic.visible = visible && basic;
       data.line0.visible = visible && !basic;
     };
@@ -310,7 +312,8 @@ export default class RayControl extends EventDispatcher {
 
     let controller = evt.target;
     let controllerData = this.controllers.find(c => c.controller === controller);
-    if (controllerData && controllerData.enabled && (controllerData.desktop || controller.visible !== false) && !controllerData.controller.userData.xrRaySuppressed && !controllerData.active) {
+    if (controllerData && controllerData.inputSource.hand && !(controller.userData.xrHandContact && controller.userData.xrHandContact.valid)) return;
+    if (controllerData && controllerData.enabled && (controllerData.desktop || controller.visible !== false) && !controller.userData.xrTouchActive && !controllerData.controller.userData.xrRaySuppressed && !controllerData.active) {
       controllerData.active = true;
       const selected = this.selectionEntries(controllerData);
       // Industrial controls capture their original press until release. Native
@@ -334,7 +337,99 @@ export default class RayControl extends EventDispatcher {
     }
   }
 
+  releaseHandTouch(data, cancel = false, state) {
+    const touch = data.handTouch, entry = touch && touch.entry;
+    if (state && (!entry || entry.state !== state)) return;
+    if (touch) {touch.entry = null; touch.armed = false;}
+    delete data.controller.userData.xrTouchActive;
+    if (!entry) return;
+    const callback = cancel ? entry.state.onSelectCancel : entry.state.onSelectEnd;
+    if (callback) callback(entry.hit, touch.token);
+    if (entry.state.onHoverLeave) entry.state.onHoverLeave(entry.hit, false, touch.token);
+  }
+
+  updateHandTouch(data) {
+    const ctx = this.ctx, controller = data.controller, contact = controller.userData.xrHandContact;
+    const xr = ctx.renderer && ctx.renderer.xr, session = xr && xr.getSession && xr.getSession();
+    const editor = ctx.editor, blocked = !ctx.vrMode || !this.enabled || data.enabled === false || data.desktop || !data.inputSource || !data.inputSource.hand ||
+      !contact || !contact.pokeValid || controller.userData.grabbing || controller.userData.xrRaySuppressed ||
+      ctx.publicDialogOpen || ctx.xrEntryPending || ctx.xrExitPending || ctx.roomTransition ||
+      xr && xr.getSession && !session || session && session.visibilityState && session.visibilityState !== 'visible' ||
+      editor && (editor.active || editor.initializing || editor.loadingProject || editor.busy || editor.importingFiles);
+    if (blocked) {this.releaseHandTouch(data, true); return;}
+    const parent = controller.userData.gripObject && controller.userData.gripObject.parent || controller.parent;
+    if (!parent) {this.releaseHandTouch(data, true); return;}
+    parent.updateWorldMatrix(true, false);
+    let touch = data.handTouch;
+    if (!touch) {
+      touch = data.handTouch = {armed: false, entry: null, wrist: new THREE.Vector3()};
+      // Independent identity balances a physical press without releasing a
+      // simultaneous native trigger. The origin is the measured wrist.
+      touch.token = {userData: {xrDirectTouch: true}, controller,
+        getWorldPosition: target => target.copy(touch.wrist), getObjectByName: () => null};
+    }
+    touch.wrist.copy(contact.wrist).applyMatrix4(parent.matrixWorld);
+    const tip = contact.indexTip.clone().applyMatrix4(parent.matrixWorld), distal = contact.indexDistal.clone().applyMatrix4(parent.matrixWorld);
+    const direction = tip.clone().sub(distal), length = direction.length();
+    if (length < .003 || length > .09 || data.active) {this.releaseHandTouch(data, true); return;}
+    direction.divideScalar(length);
+    // Search around the actual fingertip, never a long pointer. Both sides of
+    // the press threshold remain measurable, avoiding jitter/repeat clicks.
+    const origin = tip.clone().addScaledVector(direction, -.04), ray = this.touchRaycaster;
+    ray.set(origin, direction); ray.near = 0; ray.far = .08;
+    let near = null;
+    for (const state of this.currentStates) {
+      if (!state.handTouchable || state.teleport || !this.allowedState(state) || !this.matchController(data, state.controller)) continue;
+      const mesh = state.handTouchMesh || state.colliderMesh;
+      if (!mesh) continue;
+      const hits = this.filterVisible(Array.isArray(mesh) ? ray.intersectObjects(mesh, true) : ray.intersectObject(mesh, true));
+      for (const hit of hits) {
+        if (state.isSelectable && !state.isSelectable(hit, touch.token)) continue;
+        if (hit.face) {
+          const normal = hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix((hit.actualObject || hit.object).matrixWorld)).normalize();
+          if (normal.dot(direction) > -.25) continue;
+        }
+        const world = ctx.collisionWorld;
+        if (world && world.rayBlocked && world.rayBlocked(touch.wrist, hit.point, {ignore: [hit.object, controller]})) continue;
+        if (!near || hit.distance < near.hit.distance) near = {state, hit};
+        break;
+      }
+    }
+    controller.userData.xrTouchActive = !!near;
+    if (touch.entry) {
+      const entry = touch.entry;
+      if (!near || near.state !== entry.state || (near.hit.actualObject || near.hit.object) !== (entry.hit.actualObject || entry.hit.object) || near.hit.distance - .04 > .025) {
+        this.releaseHandTouch(data);
+        // Sliding to another cap requires withdrawal before another press.
+        controller.userData.xrTouchActive = !!near;
+        if(!near)touch.armed=true;
+      }
+      return;
+    }
+    if (!near) {touch.armed = true; return;}
+    if (!touch.armed || contact.pinching || near.hit.distance - .04 > contact.indexRadius + .003) return;
+    touch.armed = false; touch.entry = near;
+    if (near.state.onHover) near.state.onHover(near.hit, true, touch.token);
+    if (near.state.onSelectStart) near.state.onSelectStart(near.hit, touch.token);
+  }
+
+  syncXRSession(session) {
+    if(this.inputSession===session)return;
+    if(this.inputSession){
+      if(this.inputSession.removeEventListener)for(const [name,listener]of this.sessionListeners||[])this.inputSession.removeEventListener(name,listener);
+      this.controllers.filter(data=>!data.desktop).forEach(data=>{this.cancelSelect(data);this.clearHover(data);});
+    }
+    this.inputSession=session;this.sessionListeners=[];
+    if(!session||!session.addEventListener)return;
+    // Three r112 forwards select but not squeeze. Preserve the native squeeze
+    // event for controller cargo grips in both browser entry points.
+    const squeeze=event=>{const data=this.controllers.find(entry=>entry.inputSource===event.inputSource);if(data&&!data.desktop&&!event.inputSource.hand)data.controller.dispatchEvent({type:event.type,data:event.inputSource});};
+    const cancel=event=>{if(event.type!=='end'&&session.visibilityState==='visible')return;this.controllers.forEach(data=>{this.cancelSelect(data);this.clearHover(data);});};
+    for(const [name,listener]of [['squeezestart',squeeze],['squeezeend',squeeze],['visibilitychange',cancel],['end',cancel]]){session.addEventListener(name,listener);this.sessionListeners.push([name,listener]);}
+  }
+
   cancelSelect(controllerData, state) {
+    this.releaseHandTouch(controllerData, true, state);
     if (state && !controllerData.selectionCapture) return;
     const entries = controllerData.selectionCapture || [];
     entries.filter(entry => !state || entry.state === state).forEach(entry => {
@@ -349,6 +444,8 @@ export default class RayControl extends EventDispatcher {
   }
 
   execute(ctx, delta, time) {
+    const xr=ctx.renderer&&ctx.renderer.xr;
+    this.syncXRSession(ctx.vrMode&&xr&&xr.getSession?xr.getSession():null);
     if (!this.enabled || this.currentStates.length === 0) { this.controllers.forEach(data => {if (data.pointer) data.pointer.visible = false;}); return; }
 
     this.line0.material.uniforms.time.value = time;
@@ -358,6 +455,8 @@ export default class RayControl extends EventDispatcher {
     var stateIntersections = {};
     for (var c = 0; c < this.controllers.length; c++) {
       let controllerData = this.controllers[c];
+      this.updateHandTouch(controllerData);
+      if(controllerData.active&&controllerData.inputSource.hand&&!(controllerData.controller.userData.xrHandContact&&controllerData.controller.userData.xrHandContact.valid))this.cancelSelect(controllerData);
       // r112 hides targetRaySpace when getPose() returns null, but keeps its
       // previous matrix. Never actuate or hover from that stale tracked pose.
       if (!controllerData.enabled || !controllerData.desktop && controllerData.controller.visible === false || controllerData.controller.userData.xrRaySuppressed) {
@@ -379,6 +478,7 @@ export default class RayControl extends EventDispatcher {
         if (!state.raycaster) {
           continue;
         }
+        if (state.handTouchOnly) {controllerData.intersections[state.name] = null; continue;}
         if (controllerData.desktop && state.vrOnly) {
           controllerData.intersections[state.name] = null;
           continue;
@@ -392,7 +492,8 @@ export default class RayControl extends EventDispatcher {
 
         let controller = controllerData.controller;
         let active = controllerData.active;
-        let intersections = this.getIntersections(controller, state.colliderMesh);
+        const near=state.handGrabHit&&controllerData.inputSource.hand&&state.handGrabHit(controller);
+        let intersections = near ? [near] : this.getIntersections(controller, state.colliderMesh);
         if (state.isSelectable) intersections = intersections.filter(hit => state.isSelectable(hit, controller));
 
         if (intersections.length > 0) {

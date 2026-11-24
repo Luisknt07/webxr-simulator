@@ -153,7 +153,7 @@ export default class VehicleDockingMonitor {
       planeLayout: {front: panelLayout.front, mirror: panelLayout.mirror}});
     const input = this.ctx.raycontrol;
     this.stateName = this.driving.simulation.statePrefix + 'vehicle-docking-monitor';
-    this.state = {colliderMesh: this.plane, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
+    this.state = {colliderMesh: this.plane, handTouchable: true, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
       isSelectable: (hit, controller) => !!this.driving.id && !!this.ctx.vrMode && !!this.plane && this.plane.visible && !this.driving.blocked() && this.driving.panelSelectable(controller),
       onSelectStart: (hit, controller) => { if (this.state.isSelectable(hit, controller) && hit && hit.uv) this.select(hit.uv.x * WIDTH, (1 - hit.uv.y) * HEIGHT); }};
     if (input) { input.addState(this.stateName, this.state); input.activateState(this.stateName); }

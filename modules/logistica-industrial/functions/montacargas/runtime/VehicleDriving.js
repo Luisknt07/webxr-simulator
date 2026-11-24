@@ -581,7 +581,7 @@ export default class VehicleDriving {
     const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(.82, .512), new THREE.MeshBasicMaterial({map: texture}));
     plane.name = 'Consola de conducción'; plane.userData.editorRuntimeHelper = true;
     plane.visible = !!this.ctx.vrMode; this.seat.add(plane); this.worldPanel = {plane, context, texture, actions: [], regions: [], signature: ''};
-    const name = this.simulation.statePrefix + 'vehicle-driving-panel', state = {colliderMesh: plane, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
+    const name = this.simulation.statePrefix + 'vehicle-driving-panel', state = {colliderMesh: plane, handTouchable: true, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
       isSelectable: (hit, controller) => !!this.id && !!this.ctx.vrMode && plane.visible && !this.blocked() && this.panelSelectable(controller),
       onSelectStart: (hit, controller) => { if (!state.isSelectable(hit, controller) || !hit || !hit.uv) return; const x = hit.uv.x * 1024, y = (1 - hit.uv.y) * 640;
         const region = this.worldPanel.regions.find(value => x >= value.x && x < value.x + value.w && y >= value.y && y < value.y + value.h);

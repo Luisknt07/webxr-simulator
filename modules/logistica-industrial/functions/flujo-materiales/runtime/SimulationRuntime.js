@@ -307,7 +307,8 @@ export default class SimulationRuntime {
     const feedback = {controllers: new Set(), hovering: new Set(), sequence: 0, until: 0};
     this.controlFeedback.set(record.id, feedback);
     const end = (hit, controller) => { feedback.controllers.delete(controller); };
-    const state = {colliderMesh: record.object, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
+    const caps=[];record.object.traverse(node=>{if(node.userData.industrialButton)caps.push(node);});
+    const state = {colliderMesh: record.object, handTouchable: caps.length > 0, handTouchMesh: caps, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
       isSelectable: (hit, controller) => this.validInteraction(record.object, hit, controller, false),
       onHover: (hit, active, controller) => { feedback.hovering.add(controller); },
       onHoverLeave: (hit, active, controller) => { feedback.hovering.delete(controller); },
@@ -917,15 +918,29 @@ export default class SimulationRuntime {
     if (!this.ctx.raycontrol) return product;
     const name = this.statePrefix + 'product-' + (++this.productSequence);
     const state = {colliderMesh: object, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
+      handGrabHit: controller => {
+        const contact=controller.userData.xrHandContact,grip=controller.userData.gripObject;
+        if(!contact||!contact.valid||!grip||!grip.visible||product.heldBy)return null;
+        object.updateWorldMatrix(true,false);
+        const point=grip.getWorldPosition(new THREE.Vector3()),local=object.worldToLocal(point.clone());
+        const closest=product.bounds.clampPoint(local,new THREE.Vector3()).applyMatrix4(object.matrixWorld),distance=closest.distanceTo(point);
+        if(distance>.075)return null;
+        const hit={object,point:closest,distance};
+        return this.validInteraction(object,hit,controller,true)?hit:null;
+      },
       isSelectable: (hit, controller) => this.validInteraction(object, hit, controller, false),
       onSelectStart: (hit, controller) => {
         if (!this.running || this.ctx.editor && this.ctx.editor.active) return;
         controller = controller || this.ctx.desktopController || this.ctx.camera;
         if (!controller || !this.validInteraction(object, hit, controller, true)) return;
-        if (product.heldBy === controller && product.holdInput !== 'squeeze') this.releaseProduct(product);
+        if (product.heldBy === controller && product.holdInput === 'select') this.releaseProduct(product);
         else if (product.heldBy) return;
-        else this.pickupProduct(product, controller);
-      }};
+        else {
+          const data=this.ctx.raycontrol.controllers.find(entry=>entry.controller===controller);
+          this.pickupProduct(product, controller, data&&data.inputSource.hand?'pinch':'select');
+        }
+      }, onSelectEnd: (hit, controller) => this.releaseHeldProducts(controller, 'pinch'),
+      onSelectCancel: (hit, controller) => this.releaseHeldProducts(controller, 'pinch')};
     product.stateEntry = {name, state};
     this.ctx.raycontrol.addState(name, state); this.ctx.raycontrol.activateState(name);
     this.states.push(product.stateEntry);
@@ -945,7 +960,7 @@ export default class SimulationRuntime {
           if (input.enabled === false || data && (!data.enabled || data.active)) return;
           // The grip owns a held load until grip-up. A simultaneous trigger
           // must neither drop it nor operate a machine behind that load.
-          if (product && product.holdInput !== 'squeeze') runtime.releaseProduct(product);
+          if (product && product.holdInput === 'select') runtime.releaseProduct(product);
           // Dropping consumes this trigger cycle too: a repeated start must
           // neither grab it again nor fire a native release under the ray.
           if (data) { data.active = true; data.selectionCapture = []; data.captureConsumed = true; }
@@ -986,7 +1001,7 @@ export default class SimulationRuntime {
   bindProductGrip(data) {
     const controller = data && data.controller;
     if (!controller || data.desktop || controller.userData && controller.userData.isDesktop ||
-      !controller.addEventListener || this.productGripInputs.has(controller)) return;
+      !controller.addEventListener || data.inputSource && data.inputSource.hand || this.productGripInputs.has(controller)) return;
     const binding = {controller, down: false};
     binding.start = () => {
       const input = this.ctx.raycontrol;
@@ -1115,7 +1130,11 @@ export default class SimulationRuntime {
     // Freeze the full world basis, including an authored rotation/nonuniform
     // parent transform. Looking down or twisting a controller only moves it.
     product.holdMatrix = matrix.clone(); product.holdDistance = PRODUCT_HOLD_DISTANCE;
-    product.heldBy = controller; product.holdInput = inputMode === 'squeeze' ? 'squeeze' : 'select'; this.held.set(controller, product);
+    product.heldBy = controller; product.holdInput = ['squeeze','pinch'].includes(inputMode) ? inputMode : 'select'; this.held.set(controller, product);
+    if(inputMode==='pinch'){
+      const grip=controller.userData.gripObject;
+      product.pinchOffset=grip&&grip.visible?product.object.getWorldPosition(new THREE.Vector3()).sub(grip.getWorldPosition(new THREE.Vector3())):null;
+    }
     Object.defineProperty(product.object, 'industrialHeld', {value: true, configurable: true, writable: true, enumerable: false});
     this.sourceRuntime.picked(product);
     this.processorRuntime.picked(product);
@@ -1123,7 +1142,7 @@ export default class SimulationRuntime {
     this.productFeedback.hold(product.object);
     this.pulse(controller, 0.25, 45);
     this.event(product.record ? product.record.id : 'simulation', 'product-picked', this.ctx.vrMode ?
-      'Caja agarrada. Gatillo: pulsar de nuevo para soltar. Agarre: mantener y soltar.' : 'Caja agarrada. Rueda: acercar / alejar. Vuelve a pulsar para soltarla.');
+      inputMode==='pinch'?'Caja agarrada. Mantén la pinza y abre los dedos para soltar.':'Caja agarrada. Gatillo: pulsar de nuevo para soltar. Agarre: mantener y soltar.' : 'Caja agarrada. Rueda: acercar / alejar. Vuelve a pulsar para soltarla.');
     this.refreshVariables();
     return true;
   }
@@ -1197,6 +1216,10 @@ export default class SimulationRuntime {
 
   updateHeldProducts() {
     this.held.forEach((product, controller) => {
+      if(product.holdInput==='pinch'){
+        const contact=controller.userData.xrHandContact,grip=controller.userData.gripObject;
+        if(!contact||!contact.valid||!grip||!grip.visible){this.releaseProduct(product,true);return;}
+      }
       controller.updateWorldMatrix(true, false);
       updateTree(product.object);
       const previous = product.bounds.clone().applyMatrix4(product.object.matrixWorld);
@@ -1214,6 +1237,8 @@ export default class SimulationRuntime {
         const center = eye.addScaledVector(forward, handDepth + distance);
         const centerOffset = product.bounds.getCenter(new THREE.Vector3()).applyMatrix3(new THREE.Matrix3().setFromMatrix4(matrix));
         position = center.sub(centerOffset);
+      } else if(product.holdInput==='pinch'&&product.pinchOffset){
+        position=controller.userData.gripObject.getWorldPosition(new THREE.Vector3()).add(product.pinchOffset);
       } else position = new THREE.Vector3(0, -0.025, -distance).applyMatrix4(controller.matrixWorld);
       matrix.setPosition(position);
       const desiredBox = product.bounds.clone().applyMatrix4(matrix);

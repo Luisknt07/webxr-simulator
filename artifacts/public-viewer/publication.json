@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "public-viewer",
-  "revision": "e8bd45cd11e7de24adb2ead7bbc7f053f4c1d56c",
-  "bundleSha256": "4454bc94bcee32e1301be157b2308331231fafde4ad57fc0aeef4b4c4821ccbc",
+  "revision": "c84196c10adbb0d70b3347d01c2a4ebecb892227",
+  "bundleSha256": "76239cd4aa672208de90c3c45262c4d60a104c321e94f440e3f2f52e6f3b2203",
   "scenes": [
     "vr-robot-dispatch"
   ],
@@ -18,7 +18,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "ad4cdfb5fc678b600f8d03ab6f5399b5947939c3414e9889cbf1523566c6dbd6"
+      "sha256": "936a7742fb27ad7c5e82fc63687f4bd01d35a0d1faa0c5e318baa58d4aead6d7"
     },
     {
       "path": "modules/logistica-industrial/assets/robot-pilot/LICENSE.txt",
@@ -122,7 +122,7 @@
     },
     {
       "path": "viewer.js",
-      "sha256": "4454bc94bcee32e1301be157b2308331231fafde4ad57fc0aeef4b4c4821ccbc"
+      "sha256": "76239cd4aa672208de90c3c45262c4d60a104c321e94f440e3f2f52e6f3b2203"
     },
     {
       "path": "welcome.css",

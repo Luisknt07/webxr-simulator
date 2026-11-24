@@ -1008,6 +1008,8 @@ export default class IndustrialVisuals {
     const connected = new Set();
     (input.controllers || []).forEach(data => {
       const controller = data.controller, source = data.inputSource;
+      // Tracked fingers use RayControl's measured index/mesh contact. This
+      // legacy front probe remains exclusively for physical controllers.
       if (!controller || data.desktop || !source || source.targetRayMode !== 'tracked-pointer' || source.hand || !['left', 'right'].includes(source.handedness)) return;
       connected.add(controller);
       let hand = this.contactHands.get(controller);

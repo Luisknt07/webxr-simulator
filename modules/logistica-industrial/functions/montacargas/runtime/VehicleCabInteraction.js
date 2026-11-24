@@ -45,6 +45,19 @@ export default class VehicleCabInteraction {
     };
     add(controls.wheel || controls.steering, 'wheel'); (controls.levers || []).forEach(value => add(value, 'lever'));
     (controls.buttons||[]).forEach(value=>add(value,'button'));(controls.pedals||[]).forEach(value=>add(value,'pedal'));
+    this.touchStates=[];
+    if(this.input&&this.input.addState)for(const control of this.controls.filter(c=>c.kind==='button')){
+      const owner={source:{},control:null},name=(this.driving.simulation.statePrefix||'vehicle-')+'cab-touch-'+control.channel;
+      const release=()=>this.release(owner);
+      const state={controller:'both',vrOnly:true,handTouchable:true,handTouchOnly:true,colliderMesh:control.descriptor.hitObject||control.object,
+        isSelectable:(hit,token)=>{
+          if(!(token&&token.userData.xrDirectTouch&&this.driving.id&&!this.driving.blocked()&&(!control.owner||control.owner===owner)))return false;
+          const axis=new THREE.Vector3().fromArray(control.descriptor.pressAxis||[0,0,1]).transformDirection(control.object.matrixWorld);
+          return token.getWorldPosition(new THREE.Vector3()).sub(control.object.getWorldPosition(new THREE.Vector3())).dot(axis)<-.004;
+        },
+        onSelectStart:hit=>{this.frame(control);this.take(owner,control,hit.point);},onSelectEnd:release,onSelectCancel:release};
+      this.input.addState(name,state,true);this.touchStates.push({name,state,owner});
+    }
     this.labels.mount(root, this.controls); this.syncLabels();
   }
   setGuidance(control) {this.labels.setGuidance(control); this.syncLabels();}
@@ -182,7 +195,7 @@ export default class VehicleCabInteraction {
     for (const hand of this.hands.values()) {
       if(!this.ctx.vrMode){this.release(hand);hand.hover=null;this.feedback(hand);continue;}
       const pose = this.pose(hand), grip = pressed(hand);
-      if (!pose || hand.data.selectionCapture || hand.controller.userData.grabbing) {this.release(hand); hand.hover = null; hand.previousGrip = grip; this.feedback(hand); if (hand.ghost) hand.ghost.visible = false; continue;}
+      if (!pose || hand.data.selectionCapture || hand.controller.userData.grabbing || hand.controller.userData.xrTouchActive) {this.release(hand); hand.hover = null; hand.previousGrip = grip; this.feedback(hand); if (hand.ghost) hand.ghost.visible = false; continue;}
       const point = pose.getWorldPosition(new THREE.Vector3()); hand.hover = null;
       if (!grip) {this.release(hand, false); hand.grabBlocked = false; if (neutral(hand)) hand.armed = true;}
       let nearest = null, best = Infinity;
@@ -218,6 +231,7 @@ export default class VehicleCabInteraction {
     this.controls.forEach(control => {if (control.owner&&control.kind!=='button') input[control.channel] = clamp(control.value * (control.descriptor.inputSign === undefined ? control.kind === 'lever' && control.channel === 'lift' ? -1 : 1 : control.descriptor.inputSign));});
   }
   reset() {
+    for(const entry of this.touchStates||[])this.release(entry.owner);
     this.pointer.reset();for(const c of this.controls){delete c.object.userData.cabDisplayValue;if(c.kind==='lever'||c.kind==='pedal')c.object.quaternion.copy(c.rest);if(c.kind==='pedal')c.object.position.copy(c.restPosition);}
     this.hands.forEach(hand => {this.release(hand); hand.hover = null; hand.previousGrip = pressed(hand); hand.grabBlocked = true; this.feedback(hand); if (hand.ghost) hand.ghost.visible = false;}); this.consumedSources.clear();
     this.syncLabels();
@@ -228,6 +242,6 @@ export default class VehicleCabInteraction {
     if (hand.ghost) {if (hand.ghost.parent) hand.ghost.parent.remove(hand.ghost); hand.ghost.geometry.dispose(); hand.ghost.material.dispose();}
     this.hands.delete(hand.controller);
   }
-  clear() {this.pointer.reset();Array.from(this.hands.values()).forEach(hand => this.removeHand(hand));this.controls.forEach(c=>{delete c.object.userData.cabControlValue;delete c.object.userData.cabDisplayValue;}); this.controls = [];this.root=null; this.consumedSources.clear(); this.releasedSources.clear(); this.neutralChannels.clear(); this.labels.clear();}
+  clear() {for(const entry of this.touchStates||[]){this.input.deactivateState(entry.name);if(this.input.states[entry.name]===entry.state)delete this.input.states[entry.name];this.release(entry.owner);}this.touchStates=[];this.pointer.reset();Array.from(this.hands.values()).forEach(hand => this.removeHand(hand));this.controls.forEach(c=>{delete c.object.userData.cabControlValue;delete c.object.userData.cabDisplayValue;}); this.controls = [];this.root=null; this.consumedSources.clear(); this.releasedSources.clear(); this.neutralChannels.clear(); this.labels.clear();}
   dispose() {this.clear();this.pointer.dispose(); if (this.input && this.input.removeEventListener) this.input.removeEventListener('controllerInputCancelled', this.cancelled);}
 }

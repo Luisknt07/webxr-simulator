@@ -105,9 +105,13 @@ export default class Teleport {
     const ray = this.ctx.raycontrol; if (!ray || this.rayState) return;
     this.stateName = 'xr-browser-teleport';
     this.rayState = {controller: 'primary', vrOnly: true, teleport: true, colliderMesh: [], consumeSelect: true,
-      isSelectable: hit => !this.blocked() && this.walkableHit(hit),
+      isSelectable: (hit, controller) => {
+        if(this.blocked()||!this.walkableHit(hit)||controller&&controller.userData&&(controller.userData.grabbing||controller.userData.vehicleCabGrip||controller.userData.xrTouchActive))return false;
+        const world=this.ctx.collisionWorld;
+        return !(world&&world.rayBlocked&&controller&&world.rayBlocked(controller.getWorldPosition(new THREE.Vector3()),hit.point,{ignore:[hit.object,controller]}));
+      },
       onHover: (hit, active) => this.onHover(hit.point, active), onHoverLeave: () => this.onHoverLeave(),
-      onSelectStart: () => this.onSelectStart(), onSelectEnd: hit => this.onSelectEnd(hit.point)};
+      onSelectStart: () => this.onSelectStart(), onSelectCancel: () => this.cancel(), onSelectEnd: hit => this.active && this.onSelectEnd(hit.point)};
     ray.addState(this.stateName, this.rayState, true);
   }
   walkableHit(hit) {

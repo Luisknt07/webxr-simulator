@@ -208,7 +208,7 @@ export class VoiceAssistantPanel {
     const panel = new THREE.Mesh(new THREE.PlaneBufferGeometry(.98, 1.12), material); panel.name = 'Asistente de voz · panel'; panel.visible = false; panel.renderOrder = 10001; panel.frustumCulled = false;
     Object.assign(panel.userData, {editorHelper: true, editorRuntimeHelper: true, editorNonCollidable: true, voiceAssistantPanel: true}); this.ctx.scene.add(panel);
     this.xrCanvas = canvas; this.xrDrawing = drawing; this.xrTexture = texture; this.xrPanel = panel;
-    this.xrState = {voiceAssistantPanel: true, xrMenu: true, vrOnly: true, controller: 'both', raycaster: true, captureSelect: true, consumeSelect: true,
+    this.xrState = {voiceAssistantPanel: true, xrMenu: true, handTouchable: true, vrOnly: true, controller: 'both', raycaster: true, captureSelect: true, consumeSelect: true,
       colliderMesh: panel, isSelectable: (hit, controller) => this.validXR(hit, controller),
       onHover: (hit, pressed, controller) => this.hoverXR(hit, controller), onHoverLeave: (hit, pressed, controller) => this.hoverXR(null, controller),
       onSelectStart: (hit, controller) => this.pressXR(hit, controller), onSelectEnd: (hit, controller) => this.releaseXR(controller), onSelectCancel: (hit, controller) => this.releaseXR(controller)};
