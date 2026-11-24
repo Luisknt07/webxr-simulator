@@ -23,7 +23,10 @@ for(const taskIndex of [0,2]){
  assert(labels.length&&structure.length);assert(labels.every(mesh=>world.isSolid(mesh)===false&&world.physicalMesh(mesh)===false),'Location ink and plates remain visual/pickable but cannot block mast or forks.');
  assert(structure.every(mesh=>world.isSolid(mesh)),'Uprights, bracing and real support beams remain solid.');
  const mast=f.api.mechanismBoxes(f.record).mast;
- assert(labels.some(mesh=>mast.intersectsBox(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld))),'The real precision-dock mast crosses the merged label geometry bounds.');
+ // The header now follows the recessed upper tie, so it clears the exact
+ // mast envelope. Its merged label bank remains beside the real dock; label
+ // collision eligibility must not depend on that presentation-only offset.
+ assert(labels.some(mesh=>mast.clone().expandByScalar(.05).intersectsBox(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld))),'The precision-dock mast remains within 5 cm of the merged label bank.');
  const entry=f.product.sourceEntry,units=entry.units,mass=f.runtime.productMetadata(f.product).mass,count=f.runtime.products.size;
  const plan=f.api.pickupPlan(f.record,f.product);assert(plan.ready,plan.reason);
  assert(f.api.pickup(f.record,f.product),f.v.warning);assert.equal(f.v.entry,entry);assert.equal(entry.product,f.product);

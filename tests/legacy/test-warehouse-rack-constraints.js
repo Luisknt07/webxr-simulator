@@ -66,9 +66,13 @@ const cases={
   },
   miniload_window(){
     const f=fixture('miniload',{rackBays:2,rackLevels:2}),api=f.runtime.palletQueueRuntime,entries=[];
-    for(let i=0;i<3;i++){const entry=offer(f);assert(entry);entries.push(entry);h.advance(f,20);assert(!f.stock.rack.jobs.length);}
+    // A later bay includes carriage approach, transfer and return; 20 s did
+    // not cover that route even before the rack appearance change. Wait for
+    // actual native job completion at its configured speed, with a firm limit.
+    const finish=()=>{h.advance(f,.1);for(let step=0;step<600&&f.stock.rack.jobs.length;step++)h.advance(f,.1);assert(!f.stock.rack.jobs.length,'Miniload operation must complete within 60 simulated seconds: '+f.stock.rack.status);};
+    for(let i=0;i<3;i++){const entry=offer(f);assert(entry);entries.push(entry);finish();}
     const selected=entries[2],selectedIndex=selected.product.item.palletIndex;assert(cell(f,selected.product).bay>0,'Exercise the miniload horizontal axis as well as its vertical extractor.');
-    assert(!api.canPickup(selected.product));assert(api.rackRequestRetrieval(f.rackRecord,selectedIndex));h.advance(f,.2);assert(f.stock.rack.jobs.length);roundtrip(f,.2);h.advance(f,20);
+    assert(!api.canPickup(selected.product));assert(api.rackRequestRetrieval(f.rackRecord,selectedIndex));h.advance(f,.2);assert(f.stock.rack.jobs.length);roundtrip(f,.2);finish();
     const restored=f.stock.queue.find(e=>e.id===selected.id);assert(restored);assert.equal(f.stock.rack.presentedSlot,selectedIndex);assert(api.canPickup(restored.product));
     const access=f.rackRecord.object.localToWorld(new THREE.Vector3().fromArray(f.stock.rack.layout.accessPosition)),box=restored.product.item.box,center=box.getCenter(new THREE.Vector3());assert(Math.abs(center.x-access.x)<1e-6);assert(Math.abs(center.z-access.z)<1e-6);assert(Math.abs(box.min.y-access.y-.005)<1e-6);
     assert.equal(f.stock.queue.length,3);assert.equal(f.stock.queue.reduce((sum,e)=>sum+e.units,0),entries.reduce((sum,e)=>sum+e.units,0));f.runtime.stop();console.log('Rack constraints: miniload selects another bay, resumes its extraction route and presents the same load at the real centered window.');

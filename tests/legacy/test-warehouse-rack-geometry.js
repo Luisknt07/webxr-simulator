@@ -109,11 +109,30 @@ for(const id of ['selective','double-deep','drive-in','drive-through']){
     const xs=[left+.005,...rows.filter(c=>c.level===0&&c.depthIndex===0).map(c=>c.position[0]),Math.max(...rows.map(c=>c.position[0]+c.width/2))+.075];
     for(const x of xs){const hit=ray(root,[x,cell.position[1]+.04,cell.position[2]+cell.depth*.34],[0,-1,0],.1);assert(hit.length,id+': continuous bay beam spans through every cell gap to the frame');close(hit[0].point.y,cell.position[1]);}
   }
-  const stat=visual.stats(root);assert(stat.profiles>0&&stat.bolts>0&&stat.connectionPlates>0);assert.equal(stat.slotsLabeled,layout.cells.length);assert(stat.textureBytes<230000,'One shared glyph atlas and two small grain maps retain a bounded texture budget');
+  const stat=visual.stats(root);assert(stat.profiles>0&&stat.bolts>0&&stat.connectionPlates>0);assert.equal(stat.slotsLabeled,layout.cells.length);assert(stat.textureBytes<1.5*1024*1024,'One 512px shared glyph atlas including mipmaps and two grain maps stay below 1.5 MiB');
   const frameMesh=meshes(root).find(n=>n.userData.industrialMaterialPart==='frame'),front=Math.max(...rows.map(c=>c.position[2]+c.depth/2))+.075;
   const slot=new THREE.Raycaster(new THREE.Vector3(left,-.35,front+.2),new THREE.Vector3(0,0,-1),0,.5).intersectObject(frameMesh,false);
   assert(slot.length&&slot[0].point.z<front-.02,'The upright has a genuine open C-section, not a solid post with a painted line');
   visual.disposeVisual(root);
+}
+// The original selective front had no upper horizontal tie. Probe actual
+// triangles across both faces, including the compact/flow and mobile frames.
+for(const id of ['selective','double-deep','drive-in','drive-through','push-back','pallet-flow','carton-flow','light-duty','medium-duty','mobile']){
+ const config=Object.assign(racks.defaults(id),{rackBanks:1}),layout=racks.layout(config),root=visual.createVisual(THREE,config),frame=meshes(root).filter(n=>n.userData.industrialMaterialPart==='frame'),cells=layout.cells,top=Math.max(...cells.map(c=>c.position[1]+c.clearHeight))+.12,first=cells[0],bay=cells.filter(c=>c.bay===first.bay),lo=Math.min(...bay.map(c=>c.position[0]-c.width/2))-.08,hi=Math.max(...bay.map(c=>c.position[0]+c.width/2))+.08;
+ root.updateWorldMatrix(true,true);
+ for(const side of [-1,1]){const z=side<0?Math.min(...cells.map(c=>c.position[2]-c.depth/2))-.075:Math.max(...cells.map(c=>c.position[2]+c.depth/2))+.075;
+  for(const fraction of [.2,.5,.8]){const origin=new THREE.Vector3(lo+(hi-lo)*fraction,top-.04,z+.2);assert(new THREE.Raycaster(origin,new THREE.Vector3(0,0,-1),0,.35).intersectObjects(frame,false).length,id+' has a continuous upper tie on its '+(side<0?'rear':'front')+' face');}
+ }
+ visual.disposeVisual(root);
+}
+{
+ const text='EN A01-R01-B01-M01-N01-P01-F01',root=visual.createLocationLabel(THREE,text,{width:.28,height:.07}),ink=meshes(root)[0],g=ink.geometry,p=g.attributes.position,uv=g.attributes.uv;
+ assert.equal(root.userData.warehouseLocationRenderedText,text);assert.equal(visual.stats(root).labelRows,2,'A narrow pallet tag uses two readable rows without deleting any identifier characters.');
+ assert.deepEqual([ink.material.map.image.width,ink.material.map.image.height],[512,512]);assert.equal(ink.material.map.anisotropy,4);assert.equal(ink.material.fog,false);assert.equal(ink.material.toneMapped,false);
+ assert.equal(p.count/4,1+text.replace(/ /g,'').length,'The background and every non-space character remain in the one material bank.');
+ for(let i=0;i<p.count;i++)assert(Math.abs(p.getX(i))<=.14+1e-6&&Math.abs(p.getY(i))<=.035+1e-6,'Larger glyphs stay within their existing plate and out of fork entries.');
+ for(let i=4;i<uv.count;i+=4){const xs=[0,1,2,3].map(j=>uv.getX(i+j)),ys=[0,1,2,3].map(j=>uv.getY(i+j));close(Math.max(...xs)-Math.min(...xs),32/512,'Glyph UV excludes horizontal atlas gutters');close(Math.max(...ys)-Math.min(...ys),52/512,'Glyph UV excludes vertical atlas gutters');}
+ visual.disposeVisual(root);
 }
 {
   const config=racks.defaults('cantilever'),layout=racks.layout(config),root=visual.createVisual(THREE,config),cell=layout.cells[0],x=cell.position[0]-cell.width*.3,minZ=Math.min(...layout.cells.map(c=>c.position[2]-c.depth/2));

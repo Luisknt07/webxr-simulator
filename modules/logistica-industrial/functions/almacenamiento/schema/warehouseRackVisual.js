@@ -18,9 +18,10 @@ const color = (config, role) => role === 'frame' ? config.rackFrameColor || ROLE
 const position = (cell, closed) => (closed && cell.closedPosition || cell.position || [cell.x, cell.y, cell.z]).slice();
 const key = value => Math.round(value * 1e6) / 1e6;
 const distinct = values => Array.from(new Set(values.map(key))).sort((a, b) => a - b);
-// A tiny procedural glyph sheet works in the browser and during headless
-// authoring. All address plates share one atlas rather than a canvas per slot.
+// One Quest-sized glyph sheet serves racks and pallet tags. The padded cells
+// retain mipmap isolation; text samples the tight inner region, not its gutters.
 const GLYPH_ORDER = Array.from({length:95},(_,i)=>String.fromCharCode(i+32)).join('');
+const GLYPH_TILE_WIDTH=40,GLYPH_TILE_HEIGHT=64,GLYPH_COLUMNS=12,GLYPH_ATLAS_WIDTH=512,GLYPH_ATLAS_HEIGHT=512,GLYPH_INSET_X=4,GLYPH_INSET_Y=6,GLYPH_WIDTH=32,GLYPH_HEIGHT=52;
 const GLYPH_TEXTURES = new WeakMap();
 const GLYPHS = {
   A:'01110/10001/10001/11111/10001/10001/10001',B:'11110/10001/10001/11110/10001/10001/11110',C:'01111/10000/10000/10000/10000/10000/01111',D:'11110/10001/10001/10001/10001/10001/11110',E:'11111/10000/10000/11110/10000/10000/11111',F:'11111/10000/10000/11110/10000/10000/10000',G:'01111/10000/10000/10111/10001/10001/01111',H:'10001/10001/10001/11111/10001/10001/10001',I:'11111/00100/00100/00100/00100/00100/11111',J:'00111/00010/00010/00010/10010/10010/01100',K:'10001/10010/10100/11000/10100/10010/10001',L:'10000/10000/10000/10000/10000/10000/11111',M:'10001/11011/10101/10101/10001/10001/10001',N:'10001/11001/10101/10011/10001/10001/10001',O:'01110/10001/10001/10001/10001/10001/01110',P:'11110/10001/10001/11110/10000/10000/10000',Q:'01110/10001/10001/10001/10101/10010/01101',R:'11110/10001/10001/11110/10100/10010/10001',S:'01111/10000/10000/01110/00001/00001/11110',T:'11111/00100/00100/00100/00100/00100/00100',U:'10001/10001/10001/10001/10001/10001/01110',V:'10001/10001/10001/10001/10001/01010/00100',W:'10001/10001/10001/10101/10101/10101/01010',X:'10001/10001/01010/00100/01010/10001/10001',Y:'10001/10001/01010/00100/00100/00100/00100',Z:'11111/00001/00010/00100/01000/10000/11111',
@@ -32,21 +33,21 @@ Object.assign(GLYPHS,{
 });
 function glyphTexture(THREE) {
   const shared=GLYPH_TEXTURES.get(THREE);if(shared)return shared.texture;
-  const width = 256, height = 128, pixels = new Uint8Array(width * height * 4);
+  const width = GLYPH_ATLAS_WIDTH, height = GLYPH_ATLAS_HEIGHT, pixels = new Uint8Array(width * height * 4);
   // The unused space tile is opaque white for vertex-tinted plate backgrounds.
-  for (let y=0;y<16;y++)for(let x=0;x<16;x++){const at=(y*width+x)*4;pixels[at]=pixels[at+1]=pixels[at+2]=pixels[at+3]=255;}
+  for (let y=0;y<GLYPH_TILE_HEIGHT;y++)for(let x=0;x<GLYPH_TILE_WIDTH;x++){const at=(y*width+x)*4;pixels[at]=pixels[at+1]=pixels[at+2]=pixels[at+3]=255;}
   [...GLYPH_ORDER].forEach((glyph, index) => (GLYPHS[glyph] || '').split('/').forEach((row, y) => [...row].forEach((bit, x) => {
     if (bit !== '1') return;
-    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
-      const at = (((Math.floor(index / 16) * 16 + 1 + (6 - y) * 2 + dy) * width) + index % 16 * 16 + 3 + x * 2 + dx) * 4;
+    for (let dy = 0; dy < 5; dy++) for (let dx = 0; dx < 5; dx++) {
+      const at = (((Math.floor(index / GLYPH_COLUMNS) * GLYPH_TILE_HEIGHT + 15 + (6 - y) * 5 + dy) * width) + index % GLYPH_COLUMNS * GLYPH_TILE_WIDTH + 8 + x * 5 + dx) * 4;
       pixels[at] = pixels[at + 1] = pixels[at + 2] = pixels[at + 3] = 255;
     }
   })));
   let map;
   const canvas=typeof document!=='undefined'&&document.createElement?document.createElement('canvas'):null,ctx=canvas&&canvas.getContext&&canvas.getContext('2d');
-  if(ctx){canvas.width=width;canvas.height=height;ctx.clearRect(0,0,width,height);ctx.fillStyle='#fff';ctx.fillRect(0,height-16,16,16);ctx.font='13px monospace';ctx.textAlign='center';ctx.textBaseline='middle';[...GLYPH_ORDER].forEach((char,index)=>{if(index)ctx.fillText(char,index%16*16+8,height-Math.floor(index/16)*16-8);});map=new THREE.CanvasTexture(canvas);}
+  if(ctx){canvas.width=width;canvas.height=height;ctx.clearRect(0,0,width,height);ctx.fillStyle='#fff';ctx.fillRect(0,height-GLYPH_TILE_HEIGHT,GLYPH_TILE_WIDTH,GLYPH_TILE_HEIGHT);ctx.font='bold 44px monospace';ctx.textAlign='center';ctx.textBaseline='alphabetic';[...GLYPH_ORDER].forEach((char,index)=>{if(index)ctx.fillText(char,index%GLYPH_COLUMNS*GLYPH_TILE_WIDTH+GLYPH_TILE_WIDTH/2,height-Math.floor(index/GLYPH_COLUMNS)*GLYPH_TILE_HEIGHT-16);});map=new THREE.CanvasTexture(canvas);}
   else map = new THREE.DataTexture(pixels, width, height, THREE.RGBAFormat);
-  map.magFilter = THREE.LinearFilter; map.minFilter = THREE.LinearMipMapLinearFilter; map.generateMipmaps = true; map.needsUpdate = true;
+  map.magFilter = THREE.LinearFilter; map.minFilter = THREE.LinearMipMapLinearFilter; map.generateMipmaps = true; map.anisotropy=4; map.needsUpdate = true;
   const entry={texture:map,refs:0,disposed:false},nativeDispose=map.dispose;GLYPH_TEXTURES.set(THREE,entry);
   // Ownership follows each ink material, not a parent's Set of textures: one
   // pallet placard can contain several independently-created label materials.
@@ -100,7 +101,7 @@ function createBuilder(THREE, config) {
   // omitted; the operational/editor rack keeps every original detail.
   const contextLOD = config.rackContextLOD === true;
   const unitBox = new THREE.BoxBufferGeometry(1, 1, 1), unitPlane = new THREE.PlaneBufferGeometry(1, 1), cylinders = new Map(), profiles = new Map(), banks = new Map(), materials = new Map(), motionBanks = [], textures = new Map();
-  const detail = {profiles: 0, bolts: 0, connectionPlates: 0, labels: 0, slotsLabeled: 0, textureBytes: 0};
+  const detail = {profiles: 0, bolts: 0, connectionPlates: 0, labels: 0, labelRows:0, slotsLabeled: 0, textureBytes: 0};
   const texture = kind => {
     if (!textures.has(kind)) {
       let map;
@@ -126,7 +127,7 @@ function createBuilder(THREE, config) {
   };
   const material = role => {
     if (!materials.has(role)) {
-      const entry = ROLES[role], m = role === 'ink' ? new THREE.MeshBasicMaterial({color: '#ffffff', map: texture('ink'), alphaTest: .4, depthWrite: true, vertexColors:THREE.VertexColors}) : new THREE.MeshStandardMaterial({color: color(config, role), metalness: entry[2], roughness: entry[3]});
+      const entry = ROLES[role], m = role === 'ink' ? new THREE.MeshBasicMaterial({color: '#ffffff', map: texture('ink'), alphaTest: .25, depthWrite: true, vertexColors:THREE.VertexColors,toneMapped:false,fog:false}) : new THREE.MeshStandardMaterial({color: color(config, role), metalness: entry[2], roughness: entry[3]});
       if(role==='ink')ownGlyphMaterial(THREE,m);
       if (!['ink', 'label'].includes(role)) {m.map = texture(role === 'steel' || role === 'deck' ? 'steel' : 'paint'); m.bumpMap = m.map; m.bumpScale = role === 'steel' ? .0008 : .00035;}
       m.color.convertSRGBToLinear(); m.name = entry[0];
@@ -183,13 +184,18 @@ function createBuilder(THREE, config) {
     if (contextLOD && String(text || '').length > 14) return;
     text = String(text || '').replace(/[^\x20-\x7e]/g, '?'); if (!text) return;
     const q = reverse ? new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI) : undefined;
-    append(parent,'ink',unitPlane,p,[width,height,1],q,undefined,[0,0,1/16,1/8],new THREE.Color('#162d38').convertSRGBToLinear());
-    const charWidth = Math.min((width - .012) / text.length, height * .62), glyphHeight = Math.min(height * .82, charWidth * 1.4), direction = reverse ? -1 : 1;
-    [...text].forEach((char, index) => {
-      const glyph = GLYPH_ORDER.indexOf(char); if (glyph < 0 || char === ' ') return;
-      const x = p[0] + direction * ((index - (text.length - 1) / 2) * charWidth);
-      append(parent, 'ink', unitPlane, [x, p[1], p[2] + direction * .003], [charWidth, glyphHeight, 1], q, undefined, [(glyph % 16) / 16, Math.floor(glyph / 16) / 8, 1 / 16, 1 / 8]);
-    }); detail.labels++;
+    append(parent,'ink',unitPlane,p,[width,height,1],q,undefined,[0,0,GLYPH_TILE_WIDTH/GLYPH_ATLAS_WIDTH,GLYPH_TILE_HEIGHT/GLYPH_ATLAS_HEIGHT],new THREE.Color('#162d38').convertSRGBToLinear());
+    const lines=[text];
+    if(width<.6&&text.length>20){
+      const middle=Math.ceil(text.length/2),candidates=[...text].map((char,index)=>char==='-'&&Math.abs(index+1-middle)<=text.length*.18?index+1:0).filter(Boolean),cut=candidates.sort((a,b)=>Math.abs(a-middle)-Math.abs(b-middle))[0]||middle;
+      lines.splice(0,1,text.slice(0,cut),text.slice(cut));
+    }
+    const lineHeight=height/lines.length,charWidth=Math.min((width-.016)/Math.max(...lines.map(line=>line.length)),lineHeight*.72),glyphHeight=Math.min(lineHeight*.86,charWidth*1.8),direction=reverse?-1:1;
+    lines.forEach((line,row)=>[...line].forEach((char,index)=>{
+      const glyph=GLYPH_ORDER.indexOf(char);if(glyph<0||char===' ')return;
+      const x=p[0]+direction*((index-(line.length-1)/2)*charWidth),y=p[1]+((lines.length-1)/2-row)*lineHeight;
+      append(parent,'ink',unitPlane,[x,y,p[2]+direction*.003],[charWidth,glyphHeight,1],q,undefined,[(glyph%GLYPH_COLUMNS*GLYPH_TILE_WIDTH+GLYPH_INSET_X)/GLYPH_ATLAS_WIDTH,(Math.floor(glyph/GLYPH_COLUMNS)*GLYPH_TILE_HEIGHT+GLYPH_INSET_Y)/GLYPH_ATLAS_HEIGHT,GLYPH_WIDTH/GLYPH_ATLAS_WIDTH,GLYPH_HEIGHT/GLYPH_ATLAS_HEIGHT]);
+    }));detail.labels++;detail.labelRows+=lines.length;
   };
   const rod = (parent, role, a, b, radius) => {
     const p = new THREE.Vector3().fromArray(a), end = new THREE.Vector3().fromArray(b), direction = end.clone().sub(p), length = direction.length();
@@ -254,6 +260,12 @@ function frame(THREE, b, parent, cells, config, options = {}) {
   cells.forEach(cell => {const id = cell.bay || 0; if (!byBay.has(id)) byBay.set(id, []); byBay.get(id).push(cell);});
   const frames = Array.from(byBay.values()).map(rows => {const r = bounds(rows, closed); return {rows, bounds:r, left:r.minX-.08, right:r.maxX+.08};});
   const postXs = distinct(frames.reduce((values, bay) => values.concat(bay.left, bay.right), [])), postZs = [a.minZ - .075, a.maxZ + .075];
+  // Seat the new front tie just behind the upright flanges. At the post's
+  // front face it crosses the extended forklift mast during upper pickups.
+  // Short bolted cleats close that joint without narrowing any load entrance.
+  // A single picking shelf is an open workbench for a robot arm; automatic
+  // extractors retain their own transfer window and enclosure geometry.
+  const closeFront=options.frontTie!==false&&!(options.support==='shelf'&&config.rackLevels===1),frontTieZ=postZs[1]-(closeFront?.11:0);
   postXs.forEach(x => postZs.forEach(z => {
     b.profile(parent, 'frame', [x, (FLOOR + top) / 2, z], [thickness, top - FLOOR, thickness], 'y');
     b.box(parent, 'steel', [x, FLOOR + .018, z], [.17, .036, .17]);
@@ -275,7 +287,7 @@ function frame(THREE, b, parent, cells, config, options = {}) {
   frames.forEach(bay => {
     const r=bay.bounds, centerX=(bay.left+bay.right)/2, span=bay.right-bay.left;
     b.profile(parent,'frame',[centerX,top-.04,postZs[0]],[span+.06,.08,thickness]);
-    if(options.drive)b.profile(parent,'frame',[centerX,top-.04,postZs[1]],[span+.06,.08,thickness]);
+    if(closeFront){b.profile(parent,'frame',[centerX,top-.04,frontTieZ],[span+.06,.08,thickness]);for(const x of [bay.left,bay.right])b.plate(parent,[x,top-.04,(frontTieZ+postZs[1])/2],[thickness+.025,.08,.11-thickness+.016]);}
     const seats = new Map();
     bay.rows.forEach(cell => {const id=cell.level+':'+cell.depthIndex;if(!seats.has(id))seats.set(id,[]);seats.get(id).push(cell);});
     const levels=new Map();bay.rows.forEach(cell=>{if(!levels.has(cell.level))levels.set(cell.level,[]);levels.get(cell.level).push(cell);});
@@ -319,12 +331,13 @@ function frame(THREE, b, parent, cells, config, options = {}) {
         const c=position(cell,closed), code=cell.code||'M'+(cell.bay+1)+'-N'+(cell.level+1)+'-P'+(cell.column+1)+'-F'+(cell.depthIndex+1);
         const railX=c[0]-cell.width*.41, plateX=mode==='rail'?(railX+bay.left)/2:c[0], plateWidth=mode==='rail'?Math.max(.12,Math.min(.45,Math.abs(railX-bay.left)+.05)):Math.min(cell.width*.93,1.22);
         const z=c[2]+cell.depth*(mode==='rail'?.5:mode==='shelf'?.44:.34)+(mode==='rail'?.056:.056);
-        b.label(parent,code,[plateX,c[1]-(mode==='roller'?.137:mode==='rail'?.12:.067),z],plateWidth,.065);b.detail.slotsLabeled++;
+        const labelHeight=mode==='shelf'?.075:mode==='rail'?.085:.095,labelOffset=mode==='roller'?.137:mode==='rail'?.12:mode==='shelf'?.081:.067;
+        b.label(parent,code,[plateX,c[1]-labelOffset,z],plateWidth,labelHeight);b.detail.slotsLabeled++;
       });
     });
   });
   const header=(config.rackAisleCode||'A01')+' / '+(config.rackRowCode||'R01');
-  b.label(parent,header,[frames[0].left+.14,top-.045,postZs[1]+thickness/2+.001],.36,.12);
+  b.label(parent,header,[frames[0].left+.14,top-.045,frontTieZ+thickness/2+.001],.36,.12);
   return a;
 }
 
@@ -401,7 +414,7 @@ function mezzanine(THREE, b, parent, cells, config, rig) {
 }
 
 function automatic(THREE, b, parent, cells, config, layout, rig, system) {
-  const a = frame(THREE, b, parent, cells, config, {support: 'shelf', light: true}), access = layout.accessPosition || [0, 0, a.maxZ + 1.1];
+  const a = frame(THREE, b, parent, cells, config, {support: 'shelf', light: true,frontTie:false}), access = layout.accessPosition || [0, 0, a.maxZ + 1.1];
   const shaft = layout.shaftPosition || [0, a.maxZ + .6], shaftZ = shaft.length === 3 ? shaft[2] : shaft[1], top = Math.max(a.maxY + .22, access[1] + ((cells[0] && cells[0].clearHeight) || .8) + .3);
   const carrier = rig.carriage = group(THREE, parent, system === 'vertical-lift' ? 'Bandeja del elevador vertical' : 'Carro del transelevador miniload');
   carrier.position.fromArray(access); Object.assign(carrier.userData, {warehouseRackMovingGeometry: system, homePosition: access.slice(), supportTop: 0});
