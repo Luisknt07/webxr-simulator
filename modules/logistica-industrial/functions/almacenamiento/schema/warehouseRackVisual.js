@@ -266,12 +266,10 @@ function frame(THREE, b, parent, cells, config, options = {}) {
     if (gap >= 0 && gap <= .18) previous.right = next.left = (previous.right + next.left) / 2;
   }
   const postXs = distinct(frames.reduce((values, bay) => values.concat(bay.left, bay.right), [])), postZs = [a.minZ - .075, a.maxZ + .075];
-  // Seat the new front tie just behind the upright flanges. At the post's
-  // front face it crosses the extended forklift mast during upper pickups.
-  // Short bolted cleats close that joint without narrowing any load entrance.
-  // A single picking shelf is an open workbench for a robot arm; automatic
-  // extractors retain their own transfer window and enclosure geometry.
-  const closeFront=options.frontTie!==false&&!(options.support==='shelf'&&config.rackLevels===1),frontTieZ=postZs[1]-(closeFront?.11:0);
+  // Conventional pallet racks have open bays above the last load beam.
+  // Their upper ties belong across the depth of each braced end frame,
+  // rather than forming a cap along the full front/back of the row.
+  const openTop=options.openTop===true,closeFront=!openTop&&options.frontTie!==false&&!(options.support==='shelf'&&config.rackLevels===1),frontTieZ=postZs[1]-(closeFront?.11:0);
   postXs.forEach(x => postZs.forEach(z => {
     b.profile(parent, 'frame', [x, (FLOOR + top) / 2, z], [thickness, top - FLOOR, thickness], 'y');
     b.box(parent, 'steel', [x, FLOOR + .018, z], [.17, .036, .17]);
@@ -284,6 +282,10 @@ function frame(THREE, b, parent, cells, config, options = {}) {
   }));
   // Each front/back pair is one real braced frame. Bay interiors stay open.
   postXs.forEach(x => {
+    if(openTop){
+      b.profile(parent,'frame',[x,top-.08,(postZs[0]+postZs[1])/2],[thickness,.08,postZs[1]-postZs[0]+thickness],'z');
+      for(const z of postZs)b.plate(parent,[x,top-.08,z+thickness/2+.004],[thickness+.025,.12,.012]);
+    }
     for (let y = FLOOR + .35; y < top - .3; y += 1.4) {
       const y2 = Math.min(top - .15, y + 1.25);
       b.rod(parent, 'steel', [x, y, postZs[0]], [x, y2, postZs[1]], .018);
@@ -292,7 +294,7 @@ function frame(THREE, b, parent, cells, config, options = {}) {
   });
   frames.forEach(bay => {
     const r=bay.bounds, centerX=(bay.left+bay.right)/2, span=bay.right-bay.left;
-    b.profile(parent,'frame',[centerX,top-.04,postZs[0]],[span+.06,.08,thickness]);
+    if(!openTop)b.profile(parent,'frame',[centerX,top-.04,postZs[0]],[span+.06,.08,thickness]);
     if(closeFront){b.profile(parent,'frame',[centerX,top-.04,frontTieZ],[span+.06,.08,thickness]);for(const x of [bay.left,bay.right])b.plate(parent,[x,top-.04,(frontTieZ+postZs[1])/2],[thickness+.025,.08,.11-thickness+.016]);}
     const seats = new Map();
     bay.rows.forEach(cell => {const id=cell.level+':'+cell.depthIndex;if(!seats.has(id))seats.set(id,[]);seats.get(id).push(cell);});
@@ -343,7 +345,7 @@ function frame(THREE, b, parent, cells, config, options = {}) {
     });
   });
   const header=(config.rackAisleCode||'A01')+' / '+(config.rackRowCode||'R01');
-  b.label(parent,header,[frames[0].left+.14,top-.045,frontTieZ+thickness/2+.001],.36,.12);
+  b.label(parent,header,[frames[0].left+.14,top-(openTop?.17:.045),(openTop?postZs[1]:frontTieZ)+thickness/2+.001],.36,.12);
   return a;
 }
 
@@ -473,7 +475,7 @@ function createVisual(THREE, value, suppliedLayout) {
   else if (layout.definition.mechanism === 'lift' || layout.definition.mechanism === 'miniload') automatic(THREE, b, root, cells, config, layout, rig, system);
   else {
     const mode = system === 'light-duty' || system === 'medium-duty' ? 'shelf' : system === 'pallet-flow' || system === 'carton-flow' ? 'roller' : system === 'drive-in' || system === 'drive-through' ? 'rail' : 'beam';
-    frame(THREE, b, root, cells, config, {support: mode, light: system === 'light-duty' || system === 'carton-flow', drive: system === 'drive-in' || system === 'drive-through'});
+    frame(THREE, b, root, cells, config, {support: mode, openTop: system === 'selective' || system === 'double-deep', light: system === 'light-duty' || system === 'carton-flow', drive: system === 'drive-in' || system === 'drive-through'});
     if (system === 'drive-in') {
       const a = bounds(cells);
       for (const h of [.35, .9]) b.box(root, 'guard', [(a.minX + a.maxX) / 2, FLOOR + h, a.minZ - .13], [a.maxX - a.minX + .18, .07, .06]);

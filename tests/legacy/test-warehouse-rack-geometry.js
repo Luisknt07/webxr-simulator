@@ -115,14 +115,15 @@ for(const id of ['selective','double-deep','drive-in','drive-through']){
   assert(slot.length&&slot[0].point.z<front-.02,'The upright has a genuine open C-section, not a solid post with a painted line');
   visual.disposeVisual(root);
 }
-// The original selective front had no upper horizontal tie. Probe actual
-// triangles across both faces, including the compact/flow and mobile frames.
+// Conventional bays stay open above the highest load beams. Other rack
+// mechanisms retain their own front/rear members; all use actual triangles.
 for(const id of ['selective','double-deep','drive-in','drive-through','push-back','pallet-flow','carton-flow','light-duty','medium-duty','mobile']){
  const config=Object.assign(racks.defaults(id),{rackBanks:1}),layout=racks.layout(config),root=visual.createVisual(THREE,config),frame=meshes(root).filter(n=>n.userData.industrialMaterialPart==='frame'),cells=layout.cells,top=Math.max(...cells.map(c=>c.position[1]+c.clearHeight))+.12,first=cells[0],bay=cells.filter(c=>c.bay===first.bay),lo=Math.min(...bay.map(c=>c.position[0]-c.width/2))-.08,hi=Math.max(...bay.map(c=>c.position[0]+c.width/2))+.08;
  root.updateWorldMatrix(true,true);
  for(const side of [-1,1]){const z=side<0?Math.min(...cells.map(c=>c.position[2]-c.depth/2))-.075:Math.max(...cells.map(c=>c.position[2]+c.depth/2))+.075;
-  for(const fraction of [.2,.5,.8]){const origin=new THREE.Vector3(lo+(hi-lo)*fraction,top-.04,z+.2);assert(new THREE.Raycaster(origin,new THREE.Vector3(0,0,-1),0,.35).intersectObjects(frame,false).length,id+' has a continuous upper tie on its '+(side<0?'rear':'front')+' face');}
+  for(const fraction of [.2,.5,.8]){const origin=new THREE.Vector3(lo+(hi-lo)*fraction,top-.04,z+.2),hits=new THREE.Raycaster(origin,new THREE.Vector3(0,0,-1),0,.35).intersectObjects(frame,false);if(['selective','double-deep'].includes(id))assert.equal(hits.length,0,id+' has no cap across its '+(side<0?'rear':'front')+' bay opening');else assert(hits.length,id+' retains its upper '+(side<0?'rear':'front')+' member');}
  }
+ if(['selective','double-deep'].includes(id))for(const x of [lo,Math.max(...cells.map(c=>c.position[0]+c.width/2))+.08]){const hit=new THREE.Raycaster(new THREE.Vector3(x,top+.12,(layout.frontZ+layout.backZ)/2),new THREE.Vector3(0,-1,0),0,.3).intersectObjects(frame,false);assert(hit.length,id+' retains the upper depth tie in its end frames');}
  visual.disposeVisual(root);
 }
 // The double module uses one common upright frame, rather than two separate

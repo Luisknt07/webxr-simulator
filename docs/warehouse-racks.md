@@ -52,7 +52,7 @@ Las sesiones guardadas conservan las mismas entradas, unidades y cargas, incluye
 
 ## Rack doble y niveles de la demostración
 
-La demostración integrada incluye la fila **A01/R01**, con **dos módulos contiguos**, un bastidor central compartido y **tres niveles útiles**. Hay dos posiciones por módulo y nivel: doce ubicaciones con códigos independientes. Cuatro pallets de cuatro cajas y 33 kg ocupan diferentes alturas; quedan ocho ubicaciones libres para recoger y depositar. Los apoyos están a **0,30, 1,70 y 3,10 m** sobre el piso. El travesaño superior cierra la estructura por encima de la última carga y no cuenta como un cuarto apoyo.
+La demostración integrada incluye la fila **A01/R01**, con **dos módulos contiguos**, un bastidor central compartido y **tres niveles útiles**. Hay dos posiciones por módulo y nivel: doce ubicaciones con códigos independientes. Cuatro pallets de cuatro cajas y 33 kg ocupan diferentes alturas; quedan ocho ubicaciones libres para recoger y depositar. Los apoyos están a **0,30, 1,70 y 3,10 m** sobre el piso. La parte superior queda abierta por delante y por detrás, sin travesaños azules que recorran los módulos sobre la carga. Los bastidores conservan sus uniones a fondo y sus diagonales laterales; los largueros naranjas sostienen cada nivel. El rótulo de fila permanece fijado al primer montante.
 
 Para ampliar un rack en el editor, ajusta **Módulos de frente**, **Niveles de almacenamiento** y **Separación entre niveles**. El sistema genera los apoyos, bastidores y códigos de los nuevos niveles; admite hasta seis niveles y ocho módulos dentro del límite total de ubicaciones. Las cargas y reservas existentes deben conservar ubicaciones válidas al cambiar las dimensiones.
 

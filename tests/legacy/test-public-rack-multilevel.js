@@ -49,7 +49,7 @@ async function run() {
   }
   const more = schema.warehouseRacks.layout(Object.assign({}, stock.config, {rackLevels:4}));
   assert.equal(more.cells.length, 16); assert(more.cells.some(c => c.level===3 && c.y+1 > v.config.maxLift+v.config.forkBaseHeight));
-  assert(more.bounds[4] > stock.rack.layout.bounds[4], 'More levels extend the actual framing; the old cap is not a storage position.');
+  assert(more.bounds[4] > stock.rack.layout.bounds[4], 'More levels extend the actual framing and add real support heights.');
   assert.equal(stock.queue.length, 4); f.runtime.stop();
   console.log('Public double rack: 12 real positions, 4 original-custody pallets across 3 levels; real mast/pocket pickup, lift and return in both bays, codes/units/mass preserved. A fourth tier exceeds the current truck reach.');
 }
