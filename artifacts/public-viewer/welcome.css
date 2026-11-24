@@ -55,21 +55,34 @@ body.welcome-open{display:flex;flex-direction:column;min-height:100svh}
 .welcome-guide{flex:none}
 .welcome-start .welcome-domains{flex-wrap:wrap;row-gap:12px}
 @media(min-width:1000px){
- .welcome-panel{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:clamp(32px,5vw,80px);align-items:center;width:100%;max-width:1400px}
- .welcome-panel h1{font-size:clamp(52px,5vw,86px)}
- .welcome-panel h1>span{font-size:clamp(58px,5.2vw,92px)}
- .welcome-tagline{font-size:clamp(18px,1.6vw,24px)}
- .welcome-description{margin-bottom:0}
- .welcome-start{padding:22px;border:1px solid #5fb9ad42;border-radius:22px;background:#002d35d9;box-shadow:0 12px 40px #001b2433}
- body.welcome-open #welcome .welcome-entry-demo{grid-template-columns:30px minmax(0,1fr) 18px}
- body.welcome-open #welcome .welcome-entry-badge{grid-column:2;grid-row:2;justify-self:start}
- body.welcome-open #welcome .welcome-entry-demo .welcome-entry-arrow{grid-column:3;grid-row:1/span 2}
- body.welcome-open #welcome .welcome-entry-demo .welcome-entry-icon{grid-row:1/span 2;align-self:center}
- .welcome-start .welcome-domains{gap:12px;font-size:12px}
- .welcome-start .welcome-domains>span{grid-template-columns:25px auto;column-gap:7px}
- .welcome-start .welcome-domains>span+span{padding-left:12px}
- .welcome-start .welcome-domains svg{width:24px;height:24px}
- .welcome-start .welcome-domains small{font-size:10px}
+ /* Keep the original left column, with entry cards below the introduction.
+    The right side belongs to the industrial cover photograph. */
+ .welcome-panel{width:min(60vw,720px);max-width:720px}
+}
+@media(min-width:1600px){.welcome-panel{width:min(53vw,790px);max-width:790px}}
+@media(min-width:1000px) and (max-height:900px){
+ .welcome-open .viewer-header{min-height:72px;padding-block:10px}
+ .welcome-content{padding-block:16px}
+ .welcome-panel .eyebrow{font-size:11px;letter-spacing:2px;margin-bottom:12px}
+ .welcome-panel h1{font-size:clamp(42px,5.8dvh,56px);line-height:1.02}
+ .welcome-panel h1>span{font-size:clamp(48px,6.4dvh,62px);line-height:1.02;margin-top:2px}
+ .welcome-panel h1:after{height:3px;margin-top:12px}
+ .welcome-tagline{font-size:18px;line-height:1.4;margin:14px 0 8px;max-width:610px}
+ .welcome-description{font-size:13px;line-height:1.45;margin-bottom:14px;max-width:610px}
+ body.welcome-open #welcome .welcome-entry-options{gap:8px}
+ body.welcome-open #welcome .welcome-entry{min-height:90px;padding:10px 12px;gap:10px}
+ body.welcome-open #welcome .welcome-entry-copy strong{font-size:16px}
+ body.welcome-open #welcome .welcome-entry-demo{grid-template-columns:30px minmax(0,1fr) auto 18px;min-height:72px}
+ body.welcome-open #welcome .welcome-entry-badge{grid-column:auto;grid-row:auto;align-self:center;justify-self:auto}
+ body.welcome-open #welcome .welcome-entry-demo .welcome-entry-arrow{grid-column:auto;grid-row:auto}
+ body.welcome-open #welcome .welcome-entry-demo .welcome-entry-icon{grid-row:auto;align-self:center}
+ body.welcome-open #welcome .welcome-access-hint{margin:8px 0 12px}
+ .welcome-domains{gap:14px;font-size:12px}
+ .welcome-domains>span{grid-template-columns:25px auto;column-gap:7px}
+ .welcome-domains>span+span{padding-left:14px}
+ .welcome-domains svg{width:24px;height:24px}
+ .welcome-domains small{font-size:10px}
+ .welcome-steps{padding-block:16px}
 }
 @media(max-width:999px){.welcome-content{padding-block:32px}.welcome-panel{width:100%;max-width:720px}.welcome-intro{max-width:610px}}
 @media(max-width:650px){
