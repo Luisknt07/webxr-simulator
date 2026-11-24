@@ -1,4 +1,4 @@
-/* Shared controls; tour toolbar and floating game HUD are intentional modes. */
+/* Shared floating scene controls; document pages retain their navigation bar. */
 :root{--st-header-height:72px}
 .st-app-header{position:fixed;inset:0 0 auto;z-index:1600;display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:72px;height:72px;padding:12px 24px;box-sizing:border-box;background:#fff;color:#16263e;border-bottom:1px solid #dce5ec;box-shadow:0 2px 10px #102d3a0a;font-family:'Segoe UI',Arial,sans-serif;pointer-events:auto;color-scheme:light}
 .st-app-brand{display:flex;align-items:center;gap:11px;min-width:0;flex:0 1 auto;color:#16263e;text-decoration:none;letter-spacing:0;white-space:nowrap;pointer-events:auto}
@@ -78,37 +78,45 @@ body:has(dialog.st-app-menu[open]) .st-tour-shortcuts,body:has(aside.st-app-menu
 @media(max-width:480px){.st-app-header{padding-inline:10px;gap:8px}.st-app-brand-copy strong{font-size:14px;max-width:164px}.st-app-actions{gap:6px}.st-app-header [data-st-action=menu],.st-app-header [data-st-action=xr]{padding:10px!important;font-size:0!important;gap:0;min-width:44px;max-width:44px;height:44px}.st-app-header [data-st-action=xr] .st-header-icon,.st-app-header [data-st-action=menu] .st-header-icon{width:22px;height:22px;flex-basis:22px}}
 @media(max-width:480px){.welcome-open .st-app-brand-copy strong{white-space:normal;overflow:visible;text-overflow:clip;max-width:100%;font-size:12px;line-height:1.2}.welcome-open .st-app-brand-copy small{white-space:normal;font-size:9px;line-height:1.25;max-width:120px}}
 
-/* Normal tours retain the full light toolbar from the original workspace. */
+/* Catalogue/document navigation remains available outside immersive scenes. */
 .studio-header[data-st-experience=tour] [data-st-action=scenes]{background:#008577!important;border-color:#008577!important;color:#fff!important}
 
-/* Game experiences keep the scene visible behind the native progress/score/
+/* Floating experiences keep the scene visible behind the native progress/score/
    timer HUD. These are the same live buttons, never a second overlay menu. */
-.st-app-header[data-st-experience=game]{inset:12px 16px auto;min-height:48px;height:48px;padding:0;gap:12px;background:transparent;border:0;box-shadow:none;pointer-events:none}
-.st-app-header[data-st-experience=game] .st-app-brand{box-sizing:border-box;flex:none;padding:9px 13px;border:1px solid #48c8b65c;border-radius:14px;background:#092831e8;color:#e7fffa;pointer-events:auto;box-shadow:0 4px 20px #08242e33;gap:9px}
-.st-app-header[data-st-experience=game] .st-app-brand-copy strong{font-size:13px;color:#e7fffa;letter-spacing:.1px;max-width:none}
-.st-app-header[data-st-experience=game] .st-app-brand-copy small{font-size:8px;color:#8bc8c3;display:block;letter-spacing:.5px}
-.st-app-header[data-st-experience=game] .st-app-cube{width:24px;height:26px}
-.st-app-header[data-st-experience=game] .st-app-actions{flex:none;width:auto;gap:8px;pointer-events:none}
-.st-app-header[data-st-experience=game] .st-header-action:not([data-st-action=menu]):not([data-st-action=xr]){display:none!important}
-.st-app-header[data-st-experience=game] :is([data-st-action=menu],[data-st-action=xr]){display:inline-flex!important;position:relative!important;flex:0 0 48px;width:48px!important;height:48px;min-width:48px!important;max-width:48px;min-height:48px;padding:0!important;border-radius:50%!important;border:1px solid #58d9cd!important;background:#0a303deb!important;color:#89fff0!important;font-size:0!important;gap:0;pointer-events:auto;box-shadow:0 0 0 3px #082d3b99,0 4px 18px #08293433}
-.st-app-header[data-st-experience=game] .st-header-action .st-header-icon{width:23px;height:23px;flex:0 0 23px;margin:0}
-.st-app-header[data-st-experience=game] .st-header-action:hover{background:#115163!important;border-color:#a2fff2!important}
-.st-app-header[data-st-experience=game] .st-header-action[aria-expanded=true]{background:#176859!important;color:#c5fff1!important}
-.st-app-header[data-st-experience=game] .st-header-action:disabled,.st-app-header[data-st-experience=game] .st-header-action[aria-disabled=true]{opacity:.65!important;background:#15343c!important;color:#9db8b8!important;border-color:#79b9b4!important}
-.st-app-header[data-st-experience=game] .st-header-action:focus-visible{outline-color:#8ff8df}
+.st-app-header[data-st-layout=floating]{inset:12px 16px auto;min-height:48px;height:48px;padding:0;gap:12px;background:transparent;border:0;box-shadow:none;pointer-events:none}
+.st-app-header[data-st-layout=floating] .st-app-brand{box-sizing:border-box;flex:none;padding:9px 13px;border:1px solid #48c8b65c;border-radius:14px;background:#092831e8;color:#e7fffa;pointer-events:auto;box-shadow:0 4px 20px #08242e33;gap:9px}
+.st-app-header[data-st-layout=floating] .st-app-brand-copy strong{font-size:13px;color:#e7fffa;letter-spacing:.1px;max-width:none}
+.st-app-header[data-st-layout=floating] .st-app-brand-copy small{font-size:8px;color:#8bc8c3;display:block;letter-spacing:.5px}
+.st-app-header[data-st-layout=floating] .st-app-cube{width:24px;height:26px}
+.st-app-header[data-st-layout=floating] .st-app-actions{flex:none;width:auto;gap:8px;pointer-events:none}
+.st-app-header[data-st-layout=floating] .st-header-action:not([data-st-action=menu]):not([data-st-action=xr]){display:none!important}
+.st-app-header[data-st-layout=floating] :is([data-st-action=menu],[data-st-action=xr]){display:inline-flex!important;position:relative!important;flex:0 0 48px;width:48px!important;height:48px;min-width:48px!important;max-width:48px;min-height:48px;padding:0!important;border-radius:50%!important;border:1px solid #58d9cd!important;background:#0a303deb!important;color:#89fff0!important;font-size:0!important;gap:0;pointer-events:auto;box-shadow:0 0 0 3px #082d3b99,0 4px 18px #08293433}
+.st-app-header[data-st-layout=floating] .st-header-action .st-header-icon{width:23px;height:23px;flex:0 0 23px;margin:0}
+.st-app-header[data-st-layout=floating] .st-header-action:hover{background:#115163!important;border-color:#a2fff2!important}
+.st-app-header[data-st-layout=floating] .st-header-action[aria-expanded=true]{background:#176859!important;color:#c5fff1!important}
+.st-app-header[data-st-layout=floating] .st-header-action:disabled,.st-app-header[data-st-layout=floating] .st-header-action[aria-disabled=true]{opacity:.65!important;background:#15343c!important;color:#9db8b8!important;border-color:#79b9b4!important}
+.st-app-header[data-st-layout=floating] .st-header-action:focus-visible{outline-color:#8ff8df}
 
 @media(min-width:701px) and (max-width:1150px){
- .st-app-header[data-st-experience=game]{inset:12px 10px auto}
- .st-app-header[data-st-experience=game] .st-app-brand{padding-inline:10px}
+ .st-app-header[data-st-layout=floating]{inset:12px 10px auto}
+ .st-app-header[data-st-layout=floating] .st-app-brand{padding-inline:10px}
 }
 @media(max-width:700px){
  .st-app-menu,body .studio-drawer.st-app-menu{inset:calc(var(--st-header-height) + 12px) 8px 8px;width:calc(100vw - 16px);max-height:calc(100dvh - var(--st-header-height) - 20px)}
  .st-tour-shortcuts{right:12px;gap:17px;bottom:180px}.st-tour-shortcuts button{width:46px;height:46px;min-height:46px}.st-tour-shortcuts .st-header-icon{width:21px;height:21px}.st-tour-shortcuts button span{font-size:10px}
 
- .st-app-header[data-st-experience=game]{inset:10px 10px auto;min-height:44px;height:44px}
- .st-app-header[data-st-experience=game] .st-app-brand{padding:9px;gap:0;border-radius:50%;width:46px;height:46px;justify-content:center}
- .st-app-header[data-st-experience=game] .st-app-brand-copy{display:none}
- .st-app-header[data-st-experience=game] :is([data-st-action=menu],[data-st-action=xr]){width:44px!important;min-width:44px!important;max-width:44px;height:44px;min-height:44px;flex-basis:44px}
+ .st-app-header[data-st-layout=floating]{inset:10px 10px auto;min-height:44px;height:44px}
+ .st-app-header[data-st-layout=floating] .st-app-brand{padding:9px;gap:0;border-radius:50%;width:46px;height:46px;justify-content:center}
+ .st-app-header[data-st-layout=floating] .st-app-brand-copy{display:none}
+ .st-app-header[data-st-layout=floating] :is([data-st-action=menu],[data-st-action=xr]){width:44px!important;min-width:44px!important;max-width:44px;height:44px;min-height:44px;flex-basis:44px}
 }
 
 @media(max-height:500px){.st-tour-shortcuts{top:calc(var(--st-header-height) + 12px);bottom:90px;gap:12px}.st-tour-shortcuts button{width:44px;height:44px;min-height:44px}.st-tour-shortcuts button span{display:none}}
+
+/* Tour tools share the game dock without reusing its missions or scores. */
+.st-tour-shortcuts button[aria-pressed=true]{background:#176859;border-color:#a2fff2;color:#e1fff8}
+.st-tour-shortcuts button:disabled{opacity:.55;cursor:default}
+@media(max-height:600px){.st-tour-shortcuts{display:grid;grid-template-columns:repeat(3,44px);align-content:center;gap:12px;top:calc(var(--st-header-height) + 16px);bottom:110px}.st-tour-shortcuts button{width:44px;height:44px;min-height:44px}.st-tour-shortcuts button span{display:none}}
+/* Reserve a bottom lane for the tour companion on compact screens. */
+body:has(.st-practice-guide[data-guide-mode=tour]:not([hidden])) .equipment-study-trigger{bottom:116px;max-width:calc(100vw - 32px)}
+@media(max-width:700px){body:has(.st-practice-guide[data-guide-mode=tour]:not([hidden])) .scene-navigation-hint{bottom:104px;max-width:calc(100vw - 32px)}body:has(.st-practice-guide[data-guide-mode=tour]:not([hidden])) .equipment-study-trigger{bottom:151px}}

@@ -75,3 +75,11 @@ test('practice, edit and XR lifecycle keep the desktop guide scoped and remove e
 test('per-frame host updates do not resnapshot the complete practice inventory every frame',()=>{
  const f=fixture();const before=f.calls.filter(row=>row[0]==='snapshot').length;for(let i=0;i<100;i++)f.ui.update();assert.equal(f.calls.filter(row=>row[0]==='snapshot').length,before);f.ui.lastStateAt=Date.now()-300;f.ui.update();assert.equal(f.calls.filter(row=>row[0]==='snapshot').length,before+1);f.ui.dispose();
 });
+
+test('the same companion adapts a tour without fabricated practice steps and returns to the native practice',()=>{
+ const f=fixture(),controller=f.ctx.editor.practiceController;
+ delete f.ctx.editor.practiceController;f.ui.getTourState=()=>({title:'Recorrido de la planta',lastMessage:'Selecciona un equipo para conocerlo.'});f.ui.update();
+ assert.equal(f.ui.element.hidden,false);assert.equal(f.ui.element.getAttribute('data-guide-mode'),'tour');assert.equal(f.ui.stepLabel.textContent,'RECORRIDO LIBRE');assert.equal(f.ui.heading.textContent,'Recorrido de la planta');assert.equal(f.ui.launcher.getAttribute('aria-label'),'Abrir la guía del recorrido');assert.equal(f.ui.instruction.textContent,'Selecciona un equipo para conocerlo.');
+ f.ctx.editor.practiceController=controller;f.ui.update();assert.equal(f.ui.element.getAttribute('data-guide-mode'),'practice');assert.equal(f.ui.stepLabel.textContent,'PASO 1 DE 6');
+ f.ui.getTourState=()=>null;delete f.ctx.editor.practiceController;f.ui.update();assert.equal(f.ui.element.hidden,true);f.ui.dispose();
+});

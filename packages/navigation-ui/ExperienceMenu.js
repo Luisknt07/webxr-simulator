@@ -23,6 +23,8 @@ export function mountTourShortcuts({document:dom,actions,onInteract}={}) {
   const root=dom.createElement('nav');root.className='st-tour-shortcuts';root.setAttribute('aria-label','Herramientas del recorrido');
   const listeners=[];
   for(const type of ['pointerdown','pointerup','click','keydown','keyup']){const handler=event=>{event.stopPropagation();if(onInteract&&['pointerdown','keydown'].includes(type))onInteract();};root.addEventListener(type,handler);listeners.push(()=>root.removeEventListener(type,handler));}
-  for(const {id,label,icon,action} of actions){const control=dom.createElement('button');control.type='button';control.dataset.tourTool=id;control.setAttribute('aria-label',label);control.title=label;control.appendChild(createExperienceIcon(dom,icon));const text=dom.createElement('span');text.textContent=label;control.appendChild(text);control.addEventListener('click',action);root.appendChild(control);}
-  dom.body.appendChild(root);return{root,dispose(){listeners.forEach(off=>off());root.remove();}};
+  const states=[];
+  for(const {id,label,icon,action,getState} of actions){const control=dom.createElement('button');control.type='button';control.dataset.tourTool=id;control.setAttribute('aria-label',label);control.title=label;control.appendChild(createExperienceIcon(dom,icon));const text=dom.createElement('span');text.textContent=label;control.appendChild(text);control.addEventListener('click',action);root.appendChild(control);if(getState)states.push({control,getState,last:''});}
+  const update=()=>{for(const row of states){const state=row.getState(),key=JSON.stringify(state);if(row.last===key)continue;row.last=key;row.control.disabled=!!state.disabled;if(state.pressed!==undefined)row.control.setAttribute('aria-pressed',String(state.pressed));row.control.title=state.title||row.control.getAttribute('aria-label');}};
+  dom.body.appendChild(root);update();return{root,update,dispose(){listeners.forEach(off=>off());root.remove();}};
 }

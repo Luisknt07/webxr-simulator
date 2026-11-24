@@ -7,11 +7,13 @@ let serial = 0;
  * requests microphone access on mount, creates an agent, or changes the world.
  * It delegates voice and chat to the application's existing assistant services. */
 export class PracticeGuideAvatar {
-  constructor({context = {}, document: dom, window: view, getPracticeState} = {}) {
+  constructor({context = {}, document: dom, window: view, getPracticeState, getTourState, onInteract} = {}) {
     this.ctx = context;
     this.document = dom || context.document || (typeof document === 'undefined' ? null : document);
     this.window = view || this.document && this.document.defaultView || (typeof window === 'undefined' ? null : window);
     this.getPracticeState = getPracticeState;
+    this.getTourState = getTourState;
+    this.onInteract = onInteract;
     this.id = 'practice-guide-avatar-' + (++serial);
     this.listeners = [];
     this.expanded = false;
@@ -134,6 +136,7 @@ export class PracticeGuideAvatar {
 
     // Contain pointer gestures without intercepting keyboard movement globally.
     for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'touchstart', 'touchend', 'wheel']) this.listen(this.element, type, event => event.stopPropagation());
+    for (const type of ['pointerdown','keydown']) this.listen(this.element,type,event=>{event.stopPropagation();if(this.onInteract)this.onInteract();});
     this.listen(this.document, 'keydown', event => {
       if (this.expanded && (event.key === 'Escape' || event.code === 'Escape')) this.setExpanded(false);
     });
@@ -189,7 +192,7 @@ export class PracticeGuideAvatar {
     this.bubble.hidden = !this.expanded;
     this.element.setAttribute('data-expanded', String(this.expanded));
     this.launcher.setAttribute('aria-expanded', String(this.expanded));
-    this.launcher.setAttribute('aria-label', this.expanded ? 'Ocultar la guía del paso actual' : 'Abrir la guía del paso actual');
+    this.launcher.setAttribute('aria-label', this.expanded ? 'Ocultar la guía' : this.mode==='tour'?'Abrir la guía del recorrido':'Abrir la guía del paso actual');
     return this.expanded;
   }
 
@@ -234,7 +237,7 @@ export class PracticeGuideAvatar {
       }
       return opened;
     }
-    this.showNotice('El chat no está disponible en esta sesión. La guía de la práctica sigue disponible.');
+    this.showNotice('El chat no está disponible en esta sesión. Puedes seguir consultando la guía.');
     return false;
   }
 
@@ -250,7 +253,7 @@ export class PracticeGuideAvatar {
     const phase = state.listening ? 'listening' : state.speaking ? 'speaking' : busy ? 'thinking' : state.enabled ? 'ready' : 'off';
     this.element.setAttribute('data-voice-state', phase);
     this.element.setAttribute('data-microphone-permission', this.permission);
-    content(this.activity, state.listening ? 'Escuchando' : state.speaking ? 'Hablando' : busy ? 'Consultando' : 'Tu siguiente paso');
+    content(this.activity, state.listening ? 'Escuchando' : state.speaking ? 'Hablando' : busy ? 'Consultando' : this.mode==='tour'?'Explora y consulta':'Tu siguiente paso');
     this.voiceButton.setAttribute('aria-pressed', String(!!state.enabled));
     this.voiceButton.setAttribute('aria-label', state.enabled ? 'Desactivar voz' : 'Activar voz');
     this.voiceButton.title = state.enabled ? 'Desactivar voz' : 'Activar voz';
@@ -259,7 +262,7 @@ export class PracticeGuideAvatar {
     this.microphoneButton.title = this.permission === 'denied' ? 'Micrófono bloqueado por el navegador' : state.listening ? 'Terminar pregunta por voz' : 'Preguntar por voz';
     this.chatButton.setAttribute('aria-pressed', String(!!(this.ctx.assistantPanelOpen || this.ctx.voicePanelOpen)));
     const remote = state.capabilities && state.capabilities.remoteAnswer;
-    content(this.status, this.notice || (state.listening ? 'Escuchando. Pulsa Mic de nuevo para terminar.' : state.error || text(state.status, 220)) || (remote ? 'Asistente conectado. Puedes preguntar por voz o en Chat.' : 'Guía de la práctica. Pulsa Voz para escuchar o Chat para consultar.'));
+    content(this.status, this.notice || (state.listening ? 'Escuchando. Pulsa Mic de nuevo para terminar.' : state.error || text(state.status, 220)) || (remote ? 'Asistente conectado. Puedes preguntar por voz o en Chat.' : 'Pulsa Voz para escuchar o Chat para consultar.'));
   }
 
   update(state) {
@@ -280,22 +283,25 @@ export class PracticeGuideAvatar {
       }
       state = this.practiceState;
     }
+    if(!state&&this.getTourState){try{const tour=this.getTourState();if(tour)state={...tour,tour:true};}catch(_){/* Scene changes may temporarily have no tour context. */}}
+    const mode=state&&state.tour?'tour':'practice';
+    if(this.mode!==mode){this.mode=mode;this.element.setAttribute('data-guide-mode',mode);this.element.setAttribute('aria-label',mode==='tour'?'Tu guía del recorrido':'Tu guía de práctica');this.bubble.setAttribute('aria-label',mode==='tour'?'Guía del recorrido':'Indicación del paso actual');this.setExpanded(this.expanded);}
     const visible = !!state && !xr && !(editor && editor.active);
     this.element.hidden = !visible;
     if (!visible) {this.setExpanded(false); return;}
     const session = state.session || {}, completed = session.passed === true;
     const step = state.step || {}, stepIndex = Number.isFinite(Number(session.stepIndex)) ? Number(session.stepIndex) : Array.isArray(session.completedSteps) ? session.completedSteps.length : 0;
-    const title = text(step.title, 140) || 'Explora la práctica';
+    const title = text(step.title || state.title, 140) || 'Explora la práctica';
     const instruction = text(step.action || step.instruction || state.lastMessage || state.plan && state.plan.objective);
-    const key = [controller && controller.attemptId || '', step.id || stepIndex, completed, title, instruction].join('|');
+    const key = [this.mode,controller && controller.attemptId || '', step.id || stepIndex, completed, title, instruction].join('|');
     if (key !== this.instructionKey) {
       this.instructionKey = key;
       this.notice = '';
-      content(this.stepLabel, completed ? 'PRÁCTICA COMPLETADA' : 'PASO ' + Math.max(1, Math.min(6, stepIndex + 1)) + ' DE 6');
+      content(this.stepLabel, this.mode==='tour'?'RECORRIDO LIBRE':completed ? 'PRÁCTICA COMPLETADA' : 'PASO ' + Math.max(1, Math.min(6, stepIndex + 1)) + ' DE 6');
       content(this.heading, completed ? 'Trabajo verificado' : title);
       content(this.instruction, completed ? 'Has completado las misiones. Consulta tu evaluación y las siguientes prácticas.' : instruction || 'Consulta Misiones para conocer la tarea actual y Registro para realizar las comprobaciones.');
     }
-    if ((this.ctx.practiceReadingPanelOpen || this.ctx.assistantPanelOpen || this.ctx.voicePanelOpen || this.ctx.studioMenuOpen) && this.expanded) this.setExpanded(false);
+    if ((this.ctx.practiceReadingPanelOpen || this.ctx.assistantPanelOpen || this.ctx.voicePanelOpen || this.ctx.studioMenuOpen || this.ctx.publicDialogOpen || this.ctx.studio&&this.ctx.studio.drawer&&!this.ctx.studio.drawer.hidden) && this.expanded) this.setExpanded(false);
     this.renderVoice();
   }
 

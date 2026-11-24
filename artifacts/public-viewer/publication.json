@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "public-viewer",
-  "revision": "17275614b76ea61838e64c0b3aa04162a8953ccf",
-  "bundleSha256": "9cd1cf9d4be7d89858b4b3a9e41779d856cca9efae6865de389c8606d39ce793",
+  "revision": "17b2535860a9b2c49f499003b392cd0767b20dc6",
+  "bundleSha256": "3c2cfb342e38f393b6a39cf03402eadb9d2e1186a42095030a69e900c798d573",
   "scenes": [
     "vr-robot-dispatch"
   ],
@@ -18,7 +18,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "ae9ff5f183a2332ba6886a9dc8fd99c2b701fea0854e21efa4f51473a4589a0f"
+      "sha256": "31a28405c6191dbc16a511fab362463224a379fc9c39c95387623571694073f0"
     },
     {
       "path": "modules/logistica-industrial/assets/robot-pilot/LICENSE.txt",
@@ -69,12 +69,16 @@
       "sha256": "1d5e91e4d5862b43ce940475984009ba0c2beac5a3d05970111a55d8cf13e610"
     },
     {
+      "path": "packages/assistant-ui/practice-guide-avatar.css",
+      "sha256": "218006909e175d8e959a2b5538646b3ca6fa91468c81ffc2604778854680f508"
+    },
+    {
       "path": "packages/input-devices/input-device.css",
       "sha256": "30d54b4f47f449bcb79ad66b8f7dff8e0241c2b21e2de8ba758193be3e5d6868"
     },
     {
       "path": "packages/navigation-ui/experience-header.css",
-      "sha256": "d4499c8c64c3f98d8d31bdf2430b16a093939e4e5e0d9fd65048e00f95ec5d4d"
+      "sha256": "ec781a02ae610b56f1aff04562fa6c57efe5edabb18d766c1fe7c2c4cad2c7f6"
     },
     {
       "path": "packages/scene-capture/scene-capture.css",
@@ -126,7 +130,7 @@
     },
     {
       "path": "viewer.js",
-      "sha256": "9cd1cf9d4be7d89858b4b3a9e41779d856cca9efae6865de389c8606d39ce793"
+      "sha256": "3c2cfb342e38f393b6a39cf03402eadb9d2e1186a42095030a69e900c798d573"
     },
     {
       "path": "welcome.css",

@@ -20,7 +20,7 @@ const CAD_NOTES=[
  'modules/logistica-industrial/assets/robot-pilot/NOTICE.txt',
  'modules/logistica-industrial/assets/robot-pilot/provenance.json'
 ];
-FILES.push(...STUDY_FILES,...CAD_NOTES,'packages/navigation-ui/experience-header.css');
+FILES.push(...STUDY_FILES,...CAD_NOTES,'packages/navigation-ui/experience-header.css','packages/assistant-ui/practice-guide-avatar.css');
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
 function verifyPublic(options={}){
  const root=fs.realpathSync(options.root||path.resolve(__dirname,'../..')),directory=path.join(root,'artifacts/public-viewer');

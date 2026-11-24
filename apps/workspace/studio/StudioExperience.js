@@ -43,7 +43,7 @@ export default class StudioExperience {
     this.build(vrButton); this.bindSimulation(); this.sharedGrabs = new SharedGrabs(this); this.presentation = new RemotePresentation();
     this.immersiveMenu = new ImmersiveStudioMenu(this);
     this.missionOverlay = new VehicleMissionOverlay();
-    this.practiceGuideAvatar = new PracticeGuideAvatar({context:this.ctx,document,window});
+    this.practiceGuideAvatar = new PracticeGuideAvatar({context:this.ctx,document,window,onInteract:()=>{this.editor.hooks.unlock();this.editor.hooks.clearKeyboard();},getTourState:()=>!this.editor.initializing&&!this.editor.loadingProject&&this.client.user&&!this.editor.practiceController?{title:this.editor.currentProject&&this.editor.currentProject.name||'Explora el escenario',lastMessage:this.ctx.drivingVehicle?'Manipula los mandos del vehículo; consulta Controles para conocer sus funciones.':this.ctx.desktopFlight?'Explora en dron. Q sube y E baja; pulsa Dron para volver a caminar.':'Recorre la escena y selecciona sus objetos. Usa Guía para consultar la documentación o Chat para preguntar.'}:null});
     this.practiceGuideAvatar.mount();
     const startRuntime = editor.startRuntime.bind(editor);
     editor.startRuntime = () => { if (this.sharedGrabs) this.sharedGrabs.detach(); startRuntime(); this.applySpawn(); };
@@ -205,7 +205,14 @@ export default class StudioExperience {
     this.drawer = el('aside', undefined, document.body, 'studio-drawer'); this.drawer.hidden = true; this.drawer.setAttribute('role', 'dialog'); this.drawer.setAttribute('aria-label', 'Mi espacio'); this.drawer.setAttribute('aria-modal', 'true');
     this.drawer.id='studio-experience-menu';this.menuButton.setAttribute('aria-controls',this.drawer.id);
     if(typeof connectExperienceHeader==='function')this.experienceHeader=connectExperienceHeader(this.header,{brand,actions,controls:{scenes:this.practicesButton,guide:this.guideButton,results:this.resultsButton,account:this.accountButton,xr:vrButton,menu:this.menuButton},onInteract:()=>{this.editor.hooks.unlock();this.editor.hooks.clearKeyboard();}});
-    this.tourShortcuts=mountTourShortcuts({document,actions:[{id:'guide',label:'Guía',icon:'guide',action:()=>this.guideButton.click()},{id:'controls',label:'Controles',icon:'controls',action:()=>this.open('controls')},{id:'camera',label:'Cámara',icon:'camera',action:()=>this.open('camera')}],onInteract:()=>{this.editor.hooks.unlock();this.editor.hooks.clearKeyboard();}});
+    this.tourShortcuts=mountTourShortcuts({document,actions:[
+      {id:'scenes',label:'Escenarios',icon:'scenes',action:()=>this.practicesButton.click()},
+      {id:'guide',label:'Guía',icon:'guide',action:()=>this.guideButton.click()},
+      {id:'flight',label:'Dron',icon:'move',action:()=>this.setDesktopFlight(!this.ctx.desktopFlight),getState:()=>{const state=getSceneCameraMode(this.ctx);return{pressed:state.mode==='drone',disabled:state.blocked,title:state.reason||'Alternar caminar / vuelo dron'};}},
+      {id:'controls',label:'Controles',icon:'controls',action:()=>this.open('controls')},
+      {id:'camera',label:'Cámara',icon:'camera',action:()=>this.open('camera')},
+      {id:'account',label:'Mi espacio',icon:'account',action:()=>this.open(this.client.user?'personal':'account')}
+    ],onInteract:()=>{this.editor.hooks.unlock();this.editor.hooks.clearKeyboard();}});
     this.drawer.addEventListener('keydown', event => { event.stopPropagation(); if (event.key === 'Escape') this.close(); if (event.key === 'Tab') { const buttons = Array.from(this.drawer.querySelectorAll('button,input,select,a')).filter(node => !node.disabled && !node.hidden && (!node.getClientRects || node.getClientRects().length)); const first = buttons[0], last = buttons[buttons.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } } });
     this.notice = el('output', undefined, document.body, 'studio-notice'); this.notice.hidden = true;
     this.controls = button(document.body, '⌘ Controles', () => this.open('controls'), 'studio-controls');
@@ -544,6 +551,7 @@ export default class StudioExperience {
     simulation.command = (id, action, value, scope) => { if (!this.room || this.applyingNetwork) return this.rawCommand(id, action, value, scope); if (this.room.role === 'observer') { this.message('El observador tiene acceso de lectura.'); return false; } this.connection.action({type: 'control', objectId: id, action, value, scope}).catch(error => this.message(error.message)); return true; };
   }
   tick() {
+    if(this.tourShortcuts)this.tourShortcuts.update();
     this.syncSceneCapture();
     if(this.sceneToolbars)for(const toolbar of this.sceneToolbars)toolbar.update();
     this.header.hidden = this.editor.active || this.ctx.vrMode; this.controls.hidden = true;

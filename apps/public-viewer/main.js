@@ -14,6 +14,7 @@ import {DemoRecovery} from './SceneResilience.js';
 import XRAccessDialog from './XRAccessDialog.js';
 import {connectExperienceHeader} from '../../packages/navigation-ui/ExperienceHeader.js';
 import {decorateMenuAction,setMenuActionLabel,mountTourShortcuts} from '../../packages/navigation-ui/ExperienceMenu.js';
+import PracticeGuideAvatar from '../../packages/assistant-ui/PracticeGuideAvatar.js';
 
 const byId = id => document.getElementById(id);
 const experienceHeader=connectExperienceHeader(document.querySelector('.viewer-header'),{
@@ -142,8 +143,18 @@ async function start() {
   listen(menu,'click',event=>{if(event.target!==menu)return;const r=menu.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeMenu();});
   listen(menu, 'close', () => {if(menu.open)return;ctx.publicDialogOpen = !!document.querySelector('dialog[open]'); input.reset(); menuToggle.setAttribute('aria-expanded', 'false');});
   browser.onDispose(closeMenu);
-  const shortcuts=mountTourShortcuts({document,actions:[{id:'guide',label:'Guía',icon:'guide',action:()=>openMenu('guide')},{id:'controls',label:'Controles',icon:'controls',action:()=>openMenu('controls')},{id:'camera',label:'Cámara',icon:'camera',action:()=>openMenu('camera')}],onInteract:()=>{input.reset();ctx.desktopLook.unlock();}});
+  const releaseTourInput=()=>{input.reset();ctx.desktopLook.unlock();if(ctx.demo)ctx.demo.driving.resetInput();};
+  const shortcuts=mountTourShortcuts({document,actions:[
+    {id:'scenes',label:'Escenarios',icon:'scenes',action:()=>byId('back-scenes').click()},
+    {id:'overview',label:'Vista',icon:'overview',action:()=>byId('overview').click(),getState:()=>({pressed:overview})},
+    {id:'flight',label:'Dron',icon:'move',action:()=>byId('viewer-menu-camera').querySelector('[data-camera-mode='+(ctx.desktopFlight?'walk':'drone')+']').click(),getState:()=>{const state=getSceneCameraMode(ctx);return{pressed:state.mode==='drone',disabled:state.blocked,title:state.reason||'Alternar caminar / vuelo dron'};}},
+    {id:'controls',label:'Controles',icon:'controls',action:()=>openMenu('controls')},
+    {id:'guide',label:'Ayuda',icon:'guide',action:()=>openMenu('guide')},
+    {id:'camera',label:'Cámara',icon:'camera',action:()=>openMenu('camera')}
+  ],onInteract:releaseTourInput});
   browser.onDispose(()=>shortcuts.dispose());
+  const tourGuide=new PracticeGuideAvatar({context:ctx,document,window,onInteract:releaseTourInput,getTourState:()=>ctx.demo&&!stopped?{title:'Demostración industrial',lastMessage:ctx.drivingVehicle?'Usa el volante, las palancas y los pedales. El menú conserva la guía completa del montacargas.':ctx.desktopFlight?'Explora en dron con WASD. Q sube y E baja; vuelve a Caminar desde el botón Dron o Cámara.':'Recorre la instalación, apunta a un equipo y selecciónalo. Abre Ayuda para conocer el proceso o Chat para consultar.'}:null});
+  browser.onDispose(()=>tourGuide.dispose());
   try {
     const response = await fetch(new URL(SCENE_URL, document.baseURI).href, {signal: abort.signal, credentials: 'omit'});
     if (!response.ok) throw new Error('No se pudo cargar la demostración (' + response.status + ').');
@@ -159,6 +170,7 @@ async function start() {
     await host.activate('shared.assistance', {functions:['assistant.voice']});
     if (stopped) {await host.dispose({force: true}); return;}
     pose(ctx, 'walk');
+    tourGuide.mount();
     const tools = document.createElement('div'); tools.className = 'st-menu-camera-tools'; tools.setAttribute('aria-label', 'Cámara y captura del escenario');
     const modes = document.createElement('div'); modes.className = 'public-camera-modes'; modes.setAttribute('role', 'group'); modes.setAttribute('aria-label', 'Modo de navegación'); tools.appendChild(modes);
     const releaseInput = () => {input.reset(); ctx.desktopLook.unlock(); ctx.demo.driving.resetInput();};
@@ -209,6 +221,7 @@ async function start() {
       } catch (error) {frameFailure({phase:'restart',message:error.message,error});}
     });
     function updateUI() {
+      shortcuts.update();tourGuide.update();
       const stats = ctx.demo.stats(), driving = !!ctx.demo.driving.id;
       const cameraMode = getSceneCameraMode(ctx); tools.dataset.mode = cameraMode.mode;
       modeButtons.forEach(button => {button.disabled = cameraMode.blocked; button.setAttribute('aria-pressed', String(button.dataset.cameraMode === cameraMode.mode)); button.title = cameraMode.reason || (button.dataset.cameraMode === 'drone' ? 'Vuela por la instalación · Q subir · E bajar' : 'Volver a un apoyo peatonal libre');});
