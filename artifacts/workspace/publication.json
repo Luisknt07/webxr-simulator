@@ -2,7 +2,7 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "2997b782e61c45ef58729f05cf3b199e71e36cb8",
+  "revision": "f3d2432284abf8fcc7a0538ea6e2d99abeaee423",
   "bundleSha256": "cfa68b5a2f8fe60a899a6f31adc4dae28c9f12f67c1bccc55a2c92b5a0facaff",
   "scenes": [
     "advanced-packing",

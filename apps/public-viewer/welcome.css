@@ -41,3 +41,47 @@
 @media(max-width:980px){.welcome-panel{width:68vw}.welcome-screen:before{background-image:linear-gradient(90deg,#00262ef5,#002d36d0 55%,#00333b65),linear-gradient(0deg,#002f38,transparent 60%),url('cover.jpg')}.welcome-content{padding-top:130px;padding-bottom:40px;min-height:calc(100svh - 140px)}.welcome-steps{gap:16px;padding:22px}.welcome-steps li{gap:9px}.welcome-steps li+li{padding-left:18px}.welcome-steps h2{font-size:14px}.welcome-steps p{font-size:11px}.welcome-domains{gap:14px;font-size:12px}.welcome-domains>span+span{padding-left:14px}}
 @media(max-width:650px){.welcome-open .viewer-header{height:76px;padding:13px 20px;gap:12px}.viewer-brand{font-size:15px;letter-spacing:-.3px;gap:8px}.viewer-brand .brand-mark{width:32px;height:37px}.welcome-open .viewer-brand small{display:block!important;font-size:9px;margin-top:3px}.welcome-open .header-actions #workspace-link{font-size:11px;padding:8px 11px;min-height:38px;border-radius:10px}.welcome-content{padding:118px 24px 34px;min-height:auto;align-items:start}.welcome-panel{width:100%;max-width:530px}.welcome-panel .eyebrow{font-size:9px;letter-spacing:1.7px;line-height:1.6;margin-bottom:23px}.welcome-panel h1{font-size:clamp(38px,9.6vw,60px);letter-spacing:-1.4px}.welcome-panel h1>span{font-size:clamp(49px,12vw,72px);letter-spacing:-2px}.welcome-tagline{font-size:20px;margin-top:22px;max-width:440px}.welcome-description{font-size:12px;max-width:370px;margin-bottom:22px}.welcome-actions{gap:10px}.welcome-actions .welcome-primary,.welcome-actions .welcome-secondary{font-size:13px;min-height:48px;padding:12px 17px;border-radius:11px}.welcome-domains{gap:12px;flex-wrap:wrap}.welcome-domains>span{grid-template-columns:25px auto;column-gap:6px;font-size:11px}.welcome-domains svg{width:24px;height:24px}.welcome-domains small{font-size:10px}.welcome-domains>span+span{padding-left:12px}.welcome-steps{display:grid;gap:17px;padding:22px 24px}.welcome-steps li{gap:14px}.welcome-steps li+li{padding:0;border:0}.welcome-steps h2{font-size:13px}.welcome-steps p{font-size:11px}.welcome-steps li>span{font-size:30px;width:35px;height:35px}}
 @media(prefers-reduced-motion:reduce){.welcome-screen *{transition:none!important}}
+
+/* Let the header and guide participate in the home layout. Fixed hero
+   padding previously added a second header-sized gap and pushed entries out. */
+body.welcome-open{display:flex;flex-direction:column;min-height:100svh}
+.welcome-open .viewer-header{position:relative;inset:auto;flex:none;height:auto;min-height:80px;padding-block:14px;gap:20px}
+.welcome-open .viewer-brand,.welcome-intro,.welcome-start{min-width:0}
+.welcome-open .header-actions{flex:none}
+.welcome-open .header-actions #workspace-link{white-space:nowrap;flex:none}
+.welcome-screen{flex:1;min-height:0;overflow:visible}
+.welcome-content{min-height:0;padding-block:32px;align-items:center}
+.welcome-panel{width:min(100%,790px)}
+.welcome-guide{flex:none}
+.welcome-start .welcome-domains{flex-wrap:wrap;row-gap:12px}
+@media(min-width:1000px){
+ .welcome-panel{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:clamp(32px,5vw,80px);align-items:center;width:100%;max-width:1400px}
+ .welcome-panel h1{font-size:clamp(52px,5vw,86px)}
+ .welcome-panel h1>span{font-size:clamp(58px,5.2vw,92px)}
+ .welcome-tagline{font-size:clamp(18px,1.6vw,24px)}
+ .welcome-description{margin-bottom:0}
+ .welcome-start{padding:22px;border:1px solid #5fb9ad42;border-radius:22px;background:#002d35d9;box-shadow:0 12px 40px #001b2433}
+ body.welcome-open #welcome .welcome-entry-demo{grid-template-columns:30px minmax(0,1fr) 18px}
+ body.welcome-open #welcome .welcome-entry-badge{grid-column:2;grid-row:2;justify-self:start}
+ body.welcome-open #welcome .welcome-entry-demo .welcome-entry-arrow{grid-column:3;grid-row:1/span 2}
+ body.welcome-open #welcome .welcome-entry-demo .welcome-entry-icon{grid-row:1/span 2;align-self:center}
+ .welcome-start .welcome-domains{gap:12px;font-size:12px}
+ .welcome-start .welcome-domains>span{grid-template-columns:25px auto;column-gap:7px}
+ .welcome-start .welcome-domains>span+span{padding-left:12px}
+ .welcome-start .welcome-domains svg{width:24px;height:24px}
+ .welcome-start .welcome-domains small{font-size:10px}
+}
+@media(max-width:999px){.welcome-content{padding-block:32px}.welcome-panel{width:100%;max-width:720px}.welcome-intro{max-width:610px}}
+@media(max-width:650px){
+ .welcome-open .viewer-header{min-height:76px;padding:12px 16px;gap:10px}
+ .welcome-content{padding:28px 24px 32px}
+}
+@media(max-width:360px){
+ .welcome-open .viewer-header{gap:8px;padding-inline:14px}
+ .welcome-open .viewer-brand{font-size:12px;gap:6px}
+ .welcome-open .viewer-brand .brand-mark{width:26px;height:30px}
+ .welcome-open .viewer-brand small{font-size:8px;letter-spacing:0}
+ .welcome-open .header-actions #workspace-link{font-size:10px;padding:8px;min-height:38px}
+ .welcome-content{padding-inline:20px}
+}
+@media(max-width:340px){.welcome-open .viewer-brand{gap:5px}.welcome-open .viewer-brand .brand-mark{width:22px;height:26px}}
