@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "c84196c10adbb0d70b3347d01c2a4ebecb892227",
-  "bundleSha256": "107315ef36525c88c8dbbed6d6b989166d348ce4a8a0fc08f863c439464572d1",
+  "revision": "f7348653f9cb98e872b760057954c71153a2ef0e",
+  "bundleSha256": "fcb58191a1b2146bdb2de55d8fa47c9cbb55a81c5552787f9c4add8fd957fa15",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "107315ef36525c88c8dbbed6d6b989166d348ce4a8a0fc08f863c439464572d1"
+      "sha256": "fcb58191a1b2146bdb2de55d8fa47c9cbb55a81c5552787f9c4add8fd957fa15"
     },
     {
       "path": "cad-worker.js",
@@ -3524,7 +3524,7 @@
     },
     {
       "path": "packages/tools/editor/src/editor.css",
-      "sha256": "38a6d488dc3aace89632083bd009da226a90abace89be686e8e617886bcb1f58"
+      "sha256": "9b05f4b733c31e49c9470a7cabf4b52964b9163941b5b969d0b6a7710bc17452"
     },
     {
       "path": "packages/tools/editor/src/floor-plan-editor.css",
@@ -3945,8 +3945,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "a7a85078e4c9ce5bb594",
-    "statsSha256": "c7b8023ccbf660bd746f6a0bdebbf1004d4e14fbde583ec8d804027e3f92c3f5",
+    "hash": "ef04f3c256bef1151fcf",
+    "statsSha256": "656fbb41f379ad6fc2b3eb778423c1b0356e664908b582694b6cb35b9628fd2a",
     "assets": [
       {
         "path": "13.js",
@@ -3978,7 +3978,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7324611
+        "size": 7328363
       },
       {
         "path": "configurable-practice-reference.js",

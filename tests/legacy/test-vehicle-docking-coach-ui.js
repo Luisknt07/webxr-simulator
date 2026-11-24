@@ -22,6 +22,8 @@ class ForkCamera{
  dispose(){this.unmount();}
  setEnabled(value){this.enabled=!!value;return this.enabled;}
  setAvailable(value){this.available=value;}
+ setFacility(model,projection,element){this.facility=model&&projection?{model,projection}:null;this.element=element;}
+ hasCurrentFrame(){return false;}
  product(){return this.driving.simulation.products.get('pallet-1');}
  toggleMode(){const modes=['isometric','entry','tips'];this.mode=modes[(modes.indexOf(this.mode)+1)%modes.length];}
  switchSide(){this.side*=-1;}
@@ -53,7 +55,7 @@ const monitor=new Monitor(driving);monitor.mount();
 assert.equal(monitor.element.dataset.expanded,'false','Driving starts with the compact navigation panel.');assert.equal(monitor.expandButton.getAttribute('aria-expanded'),'false');
 const beforeExpand=resets;monitor.expandButton.fire('click');assert.equal(monitor.expanded,true);assert.equal(monitor.element.dataset.expanded,'true');assert.equal(monitor.expandButton.getAttribute('aria-expanded'),'true');assert(resets>beforeExpand,'Changing panel size clears held driving inputs.');
 monitor.navigationKey({key:'Escape',stopPropagation(){}});assert.equal(monitor.expanded,false);assert.equal(monitor.expandButton.getAttribute('aria-expanded'),'false');
-assert.equal(monitor.cameraEnabled,true);assert.equal(monitor.mode,'layout');assert.equal(monitor.plan.hidden,false);assert.equal(monitor.feed.hidden,true);assert.equal(monitor.forkCamera.available,false);assert.equal(monitor.rear.hidden,true);assert.equal(monitor.rear.parentNode,undefined);
+assert.equal(monitor.cameraEnabled,true);assert.equal(monitor.mode,'layout');assert.equal(monitor.plan.hidden,false);assert.equal(monitor.feed.hidden,true);assert.equal(monitor.forkCamera.available,true);assert.equal(monitor.rear.hidden,true);assert.equal(monitor.rear.parentNode,undefined);
 assert.equal(guide.enabled,false,'The automatic hologram is off while travelling, together with the inspection camera.');
 assert.equal(monitor.panels.parentNode,document.body);assert.equal(monitor.guidancePanel.parentNode,monitor.operatorColumn);assert.equal(monitor.guidanceBar.parentNode,monitor.guidancePanel);assert.notEqual(monitor.coach.parentNode,monitor.element);assert.equal(monitor.metrics.hidden,true);assert(monitor.facilityLayout.model,'The far display uses the actual installation model.');
 assert(monitor.canvas.calls.some(call=>call[0]==='fillText'&&call[1].includes('EN VIVO')),'The map is painted while the camera is inactive.');
@@ -76,9 +78,9 @@ monitor.cameraModeButton.fire('click');assert.equal(monitor.sideButton.hidden,tr
 assert.equal(monitor.hologramButton.getAttribute('aria-pressed'),'true');assert.equal(monitor.targetSelect.children.length,3);assert(monitor.coach.textContent.includes('Centra ambas uñas'));
 assert(monitor.metrics.textContent.includes('24.0 cm / 60.0 cm'),'Insertion is readable DOM text, not only tiny pixels in the plan.');
 const originalOption=monitor.targetSelect.children[1];state.distanceM=2.8;monitor.update(true);assert.equal(monitor.targetSelect.children[1],originalOption,'Distance updates must not rebuild an open target selector.');
-monitor.planButton.fire('click');assert.equal(monitor.mode,'layout');assert.equal(monitor.forceLayout,true);assert.equal(monitor.plan.hidden,false);assert.equal(monitor.feed.hidden,true);assert.equal(monitor.forkCamera.enabled,true,'Forcing the plan suspends camera rendering without disabling automatic inspection.');assert.equal(monitor.forkCamera.available,false);
+monitor.planButton.fire('click');assert.equal(monitor.mode,'layout');assert.equal(monitor.forceLayout,true);assert.equal(monitor.plan.hidden,false);assert.equal(monitor.feed.hidden,true);assert.equal(monitor.forkCamera.enabled,true,'The live plan shares the auxiliary camera without disabling automatic inspection.');assert.equal(monitor.forkCamera.available,true);
 monitor.planButton.fire('click');assert.equal(monitor.mode,'inspection');assert.equal(monitor.feed.hidden,false);
-monitor.cameraButton.fire('click');assert.equal(monitor.cameraEnabled,false);assert.equal(monitor.mode,'layout');assert.equal(monitor.forkCamera.available,false);monitor.cameraButton.fire('click');assert.equal(monitor.mode,'inspection');
+monitor.cameraButton.fire('click');assert.equal(monitor.cameraEnabled,false);assert.equal(monitor.mode,'layout');assert.equal(monitor.forkCamera.available,true);monitor.cameraButton.fire('click');assert.equal(monitor.mode,'inspection');
 const resetsBeforeTarget=resets;monitor.targetSelect.value='stock-1';monitor.targetSelect.fire('change');assert.equal(state.targetId,'stock-1');assert.equal(resets,resetsBeforeTarget+1);assert.equal(hudUpdates,1);assert.deepEqual(commands,[]);
 monitor.hologramButton.fire('click');assert.equal(guide.enabled,false);assert.deepEqual(commands,['holographicGuide']);
 monitor.page='guide';monitor.select(40,400);assert.equal(guide.enabled,true);monitor.page='guide';monitor.select(250,400);assert.equal(state.targetId,'pallet-1');
@@ -103,7 +105,7 @@ vehicle.parkingBrake=true;driving.nextStep={stage:'parking',title:'Freno de esta
 const initialPalletPosition=pallet.position.clone();
 guide.currentTarget={id:'drop:stock-1',targetId:'stock-1',allowed:true,kind:'drop',matrix:new THREE.Matrix4().makeTranslation(0,0,16),bounds:product.bounds};
 forks.attach(pallet);vehicle.entry={id:'custody-1',product};monitor.update(true);assert.equal(monitor.mode,'inspection');
-approach(9.2);monitor.update(true);assert.equal(monitor.mode,'layout','Carried cargo cannot keep the camera active throughout transport.');assert.equal(monitor.forkCamera.available,false);
+approach(9.2);monitor.update(true);assert.equal(monitor.mode,'layout','Travelling with cargo returns to the live installation view.');assert.equal(monitor.forkCamera.available,true);
 assert.equal(guide.enabled,false,'A carried pallet does not keep its own truck transparent after withdrawing.');
 approach(14.2);monitor.update(true);assert.equal(monitor.mode,'inspection','The receiving position activates unloading inspection.');
 assert.equal(guide.enabled,true,'The real receiver enables the camera and hologram together.');

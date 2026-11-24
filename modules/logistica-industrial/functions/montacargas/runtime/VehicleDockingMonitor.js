@@ -64,7 +64,7 @@ export default class VehicleDockingMonitor {
     this.update(true); return guide.enabled;
   }
   renderBefore(scene, delta) { return this.forkCamera.renderBefore(scene, delta); }
-  postRender() { const result=this.forkCamera.postRender();this.updateCameraFallback();return result; }
+  postRender() { const result=this.forkCamera.postRender();if(this.mode==='layout'&&this.forkCamera.hasCurrentFrame()&&!this.liveMapPainted){this.paintLayout(this.facilityLayout.model);this.texture.needsUpdate=true;}this.updateCameraFallback();return result; }
   mount() {
     this.unmount(); const dom = this.driving.document;
     if (!dom || !dom.createElement) return;
@@ -228,9 +228,11 @@ export default class VehicleDockingMonitor {
     this.dropPlacement=displayDrop&&dropGuide&&dropGuide.getDropPlacement?dropGuide.getDropPlacement():null;
     this.dropView=displayDrop?VehicleDockingMonitor.dropView(this.dropPlacement,data,record.components.vehicle,blocked):null;
     this.mode=this.displayMode(record,data,lesson,available);
+    if(this.plane&&this.plane.material.transparent!==(this.mode==='layout')){this.plane.material.transparent=this.mode==='layout';this.plane.material.depthWrite=this.mode!=='layout';this.plane.material.needsUpdate=true;}
     this.applyHologramState(!blocked&&this.inspectionMode.hologram);
     this.page=this.mode==='layout'?'layout':'alignment';
-    this.forkCamera.setAvailable(visible && !blocked && this.mode!=='layout');
+    this.forkCamera.setAvailable(visible && !blocked);
+    if(this.mode!=='layout'&&this.forkCamera.facility)this.forkCamera.setFacility(null);
     this.feed.hidden = this.mode==='layout'; this.cameraButton.setAttribute('aria-pressed', String(!!this.cameraEnabled));
     this.cameraButton.textContent='Cámara auto '+(this.cameraEnabled?'ON':'OFF')+' · C';
     this.cameraButton.title='La cámara aparece cerca de la recogida o del destino; durante el trayecto se muestra el plano.';
@@ -332,28 +334,41 @@ export default class VehicleDockingMonitor {
     // Unlike CSS stretching, one metric scale preserves every pallet and aisle.
     if(this.canvas.width!==width)this.canvas.width=width;
     if(this.canvas.height!==height)this.canvas.height=height;
-    if(this.ctx.vrMode&&c.save&&c.translate){
-      c.fillStyle='#0b1d28';c.fillRect(0,0,WIDTH,HEIGHT);this.paintScreenActions(c);
-      c.save();c.translate(0,66);try{this.facilityLayout.paint(c,WIDTH,HEIGHT-66,model);}finally{c.restore();}
-    }else this.facilityLayout.paint(c,width,height,model);
+    const live=this.forkCamera.facility&&this.forkCamera.hasCurrentFrame();this.liveMapPainted=!!live;
+    if(this.plan&&this.plan.dataset)this.plan.dataset.renderMode=live?'live':'preparing';
+    this.facilityLayout.paint(c,width,height,model,{live:!!live,full:true});
+    if(this.ctx.vrMode)this.paintScreenActions(c);
+    // One throttled auxiliary pass serves either the real plan or inspection.
+    // The overlay uses exactly the same metric projection as the GPU camera.
+    if(model&&this.cameraSupported){
+      this.forkCamera.setFacility(model,this.facilityLayout.projection,this.canvas);
+      if(this.ctx.vrMode&&this.forkCamera.plane&&this.plane){
+        const image=this.forkCamera.plane,g=image.geometry.parameters;
+        image.position.copy(this.plane.position).add(new THREE.Vector3(0,0,-.003).applyQuaternion(this.plane.quaternion));image.quaternion.copy(this.plane.quaternion);
+        image.scale.set(this.plane.scale.x*.66/g.width,this.plane.scale.y*.37125/g.height,this.plane.scale.z);
+      }
+    }
   }
   paint(data, phase, reason) {
-    if(this.dropView&&phase!=='RETIRADA'){this.paintDrop(this.context,this.dropPlacement,this.dropView,{width:WIDTH,height:this.ctx.vrMode?HEIGHT:WIDTH,store:true});return;}
+    const rect=!this.ctx.vrMode&&this.canvas.getBoundingClientRect&&this.canvas.getBoundingClientRect();
+    const height=rect&&rect.width>0&&rect.height>0?Math.max(180,Math.min(1400,Math.round(WIDTH*rect.height/rect.width))):this.ctx.vrMode?HEIGHT:WIDTH;
+    if(this.dropView&&phase!=='RETIRADA'){this.paintDrop(this.context,this.dropPlacement,this.dropView,{width:WIDTH,height,store:true});return;}
     const c=this.context,accent=COLORS[this.severity],xr=!!this.ctx.vrMode;
     if(this.canvas.width!==WIDTH)this.canvas.width=WIDTH;
-    if(this.canvas.height!==HEIGHT)this.canvas.height=HEIGHT;
-    c.fillStyle='#0b1d28';c.fillRect(0,0,WIDTH,HEIGHT);
+    if(this.canvas.height!==height)this.canvas.height=height;
+    c.fillStyle='#e7eee9';c.fillRect(0,0,WIDTH,height);
     if(xr)this.paintScreenActions(c);
-    c.fillStyle=accent;c.font='bold 32px sans-serif';
+    if(!xr){c.fillStyle='#163844';c.fillRect(0,0,WIDTH,56);}
+    c.fillStyle=accent;c.font='bold '+Math.max(32,rect&&rect.width?WIDTH/rect.width*12:32)+'px sans-serif';
     c.fillText(phase==='RETIRADA'?'RETIRADA':(data.phase==='drop'?'DEPÓSITO':'TOMA')+' · '+(this.severity==='ready'?'LISTO':this.severity==='near'?'AJUSTAR':'REVISAR'),20,xr?100:40);
     if(!c.beginPath)return;
     // The diagram has its own column. Large contours replace the tiny nested
     // dashboard; desktop measurements live below both views, never over them.
-    const area={x:18,y:xr?112:62,w:WIDTH-36,h:xr?242:330};
-    c.fillStyle='#132b37';c.fillRect(area.x,area.y,area.w,area.h);
+    const area={x:18,y:xr?112:62,w:WIDTH-36,h:xr?242:height-118};
+    c.fillStyle='#c3d0c8';c.fillRect(area.x,area.y,area.w,area.h);
     this.paintContours(c,data.geometry||{},area);
-    c.fillStyle='#bdd2d9';c.font='22px sans-serif';
-    c.fillText('PLANO DE INSERCIÓN · frente ↑',26,xr?343:417);
+    c.fillStyle='#294b53';c.font=Math.max(22,rect&&rect.width?WIDTH/rect.width*10:22)+'px sans-serif';
+    c.fillText('INSERCIÓN · frente ↑',26,xr?343:height-18);
     if(xr){
       const e=data.errors||{},i=data.insertion||{};c.fillStyle=accent;c.font='bold 23px sans-serif';
       this.text(c,'Lateral '+measure(e.lateralM,100,' cm')+' · Altura '+measure(e.verticalM,100,' cm')+' · Ángulo '+measure(e.yawRad,180/Math.PI,'°'),20,385,WIDTH-40);
@@ -408,23 +423,27 @@ export default class VehicleDockingMonitor {
     const local = p => { const dx = p[0] - origin[0], dz = p[2] - origin[2]; return [-dx * Math.cos(yaw) + dz * Math.sin(yaw), -dx * Math.sin(yaw) - dz * Math.cos(yaw)]; };
     const groups = [
       {polys: [geometry.chassis].filter(polygon), fill: '#365462', stroke: '#9ab5c0', width: 2},
-      {polys: [geometry.target].filter(polygon), fill: '#765f36', stroke: COLORS[this.severity], width: 3},
+      {polys: [geometry.target].filter(polygon), fill: '#b69761', stroke: COLORS[this.severity], width: 3},
       {polys: (geometry.pockets || []).filter(polygon), fill: '#091b24', stroke: '#ffd78c', width: 2},
-      {polys: (geometry.forks || []).filter(polygon), fill: '#c0d0da', stroke: '#f0f7fa', width: 2}
+      {polys: (geometry.forks || []).filter(polygon), fill: '#a6b6bd', stroke: '#294b56', width: 3}
     ];
-    const points = groups.flatMap(group => group.polys.flatMap(poly => poly.map(local)));
+    const work=groups.slice(1).flatMap(group=>group.polys.flatMap(poly=>poly.map(local)));
+    const points = work.length?work:groups.flatMap(group => group.polys.flatMap(poly => poly.map(local)));
     if (!points.length) { c.fillStyle = '#a8c4ce'; c.font = '18px sans-serif'; c.fillText('Sin geometría de acoplamiento', area.x + 34, area.y + area.h / 2); return; }
-    let minX = -1, maxX = 1, minY = -.5, maxY = .5;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     points.forEach(p => { minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]); minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]); });
-    const scale = Math.min((area.w - 50) / (maxX - minX), (area.h - 50) / (maxY - minY));
+    const scale = Math.min((area.w - 64) / Math.max(.65,maxX-minX+.22), (area.h - 64) / Math.max(.8,maxY-minY+.22));
     const centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2;
     const screen = p => { const q = local(p); return [area.x + area.w / 2 + (q[0] - centerX) * scale, area.y + (area.h - 20) / 2 + (q[1] - centerY) * scale]; };
     this.projection = {origin: origin.slice(), yaw, scale, screen};
+    const clip=!!(c.save&&c.rect&&c.clip);if(clip){c.save();c.beginPath();c.rect(area.x,area.y,area.w,area.h);c.clip();}
     c.strokeStyle = '#284954'; c.lineWidth = 1;
     for (let xx = Math.ceil(minX * 2) / 2; xx <= maxX; xx += .5) { const x = area.x + area.w / 2 + (xx - centerX) * scale; c.beginPath(); c.moveTo(x, area.y + 10); c.lineTo(x, area.y + area.h - 25); c.stroke(); }
     groups.forEach(group => group.polys.forEach(poly => { c.beginPath(); poly.map(screen).forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.closePath(); c.fillStyle = group.fill; c.strokeStyle = group.stroke; c.lineWidth = group.width; c.fill(); c.stroke(); }));
     const base = screen(origin); c.strokeStyle = '#80ddcf'; c.lineWidth = 2; c.beginPath(); c.moveTo(base[0], base[1]); c.lineTo(base[0], base[1] - 26); c.lineTo(base[0] - 5, base[1] - 19); c.moveTo(base[0], base[1] - 26); c.lineTo(base[0] + 5, base[1] - 19); c.stroke();
-    const ruler = .5 * scale; c.strokeStyle = '#bdd2d9'; c.beginPath(); c.moveTo(area.x + 12, area.y + area.h - 38); c.lineTo(area.x + 12 + ruler, area.y + area.h - 38); c.stroke(); c.fillStyle = '#bdd2d9'; c.font = '14px sans-serif'; c.fillText('0.5 m', area.x + 12, area.y + area.h - 43);
+    (geometry.forks||[]).filter(polygon).forEach((poly,index)=>{const at=screen(this.polygonCenter(poly));c.fillStyle='#163844';c.fillRect(at[0]-18,at[1]-15,36,30);c.fillStyle='#f0faf6';c.font='bold 21px sans-serif';c.fillText(String(index+1),at[0]-6,at[1]+7);});
+    const ruler = .5 * scale; c.strokeStyle = '#31535e'; c.beginPath(); c.moveTo(area.x + 12, area.y + area.h - 38); c.lineTo(area.x + 12 + ruler, area.y + area.h - 38); c.stroke(); c.fillStyle = '#31535e'; c.font = '18px sans-serif'; c.fillText('0.5 m', area.x + 12, area.y + area.h - 43);
+    if(clip)c.restore();
   }
   paintGuide(c) {
     const guide = this.guidance(), model = this.guidanceModel();

@@ -128,4 +128,6 @@ Las manos WebXR usan una piel articulada local de 25 juntas por mano. El índice
 - [Cuentas y sesiones](docs/studio-service.md)
 - [Bandas](docs/conveyor-library.md), [estanterías](docs/warehouse-racks.md), [robots](docs/robot-grasp-clearance.md), [montacargas](docs/vehicle-front-mirror.md)
 
+El plano del montacargas utiliza una cámara cenital de la escena con materiales, demarcaciones y equipos reales; rutas y objetivos conservan la misma proyección métrica. Comparte un único render auxiliar con la inspección y el retrovisor, a un máximo de 6 actualizaciones/s en escritorio y 4 en RV para la vista de instalación. El esquema de inserción ocupa toda su columna y adapta su encuadre a las horquillas y entradas físicas. `node --test tests/framework/vehicle-live-facility.test.mjs` comprueba la proyección, el presupuesto, la restauración del techo y del estado de render; `tooling/qa/public-facility-display.cjs <sha256>` verifica el artefacto público en Chrome aislado, los colores, pantallas, ampliación y reutilización de recursos.
+
 SmartTwin conserva código y recursos procedentes de Hello WebXR de Mozilla y las licencias de sus dependencias y activos. Consulta `LICENSE` y las licencias incluidas junto a cada recurso.

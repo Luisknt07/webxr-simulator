@@ -123,6 +123,7 @@ export default class VehicleForkCamera {
   }
   logicalPhase(record) {const guide = this.driving.holographicGuide, state = guide && typeof guide.getState === 'function' && guide.getState(); return state && state.phase || (record && record.components.vehicle.entry ? 'drop' : 'pickup');}
   frameKey() {
+    if(this.facility){const {model,projection}=this.facility;return ['facility',model.roomId,...Object.values(model.bounds),projection.rotation,projection.plot.width,projection.plot.height].join('|');}
     const record = this.driving.record && this.driving.record(), entry = record && record.components.vehicle.entry, placement = this.selectedFeed === 'front' ? this.dropPlacement(record) : null;
     const pickup = record && !entry && this.selectedFeed === 'front' ? this.pickupTarget(record) : null;
     return [record && record.id || '', this.logicalPhase(record), this.selectedFeed, this.mode, this.side, entry ? entry.id || entry.product && entry.product.object.uuid || 'loaded' : 'empty', pickup && pickup.id || '', placement && placement.selectionKey || '', placement && placement.targetId || '', placement && placement.locationCode || '', placement && placement.slotIndex !== undefined ? placement.slotIndex : ''].join('|');
@@ -146,17 +147,34 @@ export default class VehicleForkCamera {
     const profile = {width: fitted(this.element, minimum, maximum), fps: economy ? 8 : high ? 15 : 12, pixelRatio: dpr, gpuBudgetBytes: (xr ? 12 : 32) * 1024 * 1024};
     profile.mirrorWidth = profile.width;
     if (xr) profile.fps = Math.min(10, profile.fps);
-    const bytes = () => profile.width * profile.width / ASPECT * 8 * (samples + 1);
+    const aspect=this.facility?this.facility.projection.plot.width/this.facility.projection.plot.height:ASPECT;
+    if(this.facility)profile.fps=Math.min(profile.fps,xr?4:6);
+    const bytes = () => profile.width * profile.width / aspect * 8 * (samples + 1);
     // Resolved color/depth plus multisample attachments count towards the same
     // budget. Prefer fewer samples/FPS over the previous unreadable 256px feed.
     if (bytes() > profile.gpuBudgetBytes && samples > 2) samples = 2;
     while (bytes() > profile.gpuBudgetBytes && profile.width > 256) {profile.width -= 64; profile.mirrorWidth = profile.width;}
-    profile.height = profile.width / ASPECT; profile.mirrorHeight = profile.mirrorWidth / ASPECT;
+    profile.height = Math.max(16,Math.round(profile.width / aspect)); profile.mirrorHeight = this.facility?profile.height:profile.mirrorWidth / ASPECT;
     profile.samples = samples; profile.antialias = samples ? 'msaa' : 'fxaa'; return profile;
   }
   active() {
     const driving = this.driving, record = driving.record(), document = driving.document, xr = this.renderer && this.renderer.xr, session = xr && xr.getSession && xr.getSession();
-    return !!(this.mounted && this.enabled && this.available && !this.lost && !this.failed && this.renderer && driving.id && record && shown(record.object) && driving.visualRoot && driving.visualRoot.userData.vehicleRig && driving.visualRoot.userData.vehicleRig.forks && !this.ctx.roomTransition && !(this.ctx.editor && this.ctx.editor.active) && (!document || !document.hidden || this.ctx.vrMode) && (!this.ctx.vrMode || session && (!session.visibilityState || session.visibilityState === 'visible')));
+    return !!(this.mounted && (this.enabled||this.facility) && this.available && !this.lost && !this.failed && this.renderer && driving.id && record && shown(record.object) && driving.visualRoot && driving.visualRoot.userData.vehicleRig && driving.visualRoot.userData.vehicleRig.forks && !this.ctx.roomTransition && !(this.ctx.editor && this.ctx.editor.active) && (!document || !document.hidden || this.ctx.vrMode) && (!this.ctx.vrMode || session && (!session.visibilityState || session.visibilityState === 'visible')));
+  }
+  setFacility(model,projection,element) {
+    const next=model&&projection?{model,projection}:null;
+    if(next&&!this.facility&&this.plane)this.facilityPlaneRest={position:this.plane.position.clone(),quaternion:this.plane.quaternion.clone(),scale:this.plane.scale.clone()};
+    if(!next&&this.facility&&this.facilityPlaneRest&&this.plane){this.plane.position.copy(this.facilityPlaneRest.position);this.plane.quaternion.copy(this.facilityPlaneRest.quaternion);this.plane.scale.copy(this.facilityPlaneRest.scale);this.facilityPlaneRest=null;}
+    if(!!this.facility!==!!next)this.release('view-change');
+    this.facility=next;this.element=next?element:this.mountOptions&&this.mountOptions.element;
+    if(next)this.selectedFeed='front';
+  }
+  frameFacility(){
+    const {model,projection}=this.facility,b=model.bounds,cx=(b.minX+b.maxX)/2,cz=(b.minZ+b.maxZ)/2;
+    const camera=this.camera=this.isometricCamera,halfW=projection.plot.width/projection.scale/2,halfH=projection.plot.height/projection.scale/2;
+    camera.left=-halfW;camera.right=halfW;camera.top=halfH;camera.bottom=-halfH;camera.near=.1;camera.far=160;
+    camera.position.set(cx,80,cz);camera.up.set(projection.rotation?1:0,0,projection.rotation?0:-1);camera.lookAt(new THREE.Vector3(cx,0,cz));camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
+    return camera;
   }
   desktopRect(element) {
     if (!element) return null;
@@ -384,10 +402,18 @@ export default class VehicleForkCamera {
     const ray = this.ctx.raycontrol, guide = this.driving.holographicGuide, values = [this.plane, this.mirrorPlane, this.ctx.cameraRig, ray && ray.raycasterContext, this.driving.worldPanel && this.driving.worldPanel.plane, this.driving.docking && this.driving.docking.plane, guide && guide.root, guide && guide.label]; if (this.mountOptions.hiddenObjects) values.push(...this.mountOptions.hiddenObjects());
     // This external inspection view needs the entering blades and real cargo,
     // not an opaque wheel, roof, heel or ghost silhouette in front of them.
-    if(feed==='front'){
+    if(feed==='front'&&!this.facility){
       const record=this.driving.record(),entry=record&&record.components.vehicle.entry,cargo=entry&&entry.product.object,root=this.driving.visualRoot;
       const insideCargo=node=>{for(let p=node;p;p=p.parent)if(p===cargo)return true;return false;};
       if(root&&root.traverse)root.traverse(node=>{if((node.isMesh||node.isLineSegments)&&!node.userData.vehicleForkBlade&&!insideCargo(node))values.push(node);});
+    }
+    if(this.facility){
+      const records=this.driving.simulation.records;
+      this.ctx.scene.traverse(node=>{
+        if(!node.userData.editorId||!/(?:cubierta|techo|ceiling|roof|luminaria)/i.test(node.name))return;
+        for(let p=node;p;p=p.parent){const record=records&&records.get(p.userData.editorId);if(record&&['vehicle','robot','conveyor','processor','palletQueue','source'].some(key=>record.components[key]))return;}
+        values.push(node);
+      });
     }
     const seen = new Set(); this.hidden = []; for (const node of values) if (node && !seen.has(node)) { seen.add(node); this.hidden.push([node, node.visible]); node.visible = false; }
   }
@@ -406,14 +432,14 @@ export default class VehicleForkCamera {
     const frameKey = this.frameKey(); if (frameKey !== this.lastFrameKey) this.elapsed = Infinity; if (this.rendered.size && this.elapsed < 1 / profile.fps) return false;
     const renderer = this.renderer, gl = renderer.getContext && renderer.getContext(); if (gl && gl.isContextLost && gl.isContextLost()) { this.release('context-lost'); return false; }
     const name = visible[0];
-    const saved = this.saveState(), started = typeof performance === 'undefined' ? Date.now() : performance.now();
+    const saved = this.saveState(), savedFog=scene.fog, started = typeof performance === 'undefined' ? Date.now() : performance.now();
     try {
-      this.resources(profile, name); const camera = name === 'front' ? (this.frame(this.driving.docking && this.driving.docking.snapshot), this.camera) : (this.frameMirror(), this.mirrorCamera);
-      this.hideHelpers(name); if (name === 'front') this.prepareDropOverlay(scene); if (renderer.xr) renderer.xr.enabled = false; renderer.autoClear = true; if (renderer.shadowMap) { renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; } if (renderer.info) renderer.info.autoReset = false;
+      this.resources(profile, name); const camera = this.facility?this.frameFacility():name === 'front' ? (this.frame(this.driving.docking && this.driving.docking.snapshot), this.camera) : (this.frameMirror(), this.mirrorCamera);
+      this.hideHelpers(name); if(this.facility)scene.fog=null; if (name === 'front'&&!this.facility) this.prepareDropOverlay(scene); if (renderer.xr) renderer.xr.enabled = false; renderer.autoClear = true; if (renderer.shadowMap) { renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; } if (renderer.info) renderer.info.autoReset = false;
       renderer.setRenderTarget(name === 'front' ? this.target : this.mirrorTarget); renderer.setScissorTest(false); renderer.render(scene, camera); this.elapsed = 0; this.lastFrameKey = frameKey; this.rendered.add(name); this.stats.frames++; this.stats[name === 'front' ? 'frontFrames' : 'mirrorFrames']++; this.stats.lastFeed = name; this.stats.status = 'active'; return true;
     } catch (_) { this.stats.failures++; this.failed = true; this.release('unavailable'); this.elapsed = 0; return false; }
     finally {
-      if (this.dropVisual) this.dropVisual.root.visible = false; if (this.hidden) { this.hidden.forEach(([node, visible]) => { node.visible = visible; }); this.hidden = null; } this.restoreState(saved);
+      scene.fog=savedFog;if (this.dropVisual) this.dropVisual.root.visible = false; if (this.hidden) { this.hidden.forEach(([node, visible]) => { node.visible = visible; }); this.hidden = null; } this.restoreState(saved);
       this.syncScreenVisibility();
       this.stats.lastRenderMs = (typeof performance === 'undefined' ? Date.now() : performance.now()) - started;
     }
@@ -436,6 +462,7 @@ export default class VehicleForkCamera {
     this.rendered.clear(); this.elapsed = Infinity; this.stats.width = this.stats.height = this.stats.mirrorWidth = this.stats.mirrorHeight = this.stats.estimatedGpuBytes = 0; this.stats.status = status;
   }
   unmount() {
+    this.facility=null;
     this.release('inactive'); this.mounted = false; this.available = false; this.lastSnapshot = this.lastProduct = this.framing = this.mirrorFraming = null;
     for (const key of ['plane', 'mirrorPlane']) if (this[key]) { if (this[key].parent) this[key].parent.remove(this[key]); this[key].geometry.dispose(); this[key].material.dispose(); this[key] = null; }
     this.state = this.stateName = null; this.element = this.mirrorElement = this.mountOptions = null;

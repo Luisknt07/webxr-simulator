@@ -243,12 +243,13 @@ export default class VehicleFacilityLayout {
     this.model = Object.freeze({roomId, bounds: Object.freeze(bounds), floors: Object.freeze(this.floors.slice()), actors: Object.freeze(actors), products: Object.freeze(products), vehicle, mission, stats: Object.freeze(Object.assign({}, this.stats))});
     return this.model;
   }
-  paint(ctx, width, height, model = this.model) {
+  paint(ctx, width, height, model = this.model, {live=false,full=live}={}) {
     if (!ctx || !model || width < 100 || height < 100 || typeof ctx.save !== 'function' || typeof ctx.beginPath !== 'function') return false;
-    ctx.save(); ctx.clearRect(0, 0, width, height); ctx.fillStyle = C.background; ctx.fillRect(0, 0, width, height);
+    ctx.save(); ctx.clearRect(0, 0, width, height); if(!live){ctx.fillStyle = C.background; ctx.fillRect(0, 0, width, height);}
     const font = Math.max(12, Math.min(16, width / 52)), header = font * 1.9, footer = font * 3.8;
+    if(live){ctx.fillStyle='#12313bdd';ctx.fillRect(6,4,Math.min(width-12,370),header);}
     ctx.fillStyle = C.text; ctx.font = 'bold ' + font + 'px sans-serif'; ctx.fillText('PLANO DE LA INSTALACIÓN · EN VIVO', 10, font * 1.3);
-    const {bounds, mission, vehicle} = model, box = {x: 8, y: header, width: width - 16, height: Math.max(60, height - header - footer)};
+    const {bounds, mission, vehicle} = model, box = full?{x:0,y:0,width,height}:{x:8,y:header,width:width-16,height:Math.max(60,height-header-footer)};
     const rangeX = Math.max(1, bounds.maxX - bounds.minX), rangeZ = Math.max(1, bounds.maxZ - bounds.minZ), centerX=(bounds.minX+bounds.maxX)/2,centerZ=(bounds.minZ+bounds.maxZ)/2;
     const direct=Math.min(box.width/rangeX,box.height/rangeZ),turned=Math.min(box.width/rangeZ,box.height/rangeX),rotate=turned>direct*1.08;
     const scale=rotate?turned:direct,local=point=>rotate?[point[1]-centerZ,centerX-point[0]]:[point[0]-centerX,point[1]-centerZ];
@@ -268,20 +269,20 @@ export default class VehicleFacilityLayout {
     // the 2D projection may quarter-turn to use a wide slot; the north marker
     // and vehicle heading rotate with it, never with a second world camera.
     ctx.save();if(ctx.rect&&ctx.clip){ctx.beginPath();ctx.rect(box.x,box.y,box.width,box.height);ctx.clip();}
-    model.floors.forEach(floor => polygon(floor.points, C.floor, C.wall));
+    if(!live){model.floors.forEach(floor => polygon(floor.points, C.floor, C.wall));
     ctx.strokeStyle = C.grid; ctx.lineWidth = .6; ctx.beginPath();
     const grid = rangeX > 80 || rangeZ > 80 ? 10 : 2;
     for (let x = Math.ceil(bounds.minX / grid) * grid, i = 0; x < bounds.maxX && i++ < 80; x += grid) { const a = xy([x, bounds.minZ]), b = xy([x, bounds.maxZ]); ctx.moveTo(...a); ctx.lineTo(...b); }
-    for (let z = Math.ceil(bounds.minZ / grid) * grid, i = 0; z < bounds.maxZ && i++ < 80; z += grid) { const a = xy([bounds.minX, z]), b = xy([bounds.maxX, z]); ctx.moveTo(...a); ctx.lineTo(...b); } ctx.stroke();
+    for (let z = Math.ceil(bounds.minZ / grid) * grid, i = 0; z < bounds.maxZ && i++ < 80; z += grid) { const a = xy([bounds.minX, z]), b = xy([bounds.maxX, z]); ctx.moveTo(...a); ctx.lineTo(...b); } ctx.stroke();}
     const paintActor = actor => {
       polygon(actor.points, C[actor.type] || C.wall, actor.state === 'blocked' ? C.blocked : actor.type === 'wall' ? '#78929a' : actor.type === 'bay' ? '#c7ad55' : actor.type === 'walkway' ? '#5a9b87' : '#a5c9d0', actor.state === 'blocked' ? 2 : actor.type === 'wall' ? 1 : .9);
       if(actor.type==='conveyor'&&actor.points.length===4){const points=actor.points;for(let i=1;i<6;i++){const a=[points[0][0]+(points[1][0]-points[0][0])*i/6,points[0][1]+(points[1][1]-points[0][1])*i/6],b=[points[3][0]+(points[2][0]-points[3][0])*i/6,points[3][1]+(points[2][1]-points[3][1])*i/6];line([a,b],'#a6d0da',.6);}}
       if(actor.rack){for(const column of actor.rack.columns){const active=!!(mission&&mission.locationCode&&column.cells.some(cell=>cell.code===mission.locationCode));polygon(column.points,active?'#317c83':column.occupied?'#8f8258':column.reserved?'#326478':'#294857',active?C.pickup:'#b5c8cd',active?2:1);for(const corner of column.points){const p=xy(corner);ctx.fillStyle='#d7e4e5';ctx.fillRect(p[0]-1.4,p[1]-1.4,2.8,2.8);}const bb=polygonBounds(column.points);if(Math.min(bb.maxX-bb.minX,bb.maxZ-bb.minZ)*scale>23)label((column.bay+1)+'.'+(column.column+1)+' · '+column.occupied+'/'+column.cells.length,centroid(column.points),{size:Math.max(9,font*.65),color:active?C.pickup:C.text});}}
       if (actor.state && actor.points.length) { const p = xy(centroid(actor.points)); ctx.beginPath(); ctx.arc(p[0], p[1], 2.5, 0, Math.PI * 2); ctx.fillStyle = actor.state === 'active' ? C.ready : actor.state === 'blocked' ? C.blocked : C.muted; ctx.fill(); }
     };
-    model.actors.filter(actor => ['walkway', 'bay'].includes(actor.type)).forEach(paintActor);
+    if(!live){model.actors.filter(actor => ['walkway', 'bay'].includes(actor.type)).forEach(paintActor);
     model.actors.filter(actor => !['walkway', 'bay'].includes(actor.type)).forEach(paintActor);
-    model.products.forEach(product => polygon(product.points, product.carried ? C.drop : C.product, '#fff2cf', 1.1));
+    model.products.forEach(product => polygon(product.points, product.carried ? C.drop : C.product, '#fff2cf', 1.1));}
     if (mission) {
       const color = mission.phase === 'pickup' ? C.pickup : C.drop;
       if (!mission.verified || mission.blocked) line(mission.plannedRoute, '#81949b', 2, true);
@@ -302,15 +303,16 @@ export default class VehicleFacilityLayout {
       const caption=actor.rack?[actor.rack.aisle,actor.rack.row].filter(Boolean).join(' / '):TYPE_LABELS[actor.type]||actor.name;
       label(caption,centroid(actor.points),{above:true,color:actor.rack?'#d7e2ff':C.text});labelCount++;
     }
-    polygon(vehicle.points, vehicle.color, C.outline, 2);
+    if(!live)polygon(vehicle.points, vehicle.color, C.outline, 2);
     const at = xy(vehicle.position), yaw = vehicle.heading, facing=xy([vehicle.position[0]+Math.sin(yaw),vehicle.position[1]+Math.cos(yaw)]),forward=[(facing[0]-at[0])/scale,(facing[1]-at[1])/scale],lateral=[forward[1],-forward[0]];
     ctx.beginPath(); ctx.moveTo(at[0] + forward[0] * 12, at[1] + forward[1] * 12); ctx.lineTo(at[0] - forward[0] * 7 + lateral[0] * 7, at[1] - forward[1] * 7 + lateral[1] * 7); ctx.lineTo(at[0] - forward[0] * 7 - lateral[0] * 7, at[1] - forward[1] * 7 - lateral[1] * 7); ctx.closePath(); ctx.fillStyle = '#fff6cd'; ctx.fill(); ctx.strokeStyle = C.outline; ctx.lineWidth = 2; ctx.stroke();
     ctx.restore();
     const north=rotate?[-1,0]:[0,-1],northX=width-26,northY=header+24;
     ctx.fillStyle='#10232ee8';ctx.fillRect(northX-20,northY-23,40,43);ctx.strokeStyle=C.muted;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(northX-north[0]*10,northY-north[1]*10);ctx.lineTo(northX+north[0]*9,northY+north[1]*9);ctx.stroke();ctx.font='bold 10px sans-serif';ctx.fillStyle=C.text;ctx.fillText('N',northX+north[0]*13-3,northY+north[1]*13+3);
-    const metres = [.5, 1, 2, 5, 10, 20, 50].filter(value => value * scale <= box.width * .18).pop() || .5, ruler = metres * scale, rulerY = box.y + box.height - 7;
+    const metres = [.5, 1, 2, 5, 10, 20, 50].filter(value => value * scale <= box.width * .18).pop() || .5, ruler = metres * scale, rulerY = (live?height-footer:box.y+box.height) - 7;
     ctx.fillStyle = '#10232eee'; ctx.fillRect(box.x, rulerY - 23, ruler + 14, 29); ctx.strokeStyle = C.text; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(box.x + 7, rulerY - 4); ctx.lineTo(box.x + 7, rulerY); ctx.lineTo(box.x + 7 + ruler, rulerY); ctx.lineTo(box.x + 7 + ruler, rulerY - 4); ctx.stroke(); ctx.font = Math.max(10, font * .65) + 'px sans-serif'; ctx.fillStyle = C.text; ctx.fillText(metres + ' m', box.x + 7, rulerY - 8);
     const y = height - footer + font;
+    if(live){ctx.fillStyle='#12313be8';ctx.fillRect(0,height-footer,width,footer);}
     ctx.font = 'bold ' + font * .78 + 'px sans-serif'; ctx.fillStyle = C.pickup; ctx.fillText('R · Recogida', 14, y); ctx.fillStyle = C.drop; ctx.fillText('E · Entrega', width * .29, y); ctx.fillStyle = '#fff6cd'; ctx.fillText('▲ Tu montacargas', width * .57, y);
     ctx.font = font * .78 + 'px sans-serif'; ctx.fillStyle = mission && mission.blocked ? C.blocked : C.text;
     const status = !mission ? 'Explora la instalación y selecciona una carga.' : mission.phase === 'complete' ? 'Práctica completada · todas las entregas verificadas.' : mission.dockingLimit ? 'Final del tramo libre · ajusta las horquillas con la cámara antes de continuar.' : mission.blocked ? 'Ruta bloqueada · detente. Gris: referencia sin validar.' : mission.unavailable ? 'Objetivo no disponible · revisa la guía.' : mission.verified ? 'Sigue la ruta marcada hasta el objetivo activo.' : mission.manual ? 'Objetivo local · comprueba el acceso antes de acercarte.' : 'Ruta prevista sin validar · comprueba el pasillo.';

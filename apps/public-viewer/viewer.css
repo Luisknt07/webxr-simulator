@@ -707,3 +707,36 @@ body.welcome-open #welcome .welcome-access-hint{font-size:11px;margin:12px 0 22p
  body.welcome-open #welcome .welcome-access-hint{margin:13px 0 24px;font-size:11px;}
 }
 @media(prefers-reduced-motion:reduce){body.welcome-open #welcome .welcome-entry{transition:none;}body.welcome-open #welcome .welcome-entry:hover{transform:none;}}
+
+/* Live installation image and a full-height insertion instrument. */
+body:has(.vehicle-navigation-display[data-expanded="true"]:not([hidden])) .public-scene-tools{visibility:hidden}
+@media(max-width:1000px){body:has(.vehicle-navigation-display[data-expanded="true"]:not([hidden])) #vehicle-operation-panels .vehicle-operator-column{visibility:hidden}}
+#vehicle-operation-panels .vehicle-navigation-display[data-display]:not([hidden]){background:transparent!important}
+#vehicle-operation-panels .vehicle-navigation-display[data-display="layout"] .vehicle-docking-body .vehicle-docking-plan[data-render-mode="live"]{background:transparent!important}
+#vehicle-operation-panels .vehicle-navigation-display[data-display="layout"] .vehicle-docking-plan canvas{max-height:min(60dvh,calc(100dvh - var(--vehicle-hud-top) - 132px))!important;object-fit:fill}
+#vehicle-operation-panels .vehicle-navigation-display[data-display="layout"][data-expanded="true"]{width:min(1100px,calc(100vw - 28px),calc(min(68dvh,760px)*var(--vehicle-layout-aspect,1.2) + 18px))!important}
+#vehicle-operation-panels .vehicle-navigation-display[data-display="layout"][data-expanded="true"] .vehicle-docking-plan canvas{height:auto!important;max-height:min(68dvh,calc(100dvh - var(--vehicle-hud-top) - 132px))!important}
+#vehicle-operation-panels .vehicle-navigation-display[data-display="inspection"][data-operation]:not([hidden]) .vehicle-docking-body{grid-template-columns:minmax(0,38%) minmax(0,1fr)!important;align-items:stretch!important;gap:10px!important}
+#vehicle-operation-panels .vehicle-navigation-display[data-display="inspection"][data-operation]:not([hidden]) .vehicle-docking-body .vehicle-docking-plan{grid-row:1!important;grid-column:1!important;width:100%!important;min-height:210px;align-self:stretch;justify-self:stretch;display:flex!important}
+#vehicle-operation-panels .vehicle-navigation-display[data-display="inspection"][data-operation]:not([hidden]) .vehicle-docking-plan canvas{width:100%!important;height:100%!important;aspect-ratio:auto!important;max-height:none!important;object-fit:fill}
+#vehicle-operation-panels .vehicle-navigation-display[data-display="inspection"][data-operation]:not([hidden]) .vehicle-fork-camera{grid-row:1!important;grid-column:2!important;align-self:start}
+#vehicle-operation-panels .vehicle-navigation-display[data-display="inspection"][data-operation]:not([hidden]) .vehicle-fork-camera-header{display:flex!important;min-height:38px}
+#vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"][data-display] .vehicle-docking-summary,#vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"][data-display] .vehicle-docking-metrics:not([hidden]){font-size:13px!important;line-height:1.45!important;padding:7px 9px!important}
+@media(min-width:1440px) and (min-height:800px){
+ #vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"][data-display="inspection"]{left:auto!important;right:8px!important;transform:none!important;width:min(1280px,calc(100vw - clamp(340px,18vw,380px) - 40px))!important}
+}
+@media(max-width:560px) and (orientation:portrait){
+ #vehicle-operation-panels .vehicle-navigation-display[data-display="inspection"][data-operation]:not([hidden]) .vehicle-docking-body{grid-template-columns:minmax(0,1fr)!important;max-height:calc(100dvh - 240px);overflow:auto!important;align-content:start}
+ #vehicle-operation-panels .vehicle-navigation-display[data-display="inspection"][data-operation]:not([hidden]) .vehicle-docking-body .vehicle-docking-plan{grid-row:2!important;grid-column:1!important;min-height:210px;height:240px!important}
+ #vehicle-operation-panels .vehicle-navigation-display[data-display="inspection"][data-operation]:not([hidden]) .vehicle-fork-camera{grid-row:1!important;grid-column:1!important}
+}
+@media(max-height:520px) and (min-width:561px){
+ #vehicle-operation-panels .vehicle-navigation-display[data-display="inspection"][data-operation]:not([hidden]) .vehicle-docking-body{max-height:calc(100dvh - 250px)!important;overflow:auto!important;align-content:start}
+ #vehicle-operation-panels .vehicle-navigation-display[data-display="inspection"][data-operation]:not([hidden]) .vehicle-docking-body .vehicle-docking-plan{height:max(100px,calc(100dvh - 250px))!important;min-height:100px;max-height:max(100px,calc(100dvh - 250px))!important}
+ #vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"][data-display="inspection"]{position:fixed!important;top:8px!important;left:8px!important;right:auto!important;transform:none!important;width:calc(100vw - 16px)!important;max-height:calc(100dvh - 16px)!important;overflow:auto!important}
+ #vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"][data-display="inspection"][data-operation]:not([hidden]) .vehicle-docking-body{max-height:calc(100dvh - 166px)!important}
+ #vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"][data-display="inspection"][data-operation]:not([hidden]) .vehicle-docking-body .vehicle-docking-plan{height:calc(100dvh - 166px)!important;max-height:calc(100dvh - 166px)!important}
+ #vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"][data-display="inspection"][data-operation]:not([hidden]) .vehicle-fork-camera-viewport{width:min(100%,calc((100dvh - 210px)*16/9))!important;aspect-ratio:16/9!important;height:auto!important;margin:auto!important}
+ body:has(.vehicle-navigation-display[data-expanded="true"][data-display="inspection"]:not([hidden])) .viewer-header{visibility:hidden}
+ #vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"][data-display] .vehicle-docking-summary,#vehicle-operation-panels .vehicle-navigation-display[data-expanded="true"][data-display] .vehicle-docking-metrics:not([hidden]){font-size:10px!important;line-height:1.25!important;padding:4px 6px!important;max-height:32px!important}
+}
