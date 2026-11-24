@@ -1,4 +1,4 @@
-/* One header for the public demonstration and authenticated experiences. */
+/* Shared controls; tour toolbar and floating game HUD are intentional modes. */
 :root{--st-header-height:72px}
 .st-app-header{position:fixed;inset:0 0 auto;z-index:1600;display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:72px;height:72px;padding:12px 24px;box-sizing:border-box;background:#fff;color:#16263e;border-bottom:1px solid #dce5ec;box-shadow:0 2px 10px #102d3a0a;font-family:'Segoe UI',Arial,sans-serif;pointer-events:auto;color-scheme:light}
 .st-app-brand{display:flex;align-items:center;gap:11px;min-width:0;flex:0 1 auto;color:#16263e;text-decoration:none;letter-spacing:0;white-space:nowrap;pointer-events:auto}
@@ -46,3 +46,43 @@ body.editor-active .st-app-header,body.vr-mode .st-app-header,body.immersive .st
 @media(max-width:480px){.welcome-open .st-app-brand-copy strong{white-space:normal;overflow:visible;text-overflow:clip;max-width:100%;font-size:12px;line-height:1.2}.welcome-open .st-app-brand-copy small{white-space:normal;font-size:9px;line-height:1.25;max-width:120px}}
 
 body .studio-drawer.st-app-menu :is(p,strong,h1,h2,h3){color:#20364e}body .studio-drawer.st-app-menu button:not(.studio-primary){background:#fff;color:#20364e;border-color:#d4e0e9;white-space:normal;overflow-wrap:anywhere;line-height:1.4}body .studio-drawer.st-app-menu .studio-person{gap:12px;font-size:18px;min-width:0}body .studio-drawer.st-app-menu .studio-person svg{width:48px;height:48px;flex:none}body .studio-drawer.st-app-menu .studio-person strong{overflow-wrap:anywhere;min-width:0}
+
+/* Normal tours retain the full light toolbar from the original workspace. */
+.studio-header[data-st-experience=tour] [data-st-action=scenes]{background:#008577!important;border-color:#008577!important;color:#fff!important}
+
+/* Game experiences keep the scene visible behind the native progress/score/
+   timer HUD. These are the same live buttons, never a second overlay menu. */
+.st-app-header[data-st-experience=game]{inset:12px 16px auto;min-height:48px;height:48px;padding:0;gap:12px;background:transparent;border:0;box-shadow:none;pointer-events:none}
+.st-app-header[data-st-experience=game] .st-app-brand{box-sizing:border-box;flex:none;padding:9px 13px;border:1px solid #48c8b65c;border-radius:14px;background:#092831e8;color:#e7fffa;pointer-events:auto;box-shadow:0 4px 20px #08242e33;gap:9px}
+.st-app-header[data-st-experience=game] .st-app-brand-copy strong{font-size:13px;color:#e7fffa;letter-spacing:.1px;max-width:none}
+.st-app-header[data-st-experience=game] .st-app-brand-copy small{font-size:8px;color:#8bc8c3;display:block;letter-spacing:.5px}
+.st-app-header[data-st-experience=game] .st-app-cube{width:24px;height:26px}
+.st-app-header[data-st-experience=game] .st-app-actions{flex:none;width:auto;gap:8px;pointer-events:none}
+.st-app-header[data-st-experience=game] .st-header-action:not([data-st-action=menu]):not([data-st-action=xr]){display:none!important}
+.st-app-header[data-st-experience=game] :is([data-st-action=menu],[data-st-action=xr]){display:inline-flex!important;position:relative!important;flex:0 0 48px;width:48px!important;height:48px;min-width:48px!important;max-width:48px;min-height:48px;padding:0!important;border-radius:50%!important;border:1px solid #58d9cd!important;background:#0a303deb!important;color:#89fff0!important;font-size:0!important;gap:0;pointer-events:auto;box-shadow:0 0 0 3px #082d3b99,0 4px 18px #08293433}
+.st-app-header[data-st-experience=game] .st-header-action .st-header-icon{width:23px;height:23px;flex:0 0 23px;margin:0}
+.st-app-header[data-st-experience=game] .st-header-action:hover{background:#115163!important;border-color:#a2fff2!important}
+.st-app-header[data-st-experience=game] .st-header-action[aria-expanded=true]{background:#176859!important;color:#c5fff1!important}
+.st-app-header[data-st-experience=game] .st-header-action:disabled,.st-app-header[data-st-experience=game] .st-header-action[aria-disabled=true]{opacity:.65!important;background:#15343c!important;color:#9db8b8!important;border-color:#79b9b4!important}
+.st-app-header[data-st-experience=game] .st-header-action:focus-visible{outline-color:#8ff8df}
+
+/* The in-game account menu follows the existing dark learner palette. */
+body[data-practice-game=true] .studio-drawer.st-app-menu{inset:calc(var(--st-header-height) + 12px) 16px 16px auto;max-height:calc(100dvh - var(--st-header-height) - 28px);background:#0b2b37f7;color:#e5fcfa;border-color:#408b8e;--st-ink:#e5fcfa;--st-muted:#b9d8da;--st-border:#3d737c;--st-teal:#75e6ce;color-scheme:dark}
+body[data-practice-game=true] .studio-drawer.st-app-menu .studio-drawer-head{background:#0a303c;border-bottom-color:#3d737c}
+body[data-practice-game=true] .studio-drawer.st-app-menu :is(h1,h2,h3,strong){color:#eafffa}
+body[data-practice-game=true] .studio-drawer.st-app-menu :is(p,.studio-muted){color:#b9d8da}
+body[data-practice-game=true] .studio-drawer.st-app-menu button:not(.studio-primary){background:#123d4a;color:#e5fcfa;border-color:#48828a}
+body[data-practice-game=true] .studio-drawer.st-app-menu button:hover{background:#20565e}
+body[data-practice-game=true] .studio-drawer.st-app-menu hr{border-color:#3d737c}
+
+@media(min-width:701px) and (max-width:1150px){
+ .st-app-header[data-st-experience=game]{inset:12px 10px auto}
+ .st-app-header[data-st-experience=game] .st-app-brand{padding-inline:10px}
+}
+@media(max-width:700px){
+ .st-app-header[data-st-experience=game]{inset:10px 10px auto;min-height:44px;height:44px}
+ .st-app-header[data-st-experience=game] .st-app-brand{padding:9px;gap:0;border-radius:50%;width:46px;height:46px;justify-content:center}
+ .st-app-header[data-st-experience=game] .st-app-brand-copy{display:none}
+ .st-app-header[data-st-experience=game] :is([data-st-action=menu],[data-st-action=xr]){width:44px!important;min-width:44px!important;max-width:44px;height:44px;min-height:44px;flex-basis:44px}
+ body[data-practice-game=true] .studio-drawer.st-app-menu{inset:calc(var(--st-header-height) + 12px) 8px 8px;width:calc(100vw - 16px);max-height:calc(100dvh - var(--st-header-height) - 20px)}
+}

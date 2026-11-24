@@ -187,8 +187,7 @@ export default class StudioExperience {
     this.header = el('nav', undefined, document.body, 'studio-header'); this.header.setAttribute('aria-label', 'SMART-TWIN Simulator');
     const brand = el('a', undefined, this.header, 'studio-brand'); brand.href = '/'; brand.title = 'Volver al inicio de SmartTwin'; brand.setAttribute('aria-label', 'SmartTwin · Volver al inicio'); el('i',undefined,brand,'studio-cube'); const brandText=el('span',undefined,brand,'studio-brand-copy');el('strong', 'SMART-TWIN Simulator', brandText);el('small','Simulación industrial y logística',brandText);
     const actions = el('div', undefined, this.header, 'studio-header-actions');
-    this.homeButton=button(actions,'Inicio',()=>this.goHome(),'studio-home');
-    this.practicesButton=button(actions,'Escenarios',()=>this.editor.editorEnabled&&this.practiceCampaign.openCatalogue?this.practiceCampaign.openCatalogue():this.open('scenes'),'studio-practices');
+    this.practicesButton=button(actions,'Prácticas',()=>this.editor.editorEnabled&&this.practiceCampaign.openCatalogue?this.practiceCampaign.openCatalogue():this.open('scenes'),'studio-practices');
     studioIcon(this.practicesButton,'practice');
     this.guideButton=button(actions,'Guía',()=>this.editor.practiceController?this.practiceCampaign.openGuide('guide'):this.editor.shell.openDocumentation(),'studio-guide');
     studioIcon(this.guideButton,'guide');
@@ -204,7 +203,7 @@ export default class StudioExperience {
     this.shade = el('div', undefined, document.body, 'studio-shade'); this.shade.hidden = true; this.shade.addEventListener('click', () => this.close());
     this.drawer = el('aside', undefined, document.body, 'studio-drawer'); this.drawer.hidden = true; this.drawer.setAttribute('role', 'dialog'); this.drawer.setAttribute('aria-label', 'Mi espacio'); this.drawer.setAttribute('aria-modal', 'true');
     this.drawer.id='studio-experience-menu';this.menuButton.setAttribute('aria-controls',this.drawer.id);
-    if(typeof connectExperienceHeader==='function')this.experienceHeader=connectExperienceHeader(this.header,{brand,actions,controls:{home:this.homeButton,scenes:this.practicesButton,guide:this.guideButton,results:this.resultsButton,account:this.accountButton,xr:vrButton,menu:this.menuButton},onInteract:()=>{this.editor.hooks.unlock();this.editor.hooks.clearKeyboard();}});
+    if(typeof connectExperienceHeader==='function')this.experienceHeader=connectExperienceHeader(this.header,{brand,actions,controls:{scenes:this.practicesButton,guide:this.guideButton,results:this.resultsButton,account:this.accountButton,xr:vrButton,menu:this.menuButton},onInteract:()=>{this.editor.hooks.unlock();this.editor.hooks.clearKeyboard();}});
     this.drawer.addEventListener('keydown', event => { event.stopPropagation(); if (event.key === 'Escape') this.close(); if (event.key === 'Tab') { const buttons = Array.from(this.drawer.querySelectorAll('button,input,select,a')).filter(node => !node.disabled && !node.hidden && (!node.getClientRects || node.getClientRects().length)); const first = buttons[0], last = buttons[buttons.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } } });
     this.notice = el('output', undefined, document.body, 'studio-notice'); this.notice.hidden = true;
     this.controls = button(document.body, '⌘ Controles', () => this.open('controls'), 'studio-controls');

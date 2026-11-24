@@ -1,5 +1,5 @@
-// Shared desktop/touch chrome. Existing controls retain their handlers and
-// permissions; XR, voice and account modules continue owning their state.
+// Shared controls with two presentations: floating game HUD and tour toolbar.
+// Native practice state selects the presentation; handlers/permissions stay put.
 const ICONS = {
   home:'M3 11 12 3l9 8M5 10v10h5v-6h4v6h5V10',
   scenes:'M3 4h7v7H3zM14 4h7v7h-7zM3 15h7v6H3zM14 15h7v6h-7z',
@@ -34,14 +34,17 @@ export function connectExperienceHeader(header, {brand, actions, controls={}, on
     for(const [action,value]of Object.entries(controls)){const control=typeof value==='string'?actions.querySelector(value):value;decorate(control,action);}
     for(const [selector,action]of [['[data-voice-assistant-toggle]','voice'],['[data-voice-microphone]','microphone'],['[data-assistant-workspace-toggle]','assistant']])decorate(actions.querySelector(selector),action);
   };
-  const resize=()=>{const height=Math.ceil(header.getBoundingClientRect().height);if(height>0)dom.body.style.setProperty('--st-header-height',height+'px');};
+  const resize=()=>{const rect=header.getBoundingClientRect();if(rect.height>0)dom.body.style.setProperty('--st-header-height',Math.ceil(rect.bottom)+'px');};
+  const syncMode=()=>{if(closed)return;const next=dom.body.getAttribute('data-practice-game')==='true'?'game':'tour';if(header.dataset.stExperience===next)return;header.dataset.stExperience=next;resize();};
   const interact=event=>{event.stopPropagation();if(onInteract&&['pointerdown','keydown'].includes(event.type))onInteract();};
   for(const type of ['pointerdown','click','keydown','keyup'])header.addEventListener(type,interact);
   const observer=typeof view.MutationObserver==='function'?new view.MutationObserver(refresh):null;
   if(observer)observer.observe(actions,{childList:true,subtree:true});
   const sizes=typeof view.ResizeObserver==='function'?new view.ResizeObserver(resize):null;if(sizes)sizes.observe(header);
+  const modeObserver=typeof view.MutationObserver==='function'?new view.MutationObserver(syncMode):null;
+  if(modeObserver)modeObserver.observe(dom.body,{attributes:true,attributeFilter:['data-practice-game']});
   const onHide=event=>{if(!event.persisted)dispose();};
-  function dispose(){if(closed)return;closed=true;if(observer)observer.disconnect();if(sizes)sizes.disconnect();view.removeEventListener('resize',resize);view.removeEventListener('pagehide',onHide);for(const type of ['pointerdown','click','keydown','keyup'])header.removeEventListener(type,interact);}
-  view.addEventListener('resize',resize);view.addEventListener('pagehide',onHide);refresh();resize();
+  function dispose(){if(closed)return;closed=true;if(observer)observer.disconnect();if(modeObserver)modeObserver.disconnect();if(sizes)sizes.disconnect();view.removeEventListener('resize',resize);view.removeEventListener('pagehide',onHide);for(const type of ['pointerdown','click','keydown','keyup'])header.removeEventListener(type,interact);}
+  view.addEventListener('resize',resize);view.addEventListener('pagehide',onHide);refresh();syncMode();
   return {refresh,dispose};
 }

@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "b5f52f10452f25639ee19a380f8ca759447044ac",
-  "bundleSha256": "30dae2bcd4f2bcc73a283f24ffede0d3c06532c12208e98d8b381f586b5ca0d3",
+  "revision": "49826dc73cb15e29a00cbf15e42467860c76d84b",
+  "bundleSha256": "e24434e929b9965f34634f866bab5b3984e721d5125e9e88b2251a253562d456",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "30dae2bcd4f2bcc73a283f24ffede0d3c06532c12208e98d8b381f586b5ca0d3"
+      "sha256": "e24434e929b9965f34634f866bab5b3984e721d5125e9e88b2251a253562d456"
     },
     {
       "path": "cad-worker.js",
@@ -3360,7 +3360,7 @@
     },
     {
       "path": "packages/navigation-ui/experience-header.css",
-      "sha256": "3b2da1d7443ff1f8357dfe5b850771d8ca6313b4d4398804330333803f9db506"
+      "sha256": "e277bfb6b0e104c243b85e1a5fd3a323635fb506e0e095b17a4745358bb7d43d"
     },
     {
       "path": "packages/render-three/src/StartupStatus.js",
@@ -3949,8 +3949,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "2fc51dfae2042ca8c629",
-    "statsSha256": "3d9f11aaee66d1a7240e52abc1568b61f5c76028f2948bc7a5bbe181c28fee40",
+    "hash": "3aa5ade50df9c9c52d5a",
+    "statsSha256": "9dbf71c886015037a252b083317d5270956856bc2d5f7b06f26c9426c9795673",
     "assets": [
       {
         "path": "13.js",
@@ -3982,7 +3982,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7333285
+        "size": 7333531
       },
       {
         "path": "configurable-practice-reference.js",
