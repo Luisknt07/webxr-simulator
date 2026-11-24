@@ -9,8 +9,22 @@ const ICONS = {
   xr:'M3 6h18l1 12h-6l-4-4-4 4H2L3 6ZM6 9v5M4 11.5h4M16 10h.01M19 13h.01',
   menu:'M4 6h16M4 12h16M4 18h16',
   microphone:'M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0V5ZM5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8',
-  assistant:'m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z'
+  assistant:'m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z',
+  camera:'M3 6h5l2-3h4l2 3h5v15H3ZM12 9a4 4 0 1 0 0 8 4 4 0 0 0 0-8',
+  controls:'M4 7h16M4 17h16M8 4v6M16 14v6',
+  move:'M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3',
+  account:'M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM4 21v-3a8 6 0 0 1 16 0v3',
+  pause:'M8 4v16M16 4v16',
+  restart:'M4 4v6h6M4 10a8 8 0 1 1 0 5',
+  drive:'M3 14h11V8H7v6M14 4h4v15h4M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM15 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4',
+  sound:'M3 9h4l5-5v16l-5-5H3ZM16 8a6 6 0 0 1 0 8M19 5a10 10 0 0 1 0 14',
+  back:'m10 5-7 7 7 7M3 12h18',
+  settings:'M4 7h16M4 17h16M8 4v6M16 14v6'
 };
+export function createExperienceIcon(dom, action) {
+  const svg=dom.createElementNS('http://www.w3.org/2000/svg','svg');svg.classList.add('st-header-icon');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');
+  const path=dom.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d',ICONS[action]||ICONS.scenes);svg.appendChild(path);return svg;
+}
 export function connectExperienceHeader(header, {brand, actions, controls={}, onInteract}={}) {
   if(!header||!brand||!actions)return {dispose(){}};
   const dom=header.ownerDocument,view=dom.defaultView||window;
@@ -26,8 +40,7 @@ export function connectExperienceHeader(header, {brand, actions, controls={}, on
     if(!ICONS[action]||control.querySelector('.st-header-icon'))return;
     if(action==='microphone')control.textContent='';
     if(action==='assistant'&&control.textContent.startsWith('✦ '))control.textContent=control.textContent.slice(2);
-    const svg=dom.createElementNS('http://www.w3.org/2000/svg','svg');svg.classList.add('st-header-icon');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');
-    const path=dom.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d',ICONS[action]);svg.appendChild(path);control.insertBefore(svg,control.firstChild);
+    control.insertBefore(createExperienceIcon(dom,action),control.firstChild);
   }
   const refresh=()=>{
     if(closed)return;

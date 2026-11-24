@@ -16,6 +16,7 @@ import SceneCaptureController from '../../../packages/scene-capture/SceneCapture
 import SceneCaptureToolbar from '../../../packages/scene-capture/SceneCaptureToolbar.js';
 import PracticeGuideAvatar from '../../../packages/assistant-ui/PracticeGuideAvatar.js';
 import {connectExperienceHeader} from '../../../packages/navigation-ui/ExperienceHeader.js';
+import {menuAction,menuSection,mountTourShortcuts} from '../../../packages/navigation-ui/ExperienceMenu.js';
 
 const ROOM_IDS = ['hall', 'sound', 'photogrammetry', 'vertigo', 'panoramastereo', 'panorama1', 'panorama2', 'panorama3', 'panorama4', 'panorama5'];
 function el(tag, text, parent, className) { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; if (parent) parent.appendChild(node); return node; }
@@ -53,7 +54,7 @@ export default class StudioExperience {
       const result = await applyProject(project, ...options); this.tools.refreshLabels(); await this.education.restoreProgress(); return result;
     };
     this.ready = this.initialize();
-    window.addEventListener('pagehide', () => { this.sceneCaptureDisposed=true;if(this.sceneToolbars)for(const toolbar of [...this.sceneToolbars])toolbar.dispose();if(this.sceneCapture)this.sceneCapture.dispose();this.practiceGuideAvatar.dispose();this.connection.stop(); this.education.saveProgress(); this.missionOverlay.dispose(); });
+    window.addEventListener('pagehide', () => { this.sceneCaptureDisposed=true;if(this.tourShortcuts)this.tourShortcuts.dispose();if(this.sceneToolbars)for(const toolbar of [...this.sceneToolbars])toolbar.dispose();if(this.sceneCapture)this.sceneCapture.dispose();this.practiceGuideAvatar.dispose();this.connection.stop(); this.education.saveProgress(); this.missionOverlay.dispose(); });
     // A cached execution document has already retired its module resources on
     // pagehide. Reconstruct it once instead of resuming a half-disposed world.
     window.addEventListener('pageshow', event => { if (event.persisted && ['/play','/editor'].includes(new URL(window.location).pathname)) window.location.reload(); });
@@ -204,6 +205,7 @@ export default class StudioExperience {
     this.drawer = el('aside', undefined, document.body, 'studio-drawer'); this.drawer.hidden = true; this.drawer.setAttribute('role', 'dialog'); this.drawer.setAttribute('aria-label', 'Mi espacio'); this.drawer.setAttribute('aria-modal', 'true');
     this.drawer.id='studio-experience-menu';this.menuButton.setAttribute('aria-controls',this.drawer.id);
     if(typeof connectExperienceHeader==='function')this.experienceHeader=connectExperienceHeader(this.header,{brand,actions,controls:{scenes:this.practicesButton,guide:this.guideButton,results:this.resultsButton,account:this.accountButton,xr:vrButton,menu:this.menuButton},onInteract:()=>{this.editor.hooks.unlock();this.editor.hooks.clearKeyboard();}});
+    this.tourShortcuts=mountTourShortcuts({document,actions:[{id:'guide',label:'Guía',icon:'guide',action:()=>this.guideButton.click()},{id:'controls',label:'Controles',icon:'controls',action:()=>this.open('controls')},{id:'camera',label:'Cámara',icon:'camera',action:()=>this.open('camera')}],onInteract:()=>{this.editor.hooks.unlock();this.editor.hooks.clearKeyboard();}});
     this.drawer.addEventListener('keydown', event => { event.stopPropagation(); if (event.key === 'Escape') this.close(); if (event.key === 'Tab') { const buttons = Array.from(this.drawer.querySelectorAll('button,input,select,a')).filter(node => !node.disabled && !node.hidden && (!node.getClientRects || node.getClientRects().length)); const first = buttons[0], last = buttons[buttons.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } } });
     this.notice = el('output', undefined, document.body, 'studio-notice'); this.notice.hidden = true;
     this.controls = button(document.body, '⌘ Controles', () => this.open('controls'), 'studio-controls');
@@ -230,7 +232,7 @@ export default class StudioExperience {
   captureContext(){return{active:!!this.client.user&&!this.editor.active&&!this.editor.loadingProject&&!this.editor.initializing&&!this.ctx.roomTransition&&!this.invalidating&&!this.sceneCaptureDisposed,xr:!!this.ctx.vrMode,identity:[this.client.user&&this.client.user.id,this.editor.currentProject&&this.editor.currentProject.id,this.editor.roomId,this.editor.projectGeneration].join('/')};}
   syncSceneCapture(){if(!this.sceneCapture)return;const context=this.captureContext(),key=JSON.stringify(context);if(key!==this.sceneCaptureContextKey){this.sceneCaptureContextKey=key;this.sceneCapture.setContext(context);}}
   async guard(action) { if (this.busy) return; this.busy = true; try { return await action(); } catch (error) { this.message(error.message); } finally { this.busy = false; } }
-  close() { if(this.campaignBrowser){this.campaignBrowser.dispose();this.campaignBrowser=null;} if (this.graphicsSettings) { this.graphicsSettings.dispose(); this.graphicsSettings = null; } if (this.avatarCleanup) { this.avatarCleanup(); this.avatarCleanup = null; } if (this.editor.accessView && this.editor.accessView.disposeGallery) this.editor.accessView.disposeGallery(); this.drawer.hidden = true; this.drawer.className = 'studio-drawer'; this.shade.hidden = true; this.menuButton.setAttribute('aria-expanded', 'false'); this.menuButton.focus(); }
+  close() { if(this.menuSceneTools){this.menuSceneTools.dispose();this.menuSceneTools=null;}if(this.campaignBrowser){this.campaignBrowser.dispose();this.campaignBrowser=null;} if (this.graphicsSettings) { this.graphicsSettings.dispose(); this.graphicsSettings = null; } if (this.avatarCleanup) { this.avatarCleanup(); this.avatarCleanup = null; } if (this.editor.accessView && this.editor.accessView.disposeGallery) this.editor.accessView.disposeGallery(); this.drawer.hidden = true; this.drawer.className = 'studio-drawer'; this.shade.hidden = true; this.menuButton.setAttribute('aria-expanded', 'false'); this.menuButton.focus(); }
   open(page = 'personal') {
     // A catalogue is its own document: leaving the renderer also releases the
     // active world. Editors retain their draft in this tab; XR keeps its native
@@ -247,10 +249,11 @@ export default class StudioExperience {
     if (this.administration) this.administration.close();
     if (!this.client.user && ['avatar', 'sessions', 'rooms', 'progress', 'users', 'classroom'].includes(page)) page = 'account';
     this.editor.hooks.unlock(); this.editor.hooks.clearKeyboard(); this.close(); this.page = page; this.drawer.textContent = ''; this.drawer.hidden = false; this.shade.hidden = false; this.menuButton.setAttribute('aria-expanded', 'true');
-    this.drawer.className = 'studio-drawer' + (page === 'scenes' ? ' studio-scene-library-modal' : page==='personal'?' st-app-menu':''); this.drawer.setAttribute('aria-label', page === 'scenes' ? 'Biblioteca de escenarios' : 'Mi espacio');
-    const head = el('div', undefined, this.drawer, 'studio-drawer-head'); el('h1', ({account: this.client.user ? 'Mi cuenta' : 'Iniciar sesión', avatar: 'Mi avatar', sessions: 'Sesiones guardadas', rooms: 'Sesiones multiusuario', progress: 'Mi progreso', settings: 'Ajustes', controls: 'Controles', scenes: 'Escenarios', classroom: 'Mis prácticas', users: 'Administración'})[page] || 'Mi espacio', head); const closer = button(head, '×', () => this.close()); closer.setAttribute('aria-label', 'Cerrar panel');
+    this.drawer.className = 'studio-drawer' + (page === 'scenes' ? ' studio-scene-library-modal' : ['personal','camera','controls'].includes(page)?' st-app-menu':''); this.drawer.setAttribute('aria-label', page === 'scenes' ? 'Biblioteca de escenarios' : 'Mi espacio');
+    const head = el('div', undefined, this.drawer, 'studio-drawer-head'); el('h1', ({account: this.client.user ? 'Mi cuenta' : 'Iniciar sesión', avatar: 'Mi avatar', sessions: 'Sesiones guardadas', rooms: 'Sesiones multiusuario', progress: 'Mi progreso', settings: 'Ajustes', controls: 'Controles y ayuda', camera:'Cámara y navegación', scenes: 'Escenarios', classroom: 'Mis prácticas', users: 'Administración'})[page] || 'Mi espacio', head); const closer = button(head, '×', () => this.close()); closer.setAttribute('aria-label', 'Cerrar panel');
     this.content = el('div', undefined, this.drawer, 'studio-drawer-content');
-    if (page === 'account') this.account(); else if (page === 'avatar') this.avatar(); else if (page === 'sessions') this.guard(() => this.sessions()); else if (page === 'rooms') this.rooms(); else if (page === 'progress') this.progress(); else if (page === 'settings') this.settings(); else if (page === 'controls') this.help(); else if (page === 'users') this.guard(() => this.users()); else if (page === 'classroom') this.guard(() => this.classroom()); else if (page === 'scenes') this.guard(() => this.scenes()); else this.personal();
+    if(['camera','controls'].includes(page))button(this.content,'← Volver al menú',()=>this.open('personal'),'st-menu-back');
+    if(page==='camera'){el('p','Elige cómo recorrer la instalación o guarda una foto y un vídeo de la vista 3D.',this.content,'st-menu-description');this.menuSceneTools=this.mountPracticeSceneTools(this.content);}else if (page === 'account') this.account(); else if (page === 'avatar') this.avatar(); else if (page === 'sessions') this.guard(() => this.sessions()); else if (page === 'rooms') this.rooms(); else if (page === 'progress') this.progress(); else if (page === 'settings') this.settings(); else if (page === 'controls') this.help(); else if (page === 'users') this.guard(() => this.users()); else if (page === 'classroom') this.guard(() => this.classroom()); else if (page === 'scenes') this.guard(() => this.scenes()); else this.personal();
     closer.focus();
   }
   needAccount() { if (!this.client.user) { this.open('account'); this.message('Inicia sesión para sincronizar esta información.'); return true; } return false; }
@@ -258,22 +261,28 @@ export default class StudioExperience {
     const content = this.content, user = this.client.user;
     const identity = el('div', undefined, content, 'studio-person'); identity.appendChild(avatarBadge(user ? user.avatar : DEFAULT_AVATAR)); el('strong', user ? user.displayName : 'Invitado', identity);
     el('p', user ? 'Perfil guardado en este servidor de SMART-TWIN Simulator.' : 'Puedes explorar. Inicia sesión para guardar progreso y participar en salas.', content, 'studio-muted');
-    button(content, '⌂   Inicio   ›', () => this.goHome(), 'studio-action');
-    if (user && this.editor.simulationPaused && !this.room) button(content, '▶ Reanudar simulación', () => { this.editor.simulationPaused = false; this.close(); }, 'studio-primary');
-    button(content, '▦   Escenarios   ›', () => this.open('scenes'), 'studio-action');
-    button(content,'Guía del escenario',()=>{this.close();this.guideButton.click();},'studio-action');
-    const flight=button(content,this.ctx.desktopFlight?'Desactivar vuelo dron':'Activar vuelo dron',()=>{this.setDesktopFlight(!this.ctx.desktopFlight);this.open('personal');},'studio-action');studioIcon(flight,'move');
-    if(this.ctx.voicePanel)button(content,'Voz e instrucciones   ›',()=>{this.close();this.ctx.voicePanel.open();},'studio-action');
-    if(this.ctx.assistantWorkspace)button(content,'Asistente   ›',()=>{this.close();this.ctx.assistantWorkspace.open();},'studio-action');
-    if(this.editor.industrialAudio)button(content,this.editor.industrialAudio.muted?'Activar sonido de equipos':'Silenciar sonido de equipos',()=>this.guard(async()=>{if(this.editor.industrialAudio.muted)await this.editor.industrialAudio.activate();else this.editor.industrialAudio.setMuted(true);this.editor.refreshAudioControls();this.open('personal');}),'studio-action');
-    if(this.editor.projectModules)button(content,'◇   Módulos del proyecto   ›',()=>{this.close();this.editor.projectModules.open({viewer:!this.editor.active}).catch(error=>this.message(error.message));},'studio-action');
+    const add=(parent,id,label,icon,action,pressed)=>menuAction(parent,{id,label,icon,action,pressed});
+    const navigation=menuSection(content,'Navegación');
+    add(navigation,'home','Inicio','home',()=>this.goHome());
+    add(navigation,'scenes','Escenarios','scenes',()=>this.open('scenes'));
+    const explore=menuSection(content,'Explorar');
+    add(explore,'guide','Guía del escenario','guide',()=>{this.close();this.guideButton.click();});
+    add(explore,'camera','Cámara y navegación','camera',()=>this.open('camera'));
+    add(explore,'flight',this.ctx.desktopFlight?'Volver a caminar':'Activar vuelo dron','move',()=>{this.setDesktopFlight(!this.ctx.desktopFlight);this.open('personal');},!!this.ctx.desktopFlight);
+    const nativeXR=this.header.querySelector('[data-st-action=xr]'),xr=add(explore,'xr','Realidad virtual','xr',()=>{this.close();nativeXR.click();});xr.disabled=!nativeXR||nativeXR.disabled||nativeXR.getAttribute('aria-disabled')==='true';xr.title=nativeXR&&nativeXR.title||'Realidad virtual no disponible';
+    if(user&&this.editor.simulationPaused&&!this.room)add(explore,'resume','Reanudar simulación','pause',()=>{this.editor.simulationPaused=false;this.close();});
+    const help=menuSection(content,'Ayuda y sonido');
+    add(help,'controls','Controles y ayuda','controls',()=>this.open('controls'));
+    if(this.ctx.voicePanel)add(help,'voice','Voz e instrucciones','sound',()=>{this.close();this.ctx.voicePanel.open();});
+    if(this.ctx.assistantWorkspace)add(help,'assistant','Asistente','assistant',()=>{this.close();this.ctx.assistantWorkspace.open();});
+    if(this.editor.industrialAudio)add(help,'sound',this.editor.industrialAudio.muted?'Activar sonido de equipos':'Silenciar sonido de equipos','sound',()=>this.guard(async()=>{if(this.editor.industrialAudio.muted)await this.editor.industrialAudio.activate();else this.editor.industrialAudio.setMuted(true);this.editor.refreshAudioControls();this.open('personal');}));
+    const account=menuSection(content,'Mi espacio');
     const entries = user ? [['◎', 'Mi avatar', 'avatar'], ['♧', 'Sesiones multiusuario', 'rooms'], ['▣', 'Sesiones guardadas', 'sessions'], ['▥', 'Mi progreso', 'progress'], ['▤', 'Mis prácticas y evaluaciones', 'classroom']] : [];
-    entries.forEach(([icon, label, page]) => button(content, icon + '   ' + label + '   ›', () => this.open(page), 'studio-action'));
-    el('hr', undefined, content);
-    if (user && user.permissions.editor) button(content, '◇   Mis proyectos   ›', () => this.guard(() => this.openProjects()), 'studio-action');
-    button(content, '⚙   Ajustes   ›', () => this.open('settings'), 'studio-action');
-    if (user && user.permissions.manageUsers) button(content, '♙   Administración   ›', () => this.open('users'), 'studio-action');
-    button(content, '?   Controles y ayuda   ›', () => this.open('controls'), 'studio-action');
+    entries.forEach(([,label,page])=>add(account,page,label,page==='avatar'?'account':page==='progress'?'results':'scenes',()=>this.open(page)));
+    if(user&&user.permissions.editor)add(account,'projects','Mis proyectos','scenes',()=>this.guard(()=>this.openProjects()));
+    if(this.editor.projectModules)add(account,'modules','Módulos del proyecto','scenes',()=>{this.close();this.editor.projectModules.open({viewer:!this.editor.active}).catch(error=>this.message(error.message));});
+    add(account,'settings','Ajustes','settings',()=>this.open('settings'));
+    if(user&&user.permissions.manageUsers)add(account,'users','Administración','account',()=>this.open('users'));
     if (user) {
       const quota = user.quota || {}; el('p', 'Cuota: ' + (quota.maxProjects === undefined ? 2 : quota.maxProjects) + ' proyectos · ' + Number(((quota.storageBytes === undefined ? 20971520 : quota.storageBytes) / 1048576).toFixed(1)) + ' MiB. El administrador puede ampliarla.', content, 'studio-muted');
       el('p', 'Los archivos de cuentas normales se eliminan tras más de 30 días sin ingresar.', content, 'studio-muted');

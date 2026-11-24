@@ -13,6 +13,7 @@ import {voicePort} from '../../modules/logistica-industrial/integrations/VoiceAs
 import {DemoRecovery} from './SceneResilience.js';
 import XRAccessDialog from './XRAccessDialog.js';
 import {connectExperienceHeader} from '../../packages/navigation-ui/ExperienceHeader.js';
+import {decorateMenuAction,setMenuActionLabel,mountTourShortcuts} from '../../packages/navigation-ui/ExperienceMenu.js';
 
 const byId = id => document.getElementById(id);
 const experienceHeader=connectExperienceHeader(document.querySelector('.viewer-header'),{
@@ -109,24 +110,40 @@ async function start() {
     if (window.smartTwinViewer && window.smartTwinViewer.context === ctx) window.smartTwinViewer = null;});
   const dispose = () => browser.dispose();
   const menu = byId('viewer-menu'), menuToggle = byId('viewer-menu-toggle');
+  for(const [id,icon]of [['menu-home','home'],['menu-scenes','scenes'],['menu-guide','guide'],['menu-camera','camera'],['menu-overview','overview'],['menu-xr','xr'],['drive','drive'],['pause','pause'],['restart','restart'],['menu-controls','controls'],['menu-voice','sound'],['menu-account','account']])decorateMenuAction(byId(id),icon);
+  let menuPage='home';
+  const showMenuPage=page=>{
+    menuPage=page;
+    for(const name of ['home','guide','controls','camera'])byId('viewer-menu-'+name).hidden=name!==page;
+    const title=byId('viewer-menu-title');title.textContent=({home:'Menú del recorrido',guide:'Guía del escenario',controls:'Controles y ayuda',camera:'Cámara y navegación'})[page];title.tabIndex=-1;
+    menu.scrollTop=0;if(menu.open)title.focus({preventScroll:true});
+  };
   const closeMenu = () => {
     if (menu.open) menu.close();
     // The dialog's close event is queued. Release its input gate before a
     // menu action tries to mount the forklift in the same click handler.
     ctx.publicDialogOpen = false; input.reset(); menuToggle.setAttribute('aria-expanded', 'false');
   };
-  listen(menuToggle, 'click', () => {
+  const openMenu=(page='home')=>{
     if (ctx.vrMode) return;
     ctx.publicDialogOpen = true; input.reset(); ctx.desktopLook.unlock();
-    menuToggle.setAttribute('aria-expanded', 'true'); menu.showModal();
-  });
+    showMenuPage(page);menuToggle.setAttribute('aria-expanded', 'true');if(!menu.open)menu.showModal();
+  };
+  listen(menuToggle, 'click', () => openMenu());
+  for(const page of ['guide','controls','camera'])listen(byId('menu-'+page),'click',()=>showMenuPage(page));
+  for(const back of menu.querySelectorAll('.st-menu-back'))listen(back,'click',()=>{const page=menuPage;showMenuPage('home');byId('menu-'+page).focus();});
   listen(byId('viewer-menu-close'), 'click', closeMenu);
   listen(byId('menu-home'),'click',()=>{closeMenu();byId('home-link').click();});
   listen(byId('menu-scenes'),'click',()=>{closeMenu();byId('back-scenes').click();});
   listen(byId('menu-voice'),'click',()=>{closeMenu();const launcher=document.querySelector('[data-voice-assistant-toggle]');if(launcher)launcher.click();});
+  listen(byId('menu-overview'),'click',()=>{closeMenu();byId('overview').click();});
+  listen(byId('menu-xr'),'click',()=>{closeMenu();const xr=byId('xr-action').querySelector('button');if(xr)xr.click();});
+  listen(byId('menu-account'),'click',()=>{closeMenu();byId('workspace-link').click();});
   listen(menu,'click',event=>{if(event.target!==menu)return;const r=menu.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeMenu();});
-  listen(menu, 'close', () => {ctx.publicDialogOpen = false; input.reset(); menuToggle.setAttribute('aria-expanded', 'false');});
+  listen(menu, 'close', () => {if(menu.open)return;ctx.publicDialogOpen = !!document.querySelector('dialog[open]'); input.reset(); menuToggle.setAttribute('aria-expanded', 'false');});
   browser.onDispose(closeMenu);
+  const shortcuts=mountTourShortcuts({document,actions:[{id:'guide',label:'Guía',icon:'guide',action:()=>openMenu('guide')},{id:'controls',label:'Controles',icon:'controls',action:()=>openMenu('controls')},{id:'camera',label:'Cámara',icon:'camera',action:()=>openMenu('camera')}],onInteract:()=>{input.reset();ctx.desktopLook.unlock();}});
+  browser.onDispose(()=>shortcuts.dispose());
   try {
     const response = await fetch(new URL(SCENE_URL, document.baseURI).href, {signal: abort.signal, credentials: 'omit'});
     if (!response.ok) throw new Error('No se pudo cargar la demostración (' + response.status + ').');
@@ -142,7 +159,7 @@ async function start() {
     await host.activate('shared.assistance', {functions:['assistant.voice']});
     if (stopped) {await host.dispose({force: true}); return;}
     pose(ctx, 'walk');
-    const tools = document.createElement('div'); tools.className = 'public-scene-tools'; tools.setAttribute('aria-label', 'Cámara y captura del escenario');
+    const tools = document.createElement('div'); tools.className = 'st-menu-camera-tools'; tools.setAttribute('aria-label', 'Cámara y captura del escenario');
     const modes = document.createElement('div'); modes.className = 'public-camera-modes'; modes.setAttribute('role', 'group'); modes.setAttribute('aria-label', 'Modo de navegación'); tools.appendChild(modes);
     const releaseInput = () => {input.reset(); ctx.desktopLook.unlock(); ctx.demo.driving.resetInput();};
     const modeButtons = ['walk', 'drone'].map(mode => {
@@ -156,12 +173,7 @@ async function start() {
       }); modes.appendChild(button); return button;
     });
     for (const name of ['pointerdown', 'keydown', 'keyup']) listen(modes, name, event => {event.stopPropagation(); if (name === 'pointerdown') releaseInput();});
-    const mediaHost = document.createElement('div'); mediaHost.className = 'public-scene-media'; tools.appendChild(mediaHost); document.body.appendChild(tools);
-    const header=document.querySelector('.viewer-header');
-    const layoutTools=()=>{if(header)document.body.style.setProperty('--viewer-scene-top',Math.ceil(header.getBoundingClientRect().bottom+8)+'px');};
-    const toolObserver=typeof ResizeObserver==='function'?new ResizeObserver(layoutTools):null;
-    if(toolObserver&&header)toolObserver.observe(header);listen(window,'resize',layoutTools);layoutTools();
-    browser.onDispose(()=>{if(toolObserver)toolObserver.disconnect();document.body.style.removeProperty('--viewer-scene-top');});
+    const mediaHost = document.createElement('div'); mediaHost.className = 'public-scene-media'; tools.appendChild(mediaHost); byId('viewer-menu-camera').appendChild(tools);
     const capture = ctx.sceneCapture = new SceneCaptureController({getCanvas: () => renderer.domElement, document, window,
       getContext: () => ({active: !stopped && !ctx.publicFrameFailure, xr: !!ctx.vrMode, identity: VIEWER_WORLD_ID}), label: () => 'SmartTwin-demostracion-industrial'});
     const captureToolbar = new SceneCaptureToolbar({controller: capture, document, window, onInteract: releaseInput}); captureToolbar.mount(mediaHost);
@@ -200,12 +212,13 @@ async function start() {
       const stats = ctx.demo.stats(), driving = !!ctx.demo.driving.id;
       const cameraMode = getSceneCameraMode(ctx); tools.dataset.mode = cameraMode.mode;
       modeButtons.forEach(button => {button.disabled = cameraMode.blocked; button.setAttribute('aria-pressed', String(button.dataset.cameraMode === cameraMode.mode)); button.title = cameraMode.reason || (button.dataset.cameraMode === 'drone' ? 'Vuela por la instalación · Q subir · E bajar' : 'Volver a un apoyo peatonal libre');});
-      document.body.classList.toggle('driving', driving); byId('drive').textContent = driving ? 'Bajar del vehículo · F' : 'Subir al montacargas · F';
+      document.body.classList.toggle('driving', driving); setMenuActionLabel(byId('drive'),driving ? 'Bajar del vehículo · F' : 'Subir al montacargas · F');
+      setMenuActionLabel(byId('menu-overview'),overview?'Volver a caminar':'Vista general');byId('menu-overview').setAttribute('aria-pressed',String(overview));
       const locked = ctx.desktopLook.isLocked;
       document.body.classList.toggle('look-locked', locked);
       const nearby = !driving && ctx.demo.driving.nearest();
       byId('navigation-hint').textContent = driving ? '' : locked ? nearby ? 'F · Subir al montacargas    Esc · Liberar mouse' : 'W A S D · Caminar    Esc · Liberar mouse' : input.pointerLockUnavailable ? 'Mantén clic y arrastra · Mirar con el puntero    W A S D · Caminar' : 'Clic en la escena · Mirar con el puntero    W A S D · Caminar';
-      byId('pause').textContent = stats.paused ? 'Continuar' : 'Pausar'; byId('pause').setAttribute('aria-pressed', String(stats.paused));
+      setMenuActionLabel(byId('pause'),stats.paused ? 'Continuar' : 'Pausar'); byId('pause').setAttribute('aria-pressed', String(stats.paused));
       const robotProgress = (stats.robots || []).map((robot, index) => 'Robot '+(index+1)+': '+robot.completed+' cajas').join(' · ');
       byId('demo-progress').textContent = ctx.publicFrameFailure ? 'Simulación interrumpida · Menú → Reiniciar.' : stats.paused ? 'Simulación en pausa · puedes seguir explorando.' : stats.vehicle && stats.vehicle.delivered >= 2 ? 'Dos pallets entregados · explora la estantería y consulta el monitor.' : stats.vehicle && stats.vehicle.carrying ? 'Pallet recogido · baja la carga y sigue la ruta hasta su destino.' : stats.belt && stats.belt.packages ? 'Pallet listo en la banda · alinea las horquillas y recoge la carga. '+robotProgress : robotProgress+' · Observa las dos líneas y consulta sus datos en el monitor.';
       byId('reticle').classList.toggle('hovering', !!ctx.desktopControllerData.currentIntersection);
@@ -255,6 +268,7 @@ try {
       accessLinks.forEach(link => {link.href = target;});
       if(state.user&&state.backend)editorLink.href=new URL('/editor',document.baseURI).href;
       byId('workspace-link').textContent = state.user ? 'Mi espacio ↗' : workspaceURL ? 'Iniciar sesión ↗' : 'Acceder al espacio ↗';
+      setMenuActionLabel(byId('menu-account'),state.user?'Mi espacio':workspaceURL?'Iniciar sesión':'Mi espacio');
     },
     async onStart() {return navigation.openDemo();}});
   navigation = createWelcomeNavigation({
