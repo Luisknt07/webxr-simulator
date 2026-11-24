@@ -75,6 +75,8 @@ npm.cmd run dev
 
 La CLI solicita la contraseña sin mostrarla. Conserva el directorio `data/` y haz copia de seguridad antes de una migración de datos. `dev` recompila y utiliza HTTP exclusivamente en loopback, por defecto `http://localhost:8081`. Abre `/login` y luego `/editor`. WebXR requiere un contexto seguro; para entrar desde Quest configura HTTPS con un certificado confiable para el visor.
 
+En el modo local explícito, el servidor detecta los nuevos manifiestos de `artifacts/` después de publicar una compilación y vuelve a verificar sus archivos sin reiniciar las cuentas ni las sesiones. Un archivo modificado sin su manifiesto válido sigue siendo rechazado. En producción se conserva la publicación cargada al arrancar; reinicia el servidor al desplegar otra versión.
+
 En producción, configura `SMARTTWIN_TLS_KEY` y `SMARTTWIN_TLS_CERT`, o declara las IP exactas de tu proxy HTTPS en `SMARTTWIN_TRUSTED_PROXY_ADDRESSES`. Después ejecuta `npm.cmd start`. El servidor rechaza un arranque sin TLS/proxy salvo el modo local explícito. Consulta [configuración y API](apps/api/README.md) y [límites de seguridad](docs/framework-security.md).
 
 ## Conectar o copiar una función

@@ -12,16 +12,21 @@ const ROOT=path.resolve(__dirname,'../..'),PUBLIC_SCENE='vr-robot-dispatch';
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const ip=value=>String(value||'').replace(/^::ffff:/,'');
 const loopback=value=>['127.0.0.1','::1','localhost'].includes(value);
+const artifactStamp=stat=>[stat.dev,stat.ino,stat.size,stat.mtimeMs,stat.ctimeMs].join(':');
 function relativePath(value){return typeof value==='string'&&value.length>0&&!value.startsWith('/')&&!value.includes(':')&&!value.includes('\\')&&!value.includes('%')&&!value.includes('\0')&&!value.split('/').some(part=>!part||part==='.'||part==='..');}
 function artifact(directory,publicProfile){
- const root=fs.realpathSync(directory),manifest=JSON.parse(fs.readFileSync(path.join(root,'publication.json'),'utf8'));
+ const root=fs.realpathSync(directory),descriptor=fs.openSync(path.join(root,'publication.json'),'r');let manifest,manifestStamp;
+ // Read bytes and identity from the same file, including when the publisher
+ // atomically exchanges the artifact directory while this request starts.
+ try{manifest=JSON.parse(fs.readFileSync(descriptor,'utf8'));manifestStamp=artifactStamp(fs.fstatSync(descriptor));}finally{fs.closeSync(descriptor);}
  if(!Array.isArray(manifest.files)||!manifest.files.length)throw Error('El artefacto requiere un manifiesto de archivos verificado.');
  if(publicProfile&&JSON.stringify(manifest.scenes)!==JSON.stringify([PUBLIC_SCENE]))throw Error('El artefacto público debe contener únicamente vr-robot-dispatch.');
  const files=new Map();
  for(const entry of manifest.files){if(!entry||!relativePath(entry.path)||!/^([a-f0-9]{64})$/.test(entry.sha256)||files.has(entry.path))throw Error('El manifiesto de archivos no es válido.');files.set(entry.path,entry.sha256);}
  if(!files.has('index.html'))throw Error('Falta index.html en el manifiesto.');
- return {root,manifest,files,verified:new Map(),publicProfile};
+ return {root,manifest,manifestStamp,files,verified:new Map(),publicProfile};
 }
+function currentArtifact(build){return artifactStamp(fs.statSync(path.join(build.root,'publication.json')))===build.manifestStamp?build:artifact(build.root,build.publicProfile);}
 function realFile(build,relative){
  if(!build.files.has(relative))return null;
  let target=build.root;
@@ -45,7 +50,7 @@ function createApplication(options={}){
  if([...trusted].some(value=>!net.isIP(value)))throw Error('Los proxies confiables deben declararse mediante direcciones IP exactas.');
  if(allowLocal&&!loopback(host))throw Error('HTTP sin TLS sólo se permite con escucha local explícita.');
  if(!options.tls&&!trusted.size&&!allowLocal)throw Error('Configura TLS o un proxy HTTPS confiable; para desarrollo local usa allowInsecureLocal explícito.');
- const publicBuild=artifact(options.publicDir||path.join(ROOT,'artifacts/public-viewer'),true),workspaceBuild=artifact(options.workspaceDir||path.join(ROOT,'artifacts/workspace'),false);
+ let publicBuild=artifact(options.publicDir||path.join(ROOT,'artifacts/public-viewer'),true),workspaceBuild=artifact(options.workspaceDir||path.join(ROOT,'artifacts/workspace'),false);
  const api=createApiHandler({dataDir:options.dataDir||path.join(ROOT,'data'),voice:options.voice,voiceFetch:options.voiceFetch,allowBootstrapRegistration:false,requireSecureCookies:!allowLocal,publicSceneId:PUBLIC_SCENE,
    exampleCatalogPath:options.exampleCatalogPath||path.join(ROOT,'projects/smarttwin/scenes/catalog.json'),projectionsDir:options.projectionsDir||path.join(ROOT,'projects/smarttwin/scenes'),maintenanceIntervalMs:options.maintenanceIntervalMs,onError:options.onError});
  const handler=async(req,res)=>{
@@ -65,6 +70,10 @@ function createApplication(options={}){
    const privateEntry=pathname==='/editor'||pathname==='/play';const privateRoute=privateEntry||pathname==='/editor/'||pathname==='/workspace'||pathname.startsWith('/workspace/');
    if(privateRoute){if(!allowLocal&&!req.studioSecure)return json(res,426,{error:'El espacio privado requiere HTTPS.'});const user=api.studio.user(req,false);if(!user){if(privateEntry||pathname==='/editor/'||pathname==='/workspace'||pathname==='/workspace/'){res.writeHead(302,{'Location':'/login?next='+encodeURIComponent((pathname==='/play'?'/play':'/editor')+url.search),'Cache-Control':'no-store'});return res.end();}return json(res,401,{error:'Inicia sesión.',code:'authentication_required'});}api.studio._expectedUser(req,user);}
    if(pathname==='/workspace'||pathname==='/workspace/'||pathname==='/editor/'){res.writeHead(302,{'Location':'/editor'+url.search,'Cache-Control':'no-store'});return res.end();}
+   // Explicit loopback development can publish a new verified build without
+   // restarting its account service. Production keeps its startup snapshot.
+   // Reload only the selected mount, after its normal authentication checks.
+   if(allowLocal){if(privateRoute)workspaceBuild=currentArtifact(workspaceBuild);else publicBuild=currentArtifact(publicBuild);}
    const build=privateRoute?workspaceBuild:publicBuild,relative=privateRoute?(privateEntry?(pathname==='/play'?playEntry(url.searchParams):'index.html'):pathname.slice('/workspace/'.length)):(pathname==='/'?'index.html':pathname.slice(1));
    if(!relativePath(relative))return json(res,404,{error:'Recurso no disponible.'});
    if(relative==='publication.json'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});return res.end(req.method==='HEAD'?undefined:JSON.stringify(build.manifest));}
