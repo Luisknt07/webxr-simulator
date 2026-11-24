@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "public-viewer",
-  "revision": "08db307a0c6705a61ce6233da163ee6b1089da49",
-  "bundleSha256": "feec31da3adac406d0abd5efcabdac311491def4e8cf95e93d33998a21c59aa4",
+  "revision": "b5f52f10452f25639ee19a380f8ca759447044ac",
+  "bundleSha256": "bc05ac681230b81869fe80f81c4538a1950709c348abd79a834226bb29c9f71a",
   "scenes": [
     "vr-robot-dispatch"
   ],
@@ -18,7 +18,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "41ef92be44120d25a537363a25448e7769884276bb2536a089f9a262280263eb"
+      "sha256": "dd97233f0c0277491e6b5eb47beeb877f675600dc3fde9cef3260c1c4009f8e6"
     },
     {
       "path": "modules/logistica-industrial/assets/robot-pilot/LICENSE.txt",
@@ -73,6 +73,10 @@
       "sha256": "30d54b4f47f449bcb79ad66b8f7dff8e0241c2b21e2de8ba758193be3e5d6868"
     },
     {
+      "path": "packages/navigation-ui/experience-header.css",
+      "sha256": "3b2da1d7443ff1f8357dfe5b850771d8ca6313b4d4398804330333803f9db506"
+    },
+    {
       "path": "packages/scene-capture/scene-capture.css",
       "sha256": "adf62e08ac18a01b647d904e546eff0c71c60764a8174b56aba6bc93625e5811"
     },
@@ -118,11 +122,11 @@
     },
     {
       "path": "viewer.css",
-      "sha256": "9b386bf574f5afbc562733439f51fcebd84fbadce3c4a291627d8e1dc6f457b9"
+      "sha256": "1a793c3b27f255a8c3ea5126379ad24f30813943a0db6623d2e6f8528c22dd17"
     },
     {
       "path": "viewer.js",
-      "sha256": "feec31da3adac406d0abd5efcabdac311491def4e8cf95e93d33998a21c59aa4"
+      "sha256": "bc05ac681230b81869fe80f81c4538a1950709c348abd79a834226bb29c9f71a"
     },
     {
       "path": "welcome.css",

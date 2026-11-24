@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="packages/voice-assistant/voice-assistant.css">
   <link rel="stylesheet" href="packages/input-devices/input-device.css">
   <link rel="stylesheet" href="packages/scene-capture/scene-capture.css">
+  <link rel="stylesheet" href="packages/navigation-ui/experience-header.css">
   <script src="config.js"></script>
   <script defer src="viewer.js"></script>
 </head>
@@ -19,7 +20,7 @@
   <main id="viewer" aria-label="Demostración 3D de dos robots, bandas, montacargas y estanterías"></main>
   <header class="viewer-header">
     <a class="viewer-brand" href="./" aria-label="SMART-TWIN, inicio"><svg class="brand-mark" aria-hidden="true" viewBox="0 0 48 48" fill="none"><path d="m24 3 19 11v22L24 47 5 36V14Z" fill="#008d82"/><path d="m24 3 19 11-19 11L5 14Z" fill="#bdfcf0"/><path d="m24 25 19-11v22L24 47Z" fill="#00bba7"/><path d="m24 3 19 11v22L24 47 5 36V14Zm0 22v22M5 14l19 11 19-11M24 3v22" stroke="#3aecd2" stroke-width="1.5"/></svg><span>SMART-TWIN Simulator<small>Simulación Industrial y Logística</small></span></a>
-    <nav class="header-actions" aria-label="Navegación"><button id="home-link" type="button">Inicio</button><button id="back-scenes" type="button">← Escenarios</button><a id="workspace-link" class="workspace-link" href="#workspace-access">Acceder al espacio <span aria-hidden="true">↗</span></a><button id="overview" class="scene-navigation-action" type="button">Vista general</button><span id="xr-action" class="scene-navigation-action"></span><button id="viewer-menu-toggle" type="button" aria-haspopup="dialog" aria-controls="viewer-menu" aria-expanded="false">Menú ☰</button></nav>
+    <nav class="header-actions" aria-label="Navegación"><button id="home-link" type="button">Inicio</button><button id="back-scenes" type="button">Escenarios</button><a id="workspace-link" class="workspace-link" href="#workspace-access">Acceder al espacio <span aria-hidden="true">↗</span></a><button id="overview" class="scene-navigation-action" type="button">Vista general</button><span id="xr-action" class="scene-navigation-action"></span><button id="viewer-menu-toggle" type="button" aria-haspopup="dialog" aria-controls="viewer-menu" aria-expanded="false">Menú</button></nav>
   </header>
   <section id="welcome" class="welcome-screen" aria-labelledby="welcome-title">
     <div class="welcome-content"><div class="welcome-panel">
@@ -68,8 +69,9 @@
     <symbol id="preview-logistics" viewBox="0 0 360 180"><use href="#preview-room"/><path d="M52 80v62m51-75v62m50-75v62m-101-2 101-25m-101 2 101-25m-101 2 101-25" stroke="#6c9697" stroke-width="4"/><path d="m61 82 24-6v15l-24 6m38-24 23-6v15l-23 6m-38 18 24-6v15l-24 6m38-24 23-6v15l-23 6" fill="#aa9775"/><path d="m176 141 53 12 30-10-52-11Z" fill="#d5b461"/><path d="M248 141V88l-18-4v56m0-55-31-6v52m30-43-29-7" fill="none" stroke="#1b3038" stroke-width="6"/><path d="m249 143 43-12m-43 20 43-12" stroke="#8caaa3" stroke-width="4"/><circle cx="186" cy="148" r="9" fill="#182b32"/><circle cx="238" cy="156" r="9" fill="#182b32"/><path d="m184 129 25 6 19-6-25-6Z" fill="#f0c46e"/></symbol>
     <symbol id="preview-world" viewBox="0 0 360 180"><use href="#preview-room"/><path d="m75 135 52-14 47 11-53 16Z" fill="#8faba1"/><path d="M121 148V85l53-16v63" fill="#355a61"/><path d="m121 85 53-16-36-8-53 15Z" fill="#779b92"/><path d="m200 112 39-11 42 9-39 13Z" fill="#a9bcb0"/><path d="M200 112v28l42 10v-27m0 0 39-13v28l-39 12" fill="#55777b"/><circle cx="230" cy="76" r="19" fill="#83bba4"/><path d="M230 95v16" stroke="#b9d1b8" stroke-width="4"/></symbol>
   </defs></svg>
-  <dialog id="viewer-menu" class="viewer-scene-menu" aria-labelledby="viewer-menu-title">
+  <dialog id="viewer-menu" class="viewer-scene-menu st-app-menu" aria-labelledby="viewer-menu-title">
     <div class="viewer-scene-menu-header"><h2 id="viewer-menu-title">Menú del escenario</h2><button id="viewer-menu-close" type="button" aria-label="Cerrar menú">✕</button></div>
+    <div class="viewer-menu-navigation" role="group" aria-label="Navegación de la experiencia"><button id="menu-home" type="button">Inicio</button><button id="menu-scenes" type="button">Escenarios</button><button id="menu-voice" type="button">Voz e instrucciones</button></div>
     <div class="viewer-scene-options"><button id="drive" type="button">Subir al montacargas · F</button><button id="pause" type="button" aria-pressed="false">Pausar</button><button id="restart" type="button" aria-label="Reiniciar escenario">↺ Reiniciar escenario</button></div>
     <section class="lesson-intro" aria-labelledby="lesson-title">
       <p class="eyebrow"><span></span> GUÍA DEL ESCENARIO</p>

@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "08db307a0c6705a61ce6233da163ee6b1089da49",
-  "bundleSha256": "0c09360dc6c5a0eeb5191f0d35fe3dd2f19d71b1f31890e086d39425b602a081",
+  "revision": "b5f52f10452f25639ee19a380f8ca759447044ac",
+  "bundleSha256": "30dae2bcd4f2bcc73a283f24ffede0d3c06532c12208e98d8b381f586b5ca0d3",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -80,15 +80,15 @@
     },
     {
       "path": "apps/workspace/studio/interface.css",
-      "sha256": "2b8f9af5db0d7667946c2430525321e96adc52994ba018caaa6fb1b18fc2b5d4"
+      "sha256": "2fa9ad0b0d31f08be142656bc0cbc585c7a93752f10feea25c50b8d4ed0f5922"
     },
     {
       "path": "apps/workspace/studio/studio.css",
-      "sha256": "eace5e08429a8cae2c22b7403060a34f6ce2129d6a53461eb097ada85b5f6c6d"
+      "sha256": "e026e110ce414143a058799a4852b4eca990c74093b011268b5cece8e90dcca6"
     },
     {
       "path": "bundle.js",
-      "sha256": "0c09360dc6c5a0eeb5191f0d35fe3dd2f19d71b1f31890e086d39425b602a081"
+      "sha256": "30dae2bcd4f2bcc73a283f24ffede0d3c06532c12208e98d8b381f586b5ca0d3"
     },
     {
       "path": "cad-worker.js",
@@ -112,7 +112,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "872bb411ec131ea8efc9b14ea817be87f7d45ac024e26c7d015b3794efa0707d"
+      "sha256": "c9199a0cdbdba9fd536e605f1223dae7924e50082e54cdc298cd6bac9e838775"
     },
     {
       "path": "logistics-documentation.js",
@@ -3359,6 +3359,10 @@
       "sha256": "30d54b4f47f449bcb79ad66b8f7dff8e0241c2b21e2de8ba758193be3e5d6868"
     },
     {
+      "path": "packages/navigation-ui/experience-header.css",
+      "sha256": "3b2da1d7443ff1f8357dfe5b850771d8ca6313b4d4398804330333803f9db506"
+    },
+    {
       "path": "packages/render-three/src/StartupStatus.js",
       "sha256": "a3c4f233977377c9261754b3f2f083dcebe7a34b1cec4f55079cc679c72b77bb"
     },
@@ -3945,8 +3949,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "57aa87f714a4dd852d5b",
-    "statsSha256": "790943f1259fc2179a4a325c5eeebb3b9cc13b7e63965d9a96d9b9c4dd2c0834",
+    "hash": "2fc51dfae2042ca8c629",
+    "statsSha256": "3d9f11aaee66d1a7240e52abc1568b61f5c76028f2948bc7a5bbe181c28fee40",
     "assets": [
       {
         "path": "13.js",
@@ -3978,7 +3982,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7329758
+        "size": 7333285
       },
       {
         "path": "configurable-practice-reference.js",

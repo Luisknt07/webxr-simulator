@@ -564,7 +564,7 @@ export function init() {
       }
       resetCollisionPose();
       if (context.studio) context.studio.onVRChange(context.vrMode);
-    }, canStartVR, {preferredFrameRate: 72});
+    }, canStartVR, {preferredFrameRate: 72,enterLabel:'Realidad virtual',exitLabel:'Salir de RV',unavailableLabel:'Realidad virtual'});
     context.vrButton = vrButton;
     vrButton.id = 'VRButton';
     document.body.appendChild(vrButton);

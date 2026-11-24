@@ -1,17 +1,5 @@
 /* Viewer chrome: a light work surface around the same immersive scene. */
-.studio-header,.studio-drawer,.studio-notice{--st-ink:#13223b;--st-muted:#586b80;--st-border:#d8e2eb;--st-teal:#00897b;color:#13223b;font-family:Inter,'Segoe UI',Arial,sans-serif}
-.studio-header{background:#fffefefa;border-bottom:1px solid #d8e2eb;height:64px;padding:0 22px;gap:14px;box-shadow:0 2px 14px #17334808}
-.studio-brand{color:#12223a;font-size:18px;letter-spacing:-.5px;gap:11px;align-items:center}
-.studio-brand .studio-brand-copy{display:flex;flex-direction:column;gap:4px;color:#12223a}
-.studio-brand-copy strong{font-size:17px;line-height:1.1}.studio-brand-copy small{font-size:9px;font-weight:500;letter-spacing:.55px;text-transform:uppercase;color:#49627b}
-.studio-cube{width:28px;height:29px;display:block;position:relative;background:linear-gradient(30deg,#00897b 50%,#37d7bd 50%);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);flex:none}
-.studio-cube:after{content:'';position:absolute;inset:3px 4px 13px;background:#ccfff1;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
-.studio-header-actions{gap:7px;min-width:0}
-.studio-header button,.studio-header a.studio-vr{border:1px solid #d7e2ea!important;background:#fff!important;border-radius:9px!important;min-height:38px;font-size:12px!important;color:#14243c!important;padding:8px 12px!important;box-shadow:0 1px 3px #162e4510;font-weight:600}
-.studio-header button:hover,.studio-header a.studio-vr:hover{background:#edf9f6!important;border-color:#8acabd!important}
-.studio-header .studio-practices{background:#00897b!important;border-color:#00897b!important;color:#fff!important;padding:9px 19px!important;box-shadow:0 3px 10px #00897b1a}
-.studio-header .studio-flight{font-size:11px!important}.studio-header input[type=range]{accent-color:#00897b;width:55px}
-.studio-header .studio-account{order:9}.studio-header .studio-vr{font-size:10px!important;min-width:0!important;max-width:110px}
+.studio-drawer,.studio-notice{--st-ink:#13223b;--st-muted:#586b80;--st-border:#d8e2eb;--st-teal:#00897b;color:#13223b;font-family:Inter,'Segoe UI',Arial,sans-serif}
 .studio-drawer{background:#f8fafc;border:1px solid #d4e0ea;box-shadow:0 24px 70px #132e3f26;color:#13223b;border-radius:16px}
 .studio-drawer-head{border-bottom-color:#d9e4ed;background:#fff;border-radius:16px 16px 0 0}
 .studio-drawer h1,.studio-drawer h2,.studio-drawer h3,.studio-drawer strong{color:#14243b}.studio-drawer .studio-muted,.studio-drawer p{color:#52667a}
@@ -21,12 +9,7 @@
 .studio-drawer a{color:#007a70}.studio-drawer progress{accent-color:#00897b}
 .studio-drawer.studio-scene-library-modal{background:#f5f8fb;border-color:#d4e0ea;color:#14243b;box-shadow:0 24px 70px #132e3f26}.studio-scene-library-modal .studio-drawer-head{background:#fff;color:#14243b}
 .studio-notice{background:#fff;border:1px solid #94cfc2;box-shadow:0 8px 35px #133c4c1a}
-.studio-header :focus-visible,.studio-drawer :focus-visible{outline:3px solid #22aa96;outline-offset:3px}
-.studio-header button:disabled{color:#728091!important;background:#f1f4f7!important}
-@media(max-width:1250px){.studio-header{padding:0 14px;gap:10px}.studio-brand-copy strong{font-size:14px}.studio-brand-copy small{font-size:8px}.studio-header button,.studio-header a.studio-vr{padding:8px 9px!important;font-size:11px!important}.studio-header .studio-flight,.studio-header input[type=range]{display:none!important}}
-@media(max-width:950px){.studio-header{height:60px}.studio-brand-copy small{display:none}.studio-header .studio-account,.studio-header .studio-results,.studio-header .studio-guide{display:none!important}.studio-header-actions{gap:5px}.studio-brand-copy strong{font-size:13px}.studio-cube{width:24px;height:26px}}
-@media(max-width:600px){.studio-header{height:56px;padding:0 10px;gap:6px}.studio-brand{gap:6px}.studio-brand-copy strong{font-size:11px;max-width:125px;white-space:normal;line-height:1.25}.studio-header-actions{gap:4px}.studio-header button,.studio-header a.studio-vr{min-height:36px;font-size:10px!important;padding:6px 9px!important}.studio-header .studio-vr{max-width:68px;font-size:8px!important}.studio-header .studio-cube{width:22px;height:24px}.studio-header .studio-practices{padding:7px 10px!important}.studio-header .studio-audio{display:none!important}}
-@media(max-width:600px){.studio-header-actions{flex:1;justify-content:flex-end}.studio-header-actions>[data-voice-assistant-toggle],.studio-header-actions>[data-assistant-workspace-toggle],.studio-header-actions>.ed-toolbar-group{display:none!important}.studio-header .studio-practices{font-size:10px!important;min-width:0}.studio-header .studio-vr{max-width:68px;min-width:0!important}.studio-brand-copy strong{max-width:102px}}
+.studio-drawer :focus-visible{outline:3px solid #22aa96;outline-offset:3px}
 .ed-studio .ed-scene-catalog.ed-practice-catalog{background:#fff;color:#14243b;border-color:#d7e3ec;max-width:calc(100vw - 24px);font-family:Inter,'Segoe UI',Arial,sans-serif;overflow:hidden}
 .ed-studio .ed-practice-catalog .ed-scene-catalog-header{background:#fff;border-color:#d7e3ec;color:#14243b}
 .ed-studio .ed-practice-catalog .ed-scene-catalog-header p{color:#52667a}
@@ -36,20 +19,9 @@
 .ed-studio .ed-practice-catalog .ed-scene-catalog-footer>span{flex:1 1 100%;min-width:0}
 .ed-studio .ed-practice-catalog .ed-scene-catalog-footer>.ed-button{min-width:0;max-width:100%;white-space:normal;text-align:center;text-decoration:none}
 @media(max-width:700px){.ed-studio .ed-scene-catalog.ed-practice-catalog{width:calc(100vw - 16px);max-width:calc(100vw - 16px);height:calc(100dvh - 20px);max-height:calc(100dvh - 20px);margin:10px auto}.ed-studio .ed-practice-catalog .ed-scene-catalog-header{padding:12px 14px;gap:10px;align-items:start}.ed-studio .ed-practice-catalog .ed-scene-catalog-header h2{font-size:20px;line-height:1.25;margin:0 0 8px}.ed-studio .ed-practice-catalog .ed-scene-catalog-header p{font-size:11px;line-height:1.45;margin:0}.ed-studio .ed-practice-catalog .ed-scene-catalog-filters{padding:6px 14px;gap:6px}.ed-studio .ed-practice-catalog .ed-scene-catalog-filters button{font-size:11px;padding:8px 10px;min-width:0}.ed-studio .ed-practice-catalog .ed-scene-library-summary{margin:5px 14px;padding:8px;font-size:10px}.ed-studio .ed-practice-catalog .ed-scene-catalog-feedback{font-size:10px;line-height:1.4;padding:5px 14px;margin:0}.ed-studio .ed-practice-catalog .ed-scene-catalog-footer{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:10px 14px;gap:6px;flex:none}.ed-studio .ed-practice-catalog .ed-scene-catalog-footer>span{grid-column:1/-1;font-size:10px;line-height:1.4}.ed-studio .ed-practice-catalog .ed-scene-catalog-footer>.ed-button{font-size:11px;min-height:36px;padding:8px;min-width:0;box-sizing:border-box}.ed-studio .ed-practice-catalog .ed-scene-catalog-grid{min-height:120px;max-width:100%;overflow-x:hidden}}
-
-/* One readable command language for the player and authoring interfaces. */
-.studio-header{background:#fff;border-color:#dce4ed;box-shadow:0 1px 8px #0f172a08;padding:0 20px}
-.studio-header .studio-brand{color:#12223b;letter-spacing:-.4px}.studio-header .studio-brand-copy strong{font:700 17px/1.2 "Segoe UI",Arial,sans-serif}.studio-header .studio-brand-copy small{color:#465b72;letter-spacing:.55px}
-.studio-header button,.studio-header a.studio-vr{color:#182b44!important;background:#fff!important;border-color:#d9e2ec!important;box-shadow:0 1px 2px #0f172a08;font-family:"Segoe UI",Arial,sans-serif!important}
-.studio-header .studio-practices{color:#fff!important;background:#008577!important;border-color:#008577!important}
-.studio-header .ed-iconized{display:inline-flex;align-items:center;gap:8px}
-.studio-header [data-ed-icon]::before,.studio-drawer [data-ed-icon]::before{content:'';display:inline-block;width:18px;height:18px;flex:0 0 18px;background:currentColor;mask:var(--ed-command-icon) center/contain no-repeat;-webkit-mask:var(--ed-command-icon) center/contain no-repeat;vertical-align:middle}
-.studio-header .studio-flight,.studio-header .ed-toolbar-group{display:none!important}
-.studio-header .studio-account{max-width:165px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.studio-header .studio-account svg{width:24px;height:24px;flex:0 0 24px}
+.studio-drawer [data-ed-icon]::before{content:'';display:inline-block;width:18px;height:18px;flex:0 0 18px;background:currentColor;mask:var(--ed-command-icon) center/contain no-repeat;-webkit-mask:var(--ed-command-icon) center/contain no-repeat;vertical-align:middle}
 .studio-drawer label,.studio-drawer dt,.studio-drawer h4{color:#334b63}.studio-drawer .studio-error{color:#a62d3d}.studio-drawer .studio-muted{color:#52667a}
 .studio-drawer .studio-primary{background:#008577;color:#fff;border-color:#008577}.studio-drawer .studio-action{color:#20334d;font-size:14px!important;min-height:44px;display:flex;align-items:center;gap:10px}
-@media(max-width:1250px){.studio-header{padding:0 14px}.studio-header-actions{gap:5px}.studio-header .studio-account{max-width:120px}.studio-header .studio-brand-copy strong{font-size:15px}}
-@media(max-width:600px){.studio-header{padding:0 10px}.studio-header .studio-brand-copy strong{font-size:11px}.studio-header .studio-menu{font-size:0!important;min-width:36px;padding:7px!important}.studio-header .studio-menu::before{margin:0}.studio-header .studio-practices{gap:5px;font-size:10px!important}.studio-header .studio-account{display:none!important}}
 @media(max-width:1050px){
  body:has(.st-practice-panel[data-presentation=workspace]) .equipment-study-trigger{bottom:76px}
  body:has(.st-practice-panel[data-presentation=workspace]:not([data-practice-pane=scene])) .equipment-study-trigger{display:none!important}
@@ -57,33 +29,8 @@
 
 /* Learner game chrome floats above the full-size scene. The editor, catalogue
    and XR world-space menus keep their own surfaces and input handling. */
-body[data-practice-game=true]:not(.vr-mode):not(.editor-active) .studio-header{
- inset:12px 16px auto;height:48px;padding:0;gap:12px;background:none;border:0;box-shadow:none;pointer-events:none;
-}
-body[data-practice-game=true] .studio-header .studio-brand{
- display:flex!important;padding:9px 13px;border:1px solid #48c8b65c;border-radius:14px;background:#092831e8;
- pointer-events:auto;box-shadow:0 4px 20px #08242e33;gap:9px;
-}
-body[data-practice-game=true] .studio-header .studio-brand-copy strong{font-size:13px;color:#e7fffa;letter-spacing:.25px}
-body[data-practice-game=true] .studio-header .studio-brand-copy small{font-size:8px;color:#8bc8c3;display:block;letter-spacing:.5px}
-body[data-practice-game=true] .studio-header .studio-cube{width:24px;height:26px}
-body[data-practice-game=true] .studio-header-actions{width:auto!important;flex:0 0 auto;gap:8px;pointer-events:none}
-body[data-practice-game=true] .studio-header-actions>:not(.studio-menu):not(.studio-vr){display:none!important}
-body[data-practice-game=true] .studio-header .studio-menu,
-body[data-practice-game=true] .studio-header .studio-vr{
- display:inline-flex!important;position:relative!important;inset:auto!important;transform:none!important;align-items:center;justify-content:center;
- flex:0 0 46px;width:46px!important;height:46px;min-width:46px!important;max-width:46px;min-height:46px;padding:0!important;
- border-radius:50%!important;border:1px solid #58d9cd!important;background:#0a303deb!important;color:#89fff0!important;
- font-size:0!important;pointer-events:auto;box-shadow:0 0 0 3px #082d3b99,0 4px 18px #08293433;
-}
-body[data-practice-game=true] .studio-header .studio-menu::before,
-body[data-practice-game=true] .studio-header .studio-vr::before{width:23px;height:23px;flex:0 0 23px;margin:0}
-body[data-practice-game=true] .studio-header .studio-vr:disabled,body[data-practice-game=true] .studio-header .studio-vr[aria-disabled=true]{opacity:.65;background:#15343c!important;color:#9db8b8!important;border-color:#79b9b4!important;cursor:default}
-body[data-practice-game=true] .studio-header .studio-menu:hover,
-body[data-practice-game=true] .studio-header .studio-vr:hover{background:#115163!important;border-color:#a2fff2!important}
-body[data-practice-game=true] .studio-header .studio-menu[aria-expanded=true]{background:#176859!important;color:#c5fff1!important}
 body[data-practice-game=true] .studio-shade{inset:0;z-index:170}
-body[data-practice-game=true] .studio-drawer{top:72px;right:16px;max-height:calc(100dvh - 88px);z-index:175}
+body[data-practice-game=true] .studio-drawer:not(.st-app-menu){top:72px;right:16px;max-height:calc(100dvh - 88px);z-index:175}
 body[data-practice-game=true] .studio-notice{bottom:100px;font-size:13px;max-width:min(620px,calc(100vw - 140px))}
 body[data-practice-game=true] .studio-context{max-width:min(320px,calc(100vw - 148px))}
 body[data-practice-game=true] .equipment-study-trigger{
@@ -178,12 +125,7 @@ body[data-practice-game=true][data-practice-reading=true] .equipment-study-trigg
  body[data-practice-game=true] #vehicle-operation-panels .vehicle-driving-hud[data-controls] .vehicle-control-key{font-size:9px!important}
 }
 @media(max-width:700px){
- body[data-practice-game=true] .studio-header{inset:10px 10px auto!important}
- body[data-practice-game=true] .studio-header .studio-brand{padding:9px!important;gap:0;border-radius:50%;width:46px;height:46px;justify-content:center}
- body[data-practice-game=true] .studio-header .studio-brand-copy{display:none}
- body[data-practice-game=true] .studio-header .studio-menu,body[data-practice-game=true] .studio-header .studio-vr{width:44px!important;min-width:44px!important;height:44px;min-height:44px;flex-basis:44px}
- body[data-practice-game=true] .studio-header-actions{gap:7px}
- body[data-practice-game=true] .studio-drawer{inset:66px 8px 8px;width:calc(100vw - 16px);max-height:none;overflow:auto}
+ body[data-practice-game=true] .studio-drawer:not(.st-app-menu){inset:66px 8px 8px;width:calc(100vw - 16px);max-height:none;overflow:auto}
  body[data-practice-game=true] .equipment-study-trigger{left:14px!important;right:auto!important;top:128px;bottom:auto;width:46px;height:46px;max-width:46px}
  body[data-practice-game=true]:is([data-practice-controls-visible=true],[data-practice-instrument=controls],[data-practice-instrument=driving]) #vehicle-operation-panels .vehicle-operator-column .vehicle-driving-hud[data-layout][data-controls]:not([hidden]),
  body[data-practice-game=true]:is([data-practice-layout-visible=true],[data-practice-instrument=layout],[data-practice-instrument=driving]) #vehicle-operation-panels .vehicle-navigation-display:not([hidden]){
@@ -241,12 +183,12 @@ body[data-practice-game=true][data-practice-reading=true] .equipment-study-trigg
 }
 
 /* Match the opened experience menu to the learner HUD without changing editor pages. */
-body[data-practice-game=true] .studio-drawer{background:#0b2b37f7;color:#e5fcfa;border-color:#408b8e;--st-ink:#e5fcfa;--st-muted:#b9d8da;--st-border:#3d737c;--st-teal:#75e6ce}
-body[data-practice-game=true] .studio-drawer-head{background:#0a303c;border-bottom-color:#3d737c}
-body[data-practice-game=true] .studio-drawer :is(h1,h2,h3,strong){color:#eafffa}
-body[data-practice-game=true] .studio-drawer :is(p,.studio-muted){color:#b9d8da}
-body[data-practice-game=true] .studio-drawer :is(button,input,select,textarea){background:#123d4a;color:#e5fcfa;border-color:#48828a}
-body[data-practice-game=true] .studio-drawer button:hover{background:#20565e}
-body[data-practice-game=true] .studio-drawer :is(button.primary,button[aria-selected=true]){background:#86e5cc;color:#092d33;border-color:#a3f2de}
-body[data-practice-game=true] .studio-drawer .studio-card{background:#103844;color:#d1e9e8;border-color:#3e7079}
-body[data-practice-game=true] .studio-drawer a{color:#8cf1d8}
+body[data-practice-game=true] .studio-drawer:not(.st-app-menu){background:#0b2b37f7;color:#e5fcfa;border-color:#408b8e;--st-ink:#e5fcfa;--st-muted:#b9d8da;--st-border:#3d737c;--st-teal:#75e6ce}
+body[data-practice-game=true] .studio-drawer:not(.st-app-menu) .studio-drawer-head{background:#0a303c;border-bottom-color:#3d737c}
+body[data-practice-game=true] .studio-drawer:not(.st-app-menu) :is(h1,h2,h3,strong){color:#eafffa}
+body[data-practice-game=true] .studio-drawer:not(.st-app-menu) :is(p,.studio-muted){color:#b9d8da}
+body[data-practice-game=true] .studio-drawer:not(.st-app-menu) :is(button,input,select,textarea){background:#123d4a;color:#e5fcfa;border-color:#48828a}
+body[data-practice-game=true] .studio-drawer:not(.st-app-menu) button:hover{background:#20565e}
+body[data-practice-game=true] .studio-drawer:not(.st-app-menu) :is(button.primary,button[aria-selected=true]){background:#86e5cc;color:#092d33;border-color:#a3f2de}
+body[data-practice-game=true] .studio-drawer:not(.st-app-menu) .studio-card{background:#103844;color:#d1e9e8;border-color:#3e7079}
+body[data-practice-game=true] .studio-drawer:not(.st-app-menu) a{color:#8cf1d8}

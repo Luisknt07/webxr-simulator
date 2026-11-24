@@ -15,6 +15,7 @@ import {getSceneCameraMode,setDroneFlight} from '../../../packages/render-three/
 import SceneCaptureController from '../../../packages/scene-capture/SceneCaptureController.js';
 import SceneCaptureToolbar from '../../../packages/scene-capture/SceneCaptureToolbar.js';
 import PracticeGuideAvatar from '../../../packages/assistant-ui/PracticeGuideAvatar.js';
+import {connectExperienceHeader} from '../../../packages/navigation-ui/ExperienceHeader.js';
 
 const ROOM_IDS = ['hall', 'sound', 'photogrammetry', 'vertigo', 'panoramastereo', 'panorama1', 'panorama2', 'panorama3', 'panorama4', 'panorama5'];
 function el(tag, text, parent, className) { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; if (parent) parent.appendChild(node); return node; }
@@ -186,7 +187,8 @@ export default class StudioExperience {
     this.header = el('nav', undefined, document.body, 'studio-header'); this.header.setAttribute('aria-label', 'SMART-TWIN Simulator');
     const brand = el('a', undefined, this.header, 'studio-brand'); brand.href = '/'; brand.title = 'Volver al inicio de SmartTwin'; brand.setAttribute('aria-label', 'SmartTwin · Volver al inicio'); el('i',undefined,brand,'studio-cube'); const brandText=el('span',undefined,brand,'studio-brand-copy');el('strong', 'SMART-TWIN Simulator', brandText);el('small','Simulación industrial y logística',brandText);
     const actions = el('div', undefined, this.header, 'studio-header-actions');
-    this.practicesButton=button(actions,'Prácticas',()=>this.editor.editorEnabled&&this.practiceCampaign.openCatalogue?this.practiceCampaign.openCatalogue():this.open('scenes'),'studio-practices');
+    this.homeButton=button(actions,'Inicio',()=>this.goHome(),'studio-home');
+    this.practicesButton=button(actions,'Escenarios',()=>this.editor.editorEnabled&&this.practiceCampaign.openCatalogue?this.practiceCampaign.openCatalogue():this.open('scenes'),'studio-practices');
     studioIcon(this.practicesButton,'practice');
     this.guideButton=button(actions,'Guía',()=>this.editor.practiceController?this.practiceCampaign.openGuide('guide'):this.editor.shell.openDocumentation(),'studio-guide');
     studioIcon(this.guideButton,'guide');
@@ -201,6 +203,8 @@ export default class StudioExperience {
     this.menuButton = button(actions, 'Menú', () => this.drawer.hidden ? this.open('personal') : this.close(),'studio-menu'); this.menuButton.setAttribute('aria-expanded', 'false');this.menuButton.setAttribute('aria-label','Menú de la experiencia');this.menuButton.title='Menú · prácticas, voz, asistente y ajustes';studioIcon(this.menuButton,'menu');
     this.shade = el('div', undefined, document.body, 'studio-shade'); this.shade.hidden = true; this.shade.addEventListener('click', () => this.close());
     this.drawer = el('aside', undefined, document.body, 'studio-drawer'); this.drawer.hidden = true; this.drawer.setAttribute('role', 'dialog'); this.drawer.setAttribute('aria-label', 'Mi espacio'); this.drawer.setAttribute('aria-modal', 'true');
+    this.drawer.id='studio-experience-menu';this.menuButton.setAttribute('aria-controls',this.drawer.id);
+    if(typeof connectExperienceHeader==='function')this.experienceHeader=connectExperienceHeader(this.header,{brand,actions,controls:{home:this.homeButton,scenes:this.practicesButton,guide:this.guideButton,results:this.resultsButton,account:this.accountButton,xr:vrButton,menu:this.menuButton},onInteract:()=>{this.editor.hooks.unlock();this.editor.hooks.clearKeyboard();}});
     this.drawer.addEventListener('keydown', event => { event.stopPropagation(); if (event.key === 'Escape') this.close(); if (event.key === 'Tab') { const buttons = Array.from(this.drawer.querySelectorAll('button,input,select,a')).filter(node => !node.disabled && !node.hidden && (!node.getClientRects || node.getClientRects().length)); const first = buttons[0], last = buttons[buttons.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } } });
     this.notice = el('output', undefined, document.body, 'studio-notice'); this.notice.hidden = true;
     this.controls = button(document.body, '⌘ Controles', () => this.open('controls'), 'studio-controls');
@@ -244,7 +248,7 @@ export default class StudioExperience {
     if (this.administration) this.administration.close();
     if (!this.client.user && ['avatar', 'sessions', 'rooms', 'progress', 'users', 'classroom'].includes(page)) page = 'account';
     this.editor.hooks.unlock(); this.editor.hooks.clearKeyboard(); this.close(); this.page = page; this.drawer.textContent = ''; this.drawer.hidden = false; this.shade.hidden = false; this.menuButton.setAttribute('aria-expanded', 'true');
-    this.drawer.className = 'studio-drawer' + (page === 'scenes' ? ' studio-scene-library-modal' : ''); this.drawer.setAttribute('aria-label', page === 'scenes' ? 'Biblioteca de escenarios' : 'Mi espacio');
+    this.drawer.className = 'studio-drawer' + (page === 'scenes' ? ' studio-scene-library-modal' : page==='personal'?' st-app-menu':''); this.drawer.setAttribute('aria-label', page === 'scenes' ? 'Biblioteca de escenarios' : 'Mi espacio');
     const head = el('div', undefined, this.drawer, 'studio-drawer-head'); el('h1', ({account: this.client.user ? 'Mi cuenta' : 'Iniciar sesión', avatar: 'Mi avatar', sessions: 'Sesiones guardadas', rooms: 'Sesiones multiusuario', progress: 'Mi progreso', settings: 'Ajustes', controls: 'Controles', scenes: 'Escenarios', classroom: 'Mis prácticas', users: 'Administración'})[page] || 'Mi espacio', head); const closer = button(head, '×', () => this.close()); closer.setAttribute('aria-label', 'Cerrar panel');
     this.content = el('div', undefined, this.drawer, 'studio-drawer-content');
     if (page === 'account') this.account(); else if (page === 'avatar') this.avatar(); else if (page === 'sessions') this.guard(() => this.sessions()); else if (page === 'rooms') this.rooms(); else if (page === 'progress') this.progress(); else if (page === 'settings') this.settings(); else if (page === 'controls') this.help(); else if (page === 'users') this.guard(() => this.users()); else if (page === 'classroom') this.guard(() => this.classroom()); else if (page === 'scenes') this.guard(() => this.scenes()); else this.personal();
@@ -258,6 +262,7 @@ export default class StudioExperience {
     button(content, '⌂   Inicio   ›', () => this.goHome(), 'studio-action');
     if (user && this.editor.simulationPaused && !this.room) button(content, '▶ Reanudar simulación', () => { this.editor.simulationPaused = false; this.close(); }, 'studio-primary');
     button(content, '▦   Escenarios   ›', () => this.open('scenes'), 'studio-action');
+    button(content,'Guía del escenario',()=>{this.close();this.guideButton.click();},'studio-action');
     const flight=button(content,this.ctx.desktopFlight?'Desactivar vuelo dron':'Activar vuelo dron',()=>{this.setDesktopFlight(!this.ctx.desktopFlight);this.open('personal');},'studio-action');studioIcon(flight,'move');
     if(this.ctx.voicePanel)button(content,'Voz e instrucciones   ›',()=>{this.close();this.ctx.voicePanel.open();},'studio-action');
     if(this.ctx.assistantWorkspace)button(content,'Asistente   ›',()=>{this.close();this.ctx.assistantWorkspace.open();},'studio-action');

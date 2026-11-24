@@ -20,7 +20,7 @@ function fixture(configuration={},baseURI='https://studio.example/'){
  const mountGallery=options=>{galleryOptions=options;return gallery;};
  const createWelcomeNavigation=options=>{creates++;return{getStats:()=>({screen:'welcome'}),restore:async()=>{},gallery:async()=>{navigationCalls.push('gallery');},home:async()=>{navigationCalls.push('home');},openDemo:async()=>{navigationCalls.push('demo');},dispose:async()=>{}};};
  const noNetwork=()=>{throw Error('Welcome controls must not request scenes, accounts or a private editor.');};
- new Function('document','window','mountGallery','createWelcomeNavigation','console','fetch',main)(document,window,mountGallery,createWelcomeNavigation,{error:(...rows)=>errors.push(rows)},noNetwork);
+ new Function('document','window','mountGallery','createWelcomeNavigation','console','fetch','connectExperienceHeader',main)(document,window,mountGallery,createWelcomeNavigation,{error:(...rows)=>errors.push(rows)},noNetwork,()=>({dispose(){}}));
  return{elements,document,window,errors,navigationCalls,assignments,get galleryOptions(){return galleryOptions;},get creates(){return creates;}};
 }
 

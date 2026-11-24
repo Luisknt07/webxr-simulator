@@ -12,8 +12,14 @@ import {createVoiceModule} from '../../packages/voice-assistant/index.js';
 import {voicePort} from '../../modules/logistica-industrial/integrations/VoiceAssistantBridge.js';
 import {DemoRecovery} from './SceneResilience.js';
 import XRAccessDialog from './XRAccessDialog.js';
+import {connectExperienceHeader} from '../../packages/navigation-ui/ExperienceHeader.js';
 
 const byId = id => document.getElementById(id);
+const experienceHeader=connectExperienceHeader(document.querySelector('.viewer-header'),{
+  brand:document.querySelector('.viewer-brand'),actions:document.querySelector('.header-actions'),
+  controls:{home:'#home-link',scenes:'#back-scenes',overview:'#overview',xr:'#xr-action button',menu:'#viewer-menu-toggle',account:'#workspace-link'},
+  onInteract(){const c=window.smartTwinViewer&&window.smartTwinViewer.context;if(c){c.input.reset();if(c.desktopLook)c.desktopLook.unlock();}}
+});
 const configuration = window.SMARTTWIN_PUBLIC_VIEWER_CONFIG || {};
 const SCENE_URL = configuration.sceneURL || 'projects/smarttwin/scenes/vr-robot-dispatch.json';
 const VIEWER_WORLD_ID = 'public-vr-robot-dispatch';
@@ -115,6 +121,10 @@ async function start() {
     menuToggle.setAttribute('aria-expanded', 'true'); menu.showModal();
   });
   listen(byId('viewer-menu-close'), 'click', closeMenu);
+  listen(byId('menu-home'),'click',()=>{closeMenu();byId('home-link').click();});
+  listen(byId('menu-scenes'),'click',()=>{closeMenu();byId('back-scenes').click();});
+  listen(byId('menu-voice'),'click',()=>{closeMenu();const launcher=document.querySelector('[data-voice-assistant-toggle]');if(launcher)launcher.click();});
+  listen(menu,'click',event=>{if(event.target!==menu)return;const r=menu.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeMenu();});
   listen(menu, 'close', () => {ctx.publicDialogOpen = false; input.reset(); menuToggle.setAttribute('aria-expanded', 'false');});
   browser.onDispose(closeMenu);
   try {
@@ -249,6 +259,7 @@ try {
     async onStart() {return navigation.openDemo();}});
   navigation = createWelcomeNavigation({
     showScreen(screen, {loading}) {
+      document.querySelector('.viewer-header').dataset.screen=screen;
       gallery.hide(); byId('welcome').hidden = screen !== 'welcome';
       document.body.classList.remove('welcome-open', 'gallery-open', 'scene-active', 'ready', 'driving', 'immersive');
       byId('loading').hidden = !loading; byId('loading').classList.remove('failed'); byId('retry').hidden = true;
@@ -273,5 +284,5 @@ try {
   const restore = () => follow(() => navigation.restore(window.location.hash));
   window.addEventListener('popstate', restore); window.addEventListener('hashchange', restore);
   restore();
-  window.addEventListener('pagehide', event => {if (!event.persisted) {navigation.dispose().catch(() => {}); gallery.dispose(); if (accessDialog) accessDialog.remove();}}, {once: true});
+  window.addEventListener('pagehide', event => {if (!event.persisted) {experienceHeader.dispose();navigation.dispose().catch(() => {}); gallery.dispose(); if (accessDialog) accessDialog.remove();}}, {once: true});
 } catch (error) {fail(error);}

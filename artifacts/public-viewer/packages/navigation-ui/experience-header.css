@@ -1,0 +1,48 @@
+/* One header for the public demonstration and authenticated experiences. */
+:root{--st-header-height:72px}
+.st-app-header{position:fixed;inset:0 0 auto;z-index:1600;display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:72px;height:72px;padding:12px 24px;box-sizing:border-box;background:#fff;color:#16263e;border-bottom:1px solid #dce5ec;box-shadow:0 2px 10px #102d3a0a;font-family:'Segoe UI',Arial,sans-serif;pointer-events:auto;color-scheme:light}
+.st-app-brand{display:flex;align-items:center;gap:11px;min-width:0;flex:0 1 auto;color:#16263e;text-decoration:none;letter-spacing:0;white-space:nowrap;pointer-events:auto}
+.st-app-brand-copy{display:flex;flex-direction:column;gap:4px;min-width:0}
+.st-app-brand-copy strong{font:700 19px/1.2 'Segoe UI',Arial,sans-serif;overflow:hidden;text-overflow:ellipsis}
+.st-app-brand-copy small{font:600 10px/1.2 'Segoe UI',Arial,sans-serif;letter-spacing:.6px;text-transform:uppercase;color:#53677d;margin:0}
+.welcome-open .st-app-brand{color:#eef7f5}.welcome-open .st-app-brand-copy small{color:#b5d7d3}
+.st-app-cube{width:32px;height:35px;display:block;flex:none;position:relative;background:linear-gradient(30deg,#378c80 50%,#67d6c0 50%);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.st-app-cube:after{content:'';position:absolute;inset:4px 5px 16px;background:#d5fff5;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.st-app-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0;flex:none;pointer-events:auto}
+.st-app-header .st-header-action{position:static!important;inset:auto!important;transform:none!important;display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;min-height:44px;height:44px;min-width:44px;width:auto!important;max-width:180px;margin:0!important;padding:10px 14px!important;border:1px solid #d6e1eb!important;border-radius:10px!important;background:#fff!important;color:#20344d!important;opacity:1!important;box-shadow:0 1px 3px #12294008;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font:600 14px/1.2 'Segoe UI',Arial,sans-serif!important;text-decoration:none;cursor:pointer;box-sizing:border-box;letter-spacing:0}
+.st-app-header .st-header-action:hover{background:#edf8f5!important;border-color:#80c5b6!important}
+.st-app-header .st-header-action:focus-visible{outline:3px solid #008a79;outline-offset:3px}
+.st-app-header .st-header-action::before{content:none!important}
+.st-app-header .st-header-action[aria-expanded=true],.st-app-header [data-st-action=scenes]{background:#e8f6f2!important;border-color:#95cfc0!important;color:#08695d!important}
+.st-app-header [data-st-action=xr]{background:#edf8f5!important;border-color:#8bbfb4!important;max-width:170px}
+.st-app-header [data-st-action=xr]{display:inline-flex!important}
+.st-app-header .st-header-action:disabled,.st-app-header .st-header-action[aria-disabled=true]{opacity:.65!important;cursor:default;background:#f2f5f7!important;color:#52677c!important}
+.st-app-header .st-header-action svg{width:20px;height:20px;flex:0 0 20px}
+.st-app-header .st-header-icon{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.st-app-header [data-st-action=home]{order:1}.st-app-header [data-st-action=scenes]{order:2}.st-app-header [data-st-action=guide]{order:3}.st-app-header [data-st-action=results]{order:4}.st-app-header [data-st-action=overview]{order:5}
+.st-app-header #xr-action{display:contents}.st-app-header [data-st-action=xr]{order:6}.st-app-header [data-st-action=menu]{order:7}.st-app-header [data-st-action=voice]{order:8}.st-app-header [data-st-action=microphone]{order:9}.st-app-header [data-st-action=assistant]{order:10}.st-app-header [data-st-action=account]{order:11;max-width:175px}
+.st-app-header .studio-flight,.st-app-header .studio-audio,.st-app-header .ed-toolbar-group{display:none!important}
+.st-app-header[data-screen=gallery] :is(#overview,#xr-action,#viewer-menu-toggle){display:none}
+body.editor-active .st-app-header,body.vr-mode .st-app-header,body.immersive .st-app-header{display:none!important}
+.st-app-menu,body .studio-drawer.st-app-menu{z-index:1602;position:fixed;inset:calc(var(--st-header-height) + 10px) 12px 12px auto;width:min(460px,calc(100vw - 24px));height:auto;max-height:calc(100dvh - var(--st-header-height) - 22px);max-width:none;margin:0;padding:22px;overflow:auto;overscroll-behavior:contain;box-sizing:border-box;border:1px solid #d4e0e9;border-radius:14px;background:#f8fafc;color:#1b3049;box-shadow:0 16px 55px #102c3b26;font:14px/1.6 'Segoe UI',Arial,sans-serif;color-scheme:light}
+.st-app-menu::backdrop{background:#10243355;backdrop-filter:blur(3px)}
+.st-app-menu :is(.viewer-scene-menu-header,.studio-drawer-head){position:sticky;top:-22px;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:16px;margin:-22px -22px 18px;padding:18px 22px;background:#fff;border-bottom:1px solid #dce5ec;border-radius:14px 14px 0 0}
+.st-app-menu :is(h1,h2){font:700 23px/1.3 'Segoe UI',Arial,sans-serif;margin:0;color:#182e47;letter-spacing:-.3px}
+.st-app-menu :is(.viewer-scene-menu-header,.studio-drawer-head)>button{width:44px;height:44px;flex:none;min-height:44px;padding:0!important;margin:0!important;font-size:24px!important;text-align:center;background:#fff;color:#25405a;border:1px solid #d4e0e9;border-radius:10px}
+.st-app-menu .viewer-scene-options{display:grid;grid-template-columns:1fr;gap:8px;padding:0 0 18px;border-bottom:1px solid #dce5ec}
+.st-app-menu .viewer-scene-options button{min-height:44px;text-align:left;background:#fff;color:#20394f;border:1px solid #d4e0e9;border-radius:9px;font-size:14px}
+.st-app-menu .viewer-menu-navigation{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}.st-app-menu .viewer-menu-navigation button{min-height:44px;background:#fff;color:#20394f;border:1px solid #d4e0e9;border-radius:9px;font-size:14px}
+.studio-drawer.st-app-menu{background:#f8fafc;color:#1b3049;--st-ink:#1b3049;--st-muted:#52677d;--st-border:#d4e0e9;--st-teal:#008577}
+.studio-drawer.st-app-menu .studio-action{min-height:44px}
+.st-app-menu :is(.lesson-intro,.lesson-description,.viewer-help,.demo-progress){color:#415971;max-width:none}
+.st-app-menu .eyebrow{color:#087566}.st-app-menu .lesson-intro h3{font-size:20px;line-height:1.4;color:#20364e}
+.st-app-menu .viewer-help{font-size:14px;line-height:1.7}.st-app-menu .lesson-description{font-size:14px;line-height:1.7}
+.st-app-menu .viewer-help[open]{background:#eef5f8;color:#415971;border:1px solid #dce5ec;padding:14px}
+.studio-shade{top:var(--st-header-height)}
+@media(max-width:1500px){.st-app-header [data-st-action=guide],.st-app-header [data-st-action=results]{display:none}.st-app-header{padding-inline:18px;gap:14px}.st-app-header .st-header-action{padding-inline:11px!important;font-size:13px!important}.st-app-brand-copy strong{font-size:17px}}
+@media(max-width:1150px){.st-app-header [data-st-action=home],.st-app-header [data-st-action=overview],.st-app-header [data-st-action=account],.st-app-header [data-st-action=assistant],.st-app-header [data-st-action=microphone]{display:none}.st-app-brand-copy small{font-size:9px}.st-app-header{gap:12px}}
+@media(max-width:760px){.st-app-header{min-height:64px;height:64px;padding:10px 12px;gap:10px}.st-app-brand-copy strong{font-size:15px}.st-app-brand-copy small{display:none}.st-app-header [data-st-action=voice],.st-app-header [data-st-action=scenes]{display:none}.st-app-cube{width:28px;height:30px}.st-app-brand{gap:8px}.st-app-header .st-header-action{font-size:13px!important}.st-app-menu{padding:18px}.st-app-menu :is(.viewer-scene-menu-header,.studio-drawer-head){top:-18px;margin:-18px -18px 16px;padding:14px 18px}}
+@media(max-width:480px){.st-app-header{padding-inline:10px;gap:8px}.st-app-brand-copy strong{font-size:14px;max-width:164px}.st-app-actions{gap:6px}.st-app-header [data-st-action=menu],.st-app-header [data-st-action=xr]{padding:10px!important;font-size:0!important;gap:0;min-width:44px;max-width:44px;height:44px}.st-app-header [data-st-action=xr] .st-header-icon,.st-app-header [data-st-action=menu] .st-header-icon{width:22px;height:22px;flex-basis:22px}}
+@media(max-width:480px){.welcome-open .st-app-brand-copy strong{white-space:normal;overflow:visible;text-overflow:clip;max-width:100%;font-size:12px;line-height:1.2}.welcome-open .st-app-brand-copy small{white-space:normal;font-size:9px;line-height:1.25;max-width:120px}}
+
+body .studio-drawer.st-app-menu :is(p,strong,h1,h2,h3){color:#20364e}body .studio-drawer.st-app-menu button:not(.studio-primary){background:#fff;color:#20364e;border-color:#d4e0e9;white-space:normal;overflow-wrap:anywhere;line-height:1.4}body .studio-drawer.st-app-menu .studio-person{gap:12px;font-size:18px;min-width:0}body .studio-drawer.st-app-menu .studio-person svg{width:48px;height:48px;flex:none}body .studio-drawer.st-app-menu .studio-person strong{overflow-wrap:anywhere;min-width:0}
