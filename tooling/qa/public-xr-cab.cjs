@@ -84,6 +84,48 @@ async function run({publicSha256,workspaceSha256,baseline=false}={}){
    report.physicalButtons.off=await physicalButton('ignition');assert(!report.physicalButtons.off.powered&&!report.physicalButtons.off.running);
    report.physicalButtons.restarted=await physicalButton('ignition');assert(report.physicalButtons.restarted.powered&&report.physicalButtons.restarted.running);
    await b.call(()=>{const a=smartTwinViewer,c=a.context;c.camera.lookAt(__cabQA.rig.cabin.localToWorld(new a.THREE.Vector3(-.10,1.05,.32)));c.camera.updateMatrixWorld(true);});await shot('physical-cab-labelled-and-functional');
+   // Sample the primary GPU image, before the monitor is composed. Object
+   // visibility alone missed decals erased by later opaque cab draws when
+   // the auxiliary no-fog pass changed r112's shader sorting order.
+   const labelPixels=(channel,hide)=>b.call(({channel,hide})=>new Promise(resolve=>{
+    const a=smartTwinViewer,c=a.context,T=a.THREE,entry=c.demo.driving.cab.labels.entries.find(e=>e.channel===channel),m=entry.material,old=m.colorWrite,original=c.renderer.render;
+    m.colorWrite=!hide;
+    c.renderer.render=function(scene,camera){const result=original.apply(this,arguments);if(scene===c.scene&&camera===c.camera&&this.getRenderTarget()===null){
+      try{const gl=this.getContext(),w=gl.drawingBufferWidth,h=gl.drawingBufferHeight,p=entry.plate.geometry.attributes.position,points=[];
+        for(let i=0;i<p.count;i++)points.push(new T.Vector3().fromBufferAttribute(p,i).applyMatrix4(entry.plate.matrixWorld).project(camera));
+        const x=Math.max(0,Math.floor(Math.min(...points.map(p=>(p.x+1)*w/2)))),y=Math.max(0,Math.floor(Math.min(...points.map(p=>(p.y+1)*h/2)))),right=Math.min(w,Math.ceil(Math.max(...points.map(p=>(p.x+1)*w/2)))),top=Math.min(h,Math.ceil(Math.max(...points.map(p=>(p.y+1)*h/2)))),width=Math.max(1,right-x),height=Math.max(1,top-y),pixels=new Uint8Array(width*height*4);
+        gl.readPixels(x,y,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);resolve({x,y,width,height,pixels:Array.from(pixels),depthTest:m.depthTest,order:entry.plate.renderOrder});
+      }finally{c.renderer.render=original;m.colorWrite=old;}
+    }return result;};
+   }),{channel,hide});
+   report.labelPixels=[];
+   for(const channel of ['steer','horn','lift']){const visible=await labelPixels(channel,false),hidden=await labelPixels(channel,true);assert.deepEqual([visible.x,visible.y,visible.width,visible.height],[hidden.x,hidden.y,hidden.width,hidden.height]);let changed=0;for(let i=0;i<visible.pixels.length;i+=4)if(Math.abs(visible.pixels[i]-hidden.pixels[i])+Math.abs(visible.pixels[i+1]-hidden.pixels[i+1])+Math.abs(visible.pixels[i+2]-hidden.pixels[i+2])>30)changed++;report.labelPixels.push({channel,width:visible.width,height:visible.height,changed,depthTest:visible.depthTest,order:visible.order});assert(visible.depthTest&&visible.order>0);assert(changed>=5,'The actual GPU image erased the '+channel+' decal.');}
+   await b.call(()=>{
+    const a=smartTwinViewer,c=a.context,T=a.THREE,d=c.demo.driving,rig=__cabQA.rig,v=d.record().components.vehicle;
+    d.resetInput();if(!v.parkingBrake)d.command('parkingBrake');d.follow();c.scene.updateMatrixWorld(true);
+    const inverse=new T.Matrix4().getInverse(d.visualRoot.matrixWorld),base=new T.Matrix4().multiplyMatrices(inverse,rig.forks.matrixWorld).toArray(),atlas=d.cab.labels.texture;
+    const audit=window.__cabPersistence={samples:0,missing:0,changedAtlas:0,unstableForkPose:0,base,atlas:atlas.uuid,original:c.renderer.render};
+    c.renderer.render=function(scene,camera){const result=audit.original.apply(this,arguments);if(scene===c.scene&&camera===c.camera&&this.getRenderTarget()===null){
+      audit.samples++;const labels=d.cab.labels;
+      for(const entry of labels.entries){let visible=true;for(let p=entry.plate;p;p=p.parent)if(!p.visible)visible=false;if(!visible||entry.material.map!==labels.texture)audit.missing++;}
+      if(!labels.entries.length||!labels.texture||labels.texture.uuid!==audit.atlas)audit.changedAtlas++;
+      const local=new T.Matrix4().getInverse(d.visualRoot.matrixWorld).multiply(rig.forks.matrixWorld).toArray();if(local.some((x,i)=>Math.abs(x-base[i])>1e-6))audit.unstableForkPose++;
+    }return result;};
+    const eye=rig.cabin.localToWorld(new T.Vector3(.10,1.62,-.26));c.camera.position.copy(c.cameraRig.worldToLocal(eye));c.camera.lookAt(rig.cabin.localToWorld(new T.Vector3(-.13,1.13,.21)));c.camera.updateMatrixWorld(true);
+   });
+   await delay(700);await shot('ergonomic-controls-and-labels');
+   await b.call(()=>{smartTwinViewer.context.publicDialogOpen=true;});await delay(350);
+   const suspended=await b.call(()=>{const d=smartTwinViewer.context.demo.driving;return{blocked:!!d.blocked(),visible:d.cab.labels.entries.every(e=>e.plate.visible),ringsHidden:d.cab.labels.entries.every(e=>!e.ring.visible)};});
+   assert(suspended.blocked&&suspended.visible&&suspended.ringsHidden,'Opening an overlay must keep the physical control names and symbols.');
+   await b.call(()=>{smartTwinViewer.context.publicDialogOpen=false;const d=smartTwinViewer.context.demo.driving;d.docking.toggleRearView();});await delay(350);
+   await b.call(()=>{smartTwinViewer.context.demo.driving.docking.toggleRearView();});await delay(350);
+   for(const enabled of [false,true]){
+    await b.call(enabled=>{const a=smartTwinViewer,c=a.context,T=a.THREE,d=c.demo.driving,rig=__cabQA.rig;d.docking.inspectionMode.setHologramOverride(enabled);d.docking.applyHologramState(enabled);d.follow();c.scene.updateMatrixWorld(true);const eye=rig.forks.localToWorld(new T.Vector3(.62,.63,-.25));c.camera.position.copy(c.cameraRig.worldToLocal(eye));c.camera.lookAt(rig.forks.localToWorld(new T.Vector3(0,-.02,.55)));c.camera.updateMatrixWorld(true);},enabled);
+    await delay(450);assert.equal(await b.evaluate('smartTwinViewer.context.demo.driving.frontVisibility.active'),enabled);await shot(enabled?'forks-hologram-stable':'forks-solid-stable');
+   }
+   report.cabPersistence=await b.call(()=>{const c=smartTwinViewer.context,a=__cabPersistence,labels=c.demo.driving.cab.labels;c.renderer.render=a.original;const rig=__cabQA.rig,T=smartTwinViewer.THREE;return{samples:a.samples,missing:a.missing,changedAtlas:a.changedAtlas,unstableForkPose:a.unstableForkPose,labels:labels.entries.map(e=>({channel:e.channel,visible:e.plate.visible,map:e.material.map.uuid})),atlas:a.atlas,grips:rig.controls.levers.map(l=>({id:l.id,position:rig.cabin.worldToLocal(l.grip.getWorldPosition(new T.Vector3())).toArray()}))};});
+   assert(report.cabPersistence.samples>5);assert.equal(report.cabPersistence.missing,0);assert.equal(report.cabPersistence.changedAtlas,0);assert.equal(report.cabPersistence.unstableForkPose,0);report.cabPersistence.suspended=suspended;
+   await b.call(()=>{const a=smartTwinViewer,c=a.context,d=c.demo.driving,rig=__cabQA.rig;d.docking.inspectionMode.setHologramOverride(false);d.docking.applyHologramState(false);d.docking.element.style.visibility='hidden';c.camera.position.copy(c.cameraRig.worldToLocal(rig.cabin.localToWorld(new a.THREE.Vector3(0,1.65,-.20))));c.camera.lookAt(rig.cabin.localToWorld(new a.THREE.Vector3(-.12,.97,.36)));c.camera.updateMatrixWorld(true);});await shot('cab-controls-restored');
    await b.call(()=>smartTwinViewer.context.demo.driving.unmount(true));
    // Inspect snapshots of this same operational machine; never replace it
    // with a stand-in model or write an exploded pose into the simulation.

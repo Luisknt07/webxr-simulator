@@ -25,6 +25,7 @@ for (const definition of vehicles.VARIANTS) {
   labels.entries.forEach(entry => {
     assert(entry.channel === 'steer' || ['button','pedal'].includes(entry.control.kind)||features[entry.channel], 'Only controls physically supported by ' + definition.id + ' receive a label.');
     assert.equal(entry.plate.material.map, labels.texture); assert(entry.plate.visible); assert(!entry.ring.visible); assert.equal(entry.plate.material.depthTest, true);
+    assert.equal(entry.plate.material.depthWrite,false);assert(entry.plate.renderOrder>0,'Decals must draw after opaque cab surfaces even when auxiliary cameras change shader sorting.');
     assert.notEqual(entry.plate.parent, f.camera); assert(entry.plate.userData.editorRuntimeHelper && entry.ring.userData.editorRuntimeHelper);
     const positions = entry.plate.geometry.attributes.position; assert(positions.array.every(value => Math.abs(value) < .1), 'Labels remain console-sized instead of becoming a headset overlay.');
     assert(entry.plate.geometry.attributes.uv.array.every(value => value >= 0 && value <= 1));
@@ -43,7 +44,7 @@ move(f, right, localPoint(lift)); f.cab.sample(); squeeze(right, true); f.cab.sa
 move(f, left, localPoint(lift, -lift.descriptor.travel * .6)); f.cab.sample(); const input = {lift: 0}; f.cab.apply(input); assert(input.lift > .5 && input.lift < .7);
 squeeze(left, false); f.cab.sample(); assert.equal(lift.owner, null); assert(lift.object.quaternion.angleTo(lift.rest) < 1e-8, 'Hydraulic levers spring back to their physical neutral pose.');
 left.grip.visible = false; right.grip.visible = false; f.cab.sample(); assert.equal(entry.state, 'guide', 'Lost tracking clears stale hover feedback.');
-f.cab.setGuidance(null); assert.equal(entry.state, 'idle'); assert(!entry.ring.visible); f.driving.menuOpen = true; f.cab.sample(); assert(labels.entries.every(value => !value.plate.visible && !value.ring.visible));
+f.cab.setGuidance(null); assert.equal(entry.state, 'idle'); assert(!entry.ring.visible); f.driving.menuOpen = true; f.cab.sample(); assert(labels.entries.every(value => value.plate.visible && !value.ring.visible),'Pausing interaction keeps the physical control identification visible.');
 f.driving.menuOpen = false; f.cab.reset(); assert(labels.entries.every(value => value.plate.visible)); f.ctx.vrMode = false; f.cab.reset(); assert(labels.entries.every(value => value.plate.visible),'Physical identification remains available to mouse and touch users.');
 assert(f.camera.matrix.equals(head) && left.controller.quaternion.equals(rotation), 'Labels and direct interaction never alter headset/controller tracking poses.');
 f.cab.clear(); assert.equal(f.cab.hands.size, 0); assert.equal(f.cab.labels.texture, null);

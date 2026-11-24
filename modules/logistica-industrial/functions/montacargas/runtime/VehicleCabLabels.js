@@ -38,8 +38,12 @@ export default class VehicleCabLabels {
       const compact=control.descriptor.labelCompact;
       const geometry = new THREE.PlaneBufferGeometry(control.kind === 'wheel' ? .18 : control.descriptor.labelWidth || .15, control.descriptor.labelHeight || (compact ? .052 : .065)), uv = geometry.attributes.uv;
       for (let vertex = 0; vertex < uv.count; vertex++) uv.setXY(vertex, (column + (compact?(5+uv.getX(vertex)*60)/256:uv.getX(vertex))) / 4, 1 - (row + (compact?(14+(1-uv.getY(vertex))*70)/128:1-uv.getY(vertex))) / atlasRows); geometries.add(geometry);
-      const material = new THREE.MeshBasicMaterial({map: texture, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, toneMapped: false});
-      const plate = new THREE.Mesh(geometry, material); plate.name = 'Mando · ' + name[0]; plate.userData.editorRuntimeHelper = true; plate.userData.vehicleCabLabel = control.channel; plate.raycast = () => {}; plate.rotation.set(-Math.PI / 2, 0, Math.PI);
+      const material = new THREE.MeshBasicMaterial({map: texture, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, toneMapped: false, fog:false});
+      const plate = new THREE.Mesh(geometry, material); plate.name = 'Mando · ' + name[0]; Object.assign(plate.userData,{editorRuntimeHelper:true,vehicleCabLabel:control.channel,vehiclePreserve:true,equipmentComponentId:'vehicle.controls'}); plate.raycast = () => {}; plate.rotation.set(-Math.PI / 2, 0, Math.PI);
+      // These decals do not write depth. Draw after the solid cab regardless
+      // of shader compilation order (the live map renders without room fog).
+      // Keep depth testing so spokes, hands and nearby equipment still occlude.
+      plate.renderOrder = 1;
       if(control.descriptor.labelAnchor){control.descriptor.labelAnchor.add(plate);plate.position.fromArray(control.descriptor.labelPosition);plate.rotation.fromArray(control.descriptor.labelRotation||[0,0,0]);}
       else if (control.kind === 'wheel' && rig.dashboard) {rig.dashboard.add(plate); plate.position.set(0, .108, .008);}
       else if (rig.leverConsole && control.kind === 'lever') {rig.leverConsole.add(plate);if(control.descriptor.labelPosition)plate.position.fromArray(control.descriptor.labelPosition).sub(rig.leverConsole.position);else plate.position.set(rig.leverConsole.position.x<0?.082:-.082, .088, control.object.position.z - rig.leverConsole.position.z);}
@@ -55,8 +59,10 @@ export default class VehicleCabLabels {
   sync(active = true, hands) {
     const shown = !!(active && this.root); if (shown && !this.texture) this.build();
     this.entries.forEach(entry => {
-      entry.plate.visible = shown;
-      const hovered = entry.control.pointerHover || hands && Array.from(hands.values()).some(hand => hand.hover === entry.control), state = entry.control.owner ? 'held' : hovered ? 'hover' : this.guidance === entry.channel ? 'guide' : 'idle';
+      // Identification is a physical placard. Pausing or opening a menu only
+      // suspends interaction feedback, never removes the control's identity.
+      entry.plate.visible = !!this.root;
+      const hovered = entry.control.pointerHover || hands && Array.from(hands.values()).some(hand => hand.hover === entry.control), state = !shown?'idle':entry.control.owner ? 'held' : hovered ? 'hover' : this.guidance === entry.channel ? 'guide' : 'idle';
       entry.ring.visible = shown && state !== 'idle';
       if (entry.state !== state) {entry.state = state; entry.material.color.set(COLORS[state]); entry.ringMaterial.color.set(COLORS[state]);}
     });
