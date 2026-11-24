@@ -50,8 +50,8 @@ function buildPublicDemoScene({THREE, schema, document, roomId, scene, base, Con
 
   // A real native rack with addressed, occupied and free positions. It stands
   // beyond the vehicle's original delivery/turning corridor, facing its aisle.
-  const rack = add('palletQueue', 'DEMOSTRACIÓN · estantería selectiva A01 / R01', 'selective', Object.assign({}, schema.warehouseRacks.defaults('selective'), {
-    running: true, withPanel: false, rackBays: 1, rackLevels: 2, rackColumns: 2, rackBayWidth: 3,
+  const rack = add('palletQueue', 'DEMOSTRACIÓN · rack doble de tres niveles A01 / R01', 'selective', Object.assign({}, schema.warehouseRacks.defaults('selective'), {
+    running: true, withPanel: false, rackBays: 2, rackLevels: 3, rackColumns: 2, rackBayWidth: 3,
     rackBaseHeight: .3, rackLevelHeight: 1.4, rackSlotDepth: 1.1, rackAisleCode: 'A01', rackRowCode: 'R01', rackAssignments: '[]',
     acceptsPallets: true, delivery: 'manual', autoRelease: false
   }), [8, 1, -6]);
@@ -60,9 +60,12 @@ function buildPublicDemoScene({THREE, schema, document, roomId, scene, base, Con
     sourceId: rack.userData.editorId, sku: 'DEMO-STOCK-01', productType: 'pallet', loadMode: 'pallet', units: 4, mass: 33,
     width: 1.2, depth: .8, height: .72, palletType: 'euro-1200x800', palletMaterial: 'wood', contents: 'boxes', color: '#b69a6e'
   }, [0, 0, 0]);
-  stock.updateWorldMatrix(true, true);
-  const bounds = new THREE.Box3().setFromObject(stock), center = bounds.getCenter(new THREE.Vector3());
-  document.setTransform(stock, {position: [rack.position.x + cell.position[0] - center.x, rack.position.y + cell.position[1] + .005 - bounds.min.y, rack.position.z + cell.position[2] - center.z]});
+  const seatStock = (object, cell) => {
+    object.updateWorldMatrix(true, true);
+    const bounds = new THREE.Box3().setFromObject(object), center = bounds.getCenter(new THREE.Vector3());
+    document.setTransform(object, {position: [rack.position.x + cell.position[0] - center.x, rack.position.y + cell.position[1] + .005 - bounds.min.y, rack.position.z + cell.position[2] - center.z]});
+  };
+  seatStock(stock, cell);
 
   // Two native line scopes, one analytic board. Each screen reads its own
   // connected material-flow graph; no invented link joins separate cells.
@@ -71,6 +74,20 @@ function buildPublicDemoScene({THREE, schema, document, roomId, scene, base, Con
   const secondaryMonitor = monitor('SMART-TWIN · Inspección de cajas en vivo', robot, 3.65);
   part('DEMOSTRACIÓN · soporte del tablero analítico', '#344b55', [1.95, 1.3, -9.72], [6.7, .14, .18]);
   for (const x of [.25, 3.65]) part('DEMOSTRACIÓN · pedestal del tablero', '#344b55', [x, .66, -9.72], [.12, 1.32, .16]);
+
+  // Keep the existing rack, pallet and monitor identities. Additional stock
+  // uses genuine addressed seats in both bays, including the third tier.
+  // Eight of the twelve positions remain free for manual forklift practice.
+  const rackStock = [stock];
+  for (const [bay, level, column] of [[1, 0, 1], [0, 1, 1], [1, 2, 0]]) {
+    const sku = 'DEMO-STOCK-' + String(rackStock.length + 1).padStart(2, '0');
+    const pallet = add('product', sku + ' · pallet de reserva · 4 cajas / 33 kg', 'pallet-loaded', {
+      sourceId: rack.userData.editorId, sku, productType: 'pallet', loadMode: 'pallet', units: 4, mass: 33,
+      width: 1.2, depth: .8, height: .72, palletType: 'euro-1200x800', palletMaterial: 'wood', contents: 'boxes', color: '#b69a6e'
+    }, [0, 0, 0]);
+    seatStock(pallet, rackLayout.cells.find(cell => cell.bay === bay && cell.level === level && cell.column === column));
+    rackStock.push(pallet);
+  }
 
   const secondaryLinks = [
     {source: source.userData.editorId, sourcePort: 'output', target: robot.userData.editorId, targetPort: 'input'},
@@ -82,10 +99,10 @@ function buildPublicDemoScene({THREE, schema, document, roomId, scene, base, Con
   const guide = base.objects.find(object => /guía de la práctica/.test(object.name));
   if (guide) document.setBehaviors(guide, document.getBehaviors(guide).map(value => value.type === 'info' ? Object.assign({}, value, {
     title: 'SMART-TWIN · Demostración integrada',
-    text: 'Dos robots trabajan con cajas individuales. La línea principal forma dos pallets de cuatro cajas; los transportadores los llevan al montacargas. La célula secundaria inspecciona cuatro cajas.\nAcércate al montacargas para conducir y recoger en la salida de rodillos. Las bahías y la estantería A01/R01 admiten pallets completos.\nConsulta los dos monitores para ver el plano, variables y analítica real de cada línea. Lote finito: ocho cajas principales y cuatro de inspección.'
+    text: 'Dos robots trabajan con cajas individuales. La línea principal forma dos pallets de cuatro cajas; los transportadores los llevan al montacargas. La célula secundaria inspecciona cuatro cajas.\nLa estantería A01/R01 tiene dos módulos, tres niveles y doce ubicaciones. Cuatro pallets de reserva ocupan distintas alturas; ocho posiciones quedan libres. Los apoyos están a 0,30, 1,70 y 3,10 m. Detén el vehículo antes de elevar y recoge o deposita de frente, alineando ambas horquillas.\nAcércate al montacargas para conducir. Su elevación máxima de 4 m alcanza los tres niveles. Para añadir niveles en el editor, ajusta Niveles de almacenamiento y la separación, y comprueba el alcance del equipo y la altura del recinto.\nConsulta los dos monitores para ver el plano, variables y analítica real de cada línea. Lote finito: ocho cajas principales y cuatro de inspección, más dieciséis cajas en los cuatro pallets de reserva.'
   }) : value));
   base.objects.push(...additions); base.conveyors.push(belt); base.controllers.push(robot); base.sources.push(source); base.receivers.push(receiver, rack); base.links.push(...secondaryLinks);
-  return Object.assign(base, {publicDemo: true, secondary: {source, robot, belt, receiver, expectedUnits: 4}, rack, stock, rackLayout, monitors: [primaryMonitor, secondaryMonitor]});
+  return Object.assign(base, {publicDemo: true, secondary: {source, robot, belt, receiver, expectedUnits: 4}, rack, stock, rackStock, rackLayout, monitors: [primaryMonitor, secondaryMonitor]});
 }
 
 module.exports = {buildPublicDemoScene};

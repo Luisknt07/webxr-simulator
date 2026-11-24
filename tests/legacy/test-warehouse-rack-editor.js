@@ -9,12 +9,17 @@ async function tick(){for(let i=0;i<16;i++)await Promise.resolve();}
 async function run(){
  const entries=catalog.rackResources();assert.equal(entries.length,14);assert.equal(new Set(entries.map(r=>r.id)).size,14);assert(catalog.CATEGORIES.some(c=>c.id==='racks'&&c.children.length===3));
  assert(entries.every(r=>r.status==='functional'&&r.action.kind==='palletQueue'));assert.equal(entries.find(r=>r.variant==='selective').id,'library:storage.rack');assert.equal(entries.find(r=>r.variant==='vertical-lift').id,'library:storage.automatic');
- const b=resources.makeBrowser().browser;b.state.folder='racks';b.state.query='';b.state.kind='equipment';b.render();assert.equal(b.cards.size,14,'The new top-level category remains visible under the equipment filter.');
+ const b=resources.makeBrowser().browser;b.state.folder='racks';b.state.query='';b.state.kind='equipment';b.render();
+ // Light/medium shelves share a presentation family. Count the concrete
+ // variants reachable from those cards instead of requiring duplicate cards.
+ const represented=new Set(Array.from(b.cards.keys()).flatMap(id=>{const resource=b.resources.find(r=>r.id===id);return [id,...b._variants(resource).map(r=>r.id)];}));
+ assert(entries.every(r=>represented.has(r.id)),'All fourteen native rack variants remain accessible under the equipment filter.');
  for(const group of ['palletized','picking','automated']){b.state.folder='racks/'+group;b.render();assert(b.cards.size>0);assert(b.resources.filter(r=>b.cards.has(r.id)).every(r=>r.subcategory===group));}b.dispose();
  editorFixture.storage.clear();editorFixture.remote.projects.clear();const f=editorFixture.harness(),e=f.editor;await e.ready;e.enter();
  const field=key=>all(e.inspectorContent).find(node=>node.getAttribute('data-behavior-field')===key),change=async(key,value)=>{const input=field(key);assert(input,'Missing inspector field '+key);input.value=value;await input.fire('change');await tick();};
  const rack=e.document.addPrefab('hall','palletQueue','selective');e.select(rack);assert(field('rackBays')&&field('rackMaxLoadKg'));assert.equal(field('rackSelectedSlot').tagName,'SELECT');assert(field('capacity').disabled);
  const count=e.document.getBehaviors(rack).find(c=>c.type==='palletQueue').capacity;await change('rackBays',3);assert(e.document.getBehaviors(rack).find(c=>c.type==='palletQueue').capacity>count);assert.equal(rack.userData.editorDescriptor.variant,'selective');
+ await change('rackLevels',4);assert.equal(e.document.getBehaviors(rack).find(c=>c.type==='palletQueue').capacity,24);await change('rackLevels',3);
  await change('rackSystem','mobile');assert.equal(rack.userData.editorDescriptor.variant,'mobile');assert(field('rackOpenAisle'));const hmi=all(rack).flatMap(o=>e.document.getBehaviors(o).filter(c=>c.type==='control'));assert.equal(hmi.length,0,'Rack controls belong to the configuration panel, not physical cabinets.');assert(!field('withPanel'));assert(field('rackAisleCode')&&field('rackRowCode')&&field('rackBayWidths'));
  await change('rackSystem','light-duty');assert(!field('palletType'));assert(!field('rackOpenAisle'));assert(field('rackMaxLoadKg'));
  await change('rackSystem','floor');assert.equal(rack.userData.editorDescriptor.variant,undefined);assert(!field('rackBays'));assert(field('rackSystem'));assert.equal(Object.hasOwn(e.document.getBehaviors(rack).find(c=>c.type==='palletQueue'),'rackSystem'),false,'Viewing floor controls does not rewrite old stock configurations.');

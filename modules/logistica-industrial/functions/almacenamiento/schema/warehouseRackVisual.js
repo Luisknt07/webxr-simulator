@@ -259,6 +259,12 @@ function frame(THREE, b, parent, cells, config, options = {}) {
   const byBay = new Map();
   cells.forEach(cell => {const id = cell.bay || 0; if (!byBay.has(id)) byBay.set(id, []); byBay.get(id).push(cell);});
   const frames = Array.from(byBay.values()).map(rows => {const r = bounds(rows, closed); return {rows, bounds:r, left:r.minX-.08, right:r.maxX+.08};});
+  // Adjacent modules share one end frame. Keep outer uprights and all load
+  // seats fixed; join the inner beams to the centre of their common seam.
+  for (let i = 1; i < frames.length; i++) {
+    const previous = frames[i - 1], next = frames[i], gap = next.left - previous.right;
+    if (gap >= 0 && gap <= .18) previous.right = next.left = (previous.right + next.left) / 2;
+  }
   const postXs = distinct(frames.reduce((values, bay) => values.concat(bay.left, bay.right), [])), postZs = [a.minZ - .075, a.maxZ + .075];
   // Seat the new front tie just behind the upright flanges. At the post's
   // front face it crosses the extended forklift mast during upper pickups.

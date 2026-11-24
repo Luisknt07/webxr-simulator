@@ -125,6 +125,17 @@ for(const id of ['selective','double-deep','drive-in','drive-through','push-back
  }
  visual.disposeVisual(root);
 }
+// The double module uses one common upright frame, rather than two separate
+// inner frames with an unconnected gap. Every added tier has actual supports.
+for(const count of [3,6]){
+ const config=Object.assign(racks.defaults('selective'),{rackBays:2,rackLevels:count,rackColumns:2,rackBaseHeight:.3,rackLevelHeight:1.4}),layout=racks.layout(config),root=visual.createVisual(THREE,config),front=Math.max(...layout.cells.map(c=>c.z+c.depth/2))+.075;
+ assert(ray(root,[0,-.35,front+.2],[0,0,-1],.35).some(hit=>hit.object.userData.industrialMaterialPart==='frame'),'Adjacent bays have one real common upright at their centre seam.');
+ for(let level=0;level<count;level++){
+  const cell=layout.cells.find(c=>c.level===level),z=cell.z+cell.depth*.34;
+  for(const x of [-.02,0,.02]){const hit=ray(root,[x,cell.y+.04,z],[0,-1,0],.1);assert(hit.length,'Both bay beams connect to the shared frame at level '+level);close(hit[0].point.y,cell.y);}
+ }
+ assert.equal(visual.stats(root).slotsLabeled,4*count);assert.equal(visual.stats(root).draws,6);visual.disposeVisual(root);
+}
 {
  const text='EN A01-R01-B01-M01-N01-P01-F01',root=visual.createLocationLabel(THREE,text,{width:.28,height:.07}),ink=meshes(root)[0],g=ink.geometry,p=g.attributes.position,uv=g.attributes.uv;
  assert.equal(root.userData.warehouseLocationRenderedText,text);assert.equal(visual.stats(root).labelRows,2,'A narrow pallet tag uses two readable rows without deleting any identifier characters.');

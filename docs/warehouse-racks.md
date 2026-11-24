@@ -50,6 +50,16 @@ Ninguna variante de estantería incluye armario, pantalla o pulsadores de mando 
 
 Las sesiones guardadas conservan las mismas entradas, unidades y cargas, incluyendo posiciones de bancos, carros y extractores durante un movimiento. Se comprueba la reanudación de base móvil, elevador vertical y Miniload.
 
+## Rack doble y niveles de la demostración
+
+La demostración integrada incluye la fila **A01/R01**, con **dos módulos contiguos**, un bastidor central compartido y **tres niveles útiles**. Hay dos posiciones por módulo y nivel: doce ubicaciones con códigos independientes. Cuatro pallets de cuatro cajas y 33 kg ocupan diferentes alturas; quedan ocho ubicaciones libres para recoger y depositar. Los apoyos están a **0,30, 1,70 y 3,10 m** sobre el piso. El travesaño superior cierra la estructura por encima de la última carga y no cuenta como un cuarto apoyo.
+
+Para ampliar un rack en el editor, ajusta **Módulos de frente**, **Niveles de almacenamiento** y **Separación entre niveles**. El sistema genera los apoyos, bastidores y códigos de los nuevos niveles; admite hasta seis niveles y ocho módulos dentro del límite total de ubicaciones. Las cargas y reservas existentes deben conservar ubicaciones válidas al cambiar las dimensiones.
+
+El montacargas de esta demostración tiene 4 m de elevación y alcanza los tres niveles. Un cuarto apoyo a 4,50 m con la separación actual queda fuera de su alcance: ajusta el diseño o utiliza un equipo adecuado y comprueba la altura libre bajo techo, vigas y luminarias. Eleva con el vehículo detenido, las horquillas fuera de los largueros y el mástil en una zona con espacio superior libre. Después aproxima la carga de frente y baja hasta el apoyo antes de depositar. Las colisiones y los límites del equipo permanecen activos.
+
+`node tests/legacy/test-public-rack-multilevel.js` carga la escena publicada y verifica recogida, elevación y retorno de los cuatro pallets con los mecanismos y colisiones nativos, conservando sus códigos, identidad, unidades y masa. Las poses iniciales son fixtures de precisión; la revisión gráfica usa el mismo rack en sus vistas ensamblada, aislada y explosionada.
+
 ## Verificación y alcance
 
 `npm run test:warehouse-racks` comprueba schema, geometría, funcionamiento, restricciones, integración, editor e identificación. Incluye las 14 familias, FIFO/LIFO, errores de tipo/peso/altura, interbloqueos, sesiones en movimiento, reservas y conservación de identidad.
