@@ -20,7 +20,7 @@ test('startup library shares menu metadata and retains the dedicated public demo
 
 test('public fallback is its own integrated demo with one public static image; private previews require authentication',()=>{
   assert.equal(PUBLIC_SCENE.included,true);assert.equal(PUBLIC_SCENE.templateId,'vr-robot-dispatch');assert(PUBLIC_SCENE.description&&PUBLIC_SCENE.objective&&PUBLIC_SCENE.tasks.length);
-  assert.equal(PUBLIC_SCENE.title,'SMART-TWIN · Demostración integrada');assert.match(PUBLIC_SCENE.description,/Dos robots/);
+  assert.equal(PUBLIC_SCENE.title,'SMART-TWIN · Demostración integrada');assert.match(PUBLIC_SCENE.description,/Un robot/);
   assert.equal(PUBLIC_SCENE.thumbnailURL,'projects/smarttwin/previews/vr-robot-dispatch.png');
   const cards=sceneEntries(catalog,true);for(const card of cards)assert.equal(card.thumbnailURL,card.public?'projects/smarttwin/previews/vr-robot-dispatch.png':'/workspace/projects/smarttwin/previews/'+card.id+'.png');
   assert.deepEqual(sceneEntries(catalog).map(card=>card.id),['vr-robot-dispatch']);

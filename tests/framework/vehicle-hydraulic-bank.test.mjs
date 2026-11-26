@@ -13,10 +13,10 @@ test('the real forklift hydraulic bank sits right of the wheel, with parallel re
   assert(lever.object.position.z>=wheel.position.z+.14,'The pivots stay on the side console while the grips reach inward.');
   assert(lever.grip.position.z<-.12,'The real handles extend rearward toward the seated operator.');
   root.updateWorldMatrix(true,true);const local=rig.cabin.worldToLocal(lever.grip.getWorldPosition(new THREE.Vector3()));
-  assert(local.x<-.24&&local.x>-.39&&Math.abs(local.z-wheel.position.z)<.04,'Handles are next to the wheel in the operator reach zone.');
+  assert(local.x<-.24&&local.x>-.48&&Math.abs(local.z-wheel.position.z)<.045,'Separated handles stay beside the wheel in the operator reach zone.');
   assert(Math.abs(local.y-wheel.position.y)<.15);assert(lever.labelCompact);
   const shoulder=new THREE.Vector3(-.18,1.25,-.18);assert(local.distanceTo(shoulder)<.43,'All standard hydraulic grips remain within a short seated reach.');
-  if(index){assert(lever.object.position.x<levers[index-1].object.position.x);assert(lever.labelWidth<Math.abs(lever.object.position.x-levers[index-1].object.position.x));}
+  if(index){assert(lever.object.position.x<levers[index-1].object.position.x);assert(lever.labelWidth<Math.abs(lever.object.position.x-levers[index-1].object.position.x));assert(local.distanceTo(rig.cabin.worldToLocal(levers[index-1].grip.getWorldPosition(new THREE.Vector3())))>=.094,'Standard knobs have at least 94 mm between centres.');}
  }
  // Sweep actual articulated handles; neither the steering rim nor the seat
  // may intrude into their grip region. No contact envelopes are modified.
@@ -25,6 +25,19 @@ test('the real forklift hydraulic bank sits right of the wheel, with parallel re
   lever.object.quaternion.copy(lever.restQuaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),amount*lever.maxAngle));root.updateWorldMatrix(true,true);
   const point=lever.grip.getWorldPosition(new THREE.Vector3());assert(wheelBounds.distanceToPoint(point)>.05);assert(seatBounds.distanceToPoint(point)>.12);
  }
+});
+
+test('neighbouring standard knobs retain a finger gap through independently opposed lever strokes',()=>{
+ const root=prefabs.createVehicle({variant:'forklift-electric-4w'}),rig=root.userData.vehicleRig,levers=rig.controls.levers;
+ const samples=[-1,-.75,-.5,-.25,0,.25,.5,.75,1];let minimum=Infinity;
+ for(let first=0;first<levers.length;first++)for(let next=first+1;next<levers.length;next++)for(const a of samples)for(const b of samples){
+  for(const [lever,amount]of [[levers[first],a],[levers[next],b]])lever.object.quaternion.copy(lever.restQuaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),amount*lever.maxAngle));
+  root.updateWorldMatrix(true,true);
+  const one=new THREE.Box3().setFromObject(levers[first].hitObject),two=new THREE.Box3().setFromObject(levers[next].hitObject);
+  const gap=Math.max(one.min.x-two.max.x,two.min.x-one.max.x);minimum=Math.min(minimum,gap);assert(gap>=.04,'Every opposed stroke leaves at least 40 mm between knob surfaces.');
+ }
+ assert(minimum>=.04);
+ const support=new THREE.Box3().setFromObject(rig.leverSupport),floor=new THREE.Box3().setFromObject(rig.cabFloor);assert(support.min.y<=floor.max.y+.002,'The widened bank remains attached to the real floor.');
 });
 
 test('the native bank remains finite for feature variations and a vehicle with no enabled hydraulic travel',()=>{

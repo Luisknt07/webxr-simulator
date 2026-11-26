@@ -18,7 +18,7 @@
   <script defer src="viewer.js"></script>
 </head>
 <body class="welcome-open">
-  <main id="viewer" aria-label="Demostración 3D de dos robots, bandas, montacargas y estanterías"></main>
+  <main id="viewer" aria-label="Demostración 3D de un robot, bandas conectadas, montacargas y almacén interactivo"></main>
   <header class="viewer-header">
     <a class="viewer-brand" href="./" aria-label="SMART-TWIN, inicio"><svg class="brand-mark" aria-hidden="true" viewBox="0 0 48 48" fill="none"><path d="m24 3 19 11v22L24 47 5 36V14Z" fill="#008d82"/><path d="m24 3 19 11-19 11L5 14Z" fill="#bdfcf0"/><path d="m24 25 19-11v22L24 47Z" fill="#00bba7"/><path d="m24 3 19 11v22L24 47 5 36V14Zm0 22v22M5 14l19 11 19-11M24 3v22" stroke="#3aecd2" stroke-width="1.5"/></svg><span>SMART-TWIN Simulator<small>Simulación Industrial y Logística</small></span></a>
     <nav class="header-actions" aria-label="Navegación"><button id="home-link" type="button">Inicio</button><button id="back-scenes" type="button">Escenarios</button><a id="workspace-link" class="workspace-link" href="#workspace-access">Acceder al espacio <span aria-hidden="true">↗</span></a><button id="overview" class="scene-navigation-action" type="button">Vista general</button><span id="xr-action" class="scene-navigation-action"></span><button id="viewer-menu-toggle" type="button" aria-haspopup="dialog" aria-controls="viewer-menu" aria-expanded="false">Menú</button></nav>
@@ -82,7 +82,7 @@
     <section id="viewer-menu-guide" class="st-menu-page" hidden><button class="st-menu-back" type="button">← Volver al menú</button><div class="lesson-intro" aria-labelledby="lesson-title">
       <p class="eyebrow"><span></span> GUÍA DEL ESCENARIO</p>
       <h3 id="lesson-title">Demostración de sistemas conectados</h3>
-      <p class="lesson-description">Explora una instalación con dos robots, bandas transportadoras, montacargas, estanterías y un monitor de operación. Observa la manipulación de las cajas y el traslado de los pallets; espera el paro del transportador antes de recoger una carga.</p>
+      <p class="lesson-description">Sigue las cajas entre banda, rodillos, curva y descarga. Un robot forma dos pallets que puedes transportar con el montacargas. Recorre las áreas demarcadas, abre las puertas de ingreso y salida y acércate a cada estación para descubrir sus mensajes. Espera el paro del transportador antes de recoger una carga.</p>
       <p id="demo-progress" class="demo-progress" aria-live="polite">Preparando los sistemas…</p>
     </div></section>
     <section id="viewer-menu-controls" class="st-menu-page" hidden><button class="st-menu-back" type="button">← Volver al menú</button><div class="viewer-help">

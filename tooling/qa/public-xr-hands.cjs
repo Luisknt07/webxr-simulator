@@ -24,7 +24,7 @@ async function run(expected){
     c.input.reset();d.driving.follow();c.scene.updateMatrixWorld(true);
     const eye=rig.cabin.localToWorld(new T.Vector3(.55,1.57,-.25));c.camera.position.copy(c.cameraRig.worldToLocal(eye));c.camera.lookAt(rig.cabin.localToWorld(new T.Vector3(-.10,1.02,.20)));c.camera.updateMatrixWorld(true);
     const xr=c.renderer.xr,session=new EventTarget();session.visibilityState='visible';session.inputSources=[];
-    const poses=new Map(),reference={},frame={getJointPose:joint=>poses.get(joint),getPose:()=>null};
+    const poses=new Map(),controllerPoses=new Map(),reference={},frame={getJointPose:joint=>poses.get(joint),getPose:space=>controllerPoses.get(space)};
     const original={session:xr.getSession,reference:xr.getReferenceSpace,camera:xr.getCamera,step:c.input.step};
     xr.getSession=()=>session;xr.getReferenceSpace=()=>reference;xr.getCamera=()=>{c.camera.updateMatrixWorld(true);return c.camera;};
     const hands=c.input.controllers.map((controller,index)=>{
@@ -43,7 +43,7 @@ async function run(expected){
      for(const [name,joint]of h.hand){const matrix=new T.Matrix4().multiplyMatrices(inverse,world).multiply(h.skin.bind.get(name));poses.set(joint,{radius:.007,transform:{matrix:matrix.toArray()}});}
      h.controller.matrix.multiplyMatrices(inverse,world);h.controller.matrix.decompose(h.controller.position,h.controller.quaternion,h.controller.scale);h.controller.visible=true;
     };
-    window.__handQA={a,c,d,rig,v,hands,poses,place,original,session};place(0,'horn',.15);place(1,'lights',.15);
+    window.__handQA={a,c,d,rig,v,hands,poses,controllerPoses,place,original,session};place(0,'horn',.15);place(1,'lights',.15);
    });
    await b.until(()=>b.evaluate('__handQA.hands.every(h=>h.skin.root.visible&&h.skin.mesh.isSkinnedMesh&&h.controller.userData.xrHandContact?.pokeValid)'),'Measured hand skins unavailable.');
    await shot('continuous-tracked-hands');
@@ -57,6 +57,30 @@ async function run(expected){
    report.controls={before,pressed,sounding,lost,final:await state()};
    report.hands=await b.call(()=>__handQA.hands.map(h=>({side:h.source.handedness,mode:h.controller.userData.xrHandVisualMode,visible:h.skin.root.visible,joints:h.skin.skeleton.bones.length,triangles:h.skin.geometry.index.count/3,material:h.skin.material.type,pokeValid:h.controller.userData.xrHandContact.pokeValid})));
    assert.equal(report.controls.final.frameError,null);assert(report.hands.every(h=>h.joints===25&&h.triangles===2314));
+   // The same live RAF also exercises controller-inferred hands on the actual
+   // vehicle controls, including the context handed to the contact solver.
+   await b.call(()=>{
+    const q=__handQA,T=q.a.THREE;q.d.driving.command('resetEmergency');q.d.driving.command('powerOn');q.d.driving.command('start');
+    const cab=q.d.driving.cab,controls=[cab.controls.find(c=>c.kind==='wheel'),cab.controls.find(c=>c.channel==='lift')];
+    controls.forEach((control,index)=>{
+     const h=q.hands[index];delete h.source.hand;h.source.gripSpace={};h.source.gamepad={buttons:Array.from({length:6},()=>({value:0,pressed:false})),axes:[0,0,0,0]};
+     cab.frame(control);
+     const point=control.kind==='wheel'?new T.Vector3(0,control.descriptor.radius,0).applyMatrix4(control.frame):control.descriptor.grip.getWorldPosition(new T.Vector3());
+     const rotation=q.c.camera.getWorldQuaternion(new T.Quaternion()),world=new T.Matrix4().compose(point,rotation,new T.Vector3(1,1,1));
+     const matrix=new T.Matrix4().multiplyMatrices(new T.Matrix4().getInverse(q.c.cameraRig.matrixWorld),world);
+     q.controllerPoses.set(h.source.gripSpace,{transform:{matrix:matrix.toArray()}});h.controller.matrix.copy(matrix);h.controller.matrix.decompose(h.controller.position,h.controller.quaternion,h.controller.scale);h.controller.visible=true;
+    });
+   });
+   await delay(250);await b.call(()=>__handQA.hands.forEach(h=>Object.assign(h.source.gamepad.buttons[1],{value:1,pressed:true})));await delay(350);
+   report.controllerGrasps=await b.call(()=>__handQA.hands.map(h=>{
+    const held=__handQA.d.driving.cab.hands.get(h.controller)?.control;
+    return{side:h.source.handedness,channel:held?.channel,pose:h.skin.root.userData.handGrabPose,visible:h.skin.root.visible,markerVisible:__handQA.d.driving.cab.hands.get(h.controller)?.ghost?.visible,limits:h.skin.pose.limits.slice()};
+   }));
+   assert.deepEqual(report.controllerGrasps.map(h=>h.channel),['steer','lift']);assert.deepEqual(report.controllerGrasps.map(h=>h.pose),['pole','joystick']);assert(report.controllerGrasps.every(h=>h.visible));
+   assert(report.controllerGrasps.every(h=>h.markerVisible===false),'Contact markers must not obscure the gripping fingers.');
+   await shot('controller-wheel-and-lever');
+   await b.call(()=>__handQA.hands.forEach(h=>Object.assign(h.source.gamepad.buttons[1],{value:0,pressed:false})));await delay(200);
+   assert(await b.evaluate('__handQA.d.driving.cab.controls.every(c=>!c.owner)'),'Opening either grip releases its real control.');
    await b.call(()=>{const q=__handQA;q.session.visibilityState='visible-blurred';q.session.dispatchEvent(new Event('visibilitychange'));q.c.vrMode=false;q.c.input.step=q.original.step;q.c.renderer.xr.getSession=q.original.session;q.c.renderer.xr.getReferenceSpace=q.original.reference;q.c.renderer.xr.getCamera=q.original.camera;q.d.driving.unmount(true);});
   });
   assert.deepEqual(report.exceptions,[]);assert.deepEqual(report.consoleErrors,[]);assert.deepEqual(fixture.errors,[]);report.passed=true;

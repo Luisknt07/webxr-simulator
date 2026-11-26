@@ -6,7 +6,27 @@ import VehicleCabPointerInput from './VehicleCabPointerInput.js';
 const CHANNELS = new Set(['lift', 'tilt', 'reach', 'sideShift', 'turret']);
 const clamp = value => Math.max(-1, Math.min(1, value));
 const visible = object => {for (let node = object; node; node = node.parent) if (!node.visible) return false; return true;};
-const pressed = hand => {if (hand.source.hand) {const contact=hand.controller.userData.xrHandContact;return !!(contact&&contact.valid&&contact.pinching);} const pad = hand.source.gamepad, button = pad && pad.buttons && pad.buttons[1]; return button ? !!(button.pressed || button.value > .6) : hand.eventGrip === true;};
+const pressed = (hand,control=hand.control||hand.hover) => {
+  if(hand.source.hand){
+    const contact=hand.controller.userData.xrHandContact;if(!contact||!contact.valid)return false;
+    if(contact.pinching)return true;
+    // A real pinch around a 40 mm knob cannot close to the empty-air 25 mm
+    // gesture threshold. Use measured pads around this one physical control;
+    // leave the global ray/teleport/cargo gesture unchanged.
+    if(!control||control.kind!=='lever'||!control.descriptor.gripRadius||!contact.thumbTip||!contact.indexTip)return false;
+    const parent=hand.data.grip&&hand.data.grip.parent||hand.controller.parent;if(!parent)return false;
+    if(!hand.wrapThumb){hand.wrapThumb=new THREE.Vector3();hand.wrapIndex=new THREE.Vector3();hand.wrapCenter=new THREE.Vector3();hand.wrapScale=new THREE.Vector3();}
+    parent.updateWorldMatrix(true,false);
+    const thumb=hand.wrapThumb.copy(contact.thumbTip).applyMatrix4(parent.matrixWorld),index=hand.wrapIndex.copy(contact.indexTip).applyMatrix4(parent.matrixWorld);
+    const scale=control.object.getWorldScale(hand.wrapScale),radius=control.descriptor.gripRadius*Math.max(Math.abs(scale.x),Math.abs(scale.y),Math.abs(scale.z));
+    const gap=thumb.distanceTo(index),threshold=Math.min(.085,2*radius+.026);
+    if(hand.control===control)return gap<=threshold+.020;
+    if(gap>threshold)return false;
+    (control.descriptor.grip||control.object).getWorldPosition(hand.wrapCenter);thumb.sub(hand.wrapCenter);index.sub(hand.wrapCenter);
+    return thumb.length()<=radius+.022&&index.length()<=radius+.022&&thumb.dot(index)<0;
+  }
+  const pad=hand.source.gamepad,button=pad&&pad.buttons&&pad.buttons[1];return button?!!(button.pressed||button.value>.6):hand.eventGrip===true;
+};
 const neutral = hand => !pressed(hand) && !(hand.source.gamepad && (hand.source.gamepad.axes || []).some(value => Number.isFinite(value) && Math.abs(value) > .18)) &&
   !(hand.source.gamepad && (hand.source.gamepad.buttons || []).some(button => button && (button.pressed || button.value > .6)));
 
@@ -100,18 +120,25 @@ export default class VehicleCabInteraction {
   }
   ghost(hand, pose, active) {
     if (!hand.ghost) {
-      const geometry = new THREE.SphereBufferGeometry(.038, 10, 6), material = new THREE.MeshBasicMaterial({color: '#75efd0', transparent: true, opacity: .55, depthWrite: false});
+      const geometry = new THREE.SphereBufferGeometry(.022, 10, 6), material = new THREE.MeshBasicMaterial({color: '#75efd0', transparent: true, opacity: .20, depthWrite: false});
       hand.ghost = new THREE.Mesh(geometry, material); hand.ghost.name = 'Contacto de mano · cabina'; hand.ghost.userData.editorRuntimeHelper = true;
     }
     if (hand.ghost.parent !== pose) pose.add(hand.ghost);
-    hand.ghost.visible = !!(hand.hover || hand.control); hand.ghost.material.color.set(active ? '#f4cb62' : '#75efd0');
+    hand.ghost.visible = !!hand.hover && !hand.control; hand.ghost.material.color.set(active ? '#f4cb62' : '#75efd0');
   }
   feedback(hand, reserved = false) {
     const control = hand.control || hand.hover;
     // Shared with the ray and hand presentation. Never move tracked poses;
     // only the occupied hand loses its ray while the other remains usable.
     hand.controller.userData.xrRaySuppressed = !!(hand.control || reserved);
-    if (control) hand.controller.userData.vehicleCabGrip = {kind: control.kind, channel: control.channel, held: !!hand.control};
+    if (control) {
+      const descriptor=control.descriptor, rim=control.kind==='wheel'&&!descriptor.gripOnly;
+      hand.controller.userData.vehicleCabGrip = {kind: control.kind, channel: control.channel, held: !!hand.control,
+        object: rim ? control.object : descriptor.hitObject || descriptor.grip || control.object,
+        profile: control.kind==='button'?'point':rim?'pole':control.kind==='lever'?'joystick':'drawer',
+        shape:rim?'torus':control.kind==='lever'?'sphere':'box',radius:rim?descriptor.radius||.17:undefined,
+        axis:descriptor.axis,center:rim?descriptor.pivotLocal||[0,0,0]:undefined};
+    }
     else delete hand.controller.userData.vehicleCabGrip;
   }
   take(hand, control, point) {
@@ -194,13 +221,21 @@ export default class VehicleCabInteraction {
     for(const c of this.controls)if(c.kind==='button'&&c.owner&&c.channel==='horn'&&(this.driving.simulation&&this.driving.simulation.time||0)>=c.repeatAt)this.pressButton(c);
     for (const hand of this.hands.values()) {
       if(!this.ctx.vrMode){this.release(hand);hand.hover=null;this.feedback(hand);continue;}
-      const pose = this.pose(hand), grip = pressed(hand);
-      if (!pose || hand.data.selectionCapture || hand.controller.userData.grabbing || hand.controller.userData.xrTouchActive) {this.release(hand); hand.hover = null; hand.previousGrip = grip; this.feedback(hand); if (hand.ghost) hand.ghost.visible = false; continue;}
-      const point = pose.getWorldPosition(new THREE.Vector3()); hand.hover = null;
-      if (!grip) {this.release(hand, false); hand.grabBlocked = false; if (neutral(hand)) hand.armed = true;}
-      let nearest = null, best = Infinity;
-      this.controls.forEach(control => {const distance = this.distance(control, point); if (distance <= (control.descriptor.grabDistance || (control.kind === 'wheel' ? .13 : .105)) && distance < best) {nearest = control; best = distance;}});
+      const pose = this.pose(hand);
+      if (!pose || hand.data.selectionCapture || hand.controller.userData.grabbing || hand.controller.userData.xrTouchActive) {this.release(hand); hand.hover = null; hand.previousGrip = pressed(hand); this.feedback(hand); if (hand.ghost) hand.ghost.visible = false; continue;}
+      const point = pose.getWorldPosition(new THREE.Vector3());
+      let nearest = hand.control, best = Infinity, second = null, secondDistance = Infinity, ambiguous = false;
+      if(!nearest){
+        this.controls.forEach(control=>{const distance=this.distance(control,point);if(distance>(control.descriptor.grabDistance||(control.kind==='wheel'?.13:.105)))return;
+          if(distance<best){second=nearest;secondDistance=best;nearest=control;best=distance;}else if(distance<secondDistance){second=control;secondDistance=distance;}});
+        // At the boundary between two knobs, ask for a closer approach instead
+        // of letting tracking jitter choose a neighbouring hydraulic channel.
+        ambiguous=!!(nearest&&second&&nearest.kind==='lever'&&second.kind==='lever'&&secondDistance-best<.012);
+        if(ambiguous)nearest=null;
+      }
       hand.hover = nearest;
+      const grip=pressed(hand,hand.control||nearest);
+      if (!grip) {this.release(hand, false); hand.grabBlocked = false; if (neutral(hand)) hand.armed = true;}
       // Holding the side grip while reaching a rim/knob is a natural grasp;
       // do not require the press and the contact to occur in the same frame.
       // An already owned control still needs a fresh squeeze from a second
@@ -212,8 +247,8 @@ export default class VehicleCabInteraction {
       if (hand.control && grip) {this.consumedSources.add(hand.source); this.updateControl(hand, point);}
       // A second hand cannot steal a control or turn its blocked grip into a
       // cargo action. A new release/press is required after the owner lets go.
-      if (grip && nearest && !hand.control) this.consumedSources.add(hand.source);
-      this.feedback(hand, grip && !!nearest); this.ghost(hand, pose, !!hand.control); hand.previousGrip = grip;
+      if (grip && (nearest||ambiguous) && !hand.control) this.consumedSources.add(hand.source);
+      this.feedback(hand, ambiguous||grip&&!!nearest); this.ghost(hand, pose, !!hand.control); hand.previousGrip = grip;
     }
     this.neutralChannels.forEach(channel => {
       const handedness = channel === 'steer' ? 'left' : 'right', axis = ['steer', 'tilt', 'sideShift', 'turret'].includes(channel) ? 0 : 1;

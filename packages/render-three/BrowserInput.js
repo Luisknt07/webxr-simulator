@@ -173,7 +173,7 @@ export default class BrowserInput {
     if (ctx.vrMode && session) {
       this.controllers.forEach((controller, index) => {
         const source = session.inputSources[index], previous = this.ray.controllers.find(data => data.controller === controller);
-        updateXRGrip(ctx.renderer, controller, source, frame);
+        updateXRGrip(ctx.renderer, controller, source, frame, delta);
         if (previous && previous.inputSource === source) return;
         if (previous) controller.dispatchEvent({type: 'disconnected', data: previous.inputSource});
         if (source) controller.dispatchEvent({type: 'connected', data: source});

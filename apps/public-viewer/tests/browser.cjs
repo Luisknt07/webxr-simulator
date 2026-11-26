@@ -96,18 +96,16 @@ async function run() {
       });
       assert.equal(initial.hash, expected); assert(!initial.editor && !initial.studio); assert(initial.canvas.width > 300 && initial.canvas.height > 300); report.initial = initial;
       assert(!new URL(await b.evaluate('location.href')).pathname.includes('login'), 'The demo launches anonymously without redirecting to login.');
-      await b.until(() => b.evaluate('smartTwinViewer.context.demo.monitors.entries.size===2&&Array.from(smartTwinViewer.context.demo.monitors.entries.values()).every(entry=>entry.model?.live&&entry.model?.analytics)'), 'Both native monitor screens did not build their live telemetry.');
+      await b.until(() => b.evaluate('smartTwinViewer.context.demo.interactions.contextual.length===6'), 'The six contextual station guides did not initialize.');
       report.installation = await b.call(() => {
         const api=smartTwinViewer, demo=api.context.demo, records=Array.from(demo.simulation.records.values()), rack=records.find(value=>value.components.palletQueue?.rack);
         return {robots:records.filter(value=>value.components.robot).map(value=>({id:value.id,enabled:value.components.robot.config.enabled,powered:value.components.robot.config.powered})),
           conveyors:records.filter(value=>value.components.conveyor).length, rack:rack?{id:rack.id,slots:rack.components.palletQueue.rack.layout.cells.length,stock:rack.components.palletQueue.queue.length}:null,
           monitors:Array.from(demo.monitors?.entries?.values()||[]).map(entry=>({id:entry.owner.userData.editorId,live:entry.model?.live,machines:entry.model?.records.map(record=>record.id),analytics:!!entry.model?.analytics,draws:demo.monitors.stats.draws}))};
       });
-      assert.equal(report.installation.robots.length,2); assert(report.installation.robots.every(value=>value.enabled&&value.powered));
-      assert(report.installation.conveyors>=3); assert(report.installation.rack?.slots>=4&&report.installation.rack.stock>0);
-      assert.equal(report.installation.monitors.length,2); assert(report.installation.monitors.every(monitor=>monitor.live&&monitor.analytics&&monitor.machines.length>0&&monitor.draws>0),
-        'Both real screens must render measured telemetry, not static screen images.');
-      for (const robot of report.installation.robots) assert(report.installation.monitors.some(monitor=>monitor.machines.includes(robot.id)), 'Both robots must appear in the live monitor views.');
+      assert.equal(report.installation.robots.length,1); assert(report.installation.robots.every(value=>value.enabled&&value.powered));
+      assert.equal(report.installation.conveyors,6); assert(report.installation.rack?.slots>=4&&report.installation.rack.stock>0);
+      assert.equal(report.installation.monitors.length,0,'The standalone analytic screens were removed from this recipe.');
       if (initial.login.endsWith('#workspace-access')) {
         await b.call(() => document.getElementById('workspace-link').click());
         assert(await b.evaluate('document.getElementById("workspace-access").open'), 'Unconfigured static deployment must explain private access, not navigate to a missing login page.');
@@ -163,8 +161,8 @@ async function run() {
         }
         return {fixtureOnly:true,nativeFixedStep:1/60,frames,before,after:ctx.demo.stats(),peak,wallSeconds:(performance.now()-start)/1000};
       });
-      assert(report.flowClockFixture.after.robots.length===2&&report.flowClockFixture.after.robots.every(robot=>robot.completed>=1)&&report.flowClockFixture.after.belt.packages===1,
-        'Both actual robots must complete a cycle while the pallet reaches the manual collection conveyor: '+JSON.stringify(report.flowClockFixture));
+      assert(report.flowClockFixture.after.robots.length===1&&report.flowClockFixture.after.robots.every(robot=>robot.completed>=1)&&report.flowClockFixture.after.belt.packages===1,
+        'The actual robot must complete a cycle while the pallet reaches the manual collection conveyor: '+JSON.stringify(report.flowClockFixture));
       report.flow = await b.call(() => {
         const s = smartTwinViewer.context.demo.simulation, products = Array.from(s.products.values()), records=Array.from(s.records.values());
         return {stats: smartTwinViewer.getStats(), robots:records.filter(record=>record.components.robot).map(record=>({id:record.id,completed:record.components.robot.completed,fault:record.components.robot.fault})),
@@ -174,7 +172,7 @@ async function run() {
       assert(report.flow.robots.every(robot=>robot.completed>=1&&!robot.fault));
       assert(report.flow.sources.every(source=>source.limit>0&&source.generated<=source.limit)); assert(report.flow.products.length<=20);
       assert(report.flow.products.some(value => value.metadata.units === 4 && value.metadata.mass === 33 && value.pockets));
-      await b.screenshot('public-viewer-two-robots-rack-monitor');
+      await b.screenshot('public-viewer-single-robot-connected-belts');
       // A reviewable capture of the exact live installation, independent from
       // its runtime walk spawn. Restore every pose/visibility immediately.
       report.preview = await b.call(() => {

@@ -71,10 +71,10 @@ class XRInputVisual {
       batch.mesh.instanceMatrix.needsUpdate = true;
     });
   }
-  update(source, frame, reference, controller) {
+  update(source, frame, reference, controller, delta) {
     const active = Boolean(source && (source.hand || controller.visible !== false)), tracked = active && source.hand;
     this.root.visible = active && !tracked; this.tracked.visible = false;
-    if (!active) {if(this.skin)this.skin.root.visible=false;return;}
+    if (!active) {if(this.skin){this.skin.root.visible=false;this.skin.pose.reset();}return;}
     const sideName=source.handedness==='left'?'left':'right';
     if(!this.skin||this.skin.side!==sideName){if(this.skin)this.skin.dispose();this.skin=new XRHandMesh(sideName);}
     this.skin.root.visible=false;
@@ -105,13 +105,17 @@ class XRInputVisual {
       this.tracked.visible = !skinned&&count > 0; this.syncBatches(this.tracked); controller.userData.xrHandVisualMode = 'tracked'; return;
     }
     const buttons = source.gamepad && source.gamepad.buttons || [], pressed = index => Math.max(0, Math.min(1, Number(buttons[index] && (buttons[index].value || buttons[index].pressed)) || 0));
-    const trigger = pressed(0), grip = Math.max(pressed(1), controller.userData.vehicleCabGrip && controller.userData.vehicleCabGrip.held ? 1 : 0);
+    const interaction = controller.userData.vehicleCabGrip || controller.userData.xrHeldObject ||
+      (controller.userData.grabbing ? {object:controller.userData.grabbing,profile:'stick',held:true} : null);
+    const trigger = pressed(0), grip = Math.max(pressed(1), interaction && interaction.held ? 1 : 0);
     const side = source.handedness === 'left' ? -1 : 1;
     this.controller.visible=false;this.hand.scale.x=side;
     this.thumb.position.set(-.033, -.005, .023); this.thumb.rotation.set(-.55-grip*.5,.65,-.5);this.thumbTip.rotation.x=-grip*.65;
     this.fingers.forEach((joints, finger) => joints.forEach((joint, index) => {joint.rotation.x = -(.15 + (finger === 0 ? Math.max(trigger,grip*.8) : .36 + grip * .64) * (index === 0 ? 1.1 : 1.2));}));
     this.trigger.rotation.x = -trigger * .25; this.syncBatches(this.root);
-    if(this.skin.root.parent!==this.grip)this.grip.add(this.skin.root);this.skin.controller(trigger,grip);this.root.visible=false;controller.userData.xrHandVisualMode = 'controller-animated';
+    if(this.skin.root.parent!==this.grip)this.grip.add(this.skin.root);
+    this.skin.controller(trigger,grip,{interaction,pointing:!interaction&&!!controller.userData.xrHandPointing,thumbTouched:buttons.slice(2).some(button=>button&&button.touched)},delta);
+    this.root.visible=false;controller.userData.xrHandVisualMode = 'controller-animated';
   }
   dispose() {if(this.skin)this.skin.dispose();if (this.root.parent) this.root.parent.remove(this.root); if (this.tracked.parent) this.tracked.parent.remove(this.tracked); this.geometry.forEach(value => value.dispose()); this.materials.forEach(value => value.dispose());}
 }
@@ -126,11 +130,11 @@ export function createXRGrip(renderer, controller, index) {
   if (!grip.xrInputVisual) grip.xrInputVisual = new XRInputVisual(grip);
   controller.userData.gripObject = grip; return grip;
 }
-export function updateXRGrip(renderer, controller, source, frame) {
+export function updateXRGrip(renderer, controller, source, frame, delta) {
   const grip = controller.userData.gripObject; if (!grip) return;
   const visual = grip.xrInputVisual;
   const reference = renderer.xr.getReferenceSpace && renderer.xr.getReferenceSpace();
-  if (!source) {grip.visible = false; delete controller.userData.xrHandContact; if (visual) visual.update(null, frame, reference, controller); return;}
+  if (!source) {grip.visible = false; delete controller.userData.xrHandContact;delete controller.userData.xrHandPointing; if (visual) visual.update(null, frame, reference, controller, delta); return;}
   if (source.hand) {
     // Hands have joint spaces, usually no gripSpace. Use the measured pinch
     // centre for contact and the wrist orientation; never invent a joint pose.
@@ -152,20 +156,23 @@ export function updateXRGrip(renderer, controller, source, frame) {
     if(valid){
       const a=new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().fromArray(matrixOf(thumb))),b=new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().fromArray(matrixOf(index)));
       const distance=a.distanceTo(b);contact.pinching=distance<(prior&&prior.pinching?.045:.025);
+      contact.thumbTip=a.clone();contact.pinchDistance=distance;
+      if(!contact.indexTip)contact.indexTip=b.clone();
+      if(!contact.wrist)contact.wrist=new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().fromArray(matrixOf(wrist)));
       grip.matrix.fromArray(matrixOf(wrist));grip.matrix.setPosition(a.add(b).multiplyScalar(.5));
       grip.matrix.decompose(grip.position,grip.quaternion,grip.scale);grip.updateMatrixWorld(true);
     }
-    if(visual)visual.update(source,frame,reference,controller);return;
+    if(visual)visual.update(source,frame,reference,controller,delta);return;
   }
   delete controller.userData.xrHandContact;
-  if (grip.userData.xrManagedGrip) {if (visual) visual.update(source, frame, reference, controller); return;}
+  if (grip.userData.xrManagedGrip) {if (visual) visual.update(source, frame, reference, controller, delta); return;}
   let pose = null;
   if (source.gripSpace && reference && frame && frame.getPose) {
     try {pose = frame.getPose(source.gripSpace, reference);} catch (_) { /* Lost/ended XR frame. */ }
   }
   grip.visible = Boolean(pose && pose.transform && pose.transform.matrix);
   if (grip.visible) {grip.matrix.fromArray(pose.transform.matrix); grip.matrix.decompose(grip.position, grip.quaternion, grip.scale); grip.updateMatrixWorld(true);}
-  if (visual) {visual.update(source, frame, reference, controller); visual.root.visible = visual.root.visible && grip.visible;if(visual.skin)visual.skin.root.visible=visual.skin.root.visible&&grip.visible;}
+  if (visual) {visual.update(source, frame, reference, controller, delta); visual.root.visible = visual.root.visible && grip.visible;if(visual.skin){visual.skin.root.visible=visual.skin.root.visible&&grip.visible;if(!grip.visible)visual.skin.pose.reset();}}
 }
 
 export function disposeXRGrip(controller) {

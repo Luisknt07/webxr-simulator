@@ -100,7 +100,7 @@ async function start() {
     recoverPresentationErrors: true,
     onFrameError: frameFailure,
     onFrameRecovered: () => {if(ctx){ctx.publicPresentationFailure=null;notice('Imagen recuperada. Puedes continuar.');}},
-    onContextLost: () => notice('Se ha interrumpido la imagen. Esperando la recuperación del navegador…'), onContextRestored: () => notice('Imagen recuperada.')});
+    onContextLost: () => notice('Se ha interrumpido la imagen. Esperando la recuperación del navegador…'), onContextRestored: () => notice('Imagen recuperada. Puedes volver a entrar en RV.')});
   ctx = browser.context; ctx.room = 0; ctx.roomId = 'hall';
   activeBrowser = browser;
   const {renderer, scene, camera, cameraRig, graphics, input} = ctx;
@@ -252,7 +252,7 @@ async function start() {
     browser.start(); updateUI(); byId('loading').hidden = true; document.body.classList.add('ready');
     window.smartTwinViewer = Object.freeze({
       getStats: () => ({app: 'public-viewer', sceneId: 'vr-robot-dispatch', frameCount: browser.stats().frames, primaryRenders: browser.stats().primaryRenders, contextLost: browser.stats().contextLost,
-        render: {...renderer.info.render}, memory: {...renderer.info.memory}, graphics: graphics.getStats(), simulation: ctx.demo.stats(),
+        render: {...renderer.info.render}, memory: {...renderer.info.memory}, graphics: graphics.getStats(), simulation: ctx.demo.stats(), renderBudget:ctx.demo.simulation.nativeRenderBanks&&ctx.demo.simulation.nativeRenderBanks.getStats(),contextRecovery:{losses:browser.stats().contextLosses,resources:browser.stats().contextResources},
         activeFunctions: [DEMO_FUNCTION_ID,'assistant.voice'], requestsAPI: configuration.backendAvailable === true, immersive: ctx.vrMode,
         frameError: browser.stats().frameError, frameErrors: browser.stats().frameErrors, lastFrameError:browser.stats().lastFrameError,
         lastFailure:ctx.lastPublicFrameFailure||null,recovery:recovery.stats(),displayErrors:ctx.demo.presentation.stats()}),

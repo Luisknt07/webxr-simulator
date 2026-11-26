@@ -801,7 +801,7 @@ function setupControllers() {
   }
 }
 
-function syncXRControllers(frame) {
+function syncXRControllers(frame, delta) {
   if (!context.vrMode || !renderer.xr.getSession) return;
   const session = renderer.xr.getSession();
   if (!session || !session.inputSources) return;
@@ -810,7 +810,7 @@ function syncXRControllers(frame) {
   // receiving a connected event. Reconcile the app registry with that same map.
   controllers.forEach((controller, index) => {
     const source = session.inputSources[index];
-    updateXRGrip(renderer, controller, source, frame);
+    updateXRGrip(renderer, controller, source, frame, delta);
     const previous = raycontrol.controllers.find(entry => entry.controller === controller);
     if (previous && previous.inputSource === source) return;
     if (previous) controller.dispatchEvent({type: 'disconnected', data: previous.inputSource});
@@ -909,7 +909,7 @@ function animate(time, frame) {
   if (context.mobileNavigation) context.mobileNavigation.sync();
   const collisionWorld = context.collisionWorld;
   if (context.roomTransitionView && context.roomTransitionView.active) {
-    syncXRControllers(frame); context.roomTransitionView.render(renderer, camera, delta); return;
+    syncXRControllers(frame, delta); context.roomTransitionView.render(renderer, camera, delta); return;
   }
   if (context.roomTransitionView) context.roomTransitionView.presented();
   if (collisionWorld) collisionWorld.beginFrame();
@@ -926,7 +926,7 @@ function animate(time, frame) {
     }
 
     updateKeyboardMovement(delta);
-    syncXRControllers(frame);
+    syncXRControllers(frame, delta);
     if (context.studio && context.studio.immersiveMenu) context.studio.immersiveMenu.tick(delta);
     if (context.xrLocomotion) context.xrLocomotion.tick(delta);
     ecsyWorld.execute(delta, elapsedTime);

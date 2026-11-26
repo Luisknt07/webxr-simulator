@@ -22,6 +22,19 @@ test('an individually animated source retires while unchanged rigid siblings rem
  const f=fixture();try{f.banks.sync([f.root]);f.meshes[0].position.y+=.1;f.banks.sync([f.root]);assert.equal(f.meshes[0].layers.mask,1);assert.equal(f.banks.getStats().sources,4);f.meshes[0].position.y+=.1;f.banks.sync([f.root]);assert.equal(f.banks.getStats().rebuilds,2);assert.equal(cost([f.root]).drawCalls,2);}finally{cleanup(f);}
 });
 
+test('read-only material checks avoid graph serialization but retain live colour, scalar, map and shader invalidation',()=>{
+ for(const change of [m=>m.color.setHex(0x226699),m=>{m.roughness=.17;},m=>{m.map=new THREE.Texture();},m=>{m.needsUpdate=true;}]){
+  const f=fixture();try{
+   for(let i=1;i<f.meshes.length;i++)f.meshes[i].material=f.material.clone();
+   f.banks.sync([f.root],{readOnly:true});const builds=f.banks.stats.rebuilds,original=f.banks.materialKey;
+   f.banks.materialKey=()=>{throw Error('Stable read-only frames must not serialize a material graph.');};
+   f.banks.sync([f.root],{readOnly:true});assert.equal(f.banks.stats.rebuilds,builds);f.banks.materialKey=original;
+   change(f.meshes[1].material);f.banks.sync([f.root],{readOnly:true});assert.equal(f.banks.stats.rebuilds,builds+1);
+   if(f.meshes[1].material.map)f.meshes[1].material.map.dispose();for(let i=1;i<f.meshes.length;i++)f.meshes[i].material.dispose();
+  }finally{cleanup(f);}
+ }
+});
+
 test('nested static sections share their exact material bank without crossing joints or changing transformed vertices',()=>{
  const f=fixture();try{
   const left=new THREE.Group(),right=new THREE.Group();left.position.set(.3,.2,-.7);left.rotation.z=.4;right.position.set(-.4,.1,.8);right.scale.set(1.2,.8,1.1);f.parent.add(left,right);

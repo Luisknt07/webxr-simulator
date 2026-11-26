@@ -70,3 +70,14 @@ test('public presentation recovery waits for successful drawing and never retrie
  f.ctx.renderer.renderFault=null;f.pump();assert.equal(steps,1);assert.equal(f.host.stats().frameError,null);assert.equal(recovered.length,1);f.pump();assert.equal(steps,2);
  f.host.setFrameHandler({before(){steps++;throw Error('Invalid custody');}});f.pump();f.pump();assert.equal(steps,3);assert.equal(f.host.stats().frameError.phase,'before');assert(!f.host.stats().frameError.recoverable);assert.equal(recovered.length,1);await f.host.dispose();
 });
+
+test('real context loss before its DOM event pauses all work, retires old handles once and resumes without time catch-up',async()=>{
+ let lost=false,ended=0,notifications=0;const f=fixture({onContextLost(){notifications++;}}),gl={isContextLost:()=>lost};f.ctx.renderer.getContext=()=>gl;f.ctx.renderer.xr.getSession=()=>({end(){ended++;return Promise.resolve();}});
+ const image={data:new Uint8Array([120,100,80,255]),width:1,height:1},texture=new THREE.DataTexture(image.data,1,1),geometry=new THREE.BoxBufferGeometry(),material=new THREE.MeshStandardMaterial({map:texture});
+ const mesh=new THREE.Mesh(geometry,material);mesh.position.set(2,3,4);f.ctx.scene.add(mesh);
+ const released={geometry:0,material:0,texture:0};geometry.addEventListener('dispose',()=>released.geometry++);material.addEventListener('dispose',()=>released.material++);texture.addEventListener('dispose',()=>released.texture++);
+ const deltas=[];f.host.setFrameHandler({before({delta}){deltas.push(delta);}});f.host.start();f.pump();const before={input:f.ctx.input.steps,graphics:f.ctx.graphics.ticks,renders:f.ctx.renderer.renders};
+ lost=true;for(let i=0;i<100;i++)f.pump();assert.deepEqual({input:f.ctx.input.steps,graphics:f.ctx.graphics.ticks,renders:f.ctx.renderer.renders},before);assert.equal(f.host.stats().contextLosses,1);assert.equal(ended,1);assert.equal(notifications,1);assert.deepEqual(released,{geometry:1,material:1,texture:1});
+ let prevented=false;for(const fn of f.ctx.renderer.domElement.listeners.get('webglcontextlost'))fn({preventDefault(){prevented=true;}});assert(prevented);assert.equal(ended,1);assert.equal(f.host.stats().frameError,null);
+ lost=false;for(const fn of f.ctx.renderer.domElement.listeners.get('webglcontextrestored'))fn();f.pump();assert.equal(deltas.at(-1),0);assert.equal(f.ctx.renderer.renders,before.renders+1);assert.equal(texture.image.data,image.data);assert.deepEqual(mesh.position.toArray(),[2,3,4]);assert.equal(f.host.stats().contextLost,false);await f.host.dispose();
+});

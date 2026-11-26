@@ -18,12 +18,13 @@ function initialTier(input, mode = 'auto') {
   if (!MODES.includes(mode)) throw new Error('Modo gráfico no compatible.');
   if (mode !== 'auto') return TIERS.indexOf(mode);
   const h = hints(input);
-  return h.coarse || h.deviceMemory && h.deviceMemory <= 4 || h.hardwareConcurrency && h.hardwareConcurrency <= 4 ? 0 : 1;
+  return h.standaloneXR || h.coarse || h.deviceMemory && h.deviceMemory <= 4 || h.hardwareConcurrency && h.hardwareConcurrency <= 4 ? 0 : 1;
 }
 function ceilingFor(mode = 'auto', input = {}) {
   if (!MODES.includes(mode)) throw new Error('Modo gráfico no compatible.');
   if (mode !== 'auto') return TIERS.indexOf(mode);
   const h = hints(input);
+  if (h.standaloneXR) return 1;
   if (h.deviceMemory && h.deviceMemory <= 2 || h.hardwareConcurrency && h.hardwareConcurrency <= 2) return 1;
   if (h.coarse || h.deviceMemory && h.deviceMemory <= 4) return 2;
   return 3;

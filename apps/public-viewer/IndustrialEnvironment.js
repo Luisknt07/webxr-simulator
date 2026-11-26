@@ -92,13 +92,19 @@ export default function createIndustrialEnvironment(scene, documentModel, ctx = 
   const releaseShadow = () => {if (sun.shadow.map) {sun.shadow.map.dispose(); sun.shadow.map = null;}};
   const sync = () => {
     if (disposed || lost) return;
-    syncReflections();
-    surfaceDetail.sync(documentModel, documentModel.roomId, !!config.industrialInterior, 0);
     const current = ctx.graphics && ctx.graphics.getLimits ? ctx.graphics.getLimits() : null, xr = !!(ctx.vrMode || renderer && renderer.xr && renderer.xr.isPresenting);
+    const headset=!!(ctx.graphics&&ctx.graphics.hints&&ctx.graphics.hints.standaloneXR);
+    // Keep one inexpensive room reflection prepared before entering XR; do
+    // not launch its offscreen GPU passes in an immersive recovery frame.
+    if(!xr)syncReflections();
+    surfaceDetail.sync(documentModel, documentModel.roomId, !!config.industrialInterior&&!headset, 0);
+    const shadowEnabled=config.shadows!==false&&!headset&&(!xr||current&&current.tier!=='economy');
+    if(sun.castShadow!==shadowEnabled){sun.castShadow=shadowEnabled;if(!shadowEnabled)releaseShadow();}
+    if(renderer&&renderer.shadowMap)renderer.shadowMap.enabled=shadowEnabled;
     const limit = current && current[xr ? 'xrShadowMapSize' : 'shadowMapSize'], size = Math.min(1024, Number.isFinite(limit) && limit > 0 ? limit : 1024);
     if (sun.shadow.mapSize.x !== size) {releaseShadow(); sun.shadow.mapSize.set(size, size);}
     const lightLimit = current && Number.isFinite(current.pointLights) ? Math.max(0, current.pointLights) : 4;
-    points.forEach((light, index) => {light.visible = index < lightLimit;}); stats.pointLights = points.filter(light => light.visible).length; stats.shadowMapSize = sun.castShadow ? size : 0;
+    points.forEach((light, index) => {light.visible = index < (headset?Math.min(2,lightLimit):lightLimit);}); stats.pointLights = points.filter(light => light.visible).length; stats.shadowMapSize = sun.castShadow ? size : 0;stats.shadowMaps=sun.castShadow?1:0;
   };
   const canvas = renderer && renderer.domElement, loseContext = () => {lost = true; releaseShadow(); releaseReflections();},
     restoreContext = () => {lost = false; reflectionAttempted = false; if (renderer && renderer.shadowMap) renderer.shadowMap.needsUpdate = true;};

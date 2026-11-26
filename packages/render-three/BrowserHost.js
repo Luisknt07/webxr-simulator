@@ -21,11 +21,40 @@ export function createBrowserHost(options = {}) {
   const input = new BrowserInput(ctx, renderer.domElement, options.input || {}); ctx.input = input;
   const listeners = [], cleanup = []; let disposed = false, started = false, lost = false, lastTime = null, frames = 0, primaryRenders = 0, workMs = 0, callbacks = {}, desktop = null, xrButton = null;
   let frameError = null, lastFrameError = null, frameErrors = 0, frameAttempts = 0, failedFrames = 0, skippedSimulationFrames = 0, notificationErrors = 0;
+  let contextLosses=0, contextResources=null;
   const listen = (target, name, handler, settings) => {target.addEventListener(name, handler, settings); listeners.push(() => target.removeEventListener(name, handler, settings));};
   const resize = () => {const width = container.clientWidth || window.innerWidth, height = container.clientHeight || window.innerHeight; camera.aspect = width / height; camera.updateProjectionMatrix(); graphics.setViewport(width, height, window.devicePixelRatio || 1); renderer.setSize(width, height, false);};
   listen(window, 'resize', resize); resize();
-  listen(renderer.domElement, 'webglcontextlost', event => {event.preventDefault(); lost = true; input.reset(); if (options.onContextLost) options.onContextLost();});
-  listen(renderer.domElement, 'webglcontextrestored', () => {lost = false; lastTime = null; if (options.onContextRestored) options.onContextRestored();});
+  function loseContext(event){
+    if(event&&event.preventDefault)event.preventDefault();if(lost||disposed)return;
+    lost=true;contextLosses++;lastTime=null;
+    try{input.reset();}catch(_){notificationErrors++;}
+    // Retire r112's listeners while they still refer to the old GPU handles.
+    // CPU geometry, image data and authored state remain available for upload.
+    const resources={geometries:new Set(),materials:new Set(),textures:new Set()};
+    scene.traverse(node=>{
+      if(node.geometry)resources.geometries.add(node.geometry);
+      if(node.skeleton&&node.skeleton.boneTexture)resources.textures.add(node.skeleton.boneTexture);
+      for(const material of Array.isArray(node.material)?node.material:node.material?[node.material]:[]){resources.materials.add(material);for(const key of Object.keys(material))if(material[key]&&material[key].isTexture)resources.textures.add(material[key]);}
+    });
+    const retire=value=>{try{value.dispose();}catch(_){notificationErrors++;}};
+    resources.geometries.forEach(retire);resources.materials.forEach(retire);
+    resources.textures.forEach(value=>{if(!ctx.performanceRenderTargets.has(value)&&!value.isRenderTargetTexture){retire(value);value.needsUpdate=true;}});
+    contextResources={geometries:resources.geometries.size,materials:resources.materials.size,textures:resources.textures.size};
+    if(graphics.contextLost)graphics.contextLost();
+    if(graphics.changeTier)graphics.changeTier(0,'context-loss-recovery');
+    // A lost XRWebGLLayer framebuffer belongs to the old context. End that
+    // session so a fresh user entry creates a valid layer after restoration.
+    const session=renderer.xr.getSession();if(session&&session.end)try{const ended=session.end();if(ended&&ended.catch)ended.catch(()=>{});}catch(_){}
+    try{if(options.onContextLost)options.onContextLost();}catch(_){notificationErrors++;}
+  }
+  listen(renderer.domElement, 'webglcontextlost', loseContext);
+  listen(renderer.domElement, 'webglcontextrestored', () => {
+    if(disposed)return;lost=false;lastTime=null;workMs=0;
+    if(renderer.setFramebuffer)renderer.setFramebuffer(null);if(renderer.setRenderTarget)renderer.setRenderTarget(null);
+    if(graphics.contextRestored)graphics.contextRestored();
+    try{if(options.onContextRestored)options.onContextRestored();}catch(_){notificationErrors++;}
+  });
   function containFrameError(error, phase, time) {
     let message = 'Unknown frame error', stack = '';
     try {message = String(error && error.message || error).slice(0, 1000); stack = String(error && error.stack || '').slice(0, 5000);} catch (_) { /* Even diagnostic coercion must not escape the native RAF callback. */ }
@@ -48,9 +77,12 @@ export function createBrowserHost(options = {}) {
     if (disposed) return;
     frameAttempts++;
     const now = Number.isFinite(time) ? time : performance.now(), delta = lastTime === null ? 0 : Math.max(0, Math.min(.1, (now - lastTime) / 1000)); lastTime = now;
+    const gl=renderer.getContext&&renderer.getContext();
+    if(gl&&gl.isContextLost&&gl.isContextLost())loseContext();
+    if(lost)return;
     let failed = false;
     const attempt = (phase, action) => {try {action(); if(frameError&&frameError.recoverable&&frameError.phase===phase){const recovered=frameError;frameError=null;lastTime=null;if(options.onFrameRecovered)try{options.onFrameRecovered(recovered);}catch(_){notificationErrors++;}}return true;} catch (error) {failed = true; containFrameError(error, phase, now); return false;}};
-    attempt('graphics', () => graphics.tick(delta, {hidden: document.hidden, xr: ctx.vrMode, camera, renderWorkMs: workMs}));
+    attempt('graphics', () => graphics.tick(delta, {hidden: document.hidden, xr: ctx.vrMode, camera, workMs}));
     if (disposed || lost || document.hidden && !ctx.vrMode) {if (failed) failedFrames++; return;}
     const start = performance.now(), collision = ctx.collisionWorld;
     if (collision && collision.beginFrame) attempt('collision.begin', () => collision.beginFrame());
@@ -77,7 +109,7 @@ export function createBrowserHost(options = {}) {
     setFrameHandler(value = {}) {if (disposed) throw new Error('Browser host is disposed.'); callbacks = value;},
     start() {if (disposed) throw new Error('Browser host is disposed.'); if (!started) {started = true; lastTime = null; renderer.setAnimationLoop(frame);} return api;},
     onDispose(callback) {if (disposed) throw new Error('Browser host is disposed.'); cleanup.push(callback);},
-    stats() {return {frames, primaryRenders, contextLost: lost, started, disposed, renderWorkMs: workMs, frameAttempts, failedFrames, frameErrors, skippedSimulationFrames, notificationErrors, frameError, lastFrameError};},
+    stats() {return {frames, primaryRenders, contextLost: lost, contextLosses, contextResources, started, disposed, renderWorkMs: workMs, frameAttempts, failedFrames, frameErrors, skippedSimulationFrames, notificationErrors, frameError, lastFrameError};},
     clearFrameError() {if (disposed) throw new Error('Browser host is disposed.'); const prior = frameError; frameError = null; lastTime = null; return prior;},
     mountXR(target, settings = {}) {
       if (disposed) throw new Error('Browser host is disposed.');

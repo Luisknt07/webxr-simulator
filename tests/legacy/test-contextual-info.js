@@ -6,7 +6,7 @@ const canvases = [];
 const dom = {createElement(type) {
   assert.equal(type, 'canvas');
   const drawing = {texts: [], clears: 0, clearRect() { this.clears++; this.texts = []; }, fillRect() {},
-    measureText(value) { return {width: String(value).length * 9}; }, fillText(value) { this.texts.push(value); }};
+    measureText(value) { return {width: String(value).length * 9}; }, fillText(value) { this.texts.push(value); },setTransform(...values){this.transform=values;}};
   const canvas = {getContext: () => drawing, drawing}; canvases.push(canvas); return canvas;
 }};
 const source = fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/test-contextual-info.js"), '../src/editor/BehaviorRuntime.js')), 'utf8')
@@ -28,7 +28,7 @@ function fixture(objects) {
   const tick = (count = 20, delta = .05) => { for (let index = 0; index < count; index++) { scene.updateMatrixWorld(true); runtime.execute(delta, index * delta); } assert.deepEqual(notices, []); };
   return {scene, root, camera, ctx, runtime, rays, notices, tick};
 }
-function close(f) { f.runtime.stop(); assert.equal(f.runtime.contextualStats.canvases, 0); assert.equal(f.runtime.contextualRendering.size, 0); assert.equal(f.scene.children.filter(child => child.userData.editorRuntimeHelper).length, 0); }
+function close(f) { f.runtime.stop(); assert.equal(f.runtime.contextualStats.canvases, 0);assert.equal(f.runtime.contextualStats.textureBytes,0); assert.equal(f.runtime.contextualRendering.size, 0); assert.equal(f.scene.children.filter(child => child.userData.editorRuntimeHelper).length, 0); }
 
 // Legacy remains opt-in: existing info adapters and native components retain ownership.
 assert.equal(schema.defaultBehavior('info').presentation, 'always'); assert.equal(schema.defaultBehavior('billboard').axis, 'full');
@@ -47,7 +47,9 @@ assert.equal(canvases.length, 0, 'No canvas or texture is allocated until a rele
 assert.equal(near.material.visible, false, 'The original black backing does not remain as an empty giant board.');
 f.tick(); assert.equal(f.runtime.contextualStats.activeId, 'near'); assert.equal(f.runtime.contextualStats.canvases, 1);
 let component = f.runtime.contextualActive; assert(component.opacity > .98); assert.equal(component.card.geometry.parameters.width, 1); assert.equal(component.card.geometry.parameters.height, .625);
-assert.equal(component.texture.image.width, 480); assert.equal(component.texture.image.height, 300); assert.equal(component.card.material.depthWrite, false); assert.equal(component.card.material.toneMapped, false);
+assert.equal(component.texture.image.width, 1024); assert.equal(component.texture.image.height, 640); assert.equal(component.card.material.depthWrite, false); assert.equal(component.card.material.toneMapped, false);
+assert.equal(component.texture.generateMipmaps,false);assert.equal(component.texture.minFilter,THREE.LinearFilter);assert.equal(component.texture.magFilter,THREE.LinearFilter);
+assert.deepEqual(component.texture.image.drawing.transform,[1024/480,0,0,640/300,0,0]);
 assert(component.card.material.opacity > .98); assert.deepEqual([near.position.toArray(), near.quaternion.toArray(), near.scale.toArray()], authoredPose, 'Camera following never records an authored transform.');
 assert(Math.abs(component.card.rotation.x) < 1e-6, 'Contextual cards remain upright.');
 const canvas = component.texture.image, clears = canvas.drawing.clears; f.tick(2); assert.equal(canvas.drawing.clears, clears, 'Static content never redraws each frame.');
@@ -63,6 +65,28 @@ f.camera.position.z = 0; f.camera.rotation.y = Math.PI; f.tick(); assert.equal(f
 f.root.visible = false; f.tick(30); assert.equal(f.runtime.contextualStats.activeId, null); assert.equal(f.runtime.contextualStats.canvases, 0); f.root.visible = true;
 f.camera.rotation.y = 0; f.tick(); assert.equal(f.runtime.contextualStats.activeId, 'far'); f.ctx.room = 3; f.tick(1); assert.equal(f.runtime.contextualStats.canvases, 0, 'A room switch clears cards immediately even before the lifecycle stop.');
 close(f); assert.equal(near.material.visible, true); assert.equal(far.material.visible, true);
+
+// Real projected pixels drive crisp close-up text. Reuse the same texture,
+// release its old GPU allocation on upgrade, and bound stereo/mobile memory.
+const reading=fixture([board('reading',0,-3)]);
+reading.ctx.renderer={domElement:{width:2560,height:1440},capabilities:{maxTextureSize:8192,getMaxAnisotropy:()=>16}};
+reading.camera.aspect=2560/1440;reading.camera.updateProjectionMatrix();reading.tick();
+const message=reading.runtime.contextualActive,texture=message.texture,readingCanvas=texture.image;
+assert.equal(readingCanvas.width,1024);assert.equal(texture.anisotropy,4);
+let allocationReleases=0;texture.addEventListener('dispose',()=>allocationReleases++);
+reading.camera.position.z=-2.4;reading.tick(1);
+assert.equal(readingCanvas.width,4096);assert.equal(readingCanvas.height,2560);assert.equal(message.texture,texture);assert.equal(allocationReleases,1);
+const sharpRedraws=reading.runtime.contextualStats.redraws;reading.tick(20);assert.equal(reading.runtime.contextualStats.redraws,sharpRedraws,'A stationary reading view must not repaint/upload its text each frame.');
+reading.camera.position.z=0;reading.tick();assert.equal(readingCanvas.width,4096,'Backing away does not repeatedly resize a still visible card.');
+const eyes=[new THREE.PerspectiveCamera(75,1, .01,20),new THREE.PerspectiveCamera(75,1,.01,20)];
+eyes.forEach((eye,index)=>{eye.position.set(index?.032:-.032,1.55,-2.4);eye.viewport=new THREE.Vector4(index*1440,0,1440,1600);eye.updateMatrixWorld(true);});
+const stereo=new THREE.ArrayCamera(eyes);stereo.position.copy(reading.camera.position);stereo.updateMatrixWorld(true);
+const measured=eyes.map(eye=>eye.matrixWorld.clone());reading.ctx.renderer.xr={getCamera:()=>stereo};reading.ctx.vrMode=true;reading.tick(1);
+assert.equal(readingCanvas.width,2048);assert.equal(readingCanvas.height,1280);assert(reading.runtime.contextualStats.textureBytes<=2*2048*1280*4);
+eyes.forEach((eye,index)=>assert(eye.matrixWorld.equals(measured[index]),'Resolution probes never rewrite measured eye matrices.'));
+reading.ctx.vrMode=false;reading.ctx.graphics={hints:{mobile:true}};reading.tick();assert.equal(readingCanvas.width,2048);
+reading.ctx.renderer.capabilities.maxTextureSize=512;reading.tick(1);assert.equal(readingCanvas.width,512);assert.equal(readingCanvas.height,320);
+close(reading);
 
 // XR uses the renderer's current camera, including switching XR eyes/desktop between frames.
 const desktop = board('desktop', 0, -2), xrBoard = board('xr', 10, -2), xr = fixture([desktop, xrBoard]);

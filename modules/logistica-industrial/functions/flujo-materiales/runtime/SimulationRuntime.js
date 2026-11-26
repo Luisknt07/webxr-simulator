@@ -1131,6 +1131,7 @@ export default class SimulationRuntime {
     // parent transform. Looking down or twisting a controller only moves it.
     product.holdMatrix = matrix.clone(); product.holdDistance = PRODUCT_HOLD_DISTANCE;
     product.heldBy = controller; product.holdInput = ['squeeze','pinch'].includes(inputMode) ? inputMode : 'select'; this.held.set(controller, product);
+    controller.userData.xrHeldObject={object:product.object,held:true};
     if(inputMode==='pinch'){
       const grip=controller.userData.gripObject;
       product.pinchOffset=grip&&grip.visible?product.object.getWorldPosition(new THREE.Vector3()).sub(grip.getWorldPosition(new THREE.Vector3())):null;
@@ -1325,6 +1326,7 @@ export default class SimulationRuntime {
       candidate = null;
     }
     this.held.delete(product.heldBy); product.heldBy = null; product.holdInput = null;
+    if(controller.userData.xrHeldObject&&controller.userData.xrHeldObject.object===product.object)delete controller.userData.xrHeldObject;
     this.restoreProductCollision(product);
     this.productFeedback.release(product.object);
     this.pulse(controller, 0.15, 25);
@@ -1663,10 +1665,12 @@ export default class SimulationRuntime {
       const staticObjects=level&&level.facility&&Array.isArray(level.facility.objects)?level.facility.objects.slice(0,128).filter(row=>row&&['envelope','detail'].includes(row.role)).map(row=>this.document.getObject(row.objectId)).filter(object=>object&&object.parent===root&&object.userData.editorDescriptor&&object.userData.editorDescriptor.type==='cad'):[];
       const receiving=level&&level.receivingConveyors;
       const texturedTintObjects=receiving&&receiving.layoutId==='cedi-receiving-inspection-v1'&&Array.isArray(receiving.conveyorIds)?receiving.conveyorIds.slice(0,9).map(id=>this.records.get(id)).filter(record=>record&&record.components.conveyor).map(record=>record.object):[];
+      if(this.nativeManufacturedBatching)for(const record of this.records.values())if(record.components.conveyor||record.components.source||record.components.palletQueue||record.components.robot||record.components.vehicle)texturedTintObjects.push(record.object);
       this.nativeRenderBanks.sync(Array.from(this.records.values(), record => record.object), {
         editing: !this.running || !!(this.ctx.editor && this.ctx.editor.active),
         version: this.ctx.editor && this.ctx.editor.changeVersion || 0,
         staticObjects,
+        readOnly:!!this.nativeManufacturedBatching,
         texturedTintObjects
       });
     } catch (error) {

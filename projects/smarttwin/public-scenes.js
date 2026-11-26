@@ -7,9 +7,9 @@ const POLICY = Object.freeze({previewAllExamples: true});
 // without modifying private lessons or publishing user-authored projects.
 const PUBLIC_DEMO = Object.freeze({id: 'vr-robot-dispatch', templateId: 'vr-robot-dispatch', baseTemplateId: 'vr-robot-transfer',
   name: 'SMART-TWIN · Demostración integrada',
-  description: 'Dos robots, transportadores, montacargas y estantería con analítica de producción en vivo.',
-  objective: 'Explorar dos células robóticas reales, seguir los pallets y probar su transporte y almacenamiento.',
-  tasks: Object.freeze(['Observa la manipulación de cajas y el paletizado físico.', 'Conduce el montacargas desde los rodillos hasta las bahías o la estantería.', 'Consulta los monitores y estudia los equipos.'])});
+  description: 'Un robot, seis transportadores conectados, montacargas y almacén con puertas y guías interactivas.',
+  objective: 'Seguir las cajas de banda en banda, observar el paletizado y recorrer las áreas de transporte y almacenamiento.',
+  tasks: Object.freeze(['Sigue las ocho cajas entre banda, rodillos, curva y descarga.', 'Observa al robot formar dos pallets y conduce el montacargas hacia las bahías o la estantería.', 'Recorre la ruta peatonal, abre las puertas y descubre los mensajes de cada estación.'])});
 const SCENES = Object.freeze([
   Object.freeze({id: 'l-transfer', name: 'Transferencia rectangular a 90°', roomId: 'hall'}),
   Object.freeze({id: 'inspection-sorting', name: 'Inspección y clasificación', roomId: 'sound'})

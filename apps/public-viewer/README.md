@@ -2,7 +2,26 @@
 
 Independent anonymous application for **one** curated example: `vr-robot-dispatch`.
 It loads the actual source → robot → pallet conveyor → manually driven forklift
-→ stock-bay simulation. The finite batch is two pallets / eight boxes.
+→ stock-bay simulation. The robot batch is two pallets / eight boxes. A separate
+eight-carton line connects a belt, rollers, a 90° curve and a discharge belt.
+There is one robot and no standalone analytics monitor in this recipe.
+
+The pedestrian route joins two hinged entrance/exit doors through real wall
+openings. Six contextual station guides reuse `BehaviorRuntime`, restricted
+to `info` and `hingeDoor` behaviors, without editor or asset-library services.
+Door animation invalidates collision geometry; restart restores closed leaves.
+`tests/framework/public-demo-layout.test.mjs` checks carton identity across all
+four segments, saved-document validation and actual door collision passages.
+`tooling/qa/public-scenario-layout.cjs <public-bundle-sha256>` exercises the
+compiled scene, real RayControl door actions, message visibility and restart.
+
+Contextual messages rasterize their existing layout at 1024–4096 pixels wide
+according to projected reading size. VR/mobile caps the backing store at
+2048×1280 (10 MiB per active RGBA card, at most two during a fade). Linear
+filtering without mipmaps prevents r112/WebGL1 from shrinking the canvas;
+anisotropy is capped at four. Static messages redraw only for content changes
+or resolution upgrades. `tooling/qa/contextual-message-clarity.cjs <sha256>`
+captures close, distant and oblique views and verifies stereo allocation limits.
 
 This entry does not construct SceneEditor, StudioExperience, rooms, stations,
 accounts, galleries, AI, CAD or an asset-import library. `SelectedSceneDocument`
@@ -133,3 +152,11 @@ feedback, pedal input, and controller/hand commands while stopped, including
 emergency/reset/start sequencing. Cab labels share one atlas capped at
 1024×512 for the expanded controls. Headset tracking and physical headset FPS
 remain outside the claims of software-adapter tests.
+
+The public lesson enables the existing rig-aware native render banks and
+actor-local immutable microfinish sharing. Standalone headset auto quality
+starts at Economy and caps at Balanced; dynamic shadows and architectural
+microrelief are omitted on that device profile. The public browser host also
+retires old GPU handles and ends an invalid XR session on actual context loss.
+See `docs/public-headset-stability.md` for the before/after measurements,
+recovery tests and physical-headset limitations.

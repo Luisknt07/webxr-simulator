@@ -117,7 +117,7 @@ function productionFrame(f, root) {
   const finish = f.head(); assert(finish.z > start.z - .75 && finish.z < start.z - .6, 'Module movement followed by the exact main-loop collision pass stops at the thin wall.');
   close(finish.y, start.y);
 }
-const animateStart = index.indexOf('function animate(time, frame)'), controllerSync = index.indexOf('syncXRControllers(frame);', animateStart);
+const animateStart = index.indexOf('function animate(time, frame)'), controllerSync = index.indexOf('syncXRControllers(frame, delta);', animateStart);
 assert(animateStart >= 0 && controllerSync > animateStart);
 assert(controllerSync < index.indexOf('context.xrLocomotion.tick(delta)'));
 assert(index.indexOf('context.xrLocomotion.tick(delta)') < index.indexOf('ecsyWorld.execute(delta, elapsedTime);', animateStart));

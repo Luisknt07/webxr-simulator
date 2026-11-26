@@ -37,6 +37,9 @@ async function generate(options = {}) {
       await browser.until(()=>browser.call(expected=>{const editor=context.editor;return editor.roomId===expected.roomId&&expected.machines.every(row=>{const object=editor.document.getObject(row.id),config=object&&editor.document.getBehaviors(object).find(value=>value.type===row.type);return config&&(!row.variant||config.variant===row.variant)&&(!row.visualModel||config.visualModel===row.visualModel);});},{roomId:definition.roomId,machines}),'The actual maintained scene equipment/profile did not load.',60000);
       const result = await browser.call(async expected => {
         const editor = context.editor; editor.simulationPaused = true; context.studio.close();
+        // Awaited thumbnail rendering must not race the disposable viewer's
+        // machinery/selection RAF while fingerprinting the source hierarchy.
+        context.renderer.setAnimationLoop(null);
         if(editor.projectSync)editor.projectSync.stop();
         const objects=expected.machines.map(row=>editor.document.getObject(row.id));
         const actualModels=objects.map((object,index)=>{const row=expected.machines[index];let rig;object.traverse(node=>{if(!rig)rig=node.userData.vehicleRig||node.userData.robotRig;});const actual=Object.assign({},row,{renderedVariant:rig&&rig.config&&rig.config.variant||row.variant,renderedVisualModel:rig&&(rig.visualModel||rig.design&&rig.design.visualModel)||''});if(row.visualModel==='reference-pilot'&&actual.renderedVisualModel!=='reference-pilot')throw Error('The actual equipment is not rendering its declared reference pilot: '+row.id);return actual;});

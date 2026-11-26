@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "771ac8eb5bf0fc9d7783c06e1d4900bb5cb7bc71",
-  "bundleSha256": "3b1b3125b5ac3d597b7eaf4ce22945cacdac2cbc9a98a714254031bb5bb111ef",
+  "revision": "33e2ca1ee2b3e0b7be126f011730ee98ecc92ffe",
+  "bundleSha256": "1e133621bc7984b6eb54a83f880731b7bce968c808a9fddee32f7d4b1823bb28",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "3b1b3125b5ac3d597b7eaf4ce22945cacdac2cbc9a98a714254031bb5bb111ef"
+      "sha256": "1e133621bc7984b6eb54a83f880731b7bce968c808a9fddee32f7d4b1823bb28"
     },
     {
       "path": "cad-worker.js",
@@ -3600,7 +3600,7 @@
     },
     {
       "path": "practice-configuration-preview.js",
-      "sha256": "86268329d3105d03cb29bfa987d5e2a2b0a698909fe600446cb48d84c936a1bc"
+      "sha256": "d90dba2c80c72afeae963f7ec93cf4704e4fdfbcf4a4c7ce01d822f819cdc1d8"
     },
     {
       "path": "projects/smarttwin/branding/apple-touch-icon-114x114.png",
@@ -3724,7 +3724,7 @@
     },
     {
       "path": "projects/smarttwin/previews/manifest.json",
-      "sha256": "87df21f6bea883feefda4bb86c9c300c5a04cf8fad0ee02ab4540a1f3a676660"
+      "sha256": "abbe6d8c470b93e57b2dd07efa01d5959c63e61a553a0b9a49c67fc18590ed70"
     },
     {
       "path": "projects/smarttwin/previews/manual-station.png",
@@ -3780,7 +3780,7 @@
     },
     {
       "path": "projects/smarttwin/previews/vr-robot-dispatch.png",
-      "sha256": "7e818fce124a6b3f7da8bc31c852df45ebf6724b3bd837e1d76579de7fad0d50"
+      "sha256": "2e379a67a5244b5696f64011f2f11fb79c230ddcb160301474a5764abddd3c2b"
     },
     {
       "path": "projects/smarttwin/previews/vr-robot-transfer.png",
@@ -3924,7 +3924,7 @@
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-dispatch.json",
-      "sha256": "4cb7d4434b5e7fc3ce391d520972da273c237ccb21a05e251e987af6e97f327f"
+      "sha256": "e8d4f347175661b67528513b666eec2c91fbe7a6e984049353cb19e0ac4ef34a"
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-transfer.json",
@@ -3949,8 +3949,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "1b6f7f467b53ed57663d",
-    "statsSha256": "d7154878ea953e42fabadc0f22261de06ea3e41fc216e4d1d8fad8f8dcbbc0a0",
+    "hash": "ed59c7ac40a87657bfae",
+    "statsSha256": "1bfe3dda13c72ea034e320e20d17647f59bef1c9f64247c3e31b32a14ec56577",
     "assets": [
       {
         "path": "13.js",
@@ -3982,7 +3982,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7344370
+        "size": 7359575
       },
       {
         "path": "configurable-practice-reference.js",
@@ -4018,7 +4018,7 @@
       },
       {
         "path": "practice-configuration-preview.js",
-        "size": 3155255
+        "size": 3155778
       },
       {
         "path": "receiving-video-guide.js",

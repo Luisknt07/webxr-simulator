@@ -26,6 +26,11 @@ function checkbox(key, label, value) {
 }
 
 const definitions = [
+  {type: 'hingeDoor', label: 'Puerta abatible interactiva', fields: [
+    text('label', 'Rótulo', 'ACCESO', 40), checkbox('open', 'Abierta al iniciar', false),
+    number('openAngle', 'Ángulo de apertura (°)', -95, -170, 170, 5),
+    number('duration', 'Tiempo de apertura (s)', .7, .2, 4, .1), number('distance', 'Distancia de uso (m)', 3.2, .5, 8, .1)
+  ]},
   {type: 'portal', label: 'Portal / cambiar de sala', fields: [
     {key: 'room', label: 'Sala de destino', input: 'room', default: 0, min: 0, max: 9, step: 1},
     {key: 'event', label: 'Activar al', input: 'select', default: 'press', options: [

@@ -4,10 +4,10 @@
   "recipeVersion": 2,
   "width": 480,
   "height": 320,
-  "bundleSha256": "a70f32cbcdc1479bc6075025404b56a9dd183c484ce6ed774a27ceb4455af2e9",
-  "catalogSha256": "b025078724fe9ef14a27c8f096a10a1b4a64db312093c7ce585fa09ae9121597",
+  "bundleSha256": "ab6158818064cc4e42f47c18c9545ca43e51fa4b19bef450b6a4b764a8048059",
+  "catalogSha256": "732e286ce841d37a59d154369fb5acd141289e1c25fa60516d33ed022fbf7095",
   "complete": true,
-  "bytes": 3332874,
+  "bytes": 3377818,
   "scenes": [
     {
       "id": "l-transfer",
@@ -74,7 +74,7 @@
     },
     {
       "id": "vr-robot-dispatch",
-      "title": "RV · Transferencia guiada",
+      "title": "SMART-TWIN · Demostración integrada",
       "file": "vr-robot-dispatch.png",
       "method": "actual-study-factory",
       "recipeVersion": 2,
@@ -137,20 +137,76 @@
           "visualModel": "reference-pilot",
           "renderedVariant": "forklift-electric-4w",
           "renderedVisualModel": "reference-pilot"
+        },
+        {
+          "id": "custom-public-24",
+          "type": "source",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-25",
+          "type": "conveyor",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-26",
+          "type": "conveyor",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-27",
+          "type": "conveyor",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-28",
+          "type": "conveyor",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-29",
+          "type": "palletQueue",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
+        },
+        {
+          "id": "custom-public-30",
+          "type": "palletQueue",
+          "variant": "",
+          "visualModel": "",
+          "renderedVariant": "",
+          "renderedVisualModel": ""
         }
       ],
       "sourceUnchanged": true,
-      "bytes": 36143,
-      "sha256": "f94a7f3ad42a4185442ddeba83a5d5fbc080cf650900f9724764c26582ad22f6",
-      "bundleSha256": "a70f32cbcdc1479bc6075025404b56a9dd183c484ce6ed774a27ceb4455af2e9",
-      "sceneSha256": "f6341e98b45cc3de78e213f78c913bde8279351f916201dfe2a57ee880ad5109",
+      "bytes": 81087,
+      "sha256": "2e379a67a5244b5696f64011f2f11fb79c230ddcb160301474a5764abddd3c2b",
+      "bundleSha256": "ab6158818064cc4e42f47c18c9545ca43e51fa4b19bef450b6a4b764a8048059",
+      "sceneSha256": "e8d4f347175661b67528513b666eec2c91fbe7a6e984049353cb19e0ac4ef34a",
       "quality": {
         "width": 480,
         "height": 320,
-        "mean": 46.42144097222221,
-        "variance": 537.0563284791542,
-        "min": 40,
-        "max": 234
+        "mean": 227.41102430555557,
+        "variance": 1366.1816087887491,
+        "min": 57.666666666666664,
+        "max": 245.66666666666666
       }
     },
     {

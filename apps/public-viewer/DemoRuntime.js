@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import seedPublicDemoStock from '../../projects/smarttwin/PublicDemoStock.cjs';
 import DemoVehicleEntry from './DemoVehicleEntry.js';
 import {PresentationGuard} from './SceneResilience.js';
+import BehaviorRuntime from '../../packages/tools/editor/src/BehaviorRuntime.js';
 
 export const DEMO_FUNCTION_ID = 'smarttwin/public-demo/logistics';
 export const DEMO_MODULE_ID = 'smarttwin/public-demo';
@@ -17,7 +18,7 @@ export const DEMO_MODULE_ID = 'smarttwin/public-demo';
  * runtime without constructing an editor, Studio connection or native room. */
 export const demoFunction = defineFunction({
   id: DEMO_FUNCTION_ID, version: '1.0.0', capabilities: ['platform.scene', 'platform.document'],
-  metadata: {title: 'Dos robots y sistemas logísticos conectados', legacyAdapter: true},
+  metadata: {title: 'Robot, transferencia de cajas y recorrido interactivo', legacyAdapter: true},
   register(scope) {
     const ctx = scope.port('platform.scene'), document = scope.port('platform.document');
     const collision = new CollisionWorld(ctx, document); ctx.collisionWorld = collision;
@@ -27,10 +28,16 @@ export const demoFunction = defineFunction({
     const equipmentStudy = new EquipmentStudyViewer(ctx, document, simulation, {notify:ctx.notify});
     const monitors = new LineMonitorSystem(ctx, document, simulation);
     const vehicleEntry=new DemoVehicleEntry(ctx,simulation,driving);
+    // Reuse the existing contextual-message and behavior engine, with only
+    // these two presentation behaviors and no authoring/library capabilities.
+    const interactionTypes=new Set(['info','hingeDoor']);
+    const interactions=new BehaviorRuntime(ctx,{getObjects:room=>document.getObjects(room).filter(object=>document.getBehaviors(object).some(value=>interactionTypes.has(value.type))),
+      getBehaviors:object=>document.getBehaviors(object).filter(value=>interactionTypes.has(value.type))},null,ctx.notify);
     const presentation=new PresentationGuard({onError(record,error){console.warn('Public display ('+record.name+'):',error);if(record.disabled&&ctx.notify)ctx.notify('Se desactivó temporalmente '+record.name+'. La simulación continúa.');}});
     const session = {
-      simulation, driving, visuals, equipmentStudy, monitors, vehicleEntry, presentation, paused: false,
+      simulation, driving, visuals, equipmentStudy, monitors, vehicleEntry, presentation, interactions, paused: false,
       step(delta) {
+        presentation.run('los mensajes y las puertas',()=>interactions.execute(delta,simulation.time));
         presentation.run('la ficha de equipos',()=>equipmentStudy.update(delta));
         presentation.run('los monitores de producción',()=>monitors.sync(document.roomId,delta,false));
         presentation.run('el acceso a la cabina',()=>vehicleEntry.sync());
@@ -39,8 +46,9 @@ export const demoFunction = defineFunction({
         try{simulation.execute(delta);}catch(error){error.smartTwinStage='flujo de materiales';throw error;}
         try{driving.follow();}catch(error){error.smartTwinStage='vista de la cabina';throw error;}
         presentation.run('los indicadores visuales',()=>visuals.sync(document.roomId,delta,false));
+        simulation.syncNativePresentation();
       },
-      restart() {equipmentStudy.close(); driving.unmount(true); simulation.start(document.roomId); seedPublicDemoStock(THREE, simulation); presentation.reset(); session.paused = false; visuals.dirty = true;},
+      restart() {interactions.stop();equipmentStudy.close(); driving.unmount(true); simulation.start(document.roomId); seedPublicDemoStock(THREE, simulation);interactions.start(document.roomId); presentation.reset(); session.paused = false; visuals.dirty = true;},
       setPaused(value) {session.paused = !!value; driving.resetInput(); if (session.paused) simulation.releaseHeldProducts();},
       stats() {
         const records = Array.from(simulation.records.values()), robotRecords = records.filter(record => record.components.robot);
@@ -58,9 +66,12 @@ export const demoFunction = defineFunction({
       }
     };
     // Register cleanup before any attach/start operation can throw.
-    scope.onDispose(() => {vehicleEntry.dispose();monitors.dispose();equipmentStudy.dispose();driving.dispose(); visuals.dispose(); simulation.stop(); if (ctx.collisionWorld === collision) delete ctx.collisionWorld; if (ctx.demo === session) delete ctx.demo;});
+    scope.onDispose(() => {interactions.stop();vehicleEntry.dispose();monitors.dispose();equipmentStudy.dispose();driving.dispose(); visuals.dispose(); simulation.stop(); if (ctx.collisionWorld === collision) delete ctx.collisionWorld; if (ctx.demo === session) delete ctx.demo;});
     scope.register('systems', 'logistics', session);
-    ctx.demo = session; simulation.start(document.roomId); seedPublicDemoStock(THREE, simulation); visuals.sync(document.roomId, 0, false);
+    // Explicit opt-in for this read-only lesson. Reuse the runtime's existing
+    // rig-aware render banks and actor-local immutable microfinish pooling.
+    simulation.nativeManufacturedBatching=true;
+    ctx.demo = session; simulation.start(document.roomId); seedPublicDemoStock(THREE, simulation);interactions.start(document.roomId); visuals.sync(document.roomId, 0, false);simulation.syncNativePresentation();
   }
 });
 

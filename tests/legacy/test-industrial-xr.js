@@ -81,7 +81,7 @@ function setup(variant = 'roller-start') {
   ctx.raycontrol = new RayControl(ctx, 'right');
   const indexSource = source("apps/workspace/src/index.js");
   const bridge = new Function('THREE', "assets", 'controllers', 'raycontrol', 'context', 'renderer', 'OculusBrowser', 'selectStartSkip', 'selectEndSkip', 'updateXRGrip',
-    [block(indexSource, 'function setupControllers()'), block(indexSource, 'function syncXRControllers(frame)'), block(indexSource, 'function onSelectStart('), block(indexSource, 'function onSelectEnd(')].join('\n') + '\nreturn {setupControllers,syncXRControllers,onSelectStart,onSelectEnd};')
+    [block(indexSource, 'function setupControllers()'), block(indexSource, 'function syncXRControllers('), block(indexSource, 'function onSelectStart('), block(indexSource, 'function onSelectEnd(')].join('\n') + '\nreturn {setupControllers,syncXRControllers,onSelectStart,onSelectEnd};')
     (THREE, assets, ctx.controllers, ctx.raycontrol, ctx, renderer, false, {}, {}, require('../support/load-xr-grip.js')(THREE).updateXRGrip);
   bridge.setupControllers();
   ctx.controllers.forEach(controller => {

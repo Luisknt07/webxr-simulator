@@ -88,10 +88,12 @@ test('production industrial cap accepts measured index, and real cargo uses pinc
   const product=f.runtime.products.get(f.cartons[0]),center=product.bounds.getCenter(vec()).applyMatrix4(product.object.matrixWorld);
   hand.controller.visible=true;industrial.aim(f,hand.controller,center);hand.place(center,vec(0,0,1),{pinch:true});industrial.advance(f);
   industrial.select(f,hand.controller,'selectstart');assert.equal(product.heldBy===hand.controller,true,'Native pinch-down picks the box.');assert.equal(product.holdInput,'pinch');
+  assert.equal(hand.controller.userData.xrHeldObject.object,product.object);
   industrial.advance(f);const position=product.object.getWorldPosition(vec());
   hand.place(center.clone().add(vec(0,.08,0)),vec(0,0,1),{pinch:true});industrial.advance(f);assert(product.object.getWorldPosition(vec()).y>position.y+.04);
   industrial.select(f,hand.controller,'squeezestart');industrial.select(f,hand.controller,'squeezeend');assert.equal(product.heldBy===hand.controller,true);
   industrial.select(f,hand.controller,'selectend');assert.equal(product.heldBy,null);
+  assert.equal(hand.controller.userData.xrHeldObject,undefined,'Dropping retires the visual grip together with custody.');
   industrial.advance(f,.1);const next=product.bounds.getCenter(vec()).applyMatrix4(product.object.matrixWorld);
   hand.place(next,vec(0,0,1),{pinch:true});industrial.aim(f,hand.controller,next);industrial.select(f,hand.controller,'selectstart');assert.equal(product.heldBy===hand.controller,true,'A fresh pinch can pick the released box.');
   hand.place(next,vec(0,0,1),{thumb:false});industrial.advance(f);assert.equal(product.heldBy,null,'Lost measured pinch tracking cancels cargo custody.');

@@ -544,6 +544,7 @@ export default class RayControl extends EventDispatcher {
         controllerData.currentIntersection = null;
       }
       controllerData.hoverEntries = this.selectionEntries(controllerData);
+      controllerData.controller.userData.xrHandPointing = controllerData.hoverEntries.some(entry => entry.state.handTouchable && !entry.state.teleport);
       this.updatePointer(controllerData);
     }
 
@@ -563,6 +564,7 @@ export default class RayControl extends EventDispatcher {
   }
 
   clearHover(controllerData) {
+    delete controllerData.controller.userData.xrHandPointing;
     const entries = controllerData.hoverEntries && controllerData.hoverEntries.length ? controllerData.hoverEntries :
       controllerData.currentIntersection ? [controllerData.currentIntersection] : [];
     entries.forEach(entry => entry.state.onHoverLeave && entry.state.onHoverLeave(entry.intersection, false, controllerData.controller));

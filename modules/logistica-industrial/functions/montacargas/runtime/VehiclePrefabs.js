@@ -103,24 +103,27 @@ function cab(b,rig,c,parent,standing=false) {
   // Generic photo-guided hydraulic bank, in metres, not an OEM replica. The
   // operator faces +Z (right=-X). Front pivots and rearward bent handles put
   // the controls beside the wheel rather than in a row beside the seat.
-  const inner=Math.min(Math.min(.54,c.width*.5)/2+.048,x-.10),outer=Math.max(inner,x-.065);
-  const columns=Math.max(1,Math.min(leverIds.length,Math.floor((outer-inner)/.04)+1)),rows=Math.max(1,Math.ceil(leverIds.length/columns));
-  const spacing=columns>1?Math.min(.07,(outer-inner)/(columns-1)):.06,bankWidth=(columns-1)*spacing+.064;
+  const separatedBank=c.variant==='forklift-electric-4w';
+  const inner=Math.min(Math.min(.54,c.width*.5)/2+.048,x-.10),outer=Math.max(inner,separatedBank?Math.min(c.width*.5-.09,x+.035):x-.065);
+  const columns=Math.max(1,Math.min(leverIds.length,Math.floor((outer-inner)/(separatedBank?.09:.04))+1)),rows=Math.max(1,Math.ceil(leverIds.length/columns));
+  const spacing=columns>1?Math.min(separatedBank?.095:.07,(outer-inner)/(columns-1)):.06,bankWidth=(columns-1)*spacing+.064;
   const leverX=-(inner+(columns-1)*spacing/2),leverZ=.305+(rows-1)*.045,leverDepth=.24+(rows-1)*.09,handInset=Math.min(.045,Math.max(0,inner-.265));
-  const leverSupport=structural(d.shapeExtrusion('Pedestal de consola hidráulica',[[-bankWidth*.33,-.225],[bankWidth*.33,-.225],[bankWidth*.43,.225],[-bankWidth*.43,.225]],.19,'accent',cabin,[leverX,.68,leverZ],.009));rig.leverSupport=leverSupport;join(cabFloor,leverSupport);
+  const supportHalf=separatedBank?Math.min(bankWidth*.33,Math.max(.025,x-Math.abs(leverX)-.008)):bankWidth*.33;
+  const leverSupport=structural(d.shapeExtrusion('Pedestal de consola hidráulica',[[-supportHalf,-.225],[supportHalf,-.225],[bankWidth*.43,.225],[-bankWidth*.43,.225]],.19,'accent',cabin,[leverX,.68,leverZ],.009));rig.leverSupport=leverSupport;join(cabFloor,leverSupport);
   const leverConsole=structural(d.solid('Módulo de mandos hidráulicos',[bankWidth,.12,leverDepth],'accent',cabin,[leverX,.96,leverZ]));rig.leverConsole=leverConsole;join(leverSupport,leverConsole);
   leverSupport.userData.equipmentComponentId=leverConsole.userData.equipmentComponentId='vehicle.controls';
   rig.hydraulicBank={layout:'front-right',columns,rows,spacing,width:bankWidth,handInset};
   leverIds.forEach((id,index)=>{
     const px=-(inner+(index%columns)*spacing),pz=.33+Math.floor(index/columns)*.09;
     const pivot=group(cabin,'Palanca '+id,[px,1.024,pz]);
-    const stem=b.rod('Vástago inclinado de palanca',[0,.015,0],[handInset,.19,-.148],.0055,'steel',pivot),radius=Math.min(.0175,spacing*.36);
+    const stemBack=separatedBank?.178:.148,gripBack=separatedBank?.19:.16;
+    const stem=b.rod('Vástago inclinado de palanca',[0,.015,0],[handInset,.19,-stemBack],.0055,'steel',pivot),radius=Math.min(separatedBank?.020:.0175,spacing*.36);
     const knobGeometry=b.geometry('cab-knob:'+radius+':'+c.detail,()=>new THREE.LatheBufferGeometry([[0,-.031],[radius*.62,-.029],[radius*.94,-.019],[radius,0],[radius*.93,.020],[radius*.63,.030],[0,.033]].map(p=>new THREE.Vector2(...p)),c.detail==='low'?12:c.detail==='high'?24:18));
-    knobGeometry.userData.manufacturedProfile='ergonomic-lathe-grip';const knob=b.mesh('Pomo ergonómico de '+id,knobGeometry,'rubber',pivot,[handInset,.205,-.16]);knob.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(handInset,.175,-.148).normalize());stem.userData.vehiclePreserve=knob.userData.vehiclePreserve=true;
-    const bootGeometry=b.geometry('cab-bellows:'+c.detail,()=>{const g=new THREE.LatheBufferGeometry([[.021,-.004],[.026,0],[.026,.005],[.017,.011],[.025,.016],[.017,.022],[.024,.028],[.016,.034],[.022,.040],[.014,.047],[.011,.050]].map(p=>new THREE.Vector2(...p)),c.detail==='low'?8:12),p=g.attributes.position;for(let i=0;i<p.count;i++){const lean=Math.max(0,p.getY(i)-.012)/.175;p.setX(i,p.getX(i)+lean*handInset);p.setZ(i,p.getZ(i)-lean*.148);}g.computeVertexNormals();return g;});
+    knobGeometry.userData.manufacturedProfile='ergonomic-lathe-grip';const knob=b.mesh('Pomo ergonómico de '+id,knobGeometry,'rubber',pivot,[handInset,.205,-gripBack]);knob.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(handInset,.175,-stemBack).normalize());stem.userData.vehiclePreserve=knob.userData.vehiclePreserve=true;
+    const bootGeometry=b.geometry('cab-bellows:'+c.detail+':'+stemBack,()=>{const g=new THREE.LatheBufferGeometry([[.021,-.004],[.026,0],[.026,.005],[.017,.011],[.025,.016],[.017,.022],[.024,.028],[.016,.034],[.022,.040],[.014,.047],[.011,.050]].map(p=>new THREE.Vector2(...p)),c.detail==='low'?8:12),p=g.attributes.position;for(let i=0;i<p.count;i++){const lean=Math.max(0,p.getY(i)-.012)/.175;p.setX(i,p.getX(i)+lean*handInset);p.setZ(i,p.getZ(i)-lean*stemBack);}g.computeVertexNormals();return g;});
     bootGeometry.userData.manufacturedProfile='inclined-flexible-bellows';const boot=b.mesh('Fuelle flexible de mando',bootGeometry,'rubber',pivot,[0,0,0]);
     for(const part of [pivot,stem,knob,boot])part.userData.equipmentComponentId='vehicle.controls';
-    const grip=group(pivot,'Agarre '+id,[handInset,.205,-.16]);rig.controls.levers.push({id,number:index+1,object:pivot,pivot,grip,hitObject:knob,axis:[0,0,1],rotationAxis:[1,0,0],pivotLocal:[0,0,0],travel:Math.sin(.32)*.205,maxAngle:.32,restQuaternion:pivot.quaternion.clone(),labelPosition:[px,1.021,pz-.085],labelWidth:Math.min(.068,spacing*.88),labelCompact:true});
+    const grip=group(pivot,'Agarre '+id,[handInset,.205,-gripBack]);rig.controls.levers.push({id,number:index+1,object:pivot,pivot,grip,hitObject:knob,gripRadius:radius,grabDistance:.065,releaseDistance:.22,axis:[0,0,1],rotationAxis:[1,0,0],pivotLocal:[0,0,0],travel:Math.sin(.32)*.205,maxAngle:.32,restQuaternion:pivot.quaternion.clone(),labelPosition:[px,1.021,pz-.085],labelWidth:separatedBank?Math.min(.08,spacing*.85):Math.min(.068,spacing*.88),labelCompact:true});
   });
   d.decal(cabin,1,[.15,.075],[leverX+bankWidth/2+.001,.96,leverZ],[0,Math.PI/2,0],leverConsole);
   if(rig.seatBack)d.decal(rig.seatBack,3,[.16,.08],[0,.055,-.0595],[0,Math.PI,0],rig.seatBack);

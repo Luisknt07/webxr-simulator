@@ -28,6 +28,11 @@ function poolManufacturedTextures(actor){
  actor.traverse(node=>{for(const m of Array.isArray(node.material)?node.material:node.material?[node.material]:[])for(const value of Object.values(m))if(value&&value.isTexture)retired.delete(value);});retired.forEach(texture=>texture.dispose());
 }
 const attrs=geometry=>Object.keys(geometry.attributes).sort();
+// A read-only lesson cannot edit nested shader definitions. Compare live render
+// fields directly instead of serializing hundreds of full material graphs on
+// every XR frame. Colours, scalar changes, maps and needsUpdate still invalidate.
+const materialSnapshot=material=>Object.keys(material).filter(key=>!['userData','_listeners'].includes(key)).map(key=>{const value=material[key];return{key,value:value&&(value.isColor||value.isVector2||value.isVector3||value.isMatrix3)?value.clone():value};});
+const sameMaterialSnapshot=(material,snapshot)=>snapshot.every(({key,value})=>value&&value.equals?material[key]&&value.equals(material[key]):material[key]===value);
 const signature=geometry=>attrs(geometry).map(name=>{const a=geometry.attributes[name];return name+':'+a.itemSize+':'+a.normalized+':'+a.array.constructor.name;}).join('|');
 // Lossless indexing for opted-in manufactured banks. A vertex may be reused
 // only when EVERY attribute byte is identical: seams, hard normals, UVs and
@@ -109,7 +114,8 @@ export default class RuntimeNativeRenderBanks {
  unchanged(roots,version){
   if(this.version!==version||roots.length!==this.roots.length||roots.some((root,i)=>root!==this.roots[i].object||root.children.length!==this.roots[i].children.length||root.children.some((child,n)=>child!==this.roots[i].children[n])))return false;
   this.stats.checks+=this.sources.length;
-  for(const row of this.materialStates)if(this.materialKey(row.material)!==row.key)return false;
+  for(const row of this.materialStates)if(this.readOnly?!sameMaterialSnapshot(row.material,row.snapshot):this.materialKey(row.material)!==row.key)return false;
+  const safeMaterials=new Map();
   for(const row of this.ancestors){const o=row.object;if(o.matrixAutoUpdate)o.updateMatrix();if(!o.matrix.equals(row.matrix)){this.excluded.add(o);return false;}if(o.parent!==row.parent||o.visible===false||protectedSubtree(o.userData||{}))return false;}
   for(const row of this.sources){const o=row.object,g=o.geometry;
    if(o.matrixAutoUpdate)o.updateMatrix();
@@ -118,12 +124,14 @@ export default class RuntimeNativeRenderBanks {
    // rebaking its entire rigid bank every animation frame would defeat this
    // optimization and allocate repeatedly on a standalone headset.
    if(g===row.geometry&&(g.index===row.index&&g.index&&g.index.version!==row.indexVersion||row.names.some((name,i)=>g.attributes[name]===row.attributes[i]&&g.attributes[name].version!==row.versions[i]))){this.excluded.add(o);return false;}
-   if(o.parent!==row.parent||!within(o,row.owner)||!visible(o)||o.layers.mask!==0||o.geometry!==row.geometry||o.material!==row.material||!safeMaterial(o.material)||o.material.onBeforeCompile!==row.shader||o.castShadow!==row.castShadow||o.receiveShadow!==row.receiveShadow||o.renderOrder!==row.order||o.frustumCulled===false||
+   if(!safeMaterials.has(o.material))safeMaterials.set(o.material,safeMaterial(o.material));
+   if(o.parent!==row.parent||!within(o,row.owner)||!visible(o)||o.layers.mask!==0||o.geometry!==row.geometry||o.material!==row.material||!safeMaterials.get(o.material)||o.material.onBeforeCompile!==row.shader||o.castShadow!==row.castShadow||o.receiveShadow!==row.receiveShadow||o.renderOrder!==row.order||o.frustumCulled===false||
     o.onBeforeRender!==THREE.Object3D.prototype.onBeforeRender||o.onAfterRender!==THREE.Object3D.prototype.onAfterRender||o.customDepthMaterial||o.customDistanceMaterial||g.drawRange.start!==0||g.drawRange.count!==row.drawCount||g.index!==row.index||g.index&&g.index.version!==row.indexVersion||attrs(g).length!==row.names.length||row.names.some((name,i)=>g.attributes[name]!==row.attributes[i]||g.attributes[name].version!==row.versions[i]))return false;
   }return true;
  }
- sync(objects,{editing=false,enabled=true,version=0,staticObjects=[],texturedTintObjects=[]}={}){
+ sync(objects,{editing=false,enabled=true,version=0,staticObjects=[],texturedTintObjects=[],readOnly=false}={}){
   if(editing||!enabled){if(this.sources.length)this.reset();return;}
+  if(this.readOnly!==readOnly){this.version=null;this.readOnly=readOnly;}
   const native=objects.filter(object=>object&&KINDS.has(object.userData.editorPrefabKey)),staticRoots=staticObjects.slice(0,128).filter(object=>object&&object.parent&&object.userData.editorDescriptor&&object.userData.editorDescriptor.type==='cad'&&native.some(owner=>within(owner,object.parent))),roots=[...new Set(native.concat(staticRoots))],staticSet=new Set(staticRoots);
   const texturedIds=new Set(texturedTintObjects.map(value=>typeof value==='string'?value:value&&value.userData.editorId)),texturedRoots=new Set(roots.filter(root=>root.userData.cediReceiving||texturedIds.has(root.userData.editorId))),tintScope=Array.from(texturedRoots,root=>root.userData.editorId).sort().join('|');
   if(this.tintScope===tintScope&&this.unchanged(roots,version))return;
@@ -148,7 +156,7 @@ export default class RuntimeNativeRenderBanks {
     if(this.stats.bufferBytes+bytes>MAX_BYTES){geometry.dispose();chunk=[];vertices=0;return;}
     const first=rows[0],material=first.tint?first.material.clone():first.material;if(first.tint){material.color.setRGB(1,1,1);material.vertexColors=THREE.VertexColors;}
     const bank=new THREE.Mesh(geometry,material);bank.name='Presentación nativa · '+rows.length+' superficies';bank.userData={editorRuntimeHelper:true,nativeRenderBank:true,nativePrivateMaterial:first.tint};bank.castShadow=first.castShadow;bank.receiveShadow=first.receiveShadow;bank.renderOrder=first.order;bank.layers.mask=first.mask;bank.raycast=()=>{};
-    first.anchor.add(bank);this.banks.push(bank);for(const row of rows){row.object.layers.mask=0;this.sources.push(row);}if(first.tint||rows.some(row=>row.material!==first.material))for(const sourceMaterial of new Set(rows.map(row=>row.material)))if(!this.materialStates.some(row=>row.material===sourceMaterial))this.materialStates.push({material:sourceMaterial,key:materialKeys.get(sourceMaterial)});this.stats.bufferBytes+=bytes;chunk=[];vertices=0;
+    first.anchor.add(bank);this.banks.push(bank);for(const row of rows){row.object.layers.mask=0;this.sources.push(row);}if(first.tint||rows.some(row=>row.material!==first.material))for(const sourceMaterial of new Set(rows.map(row=>row.material)))if(!this.materialStates.some(row=>row.material===sourceMaterial))this.materialStates.push({material:sourceMaterial,key:materialKeys.get(sourceMaterial),snapshot:this.readOnly?materialSnapshot(sourceMaterial):null});this.stats.bufferBytes+=bytes;chunk=[];vertices=0;
    };
    for(const object of group){if(vertices+object.geometry.attributes.position.count>MAX_VERTICES)flush();chunk.push(object);vertices+=object.geometry.attributes.position.count;}flush();
   }

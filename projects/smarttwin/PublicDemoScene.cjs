@@ -1,108 +1,90 @@
 'use strict';
 
-/** A bounded, authored public cell. The private transfer lesson is the base,
- * never its output asset: its identities, vehicle aisle and pallet custody
- * remain intact. Additional equipment uses the same production components. */
-function buildPublicDemoScene({THREE, schema, document, roomId, scene, base, ConveyorAssembly}) {
-  if (!base || !base.robot || !base.pickup || !base.vehicle) throw new Error('La demostración necesita su célula de transferencia nativa.');
-  const additions = [], machineTypes = ['source', 'robot', 'conveyor', 'palletQueue', 'product'];
-  const config = object => document.getBehaviors(object).find(value => machineTypes.includes(value.type));
-  const patch = (object, changes) => document.setBehaviors(object, document.getBehaviors(object).map(value => machineTypes.includes(value.type) ? Object.assign({}, value, changes) : value));
-  const add = (type, name, variant, values, position) => {
-    const object = document.addPrefab(roomId, type, variant); patch(object, values);
-    document.setProperty(object, 'name', name); document.setTransform(object, {position}); additions.push(object); return object;
-  };
-  const part = (name, color, position, scale, behaviors = []) => {
-    const object = document.addPrimitive(roomId, 'box', color);
-    document.setProperty(object, 'name', name); document.setTransform(object, {position, scale}); document.setBehaviors(object, behaviors); additions.push(object); return object;
-  };
+/** Dedicated public recipe. Retain the physical robot/pallet/forklift cell;
+ * use the other half of the room for observable carton transfers. */
+function buildPublicDemoScene({THREE,schema,document,roomId,scene,base,ConveyorAssembly}) {
+  if(!base||!base.robot||!base.pickup||!base.vehicle)throw new Error('Falta la célula de transferencia nativa.');
+  const additions=[],machineTypes=['source','robot','conveyor','palletQueue','product'];
+  const config=object=>document.getBehaviors(object).find(value=>machineTypes.includes(value.type));
+  const patch=(object,changes)=>document.setBehaviors(object,document.getBehaviors(object).map(value=>machineTypes.includes(value.type)?Object.assign({},value,changes):value));
+  const add=(type,name,variant,values,position)=>{const object=document.addPrefab(roomId,type,variant);patch(object,values);document.setProperty(object,'name',name);document.setTransform(object,{position});additions.push(object);return object;};
+  const part=(name,color,position,scale,behaviors=[])=>{const object=document.addPrimitive(roomId,'box',color);document.setProperty(object,'name',name);document.setTransform(object,{position,scale});document.setBehaviors(object,behaviors);additions.push(object);return object;};
+  const solid=()=>schema.defaultBehavior('collision');
+  const finish=color=>Object.assign(schema.defaultBehavior('surfaceMaterial'),{preset:'custom',color,roughness:.88,metalness:0,colorMapMode:'none'});
+  // Replace the isolated lane, the empty guide and the solid front wall.
+  base.objects.slice().filter(object=>/guía de la práctica|pasillos y textos editables|pared frontal/.test(object.name)).forEach(object=>{document.remove(object);base.objects=base.objects.filter(value=>value!==object);});
 
-  // An independent, low-payload carton cell. Four cartons terminate in its
-  // own stock; this arm never lifts one of the 33 kg completed pallets.
-  const source = add('source', 'DEMOSTRACIÓN · cuatro cajas de inspección', undefined, {
-    running: true, autoGenerate: true, initialCount: 1, totalLimit: 4, capacity: 2, interval: 6,
-    delivery: 'manual', withPanel: false, loadMode: 'individual', generationMode: 'sequence',
-    catalog: JSON.stringify([{id: 'demo-inspection-carton', name: 'Caja de inspección · 2 kg', type: 'box', variant: 'box-small', width: .3, depth: .3, height: .22, mass: 2, base: 'flat', color: '#5c9eac', quality: 'good', defect: 'none'}])
-  }, [-5.8, 1, -4.7]);
-  const robot = add('robot', 'DEMOSTRACIÓN · robot de inspección y transferencia', 'articulated-general', {
-    running: true, powered: true, mode: 'automatic', operation: 'pick-place', withPanel: true,
-    sourceId: source.userData.editorId, reach: 2.2, payloadKg: 12, toolMassKg: 1.5,
-    tool: 'vacuum', acceptedTypes: 'boxes', requireKnownMass: true, maxProductWidth: .45, maxProductDepth: .45, maxProductHeight: .4,
-    baseHeight: .45, speed: .8, cycleTime: 4, processTime: 0, setupTime: .4, approachHeight: .18, wear: .25
-  }, [-4.5, 0, -6]);
-  patch(source, {outputId: robot.userData.editorId});
-  const robotConfig = config(robot), ready = schema.robotKinematics.inverse(robotConfig, {x: .35, y: robotConfig.baseHeight + .65, z: 0});
-  if (!ready.reached) throw new Error('La postura del segundo robot no es alcanzable.');
-  patch(robot, {jointLimitsJson: JSON.stringify(schema.robots.getJointDefinitions(robotConfig).map((joint, index) => ({id: joint.id, min: joint.min, max: joint.max, home: ready.joints[index]})))});
-  const belt = add('conveyor', 'DEMOSTRACIÓN · rodillos para cajas inspeccionadas', 'roller-motor', {
-    powered: true, running: true, autoSpawn: false, withPanel: false, withSensors: false,
-    length: 2.4, width: .7, supportHeight: 1, speed: .35, maxPackages: 2, maxLoad: 25, clearance: .6
-  }, [-2.85, 1, -7.05]);
-  patch(robot, {outputId: belt.userData.editorId});
-  const receiver = add('palletQueue', 'DEMOSTRACIÓN · cuatro cajas verificadas', undefined, {
-    running: true, withPanel: false, acceptsPallets: false, palletCapacity: 1, capacity: 4,
-    columns: 2, rows: 2, layers: 1, autoRelease: false, delivery: 'manual', layoutMode: 'grid'
-  }, [0, 1, 0]);
-  const assembly = new ConveyorAssembly({document, roomId, root: document.getRoot(roomId), ctx: {scene}, hooks: {renderScene: scene}, assemblyMessage() {}});
-  try {
-    if (!assembly.align(belt, 'output', receiver, 'input') || !assembly.connect(assembly.pair(receiver, 'input', belt, 'output'))) throw new Error('No se pudo conectar el rodillo secundario con su recepción.');
-  } finally {assembly.clear();}
+  const source=add('source','DEMOSTRACIÓN · alimentación de ocho cajas',undefined,{
+    running:true,autoGenerate:true,initialCount:1,totalLimit:8,capacity:2,interval:3,delivery:'automatic',withPanel:false,loadMode:'individual',generationMode:'sequence',
+    catalog:JSON.stringify([
+      {id:'demo-carton-natural',name:'Caja de recepción',type:'box',variant:'box-small',width:.3,depth:.3,height:.22,mass:2,base:'flat',color:'#b98d53',quality:'good',defect:'none'},
+      {id:'demo-carton-blue',name:'Caja de clasificación azul',type:'box',variant:'box-small',width:.28,depth:.28,height:.24,mass:2,base:'flat',color:'#4e8c9d',quality:'good',defect:'none'}
+    ])
+  },[-6.7,1,-6.8]);
+  const belts=[
+    add('conveyor','DEMOSTRACIÓN · 01 banda de alimentación','belt-start',{length:2.4},[0,1,0]),
+    add('conveyor','DEMOSTRACIÓN · 02 transferencia a rodillos','roller-middle',{length:1.8},[0,1,0]),
+    add('conveyor','DEMOSTRACIÓN · 03 curva de transferencia','belt-curve-right',{radius:.95,curveAngle:90},[0,1,0]),
+    add('conveyor','DEMOSTRACIÓN · 04 banda de descarga de cajas','belt-end',{length:1.2},[0,1,0])
+  ];
+  belts.forEach((belt,index)=>patch(belt,{powered:true,running:true,autoSpawn:false,withPanel:index===0,withSensors:index===0,width:.65,supportHeight:1,speed:.32,maxPackages:6,maxLoad:25,clearance:.12}));
+  const receiver=add('palletQueue','DEMOSTRACIÓN · recepción de ocho cajas transferidas',undefined,{
+    running:true,withPanel:false,acceptsPallets:false,palletType:'custom',width:1.2,depth:1.8,palletCapacity:1,capacity:8,columns:2,rows:4,layers:1,autoRelease:false,delivery:'manual',layoutMode:'grid'
+  },[0,1,0]);
+  const assembly=new ConveyorAssembly({document,roomId,root:document.getRoot(roomId),ctx:{scene},hooks:{renderScene:scene},assemblyMessage(){}}),transferLinks=[];
+  try{const chain=[source,...belts,receiver];for(let i=1;i<chain.length;i++){
+    const from=chain[i-1],to=chain[i];
+    if(!assembly.align(from,'output',to,'input')||!assembly.connect(assembly.pair(to,'input',from,'output')))throw new Error('No se pudo conectar la línea de cajas: '+from.name);
+    transferLinks.push({source:from.userData.editorId,sourcePort:'output',target:to.userData.editorId,targetPort:'input'});
+  }}finally{assembly.clear();}
 
-  // A real native rack with addressed, occupied and free positions. It stands
-  // beyond the vehicle's original delivery/turning corridor, facing its aisle.
-  const rack = add('palletQueue', 'DEMOSTRACIÓN · rack doble de tres niveles A01 / R01', 'selective', Object.assign({}, schema.warehouseRacks.defaults('selective'), {
-    running: true, withPanel: false, rackBays: 2, rackLevels: 3, rackColumns: 2, rackBayWidth: 3,
-    rackBaseHeight: .3, rackLevelHeight: 1.4, rackSlotDepth: 1.1, rackAisleCode: 'A01', rackRowCode: 'R01', rackAssignments: '[]',
-    acceptsPallets: true, delivery: 'manual', autoRelease: false
-  }), [8, 1, -6]);
-  const rackConfig = config(rack), rackLayout = schema.warehouseRacks.layout(rackConfig), cell = rackLayout.cells[0];
-  const stock = add('product', 'DEMO-STOCK-01 · pallet de reserva · 4 cajas / 33 kg', 'pallet-loaded', {
-    sourceId: rack.userData.editorId, sku: 'DEMO-STOCK-01', productType: 'pallet', loadMode: 'pallet', units: 4, mass: 33,
-    width: 1.2, depth: .8, height: .72, palletType: 'euro-1200x800', palletMaterial: 'wood', contents: 'boxes', color: '#b69a6e'
-  }, [0, 0, 0]);
-  const seatStock = (object, cell) => {
-    object.updateWorldMatrix(true, true);
-    const bounds = new THREE.Box3().setFromObject(object), center = bounds.getCenter(new THREE.Vector3());
-    document.setTransform(object, {position: [rack.position.x + cell.position[0] - center.x, rack.position.y + cell.position[1] + .005 - bounds.min.y, rack.position.z + cell.position[2] - center.z]});
-  };
-  seatStock(stock, cell);
-
-  // Two native line scopes, one analytic board. Each screen reads its own
-  // connected material-flow graph; no invented link joins separate cells.
-  const monitor = (name, target, x) => part(name, '#18303a', [x, 2.4, -9.65], [3.1, 1.8, .12], [Object.assign(schema.defaultBehavior('lineMonitor'), {targetId: target.userData.editorId, scope: 'line', title: name, refreshHz: 2})]);
-  const primaryMonitor = monitor('SMART-TWIN · Paletizado y transporte en vivo', base.robot, .25);
-  const secondaryMonitor = monitor('SMART-TWIN · Inspección de cajas en vivo', robot, 3.65);
-  part('DEMOSTRACIÓN · soporte del tablero analítico', '#344b55', [1.95, 1.3, -9.72], [6.7, .14, .18]);
-  for (const x of [.25, 3.65]) part('DEMOSTRACIÓN · pedestal del tablero', '#344b55', [x, .66, -9.72], [.12, 1.32, .16]);
-
-  // Keep the existing rack, pallet and monitor identities. Additional stock
-  // uses genuine addressed seats in both bays, including the third tier.
-  // Eight of the twelve positions remain free for manual forklift practice.
-  const rackStock = [stock];
-  for (const [bay, level, column] of [[1, 0, 1], [0, 1, 1], [1, 2, 0]]) {
-    const sku = 'DEMO-STOCK-' + String(rackStock.length + 1).padStart(2, '0');
-    const pallet = add('product', sku + ' · pallet de reserva · 4 cajas / 33 kg', 'pallet-loaded', {
-      sourceId: rack.userData.editorId, sku, productType: 'pallet', loadMode: 'pallet', units: 4, mass: 33,
-      width: 1.2, depth: .8, height: .72, palletType: 'euro-1200x800', palletMaterial: 'wood', contents: 'boxes', color: '#b69a6e'
-    }, [0, 0, 0]);
-    seatStock(pallet, rackLayout.cells.find(cell => cell.bay === bay && cell.level === level && cell.column === column));
-    rackStock.push(pallet);
+  const rack=add('palletQueue','DEMOSTRACIÓN · rack doble de tres niveles A01 / R01','selective',Object.assign({},schema.warehouseRacks.defaults('selective'),{
+    running:true,withPanel:false,rackBays:2,rackLevels:3,rackColumns:2,rackBayWidth:3,rackBaseHeight:.3,rackLevelHeight:1.4,rackSlotDepth:1.1,
+    rackAisleCode:'A01',rackRowCode:'R01',rackAssignments:'[]',acceptsPallets:true,delivery:'manual',autoRelease:false
+  }),[8,1,-6]);
+  const rackLayout=schema.warehouseRacks.layout(config(rack)),rackStock=[];
+  for(const [bay,level,column]of [[0,0,0],[1,0,1],[0,1,1],[1,2,0]]){
+    const sku='DEMO-STOCK-'+String(rackStock.length+1).padStart(2,'0');
+    const pallet=add('product',sku+' · pallet de reserva · 4 cajas / 33 kg','pallet-loaded',{
+      sourceId:rack.userData.editorId,sku,productType:'pallet',loadMode:'pallet',units:4,mass:33,width:1.2,depth:.8,height:.72,
+      palletType:'euro-1200x800',palletMaterial:'wood',contents:'boxes',color:'#b69a6e'
+    },[0,0,0]);
+    const cell=rackLayout.cells.find(value=>value.bay===bay&&value.level===level&&value.column===column);
+    pallet.updateWorldMatrix(true,true);const bounds=new THREE.Box3().setFromObject(pallet),center=bounds.getCenter(new THREE.Vector3());
+    document.setTransform(pallet,{position:[rack.position.x+cell.position[0]-center.x,rack.position.y+cell.position[1]+.005-bounds.min.y,rack.position.z+cell.position[2]-center.z]});rackStock.push(pallet);
   }
 
-  const secondaryLinks = [
-    {source: source.userData.editorId, sourcePort: 'output', target: robot.userData.editorId, targetPort: 'input'},
-    {source: robot.userData.editorId, sourcePort: 'output', target: belt.userData.editorId, targetPort: 'input'},
-    {source: belt.userData.editorId, sourcePort: 'output', target: receiver.userData.editorId, targetPort: 'input'}
+  const floor=document.addIndustrialFloorPresentation(roomId,{type:'industrialFloor',version:1,bounds:[-9,-10,15,12.5],floorY:0,
+    walkways:[[-7.4,-2.4,-5.4,10],[-5.4,6.4,13,8.4],[11,8.4,13,10]],
+    zones:[[-2.7,-2.4,6.5,2.6],[-8,-8.2,1.2,-2.6],[4.4,-8.4,11.7,-4.6]],bays:[[7.5,3,11.5,5.8]],crossings:[[8,5.5,11,6.4]],
+    arrows:[[-6.4,8,0],[-6.4,3,0],[-3.5,7.4,-Math.PI/2],[2,7.4,-Math.PI/2],[7,7.4,-Math.PI/2],[12,9.1,Math.PI]],
+    texts:['CELDA ROBOT','CAJAS EN TRANSFERENCIA','ALMACEN A01','ENTREGA DE PALLETS','INGRESO','SALIDA','RUTA PEATONAL'],
+    labels:[[1.3,2.1,0,3,.45,8],[-3.6,-2.9,0,4,.5,9],[8,-4.7,0,3,.45,10],[9.4,5.4,0,3.4,.4,11],[-6.4,8.7,0,1.65,.4,12],[12,8.7,0,1.65,.4,13],[1.5,7.9,0,3.8,.4,14]],
+    signs:[[-5.3,5.7,0,0,4],[6.7,3.6,0,1,6]]});
+  document.setProperty(floor,'name','DEMOSTRACIÓN · áreas y recorrido peatonal');additions.push(floor);
+  part('CEDI · explanada de acceso','#657071',[3,-.06,11.25],[24,.12,2.5],[solid(),schema.defaultBehavior('teleport'),finish('#657071')]);
+  for(const [left,right]of [[-8.92,-7.08],[-4.92,10.92],[13.08,14.92]])part('CEDI · pared frontal entre accesos','#777e80',[(left+right)/2,2.8,10],[right-left,5.6,.16],[solid(),finish('#777e80')]);
+  const doors=[];
+  for(const [x,label,color]of [[-6,'INGRESO','#2c847b'],[12,'SALIDA','#336f95']]){
+    part('CEDI · dintel de '+label,'#777e80',[x,4.125,10],[2.16,2.95,.16],[solid(),finish('#777e80')]);
+    for(const dx of [-1.04,1.04])part('Acceso · jamba de '+label,'#d4b148',[x+dx,1.33,10],[.08,2.66,.24],[solid(),finish('#d4b148')]);
+    part('Acceso · marco superior de '+label,'#d4b148',[x,2.67,10],[2.16,.10,.24],[solid(),finish('#d4b148')]);
+    doors.push(part('Acceso · puerta de '+label.toLowerCase(),color,[x,1.27,10],[1.90,2.52,.065],[solid(),finish(color),Object.assign(schema.defaultBehavior('hingeDoor'),{label,openAngle:-95,duration:.7,distance:3.2})]));
+  }
+  const message=(title,text,position,width=1.3)=>part('Guía · '+title,'#172d42',position,[width,.625*width,.025],[Object.assign(schema.defaultBehavior('info'),{
+    title,text,presentation:'contextual',width,revealDistance:4.5,fadeDistance:.65,fadeTime:.22,gazeAngle:105,fontSize:.045
+  })]);
+  const messages=[
+    message('Bienvenido a la instalación','Sigue la ruta peatonal verde. Pulsa las puertas para abrirlas. Observa la transferencia de cajas, la célula robotizada y el almacén; cada estación tiene una guía al acercarte.',[-5.25,1.6,8.6]),
+    message('Cajas de banda en banda','Ocho cajas recorren banda, rodillos, curva y descarga. Sigue cada caja en los empalmes y observa el cambio de superficie. Usa el panel de la primera banda para detenerla y reanudar la alimentación.',[-4.7,1.6,-3.1]),
+    message('Una célula de paletizado','El robot toma ocho cajas individuales y forma dos pallets de cuatro cajas. Observa su herramienta y sus movimientos desde fuera de la demarcación amarilla.',[-2.65,1.6,1.2]),
+    message('Recogida y transporte','Detén la banda antes de recoger el pallet. Sube al montacargas con F o seleccionando su acceso, libera Freno P y alinea ambas horquillas. Deposita en las bahías demarcadas.',[5.7,1.6,2.9]),
+    message('Almacén A01 / R01','Dos módulos, tres niveles y doce ubicaciones reales. Cuatro pallets de reserva y ocho posiciones libres. Detén el vehículo antes de elevar; recoge y deposita de frente.',[7.8,1.6,-3.8]),
+    message('Salida del recorrido','Sigue las flechas hasta la puerta SALIDA. Puedes volver a explorar o reiniciar la demostración desde el menú para repetir ambos procesos con los mismos lotes finitos.',[11,1.6,8.6])
   ];
-  const studio = document.studio || {};
-  document.setStudio({groups: (studio.groups || []).concat({id: 'public-demo-secondary-hall', name: 'Demostración · inspección de cuatro cajas', roomId, members: [source, robot, belt, receiver].map(object => object.userData.editorId)})});
-  const guide = base.objects.find(object => /guía de la práctica/.test(object.name));
-  if (guide) document.setBehaviors(guide, document.getBehaviors(guide).map(value => value.type === 'info' ? Object.assign({}, value, {
-    title: 'SMART-TWIN · Demostración integrada',
-    text: 'Dos robots trabajan con cajas individuales. La línea principal forma dos pallets de cuatro cajas; los transportadores los llevan al montacargas. La célula secundaria inspecciona cuatro cajas.\nLa estantería A01/R01 tiene dos módulos, tres niveles y doce ubicaciones. Cuatro pallets de reserva ocupan distintas alturas; ocho posiciones quedan libres. Los apoyos están a 0,30, 1,70 y 3,10 m. Detén el vehículo antes de elevar y recoge o deposita de frente, alineando ambas horquillas.\nAcércate al montacargas para conducir. Su elevación máxima de 4 m alcanza los tres niveles. Para añadir niveles en el editor, ajusta Niveles de almacenamiento y la separación, y comprueba el alcance del equipo y la altura del recinto.\nConsulta los dos monitores para ver el plano, variables y analítica real de cada línea. Lote finito: ocho cajas principales y cuatro de inspección, más dieciséis cajas en los cuatro pallets de reserva.'
-  }) : value));
-  base.objects.push(...additions); base.conveyors.push(belt); base.controllers.push(robot); base.sources.push(source); base.receivers.push(receiver, rack); base.links.push(...secondaryLinks);
-  return Object.assign(base, {publicDemo: true, secondary: {source, robot, belt, receiver, expectedUnits: 4}, rack, stock, rackStock, rackLayout, monitors: [primaryMonitor, secondaryMonitor]});
+  const studio=document.studio||{},existingIds=new Set(document.getObjects(roomId).map(object=>object.userData.editorId));
+  document.setStudio({groups:(studio.groups||[]).map(group=>Object.assign({},group,{members:group.members.filter(id=>existingIds.has(id))})).concat({id:'public-demo-transfer-hall',name:'Demostración · transferencia de cajas y recorrido',roomId,members:additions.map(object=>object.userData.editorId)})});
+  base.objects.push(...additions);base.conveyors.push(...belts);base.sources.push(source);base.receivers.push(receiver,rack);base.links.push(...transferLinks);
+  return Object.assign(base,{publicDemo:true,transfer:{source,belts,receiver,expectedUnits:8},rack,stock:rackStock[0],rackStock,rackLayout,monitors:[],doors,messages,floorPresentation:floor});
 }
-
-module.exports = {buildPublicDemoScene};
+module.exports={buildPublicDemoScene};

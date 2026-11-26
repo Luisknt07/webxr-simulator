@@ -16,9 +16,9 @@ export default class AdaptiveGraphics {
     this.storage = options.storage === undefined ? (() => { try { return this.window && this.window.localStorage; } catch (_) { return null; } })() : options.storage;
     let mode = options.mode || 'auto'; try { if (!options.mode && this.storage) mode = this.storage.getItem(STORAGE_KEY) || mode; } catch (_) { /* Storage may be unavailable. */ }
     this.mode = quality.MODES.includes(mode) ? mode : 'auto'; this.tier = Math.min(quality.initialTier(this.hints, this.mode), quality.ceilingFor(this.mode, this.hints));
-    let clarity = options.xrClarity || (this.hints.standaloneXR ? 'sharp' : 'balanced');
+    let clarity = options.xrClarity || 'balanced';
     try { if (!options.xrClarity && this.storage) clarity = this.storage.getItem(CLARITY_KEY) || clarity; } catch (_) { /* Optional local preference. */ }
-    this.xrClarity = ['sharp', 'balanced'].includes(clarity) ? clarity : this.hints.standaloneXR ? 'sharp' : 'balanced';
+    this.xrClarity = ['sharp', 'balanced'].includes(clarity) ? clarity : 'balanced';
     this.desktopAntialias = null; try { const gl = renderer && renderer.getContext && renderer.getContext(); this.desktopAntialias = gl && gl.getContextAttributes().antialias; } catch (_) { /* Diagnostic only. */ }
     this.originalRatio = renderer && renderer.getPixelRatio ? renderer.getPixelRatio() : 1;
     this.width = renderer && renderer.domElement && renderer.domElement.clientWidth || this.window && this.window.innerWidth || 1;
