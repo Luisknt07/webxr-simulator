@@ -244,7 +244,7 @@ async function start() {
       before({delta}) {
         const presentation=ctx.demo.presentation;
         if(lighting.sync)presentation.run('la iluminación',()=>lighting.sync());
-        if(!ctx.publicDialogOpen&&!ctx.publicFrameFailure&&!ctx.studioMenuOpen)host.step(delta);
+        if(!ctx.publicDialogOpen&&!ctx.publicFrameFailure&&!ctx.studioMenuOpen){host.step(delta);ctx.demo.present(delta);}
         presentation.run('la cámara de inspección',()=>ctx.demo.driving.docking.renderBefore(scene,delta));
       },
       after({delta}) {capture.afterRender(); ctx.demo.driving.docking.postRender(); uiElapsed += delta; if (uiElapsed > .2) {uiElapsed = 0; updateUI();}}

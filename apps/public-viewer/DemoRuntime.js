@@ -23,7 +23,7 @@ export const demoFunction = defineFunction({
     const ctx = scope.port('platform.scene'), document = scope.port('platform.document');
     const collision = new CollisionWorld(ctx, document); ctx.collisionWorld = collision;
     const simulation = new SimulationRuntime(ctx, document, ctx.notify);
-    const driving = new VehicleDriving(ctx, simulation, {notify: ctx.notify,keepCabWarm:true,assistedLoads:true});
+    const driving = new VehicleDriving(ctx, simulation, {notify: ctx.notify,keepCabWarm:true,assistedLoads:true,lightweightCab:true});
     const visuals = new IndustrialVisuals(ctx, document, simulation);
     const equipmentStudy = new EquipmentStudyViewer(ctx, document, simulation, {notify:ctx.notify});
     const monitors = new LineMonitorSystem(ctx, document, simulation);
@@ -44,6 +44,11 @@ export const demoFunction = defineFunction({
         if (session.paused) return;
         try{driving.beforeStep();}catch(error){error.smartTwinStage='controles del montacargas';throw error;}
         try{simulation.execute(delta);}catch(error){error.smartTwinStage='flujo de materiales';throw error;}
+      },
+      // The host can execute several 60 Hz physical steps per browser frame.
+      // Follow the final pose and validate the draw banks once before rendering.
+      present(delta) {
+        if(session.paused)return;
         try{driving.follow();}catch(error){error.smartTwinStage='vista de la cabina';throw error;}
         presentation.run('los indicadores visuales',()=>visuals.sync(document.roomId,delta,false));
         simulation.syncNativePresentation();

@@ -75,7 +75,8 @@ toda la nave. Las cámaras auxiliares y sus acciones se omiten en este perfil:
 la prueba del retrovisor detectó otro bloqueo largo en su primera pasada. La
 vista directa del visor, los controles físicos y las verificaciones reales de
 colisión, apoyo, carga y descarga se conservan. Las cámaras de escritorio y RV
-conectada al PC mantienen su comportamiento anterior.
+conectada al PC siguen disponibles; la demostración pública las activa por
+petición del operador.
 
 La ruta de orientación no se calcula en el hilo de un visor autónomo. Se mantienen
 los destinos y el progreso de misión del runtime, sin mostrar un corredor como
@@ -137,3 +138,41 @@ npm.cmd run test:drop-placement
 La prueba de navegador usa los pallets de reserva y las ubicaciones de la
 demostración compilada con UA de Quest 3. Emula la sesión XR y el botón A en PC;
 la ergonomía y los FPS finales requieren comprobarlos en las gafas físicas.
+
+## Cabina en escritorio
+
+La demostración pública usa `lightweightCab` también en escritorio. El mapa 2D
+mantiene actores, pallets y ubicaciones actualizados sin volver a renderizar
+toda la instalación en una textura. Las cámaras empiezan apagadas al subir;
+C permite solicitar inspección y Shift+R el retrovisor. Al volver a subir se
+restaura el plano. El resto de escenas conserva su política de cámara automática.
+
+En esta demostración se omiten los barridos de recorridos de orientación de
+la cabina. Los destinos y el progreso nativo de misión siguen disponibles,
+sin presentar un itinerario como validado. Las colisiones de movimiento, las
+entradas del pallet, la capacidad y la transferencia de carga mantienen las
+validaciones reales. Los indicadores del monitor se refrescan a 5 Hz y cuentan
+su intervalo desde que termina el cálculo para evitar repetir un trabajo lento
+en el mismo fotograma.
+
+La simulación conserva sus pasos físicos de 60 Hz. La cámara de conducción y
+la validación de los bancos de dibujo se actualizan una vez antes de cada
+renderizado, después del último paso físico. Evita repetir ese trabajo visual
+cuando un fotograma necesita varios pasos de simulación.
+
+```powershell
+node tooling/qa/vehicle-desktop-performance.cjs <sha-anterior> --baseline
+node tooling/qa/vehicle-desktop-performance.cjs <sha-corregido>
+node --test tests/framework/vehicle-desktop-cab-budget.test.mjs
+```
+
+El informe compara subida, conducción con teclado nativo, tiempo entre
+fotogramas y renderizados auxiliares en Chrome D3D11 aislado en el mismo PC.
+Los resultados no representan los FPS de todos los equipos.
+
+La comparación del 26 de noviembre de 2026 midió la entrada en 401,5 ms antes
+y 71,4 ms después. El primer renderizado auxiliar del mapa tardaba unos 8,45 s;
+ahora no se solicita al subir. La mediana entre fotogramas durante la conducción
+pasó de 321,1 a 54 ms en este PC. Las tres nuevas subidas costaron entre 12,7 y
+14,5 ms. Durante 155 pasos físicos, hubo 46 actualizaciones de presentación
+para 46 renderizados principales, sin pasadas auxiliares automáticas.

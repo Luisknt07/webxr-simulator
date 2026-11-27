@@ -209,12 +209,12 @@ export default class VehicleHolographicGuide {
     // Retain actual waypoint progress, but stop routing a docked learner back
     // through missed advisory arrows instead of showing the ready maneuver.
     const dockedAdvisory = !!(mission && (mission.pickupRouteAdvisory && mission.phase === 'pickup' || mission.dropRouteAdvisory && mission.phase === 'drop') && ready && !mission.routeFault);
-    // Standalone XR must not synchronously sweep a whole advisory itinerary
-    // while boarding or driving. Targets and real pickup/drop checks remain
-    // live; the 2D map presents orientation without claiming a verified route.
-    const lightweightXR=!!(this.ctx.vrMode&&this.ctx.graphics&&this.ctx.graphics.hints&&this.ctx.graphics.hints.standaloneXR);
-    if(lightweightXR&&model.phase==='pickup'&&chosen&&chosen.allowed&&!ready)model.instruction='Mira las entradas del pallet, alinea ambas horquillas y avanza lentamente hasta confirmar el apoyo.';
-    this.route = !lightweightXR && chosen && chosen.allowed && !this.withdraw && !this.depart && !dockedAdvisory ? guidanceRoute(this.driving, record, mission, chosen) : null;
+    // The public free-play cab and standalone XR keep a 2D orientation map.
+    // Sweeping a whole advisory itinerary while boarding blocks the controls;
+    // actual pickup/drop collision checks and native mission progress stay live.
+    const lightweightGuide=!!(this.driving.options&&this.driving.options.lightweightCab||this.ctx.vrMode&&this.ctx.graphics&&this.ctx.graphics.hints&&this.ctx.graphics.hints.standaloneXR);
+    if(lightweightGuide&&model.phase==='pickup'&&chosen&&chosen.allowed&&!ready)model.instruction='Acerca las horquillas al frente del pallet y confirma la toma cuando esté detenido.';
+    this.route = !lightweightGuide && chosen && chosen.allowed && !this.withdraw && !this.depart && !dockedAdvisory ? guidanceRoute(this.driving, record, mission, chosen) : null;
     if (mission && mission.routeFault) this.route = Object.assign({distanceM: 0, index: mission.waypointIndex || 0, total: Array.isArray(mission.route) ? mission.route.length : 0}, this.route || {}, {
       arrows: [], points: [], blockedAt: point(record.object).setY(v.originWorld.y + .035), blocked: true, clear: false, note: mission.status || 'Vuelve al último punto válido y recorre las flechas conduciendo.'});
     model.routePath = this.route ? Object.freeze({points: Object.freeze((this.route.points || []).map(value => Object.freeze(value.toArray()))), blocked: !!this.route.blocked, dockingLimit:!!this.route.dockingLimit, stop: this.route.blockedAt ? Object.freeze(this.route.blockedAt.toArray()) : null}) : EMPTY_PATH;

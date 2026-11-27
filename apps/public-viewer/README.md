@@ -39,6 +39,11 @@ the simulation system in the generic host. Primary render, locomotion, collision
 frame boundaries and auxiliary vehicle cameras share that loop. Native XR head
 poses are never written; locomotion changes the rig. The inherited camera feed
 has one bounded auxiliary world pass per update, shared by front and rear.
+The public cab opts into `lightweightCab`: its live 2D map does not render the
+world again, and desktop inspection/rear cameras require an explicit C or
+Shift+R request. Boarding returns to the schematic with cameras off. Advisory
+route sweeps are omitted in this free-play lesson; actual driving and native
+pickup/drop validation remain active. Other scenes keep their automatic views.
 
 Static allowlist:
 
