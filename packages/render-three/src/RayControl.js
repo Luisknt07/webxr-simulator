@@ -135,7 +135,7 @@ export default class RayControl extends EventDispatcher {
     // Each XR hand needs its own ray origin. Sharing the primary hand's Group
     // reparents it and silently prevents the other hand from selecting anything.
     const customContext = Boolean(raycasterContext);
-    raycasterContext = raycasterContext || (this.raycasterContext.parent ? this.raycasterContext.clone(true) : this.raycasterContext);
+    raycasterContext = raycasterContext || this.raycasterContext.clone(true);
     if (!customContext) raycasterContext.children.filter(child => child.name === 'XR precise hit cursor').forEach(child => raycasterContext.remove(child));
     let controllerData = {
       controller: controller,
@@ -152,6 +152,8 @@ export default class RayControl extends EventDispatcher {
     if (!customContext) {
       controllerData.line0 = raycasterContext.children[0];
       controllerData.lineBasic = raycasterContext.children[1];
+      controllerData.line0.material=controllerData.line0.material.clone();controllerData.lineBasic.material=controllerData.lineBasic.material.clone();
+      controllerData.line0.material.uniforms.tex.value=this.line0.material.uniforms.tex.value;
     }
 
     this.controllers.push(controllerData);
@@ -174,6 +176,7 @@ export default class RayControl extends EventDispatcher {
       controllerData.pointer.traverse(node => {if (node.material) node.material.dispose();});
       controllerData.pointer.parent.remove(controllerData.pointer);
     }
+    if(controllerData.line0){controllerData.line0.material.dispose();controllerData.lineBasic.material.dispose();}
     this.controllers.splice(index, 1);
     if (controllerData.raycasterContext.parent === controller) controller.remove(controllerData.raycasterContext);
     this.dispatchEvent("controllerDisconnected", controllerData);
@@ -202,7 +205,10 @@ export default class RayControl extends EventDispatcher {
 
     // Metric forward-only geometry keeps the beam endpoint aligned to the
     // actual hit, independently of optional imported teleport/model assets.
-    var line = new THREE.Mesh(new THREE.BoxBufferGeometry(.0024, .0024, 1).translate(0, 0, -.5));
+    const source=ctx.assets&&ctx.assets.teleport_model&&ctx.assets.teleport_model.scene.getObjectByName('beam');
+    if(source&&source.geometry&&!source.geometry.boundingBox)source.geometry.computeBoundingBox();
+    const original=source&&source.geometry&&source.geometry.boundingBox.min.z<-.99&&source.geometry.boundingBox.max.z<0;
+    var line = new THREE.Mesh(original?source.geometry.clone():new THREE.BoxBufferGeometry(.0035, .0035, 1).translate(0, 0, -.5));
     const texture = ctx.assets && ctx.assets.beam_tex || new THREE.DataTexture(new Uint8Array([100, 240, 212, 255]), 1, 1, THREE.RGBAFormat);
     this.ownedTexture = ctx.assets && ctx.assets.beam_tex ? null : texture;
     texture.needsUpdate = true;
@@ -218,10 +224,10 @@ export default class RayControl extends EventDispatcher {
       vertexShader: shaders.basic_vert || 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
       fragmentShader: shaders.beam_frag || 'varying vec2 vUv;uniform sampler2D tex;void main(){gl_FragColor=texture2D(tex,vUv);}',
       blending: THREE.AdditiveBlending,
-      transparent: true
+      transparent: true, depthWrite:false
     });
 
-    line.renderOrder = 10;
+    line.renderOrder = 60000;
 
     line.name = 'line';
     this.rayLength = 5;
@@ -242,15 +248,16 @@ export default class RayControl extends EventDispatcher {
     this.lineBasic.visible = false;
     this.raycasterContext.add(this.lineBasic);
     this.pointerRingGeometry = new THREE.RingBufferGeometry(.65, 1, 24);
-    this.pointerDotGeometry = new THREE.CircleBufferGeometry(.22, 12);
+    this.pointerDotGeometry = new THREE.CircleBufferGeometry(.40, 20);
+    this.pointerHaloGeometry = new THREE.CircleBufferGeometry(1.32,32);
   }
 
   createPointer(data) {
     const pointer = data.pointer = new THREE.Group(); pointer.name = 'XR precise hit cursor'; pointer.visible = false;
     Object.assign(pointer.userData, {editorRuntimeHelper: true, editorNonCollidable: true, xrInputVisual: true});
-    for (const geometry of [this.pointerRingGeometry, this.pointerDotGeometry]) {
-      const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({color: 0x66f4db, depthWrite: false, side: THREE.DoubleSide, toneMapped: false}));
-      mesh.renderOrder = 1001; mesh.raycast = () => {}; pointer.add(mesh);
+    for (const [index,geometry] of [this.pointerRingGeometry, this.pointerDotGeometry,this.pointerHaloGeometry].entries()) {
+      const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({color:index===2?0x07151f:index===1?0xffffff:0x66f4db, transparent:true,opacity:index===2?.86:1,depthTest:false,depthWrite: false, side: THREE.DoubleSide, toneMapped: false}));
+      mesh.renderOrder = index===2?60001:60002+index; mesh.raycast = () => {}; pointer.add(mesh);
     }
     pointer.traverse(node => {node.frustumCulled = false;}); data.raycasterContext.add(pointer);
   }
@@ -258,7 +265,7 @@ export default class RayControl extends EventDispatcher {
   dispose() {
     this.syncXRSession(null);
     this.disable(); this.controllers.slice().forEach(data => this.removeController(data.controller));
-    [this.line0.geometry, this.lineBasic.geometry, this.pointerRingGeometry, this.pointerDotGeometry].forEach(geometry => geometry.dispose());
+    [this.line0.geometry, this.lineBasic.geometry, this.pointerRingGeometry, this.pointerDotGeometry,this.pointerHaloGeometry].forEach(geometry => geometry.dispose());
     this.line0.material.dispose(); this.lineBasic.material.dispose(); if (this.ownedTexture) this.ownedTexture.dispose();
     this.currentStates = []; this.states = {};
   }
@@ -266,14 +273,17 @@ export default class RayControl extends EventDispatcher {
   updatePointer(data) {
     const pointer = data.pointer; if (!pointer) return;
     const current = data.currentIntersection, hit = current && current.intersection;
-    pointer.visible = Boolean(this.enabled && data.enabled && data.controller.visible !== false && !data.controller.userData.xrRaySuppressed && !data.controller.userData.xrTouchActive && hit && hit.point && current.state.teleport !== true);
+    pointer.visible = Boolean(this.enabled && data.enabled && data.controller.visible !== false && !data.controller.userData.xrRaySuppressed && !data.controller.userData.xrTouchActive && hit && !hit.direct && hit.point && current.state.teleport !== true);
     if (!pointer.visible) return;
     data.raycasterContext.updateWorldMatrix(true, false);
-    pointer.position.copy(hit.point); data.raycasterContext.worldToLocal(pointer.position); pointer.position.z += .002;
+    const face=hit.actualObject||hit.object,normal=hit.face&&face?hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(face.matrixWorld)).normalize():data.controller.getWorldPosition(new THREE.Vector3()).sub(hit.point).normalize();
+    if(normal.dot(data.controller.getWorldPosition(new THREE.Vector3()).sub(hit.point))<0)normal.negate();
+    pointer.position.copy(hit.point).addScaledVector(normal,.002);data.raycasterContext.worldToLocal(pointer.position);
+    pointer.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),normal).premultiply(data.raycasterContext.getWorldQuaternion(new THREE.Quaternion()).inverse());
     // Fixed angular size, bounded in metres; the centre remains the exact mesh
     // intersection and its original UVs, never snapped to a nearby button.
-    pointer.scale.setScalar(Math.min(.014, Math.max(.004, hit.distance * .0035)));
-    pointer.children.forEach(mesh => mesh.material.color.setHex(data.active ? 0xffd169 : 0x66f4db));
+    pointer.scale.setScalar(Math.min(.026, Math.max(.010, hit.distance * .0045)));
+    pointer.children[0].material.color.setHex(data.active ? 0xffd169 : 0x66f4db);
   }
 
   setLineStyle(lineStyle, controllerData) {
@@ -513,6 +523,8 @@ export default class RayControl extends EventDispatcher {
       let controllerData = this.controllers[c];
       if (controllerData.line0) {
         controllerData.line0.scale.z = controllerData.lineBasic.scale.z = this.rayLength;
+        controllerData.line0.material.uniforms.time.value=time;controllerData.line0.material.uniforms.active.value=controllerData.active?1:0;
+        controllerData.line0.material.depthTest=true;
       }
       controllerData.prevHoverEntries = controllerData.hoverEntries || [];
       let intersections = Object.entries(controllerData.intersections).filter(i => i[1] && this.states[i[0]] && this.allowedState(this.states[i[0]]));
@@ -525,6 +537,7 @@ export default class RayControl extends EventDispatcher {
         const intersectionData = intersections[0];
         const intersection = intersectionData[1];
         const state = this.states[intersectionData[0]];
+        if(controllerData.line0)controllerData.line0.material.depthTest=!(state.xrMenu||state.voiceAssistantPanel);
 
         controllerData.prevIntersection = controllerData.currentIntersection;
         controllerData.currentIntersection = {

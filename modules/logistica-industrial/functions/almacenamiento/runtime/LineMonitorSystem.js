@@ -190,6 +190,7 @@ export default class LineMonitorSystem {
       moduleOnly: false, focused: false, selectedProductId: null, previewPart: '', preview: null, regions: [], presses: new Map(), dirty: true, elapsed: 0, editing: true, active: false, notice: '', signature: '', model: null};
     const state = {colliderMesh: entry.planes, handTouchable: true, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
       isSelectable: (hit, controller) => this.valid(entry, hit, controller),
+      onHover:(hit,pressed,controller)=>this.hover(entry,hit,controller),onHoverLeave:(hit,pressed,controller)=>this.hover(entry,null,controller),
       onSelectStart: (hit, controller) => this.press(entry, hit, controller),
       onSelectEnd: (hit, controller) => this.release(entry, controller),
       onSelectCancel: (hit, controller) => this.release(entry, controller)};
@@ -211,6 +212,7 @@ export default class LineMonitorSystem {
   }
 
   release(entry, controller) { if (entry.presses.delete(controller)) entry.dirty = true; }
+  hover(entry,hit,controller){if(!entry.hovers)entry.hovers=new Map();const x=hit&&hit.uv&&hit.uv.x*WIDTH,y=hit&&hit.uv&&(1-hit.uv.y)*HEIGHT,region=hit&&hit.uv&&entry.regions.slice().reverse().find(r=>!r.disabled&&x>=r.x&&x<=r.x+r.width&&y>=r.y&&y<=r.y+r.height&&(!r.polygon||inside({x,z:y},r.polygon))),key=region?region.key:null;if((entry.hovers.get(controller)||null)===key)return;if(key)entry.hovers.set(controller,key);else entry.hovers.delete(controller);entry.hoverDirty=true;}
 
   press(entry, hit, controller) {
     if (!this.valid(entry, hit, controller) || entry.presses.has(controller)) return;
@@ -426,11 +428,11 @@ export default class LineMonitorSystem {
   }
 
   button(entry, key, label, x, y, width, height, extra = {}) {
-    const pressed = Array.from(entry.presses.values()).includes(key), context = entry.drawing;
+    const pressed = Array.from(entry.presses.values()).includes(key),hovered=entry.hovers&&Array.from(entry.hovers.values()).includes(key), context = entry.drawing;
     const intent = {start: '#246247', stop: '#593846', pause: '#66532e', emergency: '#822d3c', resetEmergency: '#66532e'}[key];
-    context.fillStyle = extra.disabled ? '#26313b' : pressed ? '#467f90' : intent || (extra.active ? '#356270' : '#244455');
+    context.fillStyle = extra.disabled ? '#26313b' : pressed ? '#76592b' : hovered?'#236f79':intent || (extra.active ? '#356270' : '#244455');
     context.fillRect(x, y + (pressed ? 3 : 0), width, height - (pressed ? 3 : 0));
-    if (context.strokeRect) { context.strokeStyle = extra.disabled ? '#425563' : key === 'emergency' ? '#ff8d97' : extra.active ? COLORS.cyan : '#466776'; context.lineWidth = extra.active ? 2 : 1; context.strokeRect(x, y + (pressed ? 3 : 0), width, height - (pressed ? 3 : 0)); }
+    if (context.strokeRect) { context.strokeStyle = extra.disabled ? '#425563' : pressed?'#ffd169':hovered?'#efffff':key === 'emergency' ? '#ff8d97' : extra.active ? COLORS.cyan : '#466776'; context.lineWidth = hovered||pressed?4:extra.active ? 2 : 1; context.strokeRect(x, y + (pressed ? 3 : 0), width, height - (pressed ? 3 : 0)); }
     this.text(entry, label, x + 10, y + height / 2 + 6, extra.fontSize || 16, extra.disabled ? '#8da2b2' : COLORS.text, width - 20);
     entry.regions.push(Object.assign({key, x, y, width, height}, extra));
   }
@@ -897,6 +899,7 @@ export default class LineMonitorSystem {
         entry.active = active; entry.dirty = true;
       }
       entry.elapsed += Math.max(0, Math.min(1, number(delta)));
+      if(entry.hoverDirty&&entry.elapsed>=.067){entry.hoverDirty=false;entry.dirty=true;}
       const interval = 1 / Math.max(1, Math.min(10, number(config.refreshHz) || 4));
       if (!shown || !entry.dirty && entry.elapsed < interval) return;
       entry.elapsed = 0;

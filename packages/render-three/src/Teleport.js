@@ -19,6 +19,17 @@ export default class Teleport {
     }
     this.ballColliding = new THREE.Mesh(new THREE.SphereBufferGeometry(.025, 10, 6), this.material);
     this.ballColliding.visible = false; this.ballColliding.renderOrder = 10;
+    const asset=ctx.assets&&ctx.assets.teleport_model&&ctx.assets.teleport_model.scene,goal=asset&&asset.getObjectByName('goal'),glow=asset&&asset.getObjectByName('glow');
+    if(goal&&goal.geometry){
+      // Original GLB vertices and scrolling beam texture, with independent
+      // uniforms so pointing at a menu cannot recolor the floor destination.
+      for(const ring of this.teleportHitGeometry.children.slice()){this.teleportHitGeometry.remove(ring);ring.geometry.dispose();}
+      this.portalMaterial=new THREE.ShaderMaterial({uniforms:{time:{value:0},active:{value:0},tex:{value:ctx.assets.beam_tex}},vertexShader:ctx.shaders&&ctx.shaders.basic_vert||'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:ctx.shaders&&ctx.shaders.beam_frag||'uniform float time;uniform sampler2D tex;varying vec2 vUv;void main(){gl_FragColor=texture2D(tex,vec2(vUv.x,vUv.y*3.0+time*2.0))*vUv.y;}',transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
+      const mesh=new THREE.Mesh(goal.geometry.clone(),this.portalMaterial);mesh.name='Original teleport goal';mesh.renderOrder=10;mesh.raycast=()=>{};this.teleportHitGeometry.add(mesh);this.originalDesign=true;
+      this.ballColliding.geometry.dispose();if(glow&&glow.geometry)this.ballColliding.geometry=glow.geometry.clone();else this.ballColliding.geometry=new THREE.PlaneBufferGeometry(.12,.12).rotateX(-Math.PI/2);
+      const pixels=new Uint8Array(32*32*4);for(let y=0;y<32;y++)for(let x=0;x<32;x++){const i=(y*32+x)*4,r=Math.hypot((x-15.5)/15.5,(y-15.5)/15.5);pixels[i]=pixels[i+1]=pixels[i+2]=255;pixels[i+3]=Math.round(Math.pow(Math.max(0,1-r),1.5)*255);}
+      this.glowTexture=new THREE.DataTexture(pixels,32,32,THREE.RGBAFormat);this.glowTexture.needsUpdate=true;this.glowMaterial=new THREE.MeshBasicMaterial({color:0x379bff,map:this.glowTexture,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false,side:THREE.DoubleSide});this.ballColliding.material=this.glowMaterial;this.ballColliding.raycast=()=>{};
+    }
     this.arcGeometry = new THREE.BufferGeometry(); this.arcGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(34 * 3), 3));
     this.arcMaterial = new THREE.LineBasicMaterial({color: 0x54f1d4, transparent: true, opacity: .9, depthWrite: false});
     this.arc = new THREE.Line(this.arcGeometry, this.arcMaterial); this.arc.visible = false; this.arc.frustumCulled = false; this.arc.renderOrder = 9;
@@ -62,9 +73,10 @@ export default class Teleport {
     return finitePoint(eye) && (!world || world.canOccupyCapsule(eye, {radius: .25, height: eyeHeight, eyeHeight}));
   }
   show(point, allowed, active) {
-    this.hit = allowed; this.material.color.setHex(allowed ? 0x54f1d4 : 0xf07469); this.arcMaterial.color.copy(this.material.color);
-    this.teleportHitGeometry.visible = true; this.teleportHitGeometry.position.copy(point); this.teleportHitGeometry.position.y += .018;
-    this.teleportHitGeometry.scale.setScalar(active ? 1 : .7); this.ballColliding.visible = false;
+    this.hit = allowed; this.material.color.setHex(allowed ? this.originalDesign?0x379bff:0x54f1d4 : 0xf07469); this.arcMaterial.color.copy(this.material.color);
+    this.teleportHitGeometry.visible = this.originalDesign?!!(allowed&&active):true; this.teleportHitGeometry.position.copy(point); this.teleportHitGeometry.position.y += .018;
+    this.teleportHitGeometry.scale.setScalar(active ? 1 : .7); this.ballColliding.visible = !!(this.originalDesign&&(!allowed||!active));this.ballColliding.position.copy(point);this.ballColliding.position.y+=.02;
+    if(this.glowMaterial)this.glowMaterial.color.copy(this.material.color);if(this.portalMaterial)this.portalMaterial.uniforms.time.value=(typeof performance==='undefined'?Date.now():performance.now())/1000;
   }
   onSelectStart() {
     if (this.aimController || this.blocked()) return false;
@@ -165,7 +177,7 @@ export default class Teleport {
     const ray = this.ctx.raycontrol;
     if (ray && this.rayState && ray.states[this.stateName] === this.rayState) {ray.deactivateState(this.stateName); delete ray.states[this.stateName];}
     const geometries = new Set(); this.teleportEntity.traverse(object => {if (object.geometry) geometries.add(object.geometry);});
-    geometries.forEach(value => value.dispose()); this.material.dispose(); this.arcMaterial.dispose();
+    geometries.forEach(value => value.dispose()); this.material.dispose(); this.arcMaterial.dispose();if(this.portalMaterial)this.portalMaterial.dispose();if(this.glowMaterial)this.glowMaterial.dispose();if(this.glowTexture)this.glowTexture.dispose();
     this.pause(this.endSound); if (this.teleportEntity.parent) this.teleportEntity.parent.remove(this.teleportEntity);
     this.surfaces = []; if (this.ctx.teleport === this) delete this.ctx.teleport;
   }

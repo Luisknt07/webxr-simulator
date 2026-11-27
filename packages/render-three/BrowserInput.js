@@ -3,6 +3,7 @@ import RayControl from './src/RayControl.js';
 import XRLocomotion from './src/XRLocomotion.js';
 import Teleport from './src/Teleport.js';
 import {createXRGrip, updateXRGrip, disposeXRGrip} from './src/XRGripTracking.js';
+import originalNavigation from './src/OriginalNavigationAssets.cjs';
 
 const UP = new THREE.Vector3(0, 1, 0), WALK_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
 const FLIGHT_KEYS = new Set(['KeyQ', 'KeyE', 'ControlLeft', 'ControlRight']);
@@ -12,15 +13,10 @@ export default class BrowserInput {
   constructor(ctx, canvas, options = {}) {
     this.ctx = ctx; this.canvas = canvas; this.options = options; this.listeners = []; this.keys = new Set(); this.axes = {x: 0, y: 0, z: 0}; this.pointers = new Map(); this.flightPointers = new Map(); this.flightBoost = false; this.controllers = [];
     this.euler = new THREE.Euler(0, 0, 0, 'YXZ'); this.forward = new THREE.Vector3(); this.right = new THREE.Vector3(); this.from = new THREE.Vector3(); this.to = new THREE.Vector3(); this.flightDirection = new THREE.Vector3();
-    const beam = new THREE.Mesh(new THREE.BoxBufferGeometry(.004, .004, 1)); beam.name = 'beam'; beam.position.z = -.5;
-    const beamRoot = new THREE.Group(); beamRoot.add(beam);
-    this.texture = new THREE.DataTexture(new Uint8Array([100, 240, 212, 255]), 1, 1, THREE.RGBAFormat); this.texture.needsUpdate = true;
-    // RayControl's optional decorative beam is procedural here, so no museum
-    // controller/model/shader asset enters the public dependency graph.
-    ctx.assets = {teleport_model: {scene: beamRoot}, beam_tex: this.texture};
-    ctx.shaders = {basic_vert: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}', beam_frag: 'varying vec2 vUv;uniform sampler2D tex;uniform float time;uniform float active;void main(){gl_FragColor=texture2D(tex,vUv);}'};
-    const unusedMaterial = beam.material;
-    this.ray = ctx.raycontrol = new RayControl(ctx, 'right'); this.ray.setLineStyle('basic'); unusedMaterial.dispose();
+    this.navigationAssets=originalNavigation.create(THREE);this.texture=this.navigationAssets.texture;
+    ctx.assets = {teleport_model: {scene: this.navigationAssets.model}, beam_tex: this.texture};
+    ctx.shaders = {basic_vert: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}', beam_frag: originalNavigation.fragmentShader};
+    this.ray = ctx.raycontrol = new RayControl(ctx, 'right'); this.ray.setLineStyle('advanced');
     this.teleport = ctx.teleport = new Teleport(ctx); this.teleport.installRayState();
     this.desktop = new THREE.Group(); this.desktop.userData.isDesktop = true; this.desktop.userData.grabbing = null;
     this.desktop.position.set(.2, -.2, -.45); this.desktop.boundingBox = new THREE.Box3();
@@ -208,8 +204,8 @@ export default class BrowserInput {
     this.unlockLook(); this.disposed = true; this.reset(); this.listeners.splice(0).forEach(off => off()); this.locomotion.dispose();
     this.teleport.dispose();
     this.ray.controllers.slice().forEach(data => this.ray.removeController(data.controller));
-    const geometry = new Set(), materials = new Set(); [this.ray.raycasterContext, this.desktop].forEach(root => root.traverse(node => {if (node.geometry) geometry.add(node.geometry); if (node.material) materials.add(node.material);}));
-    geometry.forEach(value => value.dispose()); materials.forEach(value => value.dispose()); this.texture.dispose();
+    const geometry = new Set(), materials = new Set(); [this.desktop].forEach(root => root.traverse(node => {if (node.geometry) geometry.add(node.geometry); if (node.material) materials.add(node.material);}));
+    geometry.forEach(value => value.dispose()); materials.forEach(value => value.dispose()); this.navigationAssets.dispose();
     if (typeof this.ray.dispose === 'function') this.ray.dispose();
     this.controllers.forEach(controller => {disposeXRGrip(controller); ctxRemove(controller); ctxRemove(controller.userData.gripObject);}); ctxRemove(this.desktop); this.touch.remove();
   }

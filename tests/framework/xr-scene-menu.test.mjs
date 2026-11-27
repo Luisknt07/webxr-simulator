@@ -28,6 +28,10 @@ function fixture(){
  return{ctx,menu,ray,scene,rig,camera,session,controls,calls,canvases,step,toggle,click,hand,finger,aim,dispose};
 }
 
+test('each hand visibly highlights its exact menu region and a steady hover reuses the canvas without repeated uploads',()=>{
+ const f=fixture();try{assert(f.menu.open());for(const [index,key]of [[0,'guide'],[1,'controls']]){const r=f.menu.regions.find(row=>row.key===key);f.aim(index,f.menu.mesh,(r.x+r.w/2)/1024,1-(r.y+r.h/2)/960);}f.step();assert.equal(f.menu.hovers.get(f.controls[0].controller),'guide');assert.equal(f.menu.hovers.get(f.controls[1].controller),'controls');const texture=f.menu.texture,canvas=f.menu.canvas;f.step();const version=texture.version;for(let i=0;i<20;i++)f.step();assert.equal(texture.version,version);assert.equal(f.menu.texture,texture);assert.equal(f.menu.canvas,canvas);f.menu.close();assert.equal(f.menu.hovers.size,0);}finally{f.dispose();}
+});
+
 test('public XR menu uses real rays, blocks nearer machines and delegates actual scene actions',()=>{
  const f=fixture();try{
   const machine=new THREE.Mesh(new THREE.PlaneBufferGeometry(6,6),new THREE.MeshBasicMaterial());machine.position.set(0,1.6,-.6);f.scene.add(machine);let starts=0;f.ray.addState('machine',{controller:'both',colliderMesh:machine,onSelectStart(){starts++;}},true);

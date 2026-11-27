@@ -22,7 +22,7 @@ class Locomotion {reset() {} dispose() {} tick() {}}
 function fixture(pointerLock = true) {
   const document = new Events(), window = new Events(), canvas = new Events(); document.body = new Events(); document.createElement = () => new Events(); canvas.ownerDocument = document;
   const ctx = {camera: new THREE.PerspectiveCamera(), cameraRig: new THREE.Group(), scene: new THREE.Scene(), renderer: {xr: {getController: () => new THREE.Group(), getSession: () => null}}}; ctx.cameraRig.add(ctx.camera); ctx.scene.add(ctx.cameraRig);
-  const Input = new Function('THREE', 'RayControl', 'XRLocomotion', 'Teleport', 'createXRGrip', 'updateXRGrip', 'disposeXRGrip', 'document', 'window', source)(THREE, Ray, Locomotion, Teleport, () => new THREE.Group(), () => {}, () => {}, document, window);
+  const Input = new Function('THREE', 'RayControl', 'XRLocomotion', 'Teleport', 'createXRGrip', 'updateXRGrip', 'disposeXRGrip', 'document', 'window','originalNavigation', source)(THREE, Ray, Locomotion, Teleport, () => new THREE.Group(), () => {}, () => {}, document, window,require('../../packages/render-three/src/OriginalNavigationAssets.cjs'));
   let requests = 0;
   canvas.requestPointerLock = () => {requests++; document.pointerLockElement = canvas; document.fire('pointerlockchange');};
   document.exitPointerLock = () => {document.pointerLockElement = null; document.fire('pointerlockchange');};

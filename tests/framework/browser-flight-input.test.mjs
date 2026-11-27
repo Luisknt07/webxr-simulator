@@ -31,7 +31,7 @@ function fixture(){
  const room=new THREE.Group(),floor=new THREE.Mesh(new THREE.BoxGeometry(30,.2,30),new THREE.MeshBasicMaterial()),wall=new THREE.Mesh(new THREE.BoxGeometry(6,4,.2),new THREE.MeshBasicMaterial());floor.position.y=-.1;wall.position.set(0,2,-1);room.add(floor,wall);ctx.scene.add(room);
  const world=new CollisionWorld(ctx,{getRoot:()=>room});world.setRoom('hall');ctx.collisionWorld=world;
  let capsules=0;const move=world.moveCapsule.bind(world);world.moveCapsule=(...args)=>{capsules++;return move(...args);};
- const Input=new Function('THREE','RayControl','XRLocomotion','Teleport','createXRGrip','updateXRGrip','disposeXRGrip','document','window',source)(THREE,Ray,Locomotion,Teleport,()=>new THREE.Group(),()=>{},()=>{},document,window);
+ const Input=new Function('THREE','RayControl','XRLocomotion','Teleport','createXRGrip','updateXRGrip','disposeXRGrip','document','window','originalNavigation',source)(THREE,Ray,Locomotion,Teleport,()=>new THREE.Group(),()=>{},()=>{},document,window,require('../../packages/render-three/src/OriginalNavigationAssets.cjs'));
  const input=new Input(ctx,canvas,{canWalk:()=>!ctx.drivingVehicle}),position=()=>{ctx.scene.updateMatrixWorld(true);return ctx.camera.getWorldPosition(new THREE.Vector3());};
  world.dispose=()=>{room.traverse(node=>{if(node.geometry)node.geometry.dispose();if(node.material)node.material.dispose();});};
  const key=(code,extra={})=>window.fire('keydown',{code,ctrlKey:false,metaKey:false,altKey:false,target:canvas,...extra});

@@ -8,9 +8,9 @@ let serial=0;
 export default class XRSceneMenu {
   constructor(ctx,options={}) {
     this.ctx=ctx;this.options=options;this.name='xr-scene-menu-'+(++serial);this.opened=false;this.page='home';this.regions=[];this.presses=new Map();this.buttons=new WeakMap();
-    this.eye=new THREE.Vector3();this.forward=new THREE.Vector3();this.target=new THREE.Vector3();
+    this.eye=new THREE.Vector3();this.forward=new THREE.Vector3();this.target=new THREE.Vector3();this.hovers=new Map();
     this.launcher=new XRMenuLauncher(ctx,{open:()=>this.open(),isOpen:()=>this.opened});
-    this.disconnected=event=>this.presses.delete(event&&event.controller);ctx.raycontrol.addEventListener('controllerDisconnected',this.disconnected);
+    this.disconnected=event=>{this.presses.delete(event&&event.controller);this.hover(null,event&&event.controller);};ctx.raycontrol.addEventListener('controllerDisconnected',this.disconnected);
   }
   ensure() {
     if(this.mesh){const ray=this.ctx.raycontrol;if(!ray.states[this.name])ray.addState(this.name,this.state,true);return true;}const dom=this.ctx.document||(typeof document==='undefined'?null:document);if(!dom)return false;
@@ -20,7 +20,8 @@ export default class XRSceneMenu {
     this.mesh.name='SMART-TWIN · menú RV del recorrido';this.mesh.userData={editorRuntimeHelper:true,editorNonCollidable:true};this.mesh.renderOrder=10000;this.mesh.frustumCulled=false;this.mesh.visible=false;this.ctx.scene.add(this.mesh);
     this.state={xrMenu:true,handTouchable:true,controller:'both',vrOnly:true,raycaster:true,order:-25,captureSelect:true,consumeSelect:true,colliderMesh:this.mesh,
       isSelectable:hit=>!!(this.opened&&this.mesh.visible&&hit&&hit.uv&&hit.distance<=5),
-      onSelectStart:(hit,controller)=>this.press(hit,controller),onSelectEnd:(hit,controller)=>this.presses.delete(controller),onSelectCancel:(hit,controller)=>this.presses.delete(controller)};
+      onHover:(hit,pressed,controller)=>this.hover(hit,controller),onHoverLeave:(hit,pressed,controller)=>this.hover(null,controller),
+      onSelectStart:(hit,controller)=>this.press(hit,controller),onSelectEnd:(hit,controller)=>this.release(controller),onSelectCancel:(hit,controller)=>this.release(controller)};
     this.ctx.raycontrol.addState(this.name,this.state,true);return true;
   }
   neutral() {
@@ -39,7 +40,7 @@ export default class XRSceneMenu {
     this.ctx.raycontrol.activateState(this.name);this.place();this.paint();return true;
   }
   close() {
-    this.opened=false;this.ctx.studioMenuOpen=false;this.presses.clear();if(this.mesh)this.mesh.visible=false;
+    this.opened=false;this.ctx.studioMenuOpen=false;this.presses.clear();this.hovers.clear();if(this.mesh)this.mesh.visible=false;
     this.neutral();if(this.state)this.ctx.raycontrol.deactivateState(this.name);
   }
   press(hit,controller) {
@@ -51,6 +52,8 @@ export default class XRSceneMenu {
     catch(error){this.error=String(error.message||'No se pudo completar la acción.').slice(0,100);}
     if(this.opened)this.paint();
   }
+  hover(hit,controller){const r=hit&&hit.uv&&this.regions.find(r=>hit.uv.x*W>=r.x&&hit.uv.x*W<=r.x+r.w&&(1-hit.uv.y)*H>=r.y&&(1-hit.uv.y)*H<=r.y+r.h),key=r&&!r.disabled?r.key:null;if((this.hovers.get(controller)||null)===key)return;if(key)this.hovers.set(controller,key);else this.hovers.delete(controller);if(this.opened)this.paint();}
+  release(controller){if(this.presses.delete(controller)&&this.opened)this.paint();}
   text(value,x,y,size=30,color='#eafffa') {const d=this.drawing;d.fillStyle=color;d.font='600 '+size+'px sans-serif';d.textAlign='left';d.fillText(value,x,y);}
   wrap(value,y,size=30) {
     const d=this.drawing;d.font='600 '+size+'px sans-serif';let line='';
@@ -58,7 +61,7 @@ export default class XRSceneMenu {
     if(line){this.text(line,50,y,size);y+=size*1.5;}return y+15;
   }
   button(key,label,x,y,w,h,action,disabled=false) {
-    const d=this.drawing;d.fillStyle=disabled?'#1d3540':'#174a57';d.fillRect(x,y,w,h);d.strokeStyle=disabled?'#49616b':'#65cfbd';d.lineWidth=2;d.strokeRect(x,y,w,h);
+    const hovered=[...this.hovers.values()].includes(key),pressed=[...this.presses.values()].includes(key),d=this.drawing;d.fillStyle=disabled?'#1d3540':pressed?'#76592b':hovered?'#236f79':'#174a57';d.fillRect(x,y,w,h);d.strokeStyle=disabled?'#49616b':pressed?'#ffd169':hovered?'#efffff':'#65cfbd';d.lineWidth=hovered||pressed?5:2;d.strokeRect(x,y,w,h);
     this.text(label,x+18,y+h/2+10,30,disabled?'#94a9b0':'#edfffa');this.regions.push({key,x,y,w,h,action,disabled});
   }
   paint() {
@@ -85,14 +88,14 @@ export default class XRSceneMenu {
       const lines=this.page==='guide'?[
         'Explora una instalación con bandas conectadas, robot, almacén y montacargas. Acércate a las estaciones para leer sus mensajes.',
         'Recoge un pallet cuando esté detenido y completo. Alinea ambas horquillas; mantén baja la carga al conducir.',
-        'Acércate y pulsa Subir y arrancar. Centra el stick izquierdo y muévelo para conducir; el gatillo izquierdo frena. A toma o coloca un pallet cercano con asistencia.',
+        'Acércate y pulsa Subir y arrancar. Usa el stick izquierdo y el freno izquierdo. Inserta ambas horquillas y eleva para recoger; baja hasta apoyar y retrocede para descargar.',
         'Usa Voz y consultas para preguntar. Micrófono y voz dependen del soporte y los permisos del navegador del visor.'
       ]:[
         'Caminar: stick izquierdo. Girar: stick derecho hacia un lado y volver al centro.',
         'Seleccionar: apunta con el rayo y pulsa gatillo; con manos haz pinza. Toca los pulsadores con el índice y retíralo para rearmar.',
         'Teletransporte: apunta al suelo, mantén gatillo o pinza y suelta sobre un destino libre. Se desactiva al conducir.',
         'Montacargas: grip o pinza cerca del volante o palanca; mover la mano acciona el control. Suelta para dejarlo en neutro.',
-        'En cabina: X freno P, A tomar/depositar, B bajar, Y izquierdo menú. Los sticks ofrecen conducción e hidráulica alternativas.'
+        'En cabina: X freno P, B bajar, Y izquierdo menú. Los sticks ofrecen conducción e hidráulica alternativas. La carga se toma y se deja con las horquillas.'
       ];let y=280;for(const line of lines)y=this.wrap(line,y,28);
     }
     if(this.error)this.text(this.error,42,932,24,'#ffc5b9');this.texture.needsUpdate=true;
