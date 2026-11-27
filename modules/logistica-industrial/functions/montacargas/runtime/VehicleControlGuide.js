@@ -145,7 +145,7 @@ export default class VehicleControlGuide {
     if (!(features.forks || features.platform)) return model('travel', 'Listo para conducir', 'Comprueba el pasillo y utiliza el volante o timón para desplazarte.', 'driveForward', vehicle.warning, true);
     if (!docking) return model('inspect', 'Esperando guía de carga', 'Localiza una carga compatible y espera la comprobación de alineación.');
     if (!attached && docking.phase === 'pickup' && docking.ready === true && stopped) return model('pickup-ready', 'Ambas horquillas apoyadas', 'Confirma la toma de la carga; después elévala para transportarla.', 'pickup', reason, true);
-    if (!docking.targetId && !attached) return model('approach', 'Buscar una carga compatible', features.manual ? 'Acerca el timón lentamente hasta alinear las horquillas con el pallet.' : 'Aproxímate lentamente al frente de un pallet; utiliza la cámara auxiliar para centrar las entradas.', 'driveForward', reason, true);
+    if (!docking.targetId && !attached) return model('approach', 'Buscar una carga compatible', features.manual ? 'Acerca el timón lentamente hasta alinear las horquillas con el pallet.' : xr?'Mira las entradas del pallet y alinea ambas horquillas; avanza lentamente.':'Aproxímate lentamente al frente de un pallet; utiliza la cámara auxiliar para centrar las entradas.', 'driveForward', reason, true);
     if (attached && intent === 'deposit' && features.lift && !docking.destination && /baja|nivela|apoyo|superficie|piso/i.test(reason)) return model('lower-to-support', 'Preparar el apoyo de depósito', 'Baja y nivela lentamente sobre una superficie libre; espera la confirmación antes de depositar.', 'liftDown', reason, stopped);
     if (docking.severity === 'blocked') return model('docking-blocked', 'Revisar antes de manipular', (attached ? 'Conserva la carga' : 'Mantén el vehículo detenido') + ' y corrige la condición indicada.', null, reason);
     const errors = docking.errors || {}, clearance = docking.clearances || {}, insertion = docking.insertion || {};
@@ -155,6 +155,6 @@ export default class VehicleControlGuide {
     if (features.lift && finite(errors.verticalM) && Math.abs(errors.verticalM) > .015) return model('align-height', 'Ajustar la altura de entrada', 'Ajusta la elevación hasta que ambas horquillas entren libres; confirma visualmente el apoyo.', 'alignHeight', reason, true);
     if (!attached && finite(insertion.requiredM) && insertion.requiredM > 0 && finite(insertion.actualM) && insertion.actualM < insertion.requiredM) return model('insert', 'Completar la inserción', 'Avanza muy lentamente hasta alcanzar el apoyo requerido; todavía no tomes la carga.', 'driveForward', reason, true);
     if (attached) return model('transport', 'Carga sujeta', 'Transporta a baja altura y aproxima la carga a un destino libre; deposita sólo cuando el apoyo esté confirmado.', null, reason);
-    return model('confirm', 'Esperar confirmación de apoyo', 'Comprueba la guía y la cámara; toma la carga sólo cuando ambas horquillas estén apoyadas.', null, reason);
+    return model('confirm', 'Esperar confirmación de apoyo', xr?'Comprueba directamente ambas horquillas; toma la carga sólo cuando su apoyo esté confirmado.':'Comprueba la guía y la cámara; toma la carga sólo cuando ambas horquillas estén apoyadas.', null, reason);
   }
 }

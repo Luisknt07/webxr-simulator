@@ -33,7 +33,6 @@ export default class VehicleFrontVisibility {
     (rig.cabPosts || []).filter(post => post.end > 0).forEach(post => visit(post.object));
     visit(rig.frontGlass); visit(rig.dashboard); visit(rig.dashSupport);
     this.entries = [...meshes].map(mesh => ({mesh, material: mesh.material, castShadow: mesh.castShadow}));
-    this.createWire();
     this.update();
   }
   wireColor(entry) {
@@ -129,6 +128,7 @@ export default class VehicleFrontVisibility {
     const driving = this.driving, root = driving.visualRoot;
     if (root && root.userData.vehicleRig !== this.rig) {this.mount(root); return;}
     const active = !!(driving.id && driving.holographicGuide && driving.holographicGuide.enabled && this.rig && this.rig.forks && this.entries.length);
+    if(active&&!this.wire)this.createWire();
     if (active === this.active) {if (active) this.updateWire(); return;}
     this.entries.forEach(entry => {
       entry.mesh.material = active ? Array.isArray(entry.material) ? entry.material.map(material => this.ghost(material)) : this.ghost(entry.material) : entry.material;

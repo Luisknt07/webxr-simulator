@@ -98,6 +98,7 @@ export default class VehicleForkCamera {
     // Informational displays never capture the steering/lever trigger or grip.
     this.state = this.stateName = null; this.elapsed = Infinity;
   }
+  lightweightXR(){return !!(this.ctx.vrMode&&this.ctx.graphics&&this.ctx.graphics.hints&&this.ctx.graphics.hints.standaloneXR);}
   setEnabled(value) { this.enabled = !!value; this.failed = false; this.elapsed = Infinity; if (!this.enabled) this.release('disabled'); return this.enabled; }
   setAvailable(value) { this.available = !!value; if (!this.available) this.release('inactive'); }
   switchSide() { this.side *= -1; this.elapsed = Infinity; this.nextFeed = 0; return this.side; }
@@ -158,6 +159,9 @@ export default class VehicleForkCamera {
     profile.samples = samples; profile.antialias = samples ? 'msaa' : 'fxaa'; return profile;
   }
   active() {
+    // A complete second world pass can stall the standalone compositor even
+    // at a small resolution. Quest uses direct head views and the 2D plan.
+    if(this.lightweightXR())return false;
     const driving = this.driving, record = driving.record(), document = driving.document, xr = this.renderer && this.renderer.xr, session = xr && xr.getSession && xr.getSession();
     return !!(this.mounted && (this.enabled||this.facility) && this.available && !this.lost && !this.failed && this.renderer && driving.id && record && shown(record.object) && driving.visualRoot && driving.visualRoot.userData.vehicleRig && driving.visualRoot.userData.vehicleRig.forks && !this.ctx.roomTransition && !(this.ctx.editor && this.ctx.editor.active) && (!document || !document.hidden || this.ctx.vrMode) && (!this.ctx.vrMode || session && (!session.visibilityState || session.visibilityState === 'visible')));
   }

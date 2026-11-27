@@ -23,7 +23,7 @@ export const demoFunction = defineFunction({
     const ctx = scope.port('platform.scene'), document = scope.port('platform.document');
     const collision = new CollisionWorld(ctx, document); ctx.collisionWorld = collision;
     const simulation = new SimulationRuntime(ctx, document, ctx.notify);
-    const driving = new VehicleDriving(ctx, simulation, {notify: ctx.notify});
+    const driving = new VehicleDriving(ctx, simulation, {notify: ctx.notify,keepCabWarm:true});
     const visuals = new IndustrialVisuals(ctx, document, simulation);
     const equipmentStudy = new EquipmentStudyViewer(ctx, document, simulation, {notify:ctx.notify});
     const monitors = new LineMonitorSystem(ctx, document, simulation);
@@ -72,6 +72,7 @@ export const demoFunction = defineFunction({
     // rig-aware render banks and actor-local immutable microfinish pooling.
     simulation.nativeManufacturedBatching=true;
     ctx.demo = session; simulation.start(document.roomId); seedPublicDemoStock(THREE, simulation);interactions.start(document.roomId); visuals.sync(document.roomId, 0, false);simulation.syncNativePresentation();
+    driving.prepareCab(Array.from(simulation.records.values()).find(record=>record.components.vehicle));
   }
 });
 

@@ -209,7 +209,12 @@ export default class VehicleHolographicGuide {
     // Retain actual waypoint progress, but stop routing a docked learner back
     // through missed advisory arrows instead of showing the ready maneuver.
     const dockedAdvisory = !!(mission && (mission.pickupRouteAdvisory && mission.phase === 'pickup' || mission.dropRouteAdvisory && mission.phase === 'drop') && ready && !mission.routeFault);
-    this.route = chosen && chosen.allowed && !this.withdraw && !this.depart && !dockedAdvisory ? guidanceRoute(this.driving, record, mission, chosen) : null;
+    // Standalone XR must not synchronously sweep a whole advisory itinerary
+    // while boarding or driving. Targets and real pickup/drop checks remain
+    // live; the 2D map presents orientation without claiming a verified route.
+    const lightweightXR=!!(this.ctx.vrMode&&this.ctx.graphics&&this.ctx.graphics.hints&&this.ctx.graphics.hints.standaloneXR);
+    if(lightweightXR&&model.phase==='pickup'&&chosen&&chosen.allowed&&!ready)model.instruction='Mira las entradas del pallet, alinea ambas horquillas y avanza lentamente hasta confirmar el apoyo.';
+    this.route = !lightweightXR && chosen && chosen.allowed && !this.withdraw && !this.depart && !dockedAdvisory ? guidanceRoute(this.driving, record, mission, chosen) : null;
     if (mission && mission.routeFault) this.route = Object.assign({distanceM: 0, index: mission.waypointIndex || 0, total: Array.isArray(mission.route) ? mission.route.length : 0}, this.route || {}, {
       arrows: [], points: [], blockedAt: point(record.object).setY(v.originWorld.y + .035), blocked: true, clear: false, note: mission.status || 'Vuelve al último punto válido y recorre las flechas conduciendo.'});
     model.routePath = this.route ? Object.freeze({points: Object.freeze((this.route.points || []).map(value => Object.freeze(value.toArray()))), blocked: !!this.route.blocked, dockingLimit:!!this.route.dockingLimit, stop: this.route.blockedAt ? Object.freeze(this.route.blockedAt.toArray()) : null}) : EMPTY_PATH;
@@ -235,7 +240,10 @@ export default class VehicleHolographicGuide {
     // A cold, hidden hologram only allocates geometry when a real route needs
     // drawing. Both layers share their bounded buffers and disposal lifecycle.
     if (!this.root && this.route && (this.route.points && this.route.points.length > 1 || this.route.blockedAt)) this.create();
-    if (this.root) { this.root.visible = this.enabled; this.stats.visible = this.enabled; this.paint(record, chosen, model); } return this.state;
+    if (this.root) { this.root.visible = this.enabled; this.stats.visible = this.enabled; this.paint(record, chosen, model); }
+    // Timestamp completion: an expensive tick must not make follow()/HUD run
+    // that same planner again immediately because its start is already old.
+    this.lastUpdate=now();return this.state;
   }
   color(severity, phase) {if (!this.palette) return; const accent = ROUTE_COLORS[phase || this.state.phase] || ROUTE_COLORS.drop; this.palette.near.line.color.setHex(accent).convertSRGBToLinear(); this.palette.near.fill.color.setHex(accent).convertSRGBToLinear(); this.palette.target.line.color.setHex(accent).convertSRGBToLinear(); const palette = this.palette[severity] || this.palette.near; this.outline.material = palette.line; this.fill.material = palette.fill; this.forks.forEach(fork => {fork.material = palette.line;});}
   paintArrows(values, points = [], phase = 'pickup') {

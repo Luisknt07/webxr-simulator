@@ -27,6 +27,7 @@ class ForkCamera{
  product(){return this.driving.simulation.products.get('pallet-1');}
  toggleMode(){const modes=['isometric','entry','tips'];this.mode=modes[(modes.indexOf(this.mode)+1)%modes.length];}
  switchSide(){this.side*=-1;}
+ setRearView(value){this.selectedFeed=value?'mirror':'front';return value;}
  toggleRearView(){this.selectedFeed=this.selectedFeed==='front'?'mirror':'front';return this.selectedFeed==='mirror';}
 }
 const filename=path.resolve(__dirname,'../../modules/logistica-industrial/functions/montacargas/runtime/VehicleDockingMonitor.js');

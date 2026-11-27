@@ -160,3 +160,9 @@ microrelief are omitted on that device profile. The public browser host also
 retires old GPU handles and ends an invalid XR session on actual context loss.
 See `docs/public-headset-stability.md` for the before/after measurements,
 recovery tests and physical-headset limitations.
+
+Cab labels, world panels and the schematic are prepared before entering XR and
+reused through boarding cycles. On standalone headsets, the schematic and direct
+head view replace auxiliary world cameras, and advisory route sweeps stay out of
+the immersive frame. Physical controls and runtime pickup/drop validation remain
+active. See the Quest boarding measurements in the same stability document.

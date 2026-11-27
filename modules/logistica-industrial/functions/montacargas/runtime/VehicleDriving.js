@@ -106,6 +106,18 @@ export default class VehicleDriving {
     this.simulation.records.forEach(record => { if (!record.components.vehicle || !shown(record.object)) return; const next = record.object.getWorldPosition(new THREE.Vector3()).distanceTo(point); if (next < distance) { best = record; distance = next; } }); return best;
   }
   visual(record) { let found; record.object.traverse(node => { if (node.userData.vehicleRig) found = node; }); return found; }
+  prepareCab(record){
+    if(!this.options.keepCabWarm||this.id||!record)return false;
+    const visual=this.visual(record);if(!visual||this.cab.root===visual)return false;
+    this.docking.unmount();this.removeWorldPanel();this.cab.mount(visual);this.cab.reset();this.buildHUD();
+    const seat=this.seat,root=this.visualRoot;this.seat=visual.userData.vehicleRig.driverSeat;this.visualRoot=visual;
+    try{this.buildWorldPanel(record);this.docking.mount();const model=this.docking.facilityLayout.update(record);this.docking.paintLayout(model);this.docking.texture.needsUpdate=true;this.docking.suspend();}
+    finally{this.seat=seat;this.visualRoot=root;if(this.worldPanel)this.worldPanel.plane.visible=false;}
+    // Compile camera/material variants during the loading screen, before an
+    // immersive frame can be held up by the first new direction or monitor.
+    if(!this.ctx.vrMode&&this.ctx.renderer&&this.ctx.renderer.compile)this.ctx.renderer.compile(this.ctx.scene,this.ctx.camera);
+    return true;
+  }
   mount(id) {
     if (this.id) return this.id === id;
     if (!this.authority()) { this.notify('En una sala compartida, la conducción la controla el anfitrión.'); return false; }
@@ -416,10 +428,10 @@ export default class VehicleDriving {
     // Walking starts with a free cursor. Do not restore a previous lock or a
     // pending drag from the occupied cab after returning beside the vehicle.
     if (!ctx.vrMode) {this.releaseCursor(); if (ctx.desktopLook && ctx.desktopLook.reset) ctx.desktopLook.reset();}
-    this.cab.clear(); this.frontVisibility.unmount(); this.holographicGuide.unmount(); this.docking.unmount(); this.removeWorldPanel(); this.id = null; this.seat = null; this.saved = null; this.visualRoot = null; this.cabLayoutRig = this.cabLayout = null; ctx.drivingVehicle = null; if (ctx.resetCollisionPose) ctx.resetCollisionPose(); this.updateHUD(); return true;
+    if(this.options.keepCabWarm){this.cab.reset();this.docking.suspend();if(this.worldPanel)this.worldPanel.plane.visible=false;}else{this.cab.clear();this.docking.unmount();this.removeWorldPanel();} this.frontVisibility.unmount(); this.holographicGuide.unmount(); this.id = null; this.seat = null; this.saved = null; this.visualRoot = null; this.cabLayoutRig = this.cabLayout = null; ctx.drivingVehicle = null; if (ctx.resetCollisionPose) ctx.resetCollisionPose(); this.updateHUD(); return true;
   }
   features() { const record = this.record(); return record ? vehicles.supports(record.components.vehicle.config) : {}; }
-  definitions() { const record = this.record(); return record ? VehicleControlGuide.definitions(this.features(), record.components.vehicle.config) : []; }
+  definitions() { const record = this.record(),values=record ? VehicleControlGuide.definitions(this.features(), record.components.vehicle.config) : [];return this.ctx.vrMode&&this.ctx.graphics&&this.ctx.graphics.hints&&this.ctx.graphics.hints.standaloneXR?values.filter(value=>!['forkCamera','forkCameraMode','forkCameraSide','rearView'].includes(value.action)):values; }
   updateGuide(force = false) {
     const record = this.record(); if (!record) return;
     const vehicle = record.components.vehicle, entry = vehicle.entry, now = this.simulation.time || 0;
@@ -574,7 +586,8 @@ export default class VehicleDriving {
     this.updateDeviceBindings(deviceState);
     if (this.worldPanel) this.paintWorldPanel();
   }
-  buildWorldPanel() {
+  buildWorldPanel(record=this.record()) {
+    if(this.worldPanel){this.paintWorldPanel(record);return;}
     if (!this.document || !this.document.createElement) return;
     const canvas = this.document.createElement('canvas'); canvas.width = 1024; canvas.height = 640; const context = canvas.getContext && canvas.getContext('2d'); if (!context) return;
     const texture = new THREE.CanvasTexture(canvas); texture.encoding = THREE.sRGBEncoding; texture.generateMipmaps = false; texture.minFilter = THREE.LinearFilter;
@@ -591,10 +604,10 @@ export default class VehicleDriving {
       onSelectEnd: (hit,controller)=>this.touches.delete(controller),
       onSelectCancel: (hit,controller)=>this.touches.delete(controller)};
     const input = this.ctx.raycontrol; if (input) { input.addState(name, state); input.activateState(name); this.worldState = {name, state}; }
-    this.paintWorldPanel();
+    this.paintWorldPanel(record);
   }
-  paintWorldPanel() {
-    const panel = this.worldPanel, record = this.record(); if (!panel || !record) return;
+  paintWorldPanel(record=this.record()) {
+    const panel = this.worldPanel; if (!panel || !record) return;
     const v = this.state(record), next = this.nextStep || {}, full = this.worldPage === 'controls';
     const signature = [v.actualSpeed, v.lift, v.loadKg, v.parkingBrake, v.powered, v.running, v.paused, v.emergency, v.operatorInterlock&&v.operatorInterlock.actionId, v.operatorInterlock&&v.operatorInterlock.label, next.stage, next.instruction, next.reason, next.action, this.mode, this.xrControlMode, this.worldPage, this.operatorIntent, this.docking.visible, this.docking.cameraEnabled, this.docking.forkCamera.selectedFeed, this.holographicGuide.enabled, this.holographicGuide.getState().targetId].map(value => typeof value === 'number' ? value.toFixed(1) : value).join('|');
     if (panel.signature === signature) return; panel.signature = signature;
@@ -625,5 +638,5 @@ export default class VehicleDriving {
     c.fillStyle = '#a9c5cf'; text('Apunta y pulsa el gatillo · Click del stick derecho: abrir mandos · B derecho: bajar detenido', 28, 625, 970, 20, 1); panel.texture.needsUpdate = true;
   }
   removeWorldPanel() { const panel = this.worldPanel, input = this.ctx.raycontrol; if (this.worldState && input) { const {name,state}=this.worldState; if (input.deactivateState) input.deactivateState(name); if (input.removeState) input.removeState(name); else if (input.states&&input.states[name]===state) delete input.states[name]; } this.worldState=null; if (panel) { if (panel.plane.parent) panel.plane.parent.remove(panel.plane); panel.plane.geometry.dispose(); panel.plane.material.dispose(); panel.texture.dispose(); } this.worldPanel=null; }
-  dispose() { this.unmount(true); if(this.externalPanel)this.externalPanel.dispose();this.externalPanel=null;if(this.externalInput)this.externalInput.dispose();this.externalInput=null;this.externalCommands.length=0;this.ctx.externalDevicePanelOpen=false; this.cab.dispose(); this.docking.dispose(); this.holographicGuide.dispose(); this.frontVisibility.dispose(); this.listeners.forEach(off=>off()); this.listeners=[]; if (this.hud && this.hud.remove) this.hud.remove(); this.hud=null; if (this.ctx.vehicleDriving===this) delete this.ctx.vehicleDriving; }
+  dispose() { this.unmount(true);this.removeWorldPanel(); if(this.externalPanel)this.externalPanel.dispose();this.externalPanel=null;if(this.externalInput)this.externalInput.dispose();this.externalInput=null;this.externalCommands.length=0;this.ctx.externalDevicePanelOpen=false; this.cab.dispose(); this.docking.dispose(); this.holographicGuide.dispose(); this.frontVisibility.dispose(); this.listeners.forEach(off=>off()); this.listeners=[]; if (this.hud && this.hud.remove) this.hud.remove(); this.hud=null; if (this.ctx.vehicleDriving===this) delete this.ctx.vehicleDriving; }
 }

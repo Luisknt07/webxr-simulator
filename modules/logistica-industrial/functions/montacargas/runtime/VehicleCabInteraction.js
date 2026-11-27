@@ -51,6 +51,7 @@ export default class VehicleCabInteraction {
     if (this.input && this.input.addEventListener) this.input.addEventListener('controllerInputCancelled', this.cancelled);
   }
   mount(root) {
+    if(this.root===root&&this.controls.length){this.reset();return;}
     this.clear();this.root=root; const rig = root && root.userData.vehicleRig, controls = rig && rig.controls;
     if (!controls) return;
     const features = vehicles.supports(rig.config || {});

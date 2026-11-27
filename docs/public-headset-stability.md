@@ -61,3 +61,41 @@ la pérdida de contexto usa la extensión real `WEBGL_lose_context` del navegado
 
 Referencias: [pérdida de contexto WebGL](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/isContextLost)
 y [foveación opcional de XRWebGLLayer](https://developer.mozilla.org/en-US/docs/Web/API/XRWebGLLayer/fixedFoveation).
+
+## Bloqueos al subir al montacargas en Quest 3
+
+La medición específica de entrada encontró unos 887 ms de trabajo síncrono,
+incluyendo varias ejecuciones del planificador de rutas en el mismo montaje.
+La cabina pública ahora prepara sus etiquetas, paneles, plano y shaders durante
+la carga inicial y los reutiliza al subir. Los controles permanecen desactivados
+hasta que el operador ocupa el asiento. Se liberan al abandonar la aplicación.
+
+En visores autónomos, el plano de navegación es 2D y no solicita otra pasada de
+toda la nave. Las cámaras auxiliares y sus acciones se omiten en este perfil:
+la prueba del retrovisor detectó otro bloqueo largo en su primera pasada. La
+vista directa del visor, los controles físicos y las verificaciones reales de
+colisión, apoyo, carga y descarga se conservan. Las cámaras de escritorio y RV
+conectada al PC mantienen su comportamiento anterior.
+
+La ruta de orientación no se calcula en el hilo de un visor autónomo. Se mantienen
+los destinos y el progreso de misión del runtime, sin mostrar un corredor como
+validado si no lo verificó el planificador. El holograma de componentes sólo
+crea sus aristas cuando se solicita. Los intervalos de actualización se cuentan
+desde el final del cálculo para impedir repeticiones inmediatas tras un pico.
+
+En Chrome aislado D3D11 con UA de Quest 3, la entrada pasó de 887 ms a unos
+62 ms (93 % menos); las siguientes tres subidas/bajadas costaron entre 15 y
+19 ms y conservaron el mismo atlas. Mirar el plano y solicitar el retrovisor
+generaron cero pasadas auxiliares y cero asignaciones de cámaras. Es una
+comparación de software en PC; no certifica los FPS de un Quest físico.
+
+```powershell
+# Medir el bundle anterior antes de reconstruir:
+node tooling/qa/vehicle-xr-performance.cjs <sha-anterior> --baseline
+# Comparar el bundle corregido con esa línea base:
+node tooling/qa/vehicle-xr-performance.cjs <sha-corregido>
+node --test tests/framework/vehicle-quest-cab-budget.test.mjs
+npm.cmd run test:vehicle-assistance
+```
+
+Los informes y capturas quedan en `data/qa-studio/vehicle-xr-performance/`.
