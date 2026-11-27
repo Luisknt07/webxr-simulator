@@ -16,6 +16,7 @@ import {connectExperienceHeader} from '../../packages/navigation-ui/ExperienceHe
 import {decorateMenuAction,setMenuActionLabel,mountTourShortcuts} from '../../packages/navigation-ui/ExperienceMenu.js';
 import PracticeGuideAvatar from '../../packages/assistant-ui/PracticeGuideAvatar.js';
 import XRSceneMenu from '../../packages/navigation-ui/XRSceneMenu.js';
+import DemoOperationsPanel from './DemoOperationsPanel.js';
 
 const byId = id => document.getElementById(id);
 const experienceHeader=connectExperienceHeader(document.querySelector('.viewer-header'),{
@@ -104,7 +105,7 @@ async function start() {
   ctx = browser.context; ctx.room = 0; ctx.roomId = 'hall';
   activeBrowser = browser;
   const {renderer, scene, camera, cameraRig, graphics, input} = ctx;
-  let host, documentModel, lighting, stopped = false, uiElapsed = 0, overview = false;
+  let host, documentModel, lighting, operationsPanel,stopped = false, uiElapsed = 0, overview = false;
   const abort = new AbortController(), listeners = [];
   const listen = (target, name, handler, options) => {target.addEventListener(name, handler, options); listeners.push(() => target.removeEventListener(name, handler, options));};
   browser.onDispose(async () => {stopped = true;if(recovery)recovery.dispose(); abort.abort(); listeners.splice(0).forEach(off => off()); clearTimeout(notice.timer);
@@ -112,7 +113,7 @@ async function start() {
     if (window.smartTwinViewer && window.smartTwinViewer.context === ctx) window.smartTwinViewer = null;});
   const dispose = () => browser.dispose();
   const menu = byId('viewer-menu'), menuToggle = byId('viewer-menu-toggle');
-  for(const [id,icon]of [['menu-home','home'],['menu-scenes','scenes'],['menu-guide','guide'],['menu-camera','camera'],['menu-overview','overview'],['menu-xr','xr'],['drive','drive'],['pause','pause'],['restart','restart'],['menu-controls','controls'],['menu-voice','sound'],['menu-account','account']])decorateMenuAction(byId(id),icon);
+  for(const [id,icon]of [['menu-home','home'],['menu-scenes','scenes'],['menu-guide','guide'],['menu-camera','camera'],['menu-overview','overview'],['menu-xr','xr'],['drive','drive'],['pause','pause'],['restart','restart'],['operations','scenes'],['menu-controls','controls'],['menu-voice','sound'],['menu-account','account']])decorateMenuAction(byId(id),icon);
   let menuPage='home';
   const showMenuPage=page=>{
     menuPage=page;
@@ -156,6 +157,7 @@ async function start() {
     {id:'overview',label:'Vista',icon:'overview',action:()=>byId('overview').click(),getState:()=>({pressed:overview})},
     {id:'flight',label:'Dron',icon:'move',action:()=>byId('viewer-menu-camera').querySelector('[data-camera-mode='+(ctx.desktopFlight?'walk':'drone')+']').click(),getState:()=>{const state=getSceneCameraMode(ctx);return{pressed:state.mode==='drone',disabled:state.blocked,title:state.reason||'Alternar caminar / vuelo dron'};}},
     {id:'controls',label:'Controles',icon:'controls',action:()=>openMenu('controls')},
+    {id:'dashboard',label:'Dashboard',icon:'scenes',action:()=>operationsPanel&&operationsPanel.open()},
     {id:'guide',label:'Ayuda',icon:'guide',action:()=>openMenu('guide')},
     {id:'camera',label:'Cámara',icon:'camera',action:()=>openMenu('camera')}
   ],onInteract:releaseTourInput});
@@ -209,6 +211,8 @@ async function start() {
     listen(byId('overview'), 'click', () => {const next = !overview; if (pose(ctx, next ? 'overview' : 'walk')) {overview = next; byId('overview').textContent = overview ? 'Volver a caminar' : 'Vista general';}});
     byId('overview').textContent = 'Vista general';
     listen(byId('drive'), 'click', toggleVehicle);
+    operationsPanel=new DemoOperationsPanel({document,window,operations:ctx.demo.operations,notify:notice,onStart:()=>ctx.demo.setPaused(false),onRestart:()=>{ctx.demo.restart();input.reset();notice('Escenario reiniciado. Comienza un nuevo lote de ocho cajas.');},onOpen:()=>{closeMenu();releaseTourInput();ctx.demoOperationsOpen=true;ctx.publicDialogOpen=true;},onClose:()=>{ctx.demoOperationsOpen=false;ctx.publicDialogOpen=false;input.reset();ctx.demo.driving.resetInput();}});
+    browser.onDispose(()=>operationsPanel.dispose());listen(byId('operations'),'click',()=>operationsPanel.open());
     listen(byId('pause'), 'click', () => {ctx.demo.setPaused(!ctx.demo.paused); input.reset();});
     function restoreDemonstration(automatic=false){
       const vehicleId=automatic&&ctx.demo.driving.id;
@@ -244,7 +248,8 @@ async function start() {
       before({delta}) {
         const presentation=ctx.demo.presentation;
         if(lighting.sync)presentation.run('la iluminación',()=>lighting.sync());
-        if(!ctx.publicDialogOpen&&!ctx.publicFrameFailure&&!ctx.studioMenuOpen){host.step(delta);ctx.demo.present(delta);}
+        if((!ctx.publicDialogOpen||ctx.demoOperationsOpen)&&!ctx.publicFrameFailure&&!ctx.studioMenuOpen){host.step(delta);ctx.demo.present(delta);}
+        if(operationsPanel)operationsPanel.step(delta);
         presentation.run('la cámara de inspección',()=>ctx.demo.driving.docking.renderBefore(scene,delta));
       },
       after({delta}) {capture.afterRender(); ctx.demo.driving.docking.postRender(); uiElapsed += delta; if (uiElapsed > .2) {uiElapsed = 0; updateUI();}}

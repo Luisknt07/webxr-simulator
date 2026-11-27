@@ -16,14 +16,16 @@ function fixture(){
 }
 function dispose(f){f.runtime.stop();const geometry=new Set(),materials=new Set();f.scene.traverse(n=>{if(n.geometry)geometry.add(n.geometry);(Array.isArray(n.material)?n.material:[n.material]).filter(Boolean).forEach(m=>materials.add(m));});geometry.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());}
 
-test('public recipe has one robot, six functional belts, two real wall openings and contextual guides without monitors',async()=>{
+test('public recipe has a native dashboard, one robot, six belts, reachable stock and two real wall openings',async()=>{
  const f=fixture();try{
   const saved=await f.document.serialize(),rows=saved.rooms.hall.additions;
   const count=type=>rows.filter(row=>row.behaviors.some(b=>b.type===type)).length;
-  assert.equal(count('robot'),1);assert.equal(count('conveyor'),6);assert.equal(count('lineMonitor'),0);assert.equal(count('hingeDoor'),2);assert.equal(count('info'),6);
+  assert.equal(count('robot'),1);assert.equal(count('conveyor'),6);assert.equal(count('lineMonitor'),1);assert.equal(count('hingeDoor'),2);assert.equal(count('info'),6);assert.equal(count('control'),4);
   assert(!rows.some(row=>row.name==='CEDI · RV pared frontal'||/guía de la práctica/.test(row.name)));
   validateDocument(saved,()=>{throw Error('No external imports');});
   assert.equal(f.built.rackLayout.cells.length,12);assert.equal(f.built.rackStock.length,4);
+  assert(rows.filter(row=>row.behaviors.some(b=>b.type==='source'&&b.autoGenerate)).length===1);
+  assert(f.built.rackLayout.cells.every(cell=>cell.position[1]+f.built.rack.position.y<=3));
   const floor=rows.find(row=>row.descriptor.type==='industrialFloor').descriptor;
   assert(floor.walkways.some(box=>box[0]<-6&&box[2]>-6&&box[3]===10));assert(floor.walkways.some(box=>box[0]<12&&box[2]>12&&box[3]===10));
   assert(floor.crossings.length&&floor.bays.length&&floor.zones.length>=3);
@@ -31,18 +33,31 @@ test('public recipe has one robot, six functional belts, two real wall openings 
  }finally{dispose(f);}
 });
 
-test('eight genuine cartons traverse every new belt, roller and curve and arrive once in the receiver',()=>{
- const f=fixture();try{
-  f.scene.updateMatrixWorld(true);f.runtime.start('hall');require('../../projects/smarttwin/PublicDemoStock.cjs')(THREE,f.runtime);
-  const record=object=>f.runtime.records.get(object.userData.editorId),source=record(f.built.transfer.source).components.source,receiver=record(f.built.transfer.receiver).components.palletQueue;
-  const belts=f.built.transfer.belts.map(object=>record(object).components.conveyor),seen=belts.map(()=>new Set());
-  for(let frame=0;frame<80*30&&receiver.queue.length<8;frame++){
-   f.scene.updateMatrixWorld(true);f.runtime.execute(1/30);belts.forEach((belt,index)=>belt.packages.forEach(item=>seen[index].add(item.product.object)));
+test('the same eight cartons traverse every belt and the real robot makes two 33kg pallets without collisions',()=>{
+ const f=require('../support/public-demo-fixture.cjs')();try{
+  const Ops=require('../../projects/smarttwin/PublicDemoOperations.js').default,operations=new Ops(f.runtime),record=f.record;
+  const belts=f.built.transfer.belts.map(object=>record(object).components.conveyor),seen=belts.map(()=>new Set()),robot=record(f.built.robot).components.robot;
+  for(let frame=0;frame<150*30&&robot.completed<8;frame++){
+   f.tick(1/30);belts.forEach((belt,index)=>belt.packages.forEach(item=>seen[index].add(item.product.object)));assert.equal(robot.fault,'');
   }
-  assert.equal(source.generatedUnits,8);assert.equal(receiver.queue.length,8,JSON.stringify({received:receiver.received,belts:belts.map(b=>({count:b.packages.length,blocked:b.transferBlocked,warning:b.warning}))}));
-  const arrivals=new Set(receiver.queue.map(entry=>entry.product.object));assert.equal(arrivals.size,8);
-  for(const crossed of seen)assert.deepEqual(crossed,arrivals,'Every arriving carton must actually have travelled on every segment.');
-  assert.equal(record(f.built.robot).components.robot.fault,'');assert(record(f.built.robot).components.robot.completed>=4);
+  const s=operations.snapshot();assert.equal(s.generated,8);assert.equal(s.arrived,8);assert.equal(s.palletized,8);assert.equal(s.pallets,2);assert.equal(s.waiting,0);
+  const pallets=[...f.runtime.products.values()].filter(product=>product.sourceEntry?.load?.physicalAssembly);
+  assert.equal(pallets.length,2);const originals=new Set(pallets.flatMap(product=>product.sourceEntry.members.map(entry=>entry.product.object)));assert.equal(originals.size,8);
+  for(const crossed of seen)assert.deepEqual(crossed,originals,'The physical pallet members crossed every transport segment.');
+  for(const product of pallets){assert.equal(f.runtime.productMetadata(product).mass,33);assert.equal(product.sourceEntry.members.length,4);assert(product.sourceEntry.members.every(entry=>entry.product.object.parent===product.object));}
+ }finally{dispose(f);}
+});
+
+test('dashboard commands preserve the lot, emergency stays latched and reset requires an explicit start',()=>{
+ const f=require('../support/public-demo-fixture.cjs')();try{
+  const Ops=require('../../projects/smarttwin/PublicDemoOperations.js').default,o=new Ops(f.runtime);f.tick(4);o.command('stop');
+  const poses=[...f.runtime.products.values()].map(p=>[p.object,p.object.matrixWorld.toArray()]),count=o.snapshot().generated;f.tick(1);
+  assert.equal(o.snapshot().generated,count);for(const [object,matrix]of poses)assert.deepEqual(object.matrixWorld.toArray(),matrix);
+  o.command('emergency');o.command('emergency');const members=f.runtime.lineLookup.get(o.refs().source.id).memberIds;
+  assert(members.every(id=>f.runtime.machineComponent(f.runtime.records.get(id)).emergency));
+  assert.throws(()=>o.command('start'),/emergencia/);o.command('resetEmergency');assert(members.every(id=>!f.runtime.machineComponent(f.runtime.records.get(id)).running));
+  o.command('start');f.tick(1);assert.equal(o.snapshot().generated,count);assert(members.every(id=>!f.runtime.machineComponent(f.runtime.records.get(id)).emergency));
+  const robot=o.refs().robot;o.command('stop',robot.id);assert(!robot.components.robot.running);assert(o.refs().source.components.source.running);o.command('start',robot.id);assert(robot.components.robot.running);
  }finally{dispose(f);}
 });
 

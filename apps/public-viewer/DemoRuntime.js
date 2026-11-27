@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import seedPublicDemoStock from '../../projects/smarttwin/PublicDemoStock.cjs';
 import DemoVehicleEntry from './DemoVehicleEntry.js';
 import VehicleFacilityView from '../../modules/logistica-industrial/functions/montacargas/runtime/VehicleFacilityView.js';
+import PublicDemoOperations from '../../projects/smarttwin/PublicDemoOperations.js';
 import {PresentationGuard} from './SceneResilience.js';
 import BehaviorRuntime from '../../packages/tools/editor/src/BehaviorRuntime.js';
 
@@ -37,7 +38,7 @@ export const demoFunction = defineFunction({
       getBehaviors:object=>document.getBehaviors(object).filter(value=>interactionTypes.has(value.type))},null,ctx.notify);
     const presentation=new PresentationGuard({onError(record,error){console.warn('Public display ('+record.name+'):',error);if(record.disabled&&ctx.notify)ctx.notify('Se desactivó temporalmente '+record.name+'. La simulación continúa.');}});
     const session = {
-      simulation, driving, visuals, equipmentStudy, monitors, vehicleEntry, presentation, interactions, paused: false,
+      simulation, driving, visuals, equipmentStudy, monitors, vehicleEntry, presentation, interactions, operations:new PublicDemoOperations(simulation),paused: false,
       step(delta) {
         presentation.run('los mensajes y las puertas',()=>interactions.execute(delta,simulation.time));
         presentation.run('la ficha de equipos',()=>equipmentStudy.update(delta));
@@ -55,7 +56,7 @@ export const demoFunction = defineFunction({
         presentation.run('los indicadores visuales',()=>visuals.sync(document.roomId,delta,false));
         simulation.syncNativePresentation();
       },
-      restart() {interactions.stop();equipmentStudy.close(); driving.unmount(true); simulation.start(document.roomId); seedPublicDemoStock(THREE, simulation);interactions.start(document.roomId); presentation.reset(); session.paused = false; visuals.dirty = true;},
+      restart() {interactions.stop();equipmentStudy.close(); driving.unmount(true); simulation.start(document.roomId); seedPublicDemoStock(THREE, simulation);interactions.start(document.roomId);monitors.invalidate(); presentation.reset(); session.paused = false; visuals.dirty = true;},
       setPaused(value) {session.paused = !!value; driving.resetInput(); if (session.paused) simulation.releaseHeldProducts();},
       stats() {
         const records = Array.from(simulation.records.values()), robotRecords = records.filter(record => record.components.robot);
