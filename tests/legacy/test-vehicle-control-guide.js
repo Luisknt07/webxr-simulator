@@ -15,7 +15,9 @@ for (const definition of definitions) {
   assert(Guide.actionLabel(definition.action).includes(definition.key)); assert(!/Shift\+|Key[A-Z]|WASD|Tab/.test(Guide.actionLabel(definition.action,true)));
 }
 for (const code of ['ArrowUp','ArrowLeft','KeyQ','KeyT','KeyZ','KeyW']) assert.equal(Guide.shortcut({code,shiftKey:true}),null, 'Unmapped Shift keys cannot fall back to a base action.');
-const flt = vehicles.defaults('forklift-electric-4w'), forks = vehicles.supports(flt), tow = vehicles.defaults('tow-tractor');
+// The pickup/release command assertions below exercise the retained legacy
+// profile. Natural fork support has its own instructions and no cargo buttons.
+const natural = vehicles.defaults('forklift-electric-4w'), flt = Object.assign({},natural,{naturalHandling:false}), forks = vehicles.supports(flt), tow = vehicles.defaults('tow-tractor');
 assert(Guide.definitions(forks,flt).some(value=>value.action==='forkCameraSide'),'Both sides of the isometric inspection view must be reachable from keyboard and view controls.');
 assert(!Guide.definitions(forks,flt).some(value=>['couple','uncouple'].includes(value.action)));
 assert(Guide.definitions(vehicles.supports(tow),tow).some(value=>value.action==='couple'));
@@ -26,6 +28,8 @@ assert(!Guide.definitions(forks,Object.assign({},flt,{maxLift:0,tiltLimit:0,maxR
 const state = overrides => Object.assign({config:flt,enabled:true,powered:true,running:true,paused:false,emergency:false,parkingBrake:false,actualSpeed:0,batteryPercent:100,entry:null,pose:{lift:0}},overrides);
 const ready = {phase:'pickup',targetId:'pallet-1',ready:true,severity:'ready',reason:'Ambas uñas insertadas; centro de carga apoyado.',errors:{lateralM:0,verticalM:0,yawRad:0},insertion:{actualM:.7,requiredM:.6},stability:{loadKg:100,capacityKg:1800}};
 const evaluate = (vehicle=state(), docking=ready, extra={}) => guide.evaluate(Object.assign({vehicle,features:forks,docking},extra));
+assert.equal(evaluate(state({config:natural})).action,'liftUp','Natural handling tells the operator to raise the inserted forks.');
+assert(!Guide.definitions(forks,natural).some(value=>['pickup','release','depositIntent'].includes(value.action)));
 assert.equal(guide.evaluate().canAct,false); assert.equal(evaluate(state({enabled:false})).stage,'unavailable');
 assert.equal(evaluate(state({powered:false,emergency:true})).action,'resetEmergency');
 assert.equal(evaluate(state({powered:false})).action,'powerOn'); assert.equal(evaluate(state({running:false})).action,'start');
@@ -56,14 +60,14 @@ assert.notEqual(evaluate(held,Object.assign({},drop,{ready:false}),{intent:'depo
 assert.equal(evaluate(Object.assign({},held,{pose:{lift:.01}}),Object.assign({},drop,{ready:false})).action,'liftUp');
 assert.equal(evaluate(Object.assign({},held,{actualSpeed:1,pose:{lift:1}}),drop).stage,'slow');
 assert.equal(evaluate(Object.assign({},held,{pose:{lift:1}}),Object.assign({},drop,{ready:false,destination:null})).action,'liftDown');
-const telehandler = vehicles.defaults('telehandler');
+const telehandler = Object.assign({},vehicles.defaults('telehandler'),{naturalHandling:false});
 assert.equal(evaluate(state({config:telehandler,entry:{id:'held'},pose:{lift:0,boomAngle:.2,reach:0}}),drop,{features:vehicles.supports(telehandler),intent:'transport'}).action,'depositIntent','Telescopic height comes from the real boom pose rather than the unused mast lift channel.');
 assert.notEqual(evaluate(state(),ready,{xr:true}).control,'G'); assert.match(evaluate(state(),ready,{xr:true}).control,/Botón A.*gatillo.*Tomar/);
 assert.match(evaluate(state(),Object.assign({},near,{errors:{verticalM:.1}}),{xr:true}).control,/agarre/);
 const input = {vehicle:state(),features:forks,docking:ready}; const before = JSON.stringify(input); for(let index=0;index<100;index++) guide.evaluate(input); assert.equal(JSON.stringify(input),before);
 
 // Actual vehicle runtime states, real pickup/release plans, and preserved cargo.
-const f = h.fixture(); const actual = () => guide.evaluate({vehicle:f.v,features:vehicles.supports(f.config),docking:f.api.getDockingState(f.record)});
+const f = h.fixture(); f.v.config.naturalHandling=false; const actual = () => guide.evaluate({vehicle:f.v,features:vehicles.supports(f.config),docking:f.api.getDockingState(f.record)});
 assert.equal(actual().action,'pickup'); const population = f.runtime.products.size;
 assert(f.api.pickup(f.record)); const entry = f.v.entry, authoredCargo = entry.product.object;
 assert.equal(guide.evaluate({vehicle:f.v,features:forks,docking:f.api.getDockingState(f.record),intent:'transport'}).action,'liftUp');

@@ -174,7 +174,7 @@ export default class VehicleDriving {
     if (!state.powered) return '1. Pulsa Encender' + (this.ctx.vrMode ? '' : ' (B)') + '. Después Marcha y desactiva Freno P.';
     if (!state.running || state.paused) return '2. Pulsa Marcha' + (this.ctx.vrMode ? '' : ' (V)') + '. Después desactiva Freno P.';
     if (state.parkingBrake) return '3. Desactiva Freno P' + (this.ctx.vrMode ? '' : ' (P)') + ' para desplazarte.';
-    return state.warning || (this.ctx.vrMode?'Listo para conducir. Utiliza el acelerador, el volante y las palancas de la cabina.':'Listo para conducir. Mantén W para avanzar o S para retroceder; A / D giran. P alterna el freno de estacionamiento.');
+    return state.warning || (this.ctx.vrMode?'Listo para conducir. Utiliza el acelerador, el volante y las palancas de la cabina.':'Listo para conducir. Usa W/S y A/D o las flechas para avanzar, retroceder y girar. Espacio frena; Q/E elevan y bajan las horquillas. P alterna el freno de estacionamiento.');
   }
   openPracticePreparation() {
     const record=this.record(),interlock=record&&record.components.vehicle.operatorInterlock,editor=this.ctx.editor,controller=editor&&editor.practiceController;
@@ -238,8 +238,9 @@ export default class VehicleDriving {
     // A native video/dialog must retain Space, arrows and Tab for playback and
     // focus. Reset driving without consuming those browser controls.
     if (this.ctx.externalDevicePanelOpen || this.ctx.publicDialogOpen || this.ctx.vehiclePreparationOpen || this.ctx.practiceReadingPanelOpen) { this.resetInput(); return; }
-    if (!this.id) { if (down && event.code === 'KeyF' && !event.repeat && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey && !event.isComposing && !typing && !(this.ctx.editor && this.ctx.editor.active)) { const record = this.nearest(); if (record) { event.preventDefault(); this.mount(record.id); } } return; }
-    if (!DRIVE_KEYS.has(event.code) || typing || event.ctrlKey || event.altKey || event.metaKey) return;
+    if (!this.id) { if (down && event.code === 'KeyF' && !event.repeat && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey && !event.isComposing && !typing && !(this.ctx.editor && this.ctx.editor.active)) { const record = this.nearest(); if (record) { event.preventDefault(); if(this.options.quickStartOnEntry)this.boardAndStart(record.id);else this.mount(record.id); } } return; }
+    const tabNavigation = /^Arrow/.test(event.code) && target.getAttribute && target.getAttribute('role') === 'tab';
+    if (!DRIVE_KEYS.has(event.code) || typing || tabNavigation || event.ctrlKey || event.altKey || event.metaKey) return;
     event.preventDefault(); if (event.stopImmediatePropagation) event.stopImmediatePropagation();
     if (!down) { this.keys.delete(event.code); return; }
     if (this.blocked()) { this.resetInput(); return; }
@@ -322,8 +323,8 @@ export default class VehicleDriving {
     if (this.machineInputBlocked) { this.resetInput(); this.machineInputBlocked = false; }
     if(this.loadAssist.update()){this.simulation.vehicleRuntime.setInput(record,ZERO());this.cab.showInput(ZERO());this.updateHUD();return;}
     const key = code => this.keys.has(code) || [...this.touches.values()].includes(code), axis = (a, b) => Number(key(a)) - Number(key(b));
-    const input = {throttle: axis('KeyW', 'KeyS'), steer: axis('KeyD', 'KeyA'), brake: key('Space') ? 1 : 0,
-      lift: axis('KeyQ', 'KeyE') + axis('ArrowUp', 'ArrowDown'), tilt: axis('KeyT', 'KeyR'), reach: axis('KeyX', 'KeyZ'), sideShift: axis('KeyL', 'KeyJ'), turret: axis('KeyO', 'KeyU')};
+    const input = {throttle: Number(key('KeyW') || key('ArrowUp')) - Number(key('KeyS') || key('ArrowDown')), steer: Number(key('KeyD') || key('ArrowRight')) - Number(key('KeyA') || key('ArrowLeft')), brake: key('Space') ? 1 : 0,
+      lift: axis('KeyQ', 'KeyE'), tilt: axis('KeyT', 'KeyR'), reach: axis('KeyX', 'KeyZ'), sideShift: axis('KeyL', 'KeyJ'), turret: axis('KeyO', 'KeyU')};
     if(external && external.ready && this.externalInput && this.externalInput.getState().armed){
       for(const channel of ['throttle','steer','lift','tilt','reach','sideShift','turret'])if(!input[channel]&&Number.isFinite(external.input[channel]))input[channel]=external.input[channel];
       if(Number.isFinite(external.input.brake))input.brake=Math.max(input.brake,external.input.brake);
