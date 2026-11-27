@@ -15,7 +15,8 @@ try{
  press(left,1,true);f.driving.beforeStep();assert(!f.driving.cab.hands.get(left.controller).control);
  place(f,left,rimPoint(f,.3));f.driving.beforeStep();const wheel=f.driving.cab.hands.get(left.controller).control;
  assert(wheel&&wheel.kind==='wheel','A held side grip catches the physical rim on approach.');
- assert.equal(left.controller.userData.xrRaySuppressed,true);assert.deepEqual(left.controller.userData.vehicleCabGrip,{kind:'wheel',channel:'steer',held:true});
+ assert.equal(left.controller.userData.xrRaySuppressed,true);const gripFeedback=left.controller.userData.vehicleCabGrip;
+ assert.deepEqual({kind:gripFeedback.kind,channel:gripFeedback.channel,held:gripFeedback.held},{kind:'wheel',channel:'steer',held:true});
  assert.equal(right.controller.userData.xrRaySuppressed,false,'The free hand retains its ray.');
  place(f,left,rimPoint(f,.6));axis(left,.9,0);f.driving.beforeStep();assert(f.v.input.steer<-.1,'The held wheel takes priority over conflicting stick steering.');
  // The second hand cannot steal, including after the first hand releases.

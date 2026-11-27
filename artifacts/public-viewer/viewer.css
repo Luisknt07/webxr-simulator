@@ -631,6 +631,18 @@ body:not(.scene-active) .public-scene-tools,.immersive .public-scene-tools{displ
 @media(max-width:1200px){.scene-active #vehicle-operation-panels{--vehicle-hud-top:calc(var(--viewer-scene-top,78px) + 64px)}}
 /* Keep touch altitude and interaction above the thumb pads and study shortcut. */
 @media(pointer:coarse){.xr-browser-touch .touch-flight{position:absolute;right:0;bottom:110px}.xr-browser-touch .touch-use{left:50%;right:auto;bottom:104px;transform:translateX(-50%);min-height:44px}}
+/* Reserve the guide dock below both thumb pads. This also keeps Usar above
+   the equipment-study shortcut in portrait and landscape public scenes. */
+@media(pointer:coarse){body.scene-active:not(.driving) .xr-browser-touch{bottom:calc(118px + env(safe-area-inset-bottom,0px))!important}}
+body.scene-active.driving .st-practice-guide{left:50%;transform:translateX(-50%)}
+@media(max-width:1200px){
+ body.scene-active.driving .st-practice-guide{left:max(12px,env(safe-area-inset-left));top:calc(var(--st-header-height,60px) + 8px);bottom:auto;transform:none;width:208px;grid-template-columns:64px 138px;gap:6px}
+ body.scene-active.driving .st-guide-portrait,body.scene-active.driving .st-guide-activity{display:none}
+ body.scene-active.driving .st-guide-launcher{min-width:64px;min-height:44px;padding:0}
+ body.scene-active.driving .st-guide-identity{position:static;min-height:44px;justify-content:center;padding:4px}
+ body.scene-active.driving .st-guide-actions .st-guide-action{min-width:44px;min-height:44px;padding:4px 3px}
+ body.scene-active.driving .st-guide-bubble{top:56px;bottom:auto;left:0;max-height:calc(100dvh - 160px)}
+}
 @media(pointer:coarse){.scene-active .viewer-notice{bottom:200px}}
 .viewer-xr-help .viewer-xr-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
 .viewer-xr-help .viewer-xr-status{font-size:13px;color:#b1e9d9;min-height:20px}

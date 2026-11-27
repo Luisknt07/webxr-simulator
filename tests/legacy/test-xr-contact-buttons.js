@@ -50,6 +50,10 @@ place(f, f.right, pause, .008, true); advance(f); assert.equal(sequence(f, pause
 leave(f, f.left, pause); f.left.userData.grabbing = new THREE.Group(); place(f, f.left, pause); advance(f);
 assert.equal(sequence(f, pause), 2); f.left.userData.grabbing = null; advance(f); assert.equal(sequence(f, pause), 2);
 leave(f, f.left, pause); const product = f.runtime.products.get(f.cartons[0]), productMatrix = product.object.matrixWorld.clone();
+// Direct grasp now requires a hand beside the actual carton. A ray from the
+// control panel must not pick up a distant box just to construct this fixture.
+const graspPoint=product.bounds.getCenter(new THREE.Vector3());graspPoint.z=product.bounds.min.z-.025;
+f.left.position.copy(product.object.localToWorld(graspPoint));f.scene.updateMatrixWorld(true);
 assert(f.runtime.pickupProduct(product, f.left, 'squeeze')); place(f, f.left, pause); f.visuals.sync('hall', .016, false); assert.equal(sequence(f, pause), 2);
 f.runtime.releaseProduct(product); f.runtime.setProductMatrix(product, productMatrix);
 leave(f, f.left, pause);
