@@ -88,14 +88,14 @@ export default class XRSceneMenu {
       const lines=this.page==='guide'?[
         'Explora una instalación con bandas conectadas, robot, almacén y montacargas. Acércate a las estaciones para leer sus mensajes.',
         'Recoge un pallet cuando esté detenido y completo. Alinea ambas horquillas; mantén baja la carga al conducir.',
-        'Acércate y pulsa Subir y arrancar. Usa el stick izquierdo y el freno izquierdo. Inserta ambas horquillas y eleva para recoger; baja hasta apoyar y retrocede para descargar.',
+        'Sube y arranca. Agarra y gira el volante con cualquier mano; gatillo derecho acelera e izquierdo frena. A derecho cambia avance/reversa detenido. R1 recogida, R2 almacén, R3 despacho.',
         'Usa Voz y consultas para preguntar. Micrófono y voz dependen del soporte y los permisos del navegador del visor.'
       ]:[
         'Caminar: stick izquierdo. Girar: stick derecho hacia un lado y volver al centro.',
         'Seleccionar: apunta con el rayo y pulsa gatillo; con manos haz pinza. Toca los pulsadores con el índice y retíralo para rearmar.',
         'Teletransporte: apunta al suelo, mantén gatillo o pinza y suelta sobre un destino libre. Se desactiva al conducir.',
         'Montacargas: grip o pinza cerca del volante o palanca; mover la mano acciona el control. Suelta para dejarlo en neutro.',
-        'En cabina: X freno P, B bajar, Y izquierdo menú. Los sticks ofrecen conducción e hidráulica alternativas. La carga se toma y se deja con las horquillas.'
+        'En cabina: gatillo derecho acelera; izquierdo frena. A derecho alterna avance/reversa detenido y sin acelerar. X freno P, B bajar, Y izquierdo menú. Los sticks son una alternativa.'
       ];let y=280;for(const line of lines)y=this.wrap(line,y,28);
     }
     if(this.error)this.text(this.error,42,932,24,'#ffc5b9');this.texture.needsUpdate=true;

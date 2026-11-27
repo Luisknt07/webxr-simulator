@@ -241,8 +241,17 @@ function authoredVehicleAisles(driving) {
   const runtime = driving.simulation, document = runtime && runtime.document, studio = document && document.studio;
   const data = studio && studio.moduleData && studio.moduleData['sector.logistics-industrial'], levels = data && data.levels;
   const level = Array.isArray(levels) && levels.find(value => value && value.roomId === runtime.roomId), layout = level && level.facility && level.facility.sharedLayout;
-  const rows = layout && layout.aisles && layout.aisles.vehicleRects;
-  return Array.isArray(rows) ? rows.slice(0, 16).filter(row => Array.isArray(row) && row.length >= 4 && row.slice(0,4).every(Number.isFinite) && row[2] > row[0] && row[3] > row[1]) : [];
+  const rows = layout && layout.aisles && layout.aisles.vehicleRects,result=Array.isArray(rows)?rows.slice(0,16):[];
+  // Public/manual rooms also author corridors in their native floor. This
+  // reads four corners per rectangle, without scanning physical meshes.
+  if(document&&document.getObjects)for(const object of document.getObjects(runtime.roomId)){
+    const descriptor=object.userData&&object.userData.editorDescriptor;if(!descriptor||descriptor.type!=='industrialFloor'||!Array.isArray(descriptor.vehicleLanes))continue;
+    object.updateWorldMatrix(true,false);for(const row of descriptor.vehicleLanes.slice(0,16)){
+      const points=[[row[0],row[1]],[row[2],row[1]],[row[2],row[3]],[row[0],row[3]]].map(p=>new THREE.Vector3(p[0],descriptor.floorY||0,p[1]).applyMatrix4(object.matrixWorld));
+      result.push([Math.min(...points.map(p=>p.x)),Math.min(...points.map(p=>p.z)),Math.max(...points.map(p=>p.x)),Math.max(...points.map(p=>p.z))]);
+    }if(result.length>=16)break;
+  }
+  return result.slice(0,16).filter(row=>Array.isArray(row)&&row.length>=4&&row.slice(0,4).every(Number.isFinite)&&row[2]>row[0]&&row[3]>row[1]);
 }
 const inAisle = (point, rect) => point.x >= rect[0] - .001 && point.x <= rect[2] + .001 && point.z >= rect[1] - .001 && point.z <= rect[3] + .001;
 function projectToAisle(point, rect) {

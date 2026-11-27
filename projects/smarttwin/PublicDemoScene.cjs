@@ -1,4 +1,5 @@
 'use strict';
+const traffic=require('./PublicDemoTraffic.cjs');
 
 /** Dedicated public recipe. Retain the physical robot/pallet/forklift cell;
  * use the other half of the room for observable carton transfers. */
@@ -56,6 +57,8 @@ function buildPublicDemoScene({THREE,schema,document,roomId,scene,base,ConveyorA
   document.setProperty(base.pickup,'name','04 · recogida de pallets con montacargas');
   document.setProperty(base.destination,'name','06 · despacho de pallets completos');
   patch(base.palletizer,{palletizeLimit:8});
+  document.setTransform(base.vehicle,{position:traffic.HOME.position.slice(),rotation:[0,traffic.HOME.yaw,0]});
+  patch(base.vehicle,{waypointsJson:traffic.waypoints(config(base.vehicle).sourceId,config(base.vehicle).outputId)});
 
   const rack=add('palletQueue','DEMOSTRACIÓN · rack doble de tres niveles A01 / R01','selective',Object.assign({},schema.warehouseRacks.defaults('selective'),{
     running:true,withPanel:false,rackBays:2,rackLevels:3,rackColumns:2,rackBayWidth:3,rackBaseHeight:.3,rackLevelHeight:1.25,rackSlotDepth:1.1,
@@ -83,14 +86,15 @@ function buildPublicDemoScene({THREE,schema,document,roomId,scene,base,ConveyorA
     part('Supervisión · anclaje superior del monitor','#314954',[-8.65,ceilingY-.025,z],[.24,.05,.24],[solid()]);
   }
 
-  const floor=document.addIndustrialFloorPresentation(roomId,{type:'industrialFloor',version:1,bounds:[-9,-10,15,12.5],floorY:0,
+  const floor=document.addIndustrialFloorPresentation(roomId,{...traffic.markings(),type:'industrialFloor',version:1,bounds:[-9,-10,15,12.5],floorY:0,
     walkways:[[-7.6,-9.5,-6,8.4],[-6,6.4,10.4,8.4],[8.4,8.4,10.4,10]],
     zones:[[-2.7,-4.3,6.5,2.6],[-5.5,-5.8,-3.2,1.7],[4.4,-8.4,11.7,-4.6],[-1.5,-7.6,1.7,-5.9]],bays:[[7.5,3,11.5,5.8]],crossings:[[8,5.5,11,6.4]],
     arrows:[[-6.8,-8,Math.PI],[-6.8,-3,Math.PI],[-6.8,3,Math.PI],[-3.5,7.4,-Math.PI/2],[2,7.4,-Math.PI/2],[7,7.4,-Math.PI/2],[9.4,9.1,Math.PI]],
-    texts:['02 PALETIZADO','01 LLEGADA DE CAJAS','05 ALMACEN A01','06 DESPACHO','INGRESO','SALIDA','RUTA PEATONAL','04 RECOGIDA','SUPERVISION Y CONTROL'],
-    labels:[[1.3,2.1,0,3,.45,8],[-4.3,-7.4,0,3.5,.45,9],[8,-4.7,0,3,.45,10],[9.4,5.4,0,3.4,.4,11],[-4.3,-9.2,0,2,.4,12],[9.4,9.2,0,2,.4,13],[1.5,7.9,0,3.8,.4,14],[5,2,0,2.2,.35,15],[-6.8,-6.8,Math.PI/2,3.4,.35,16]],
-    signs:[[-5.8,5.7,0,0,4],[6.7,3.6,0,1,6]]});
-  document.setProperty(floor,'name','DEMOSTRACIÓN · áreas y recorrido peatonal');additions.push(floor);
+    texts:['02 PALETIZADO','01 LLEGADA DE CAJAS','05 ALMACEN A01','06 DESPACHO','INGRESO','SALIDA','RUTA PEATONAL','04 RECOGIDA','SUPERVISION Y CONTROL','R1 RECOGIDA','R2 ALMACEN','R3 DESPACHO','ALTO','RUTA MONTACARGAS','PUESTO INICIAL','PASO LENTO'],
+    labels:[[1.3,2.1,0,3,.45,8],[-4.3,-7.4,0,3.5,.45,9],[8,-4.7,0,3,.45,10],[9.4,5.4,0,3.4,.4,11],[-4.3,-9.2,0,2,.4,12],[9.4,9.2,0,2,.4,13],[1.5,7.9,0,3.8,.4,14],[5,2,0,2.2,.35,15],[-6.8,-6.8,Math.PI/2,3.4,.35,16],
+      [9.1,-1.35,0,2,.25,17],[7.8,-3,0,2.3,.35,18],[9.2,2.4,0,2.3,.35,19],[8.6,0,Math.PI/2,.9,.3,20],[12.6,-.4,Math.PI/2,2.2,.3,21],[12.4,3.35,0,2.6,.25,22],[12.4,-4.15,0,1.9,.25,23]],
+    signs:[[-5.8,5.7,0,0,4],[6.35,3.8,0,1,6],[14.45,-2.8,-Math.PI/2,1,18],[14.45,2.7,-Math.PI/2,1,19],[14.45,.2,-Math.PI/2,1,23]]});
+  document.setProperty(floor,'name','DEMOSTRACIÓN · rutas R1/R2/R3 y recorrido peatonal');additions.push(floor);
   const doors=[];
   for(const [x,z,label,color,angle]of [[-4.3,-10,'INGRESO · RECEPCIÓN','#2c847b',95],[9.4,10,'SALIDA · DESPACHO','#336f95',-95]]){
     part('CEDI · explanada de '+label,'#657071',[x,-.06,z+Math.sign(z)*1.25],[6,.12,2.5],[solid(),schema.defaultBehavior('teleport'),finish('#657071')]);
@@ -115,14 +119,15 @@ function buildPublicDemoScene({THREE,schema,document,roomId,scene,base,ConveyorA
     message('Inicio · recepción','Comienza en el monitor suspendido junto al ingreso. En RECEPCIÓN elige tipología y cantidad, prepara el lote y autoriza su entrada. En CONTROL puedes operar cada máquina. Las mercancías salen por DESPACHO, al extremo opuesto.',[-6,1.6,-8.8]),
     message('Llegada y recepción de cajas','Las unidades que autorices pasan por banda, rodillos, curva y descarga hasta el robot. El panel permite inspeccionar las tipologías admitidas, pausar las llegadas y retirar cargas libres de recepción.',[-5.3,1.6,2.2]),
     message('Una célula de paletizado','El robot agrupa las cajas recibidas en pallets de cuatro. Puedes cerrar un pallet parcial desde el panel cuando el robot libere la carga. Se conservan las mismas cajas y su masa. Observa desde fuera de la demarcación.',[-2.65,1.6,1.8]),
-    message('Recogida y transporte','Sube y arranca. Usa la cámara junto al plano para insertar ambas horquillas en los huecos. Eleva para tomar el peso. Transporta bajo y con suavidad; una frenada o inclinación incorrecta pueden hacer caer la carga. En el destino baja hasta apoyar y retrocede. No hay botones de tomar o depositar.',[5.7,1.6,2.9]),
-    message('Almacén A01 / R01','Doce ubicaciones reales en tres niveles alcanzables por este montacargas. Acerca el pallet a un hueco libre, nivela y baja hasta que descanse en las vigas. Después retrocede para retirar las horquillas. También puedes llevarlo a DESPACHO.',[7.8,1.6,-3.8]),
+    message('Recogida y transporte','Agarra y gira el volante con izquierda o derecha. Gatillo derecho: acelerar. Izquierdo: frenar. A derecho: avance/reversa detenido y con el acelerador suelto. R1: recogida; R2: almacén; R3: despacho. Inserta las horquillas y eleva; baja hasta apoyar y retíralas para dejar el pallet. Transporta bajo y con suavidad.',[14.7,1.6,1.2]),
+    message('Almacén A01 / R01','Doce ubicaciones reales en tres niveles alcanzables por este montacargas. Acerca el pallet a un hueco libre, nivela y baja hasta que descanse en las vigas. Después retrocede para retirar las horquillas. También puedes llevarlo a DESPACHO.',[14.7,1.6,-4.1]),
     message('Fin · despacho','Lleva el pallet a la zona DESPACHO, inspecciónalo en el panel y confirma Expedir para registrar su salida. La puerta está alineada con esta zona, al extremo opuesto de recepción. Puedes iniciar otro lote sin reiniciar el escenario.',[11,1.6,8.6]),
     message('Embalaje manual','Toma por contacto y gira la muñeca: usa Agarre del mando, o cierra los dedos con manos libres. Caja de 12 kg: dos manos. Introduce hasta 12 botellas desde arriba; puedes volver a sacarlas. Mueve los pallets cargados con el montacargas.',[.1,2.2,-7.55],1.4)
   ];
+  for(const index of [3,4])document.setTransform(messages[index],{rotation:[0,-Math.PI/2,0]});
   const studio=document.studio||{},existingIds=new Set(document.getObjects(roomId).map(object=>object.userData.editorId));
   document.setStudio({groups:(studio.groups||[]).map(group=>Object.assign({},group,{members:group.members.filter(id=>existingIds.has(id))})).concat({id:'public-demo-transfer-hall',name:'Demostración · transferencia de cajas y recorrido',roomId,members:additions.map(object=>object.userData.editorId)})});
   base.objects.push(...additions);base.conveyors.push(...belts);base.sources.push(source);base.receivers.push(rack);base.links.push(...transferLinks);
-  return Object.assign(base,{publicDemo:true,transfer:{source,belts,receiver,expectedUnits:8},rack,stock:rackStock[0],rackStock,rackLayout,monitors:[dashboard],dashboard,doors,messages,packingBox,packingUnits,twoHandBox,floorPresentation:floor});
+  return Object.assign(base,{publicDemo:true,transfer:{source,belts,receiver,expectedUnits:8},rack,stock:rackStock[0],rackStock,rackLayout,monitors:[dashboard],dashboard,doors,messages,packingBox,packingUnits,twoHandBox,floorPresentation:floor,traffic});
 }
 module.exports={buildPublicDemoScene};

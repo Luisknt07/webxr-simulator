@@ -805,6 +805,7 @@ function syncXRControllers(frame, delta) {
   if (!context.vrMode || !renderer.xr.getSession) return;
   const session = renderer.xr.getSession();
   if (!session || !session.inputSources) return;
+  context.xrPoseSequence=(context.xrPoseSequence||0)+1;
   // Three r112 maps target-ray Groups by the current inputSources index. If
   // the first hand disconnects, the remaining hand moves to index zero without
   // receiving a connected event. Reconcile the app registry with that same map.

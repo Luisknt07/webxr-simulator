@@ -2,7 +2,7 @@
 
 const VERSION = 1;
 const LABELS = ['PRODUCCIÓN', 'CARGA', 'DESCARGA', 'INSPECCIÓN', 'PEATONES', 'ACOPIO', 'PRECAUCIÓN', 'MANTENER LIBRE'];
-const LIMITS = {walkways: 32, zones: 64, bays: 16, arrows: 96, labels: 48, signs: 16, crossings: 8};
+const LIMITS = {walkways: 32, zones: 64, bays: 16, arrows: 96, labels: 48, signs: 16, crossings: 8, vehicleLanes:24,vehicleArrows:96,vehicleStops:16};
 const point = (value, length) => {
   if (!Array.isArray(value) || value.length !== length || value.some(number => !Number.isFinite(number) || Math.abs(number) > 10000)) throw new Error('Coordenadas de señalización del piso inválidas.');
   return value.map(number => Object.is(number, -0) ? 0 : number);
@@ -19,10 +19,10 @@ function normalize(value) {
   Object.keys(LIMITS).forEach(key => {
     const entries = value[key] || []; if (!Array.isArray(entries) || entries.length > LIMITS[key]) throw new Error('Demasiadas marcas de piso: ' + key + '.');
     result[key] = entries.map(entry => {
-      if (['walkways', 'zones', 'bays', 'crossings'].includes(key)) return rectangle(entry);
-      const tuple = point(entry, key === 'arrows' ? 3 : key === 'labels' ? 6 : 5);
+      if (['walkways', 'zones', 'bays', 'crossings','vehicleLanes','vehicleStops'].includes(key)) return rectangle(entry);
+      const arrow=key==='arrows'||key==='vehicleArrows',tuple = point(entry, arrow ? 3 : key === 'labels' ? 6 : 5);
       const label = key === 'labels' ? tuple[5] : tuple[4];
-      if (key !== 'arrows' && (!Number.isInteger(label) || !labels[label])) throw new Error('Rótulo de piso desconocido.');
+      if (!arrow && (!Number.isInteger(label) || !labels[label])) throw new Error('Rótulo de piso desconocido.');
       if (key === 'labels' && (tuple[3] < .25 || tuple[3] > 8 || tuple[4] < .12 || tuple[4] > 3)) throw new Error('Tamaño del rótulo de piso inválido.');
       if (key === 'signs' && (!Number.isInteger(tuple[3]) || tuple[3] < 0 || tuple[3] > 2)) throw new Error('Tipo de señal vertical inválido.');
       return tuple;
@@ -75,15 +75,28 @@ function createVisual(THREE, input, canvasFactory) {
   // Real slab joints are deliberately narrow/dark, without a glossy coating.
   for (let x = Math.ceil(left / 4) * 4; x < right; x += 4) quad('joint', x, (back + front) / 2, .018, front - back, y + .003);
   for (let z = Math.ceil(back / 4) * 4; z < front; z += 4) quad('joint', (left + right) / 2, z, right - left, .018, y + .003);
+  // Road paint shares the existing indexed material batches. At a junction,
+  // omit internal rectangle edges so a connected lane has no false barriers.
+  for(const lane of plan.vehicleLanes){
+    rect('joint',lane,y+.005);
+    for(const [axis,fixed,from,to,normal]of [[0,lane[0],lane[1],lane[3],-1],[0,lane[2],lane[1],lane[3],1],[1,lane[1],lane[0],lane[2],-1],[1,lane[3],lane[0],lane[2],1]]){
+      const breaks=[from,to];for(const other of plan.vehicleLanes)for(const value of axis===0?[other[1],other[3]]:[other[0],other[2]])if(value>from&&value<to)breaks.push(value);breaks.sort((a,b)=>a-b);
+      for(let i=1;i<breaks.length;i++){const a=breaks[i-1],b=breaks[i];if(b-a<1e-5)continue;const x=axis===0?fixed+normal*.02:(a+b)/2,z=axis===0?(a+b)/2:fixed+normal*.02;
+        if(plan.vehicleLanes.some(other=>other!==lane&&x>=other[0]&&x<=other[2]&&z>=other[1]&&z<=other[3]))continue;
+        quad('yellow',axis===0?fixed:(a+b)/2,axis===0?(a+b)/2:fixed,axis===0?.075:b-a,axis===0?b-a:.075,y+.012);
+      }
+    }
+  }
   plan.walkways.forEach(box => { rect('walkway', box, y + .006); border(box, 'white', y + .010, .055); });
   plan.zones.forEach(box => border(box, 'yellow', y + .012, .085));
   plan.bays.forEach(box => { border(box, 'yellow', y + .013, .085); const w = box[2] - box[0], d = box[3] - box[1]; for (const side of [-1, 1]) quad('yellow', (box[0] + box[2]) / 2 + side * w * .25, (box[1] + box[3]) / 2, .045, d - .2, y + .013); });
   plan.crossings.forEach(box => { const width = box[2] - box[0], depth = box[3] - box[1], count = Math.max(3, Math.floor(width / .5)); for (let index = 0; index < count; index++) quad('white', box[0] + width * (index + .5) / count, (box[1] + box[3]) / 2, Math.min(.28, width / count * .58), depth, y + .016); });
-  plan.arrows.forEach(([x, z, yaw]) => {
-    quad('white', x + .12 * Math.sin(yaw), z + .12 * Math.cos(yaw), .14, .72, y + .019, yaw);
+  for(const [key,entries]of [['white',plan.arrows],['yellow',plan.vehicleArrows]])entries.forEach(([x, z, yaw]) => {
+    quad(key, x + .12 * Math.sin(yaw), z + .12 * Math.cos(yaw), .14, .72, y + .019, yaw);
     const cosine = Math.cos(yaw), sine = Math.sin(yaw), rotate = (dx, dz) => [x + dx * cosine + dz * sine, y + .019, z - dx * sine + dz * cosine];
-    polygon('white', [rotate(-.34, -.20), rotate(.34, -.20), rotate(0, -.70)]);
+    polygon(key, [rotate(-.34, -.20), rotate(.34, -.20), rotate(0, -.70)]);
   });
+  plan.vehicleStops.forEach(box=>rect('white',box,y+.021));
   const atlasUV = index => { const x = index % 4 / 4, top = Math.floor(index / 4) * 128 / atlasHeight, height = 128 / atlasHeight; return [[x, 1 - top], [x, 1 - top - height], [x + .25, 1 - top - height], [x + .25, 1 - top]]; };
   plan.labels.forEach(([x, z, yaw, width, depth, label]) => quad('atlasWhite', x, z, width, depth, y + .023, yaw, atlasUV(label)));
   const box = (x, z, width, height, depth, base) => {

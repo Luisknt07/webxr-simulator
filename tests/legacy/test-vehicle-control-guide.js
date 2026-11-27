@@ -7,7 +7,7 @@ const guide = new Guide(), definitions = Guide.actions.filter(value => !value.co
 assert(Object.isFrozen(Guide.actions) && Guide.actions.every(Object.isFrozen));
 assert.equal(new Set(Guide.actions.map(value => value.action)).size, Guide.actions.length);
 assert.equal(new Set(definitions.map(value => value.code + ':' + value.shift)).size, definitions.length, 'One key combination names one action.');
-const expected = {powerOn:'B',start:'V',powerOff:'Shift+B',stop:'Shift+V',pause:'Shift+P',parkingBrake:'P',emergency:'Y',resetEmergency:'Shift+Y',pickup:'G',release:'K',depositIntent:'Shift+K',couple:'I',uncouple:'Shift+I',horn:'H',lights:'N',forkCamera:'C',forkCameraMode:'Shift+C',forkCameraSide:'Shift+N',rearView:'Shift+R',view:'M',mode:'Shift+M',dockingHelp:'Shift+H',holographicGuide:'Shift+G',guidanceNext:'Shift+J',cursor:'Tab',exit:'F'};
+const expected = {driveDirection:'Shift+F',powerOn:'B',start:'V',powerOff:'Shift+B',stop:'Shift+V',pause:'Shift+P',parkingBrake:'P',emergency:'Y',resetEmergency:'Shift+Y',pickup:'G',release:'K',depositIntent:'Shift+K',couple:'I',uncouple:'Shift+I',horn:'H',lights:'N',forkCamera:'C',forkCameraMode:'Shift+C',forkCameraSide:'Shift+N',rearView:'Shift+R',view:'M',mode:'Shift+M',dockingHelp:'Shift+H',holographicGuide:'Shift+G',guidanceNext:'Shift+J',cursor:'Tab',exit:'F'};
 for (const definition of definitions) {
   assert.equal(definition.key, definition.action==='quickStart'?'Enter':expected[definition.action]); assert.equal(Guide.shortcut({code:definition.code,shiftKey:definition.shift}), definition.action);
   for (const modifier of ['ctrlKey','altKey','metaKey','repeat','isComposing']) assert.equal(Guide.shortcut({code:definition.code,shiftKey:definition.shift,[modifier]:true}),null);

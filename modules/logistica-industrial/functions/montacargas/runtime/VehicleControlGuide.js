@@ -6,6 +6,7 @@ const hold = (action, label, code, key, vr, capability = '') =>
   Object.freeze({action, label, code, key, shift: false, vr, section: 'movement', capability, continuous: true});
 const ACTIONS = Object.freeze([
   command('quickStart','Arrancar y conducir','Enter','Enter','Botón Arrancar y conducir de la cabina'),
+  command('driveDirection','Sentido RV · avance / reversa','KeyF','Shift+F','A derecho, detenido y con el gatillo derecho suelto','operation',true,'naturalDrive'),
   command('powerOn', 'Encender', 'KeyB', 'B', 'Botón Encender de la cabina'),
   command('start', 'Marcha', 'KeyV', 'V', 'Botón Marcha de la cabina'),
   command('powerOff', 'Apagar', 'KeyB', 'Shift+B', 'Botón Apagar de la cabina', 'operation', true),
@@ -52,6 +53,7 @@ const BY_ACTION = new Map(ACTIONS.map(value => [value.action, value]));
 // Short labels are presentation only. Full action names remain available in
 // accessible labels, tooltips, instructions and the physical-control runtime.
 const PRESENTATION = Object.freeze({
+  driveDirection:['Sentido RV','D/R'],
   powerOn: ['Encender', '⏻'], start: ['Marcha', '▷'], powerOff: ['Apagar', '⏻'], stop: ['Detener', '■'], pause: ['Pausa', 'Ⅱ'],
   parkingBrake: ['Freno P', 'Ⓟ'], emergency: ['Emergencia', '!'], resetEmergency: ['Rearmar', '↺'],
   pickup: ['Tomar', '↥'], release: ['Depositar', '↧'], depositIntent: ['Preparar', '▱'], couple: ['Acoplar', '⇥'], uncouple: ['Separar', '⇤'],
@@ -69,6 +71,7 @@ function axisEnabled(key, features, config) { return features[key] === true && (
 function supported(definition, features, config) {
   const key = definition.capability;
   if (!key) return true;
+  if (key === 'naturalDrive') return !!(features.forks&&config.naturalHandling!==false);
   if (key === 'cargo') return !!(features.forks || features.platform);
   if (key === 'hitch') return !!(features.hitch || config.maxTowKg > 0);
   if (key === 'hydraulics') return Object.keys(HYDRAULICS).some(key => axisEnabled(key, features, config));

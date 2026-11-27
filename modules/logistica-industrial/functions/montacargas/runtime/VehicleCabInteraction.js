@@ -9,6 +9,7 @@ const visible = object => {for (let node = object; node; node = node.parent) if 
 const pressed = (hand,control=hand.control||hand.hover) => {
   if(hand.source.hand){
     const contact=hand.controller.userData.xrHandContact;if(!contact||!contact.valid)return false;
+    if(control&&control.kind==='wheel'&&contact.grasping)return true;
     if(contact.pinching)return true;
     // A real pinch around a 40 mm knob cannot close to the empty-air 25 mm
     // gesture threshold. Use measured pads around this one physical control;
@@ -85,7 +86,15 @@ export default class VehicleCabInteraction {
   syncLabels() {this.labels.sync(!!this.driving.id && !this.driving.blocked(), this.hands);}
   pose(hand) {
     // A lost gripSpace pose must release the control, never reuse a stale hand.
-    if (hand.source.hand) {const contact=hand.controller.userData.xrHandContact;return contact&&contact.valid&&hand.data.grip&&visible(hand.data.grip)?hand.data.grip:null;}
+    if (hand.source.hand) {
+      const contact=hand.controller.userData.xrHandContact,grip=hand.data.grip;if(!contact||!contact.valid||!grip||!visible(grip))return null;
+      // Follow the measured palm without overwriting any tracked joint.
+      if(contact.grasping&&!contact.pinching&&contact.graspMatrix){
+        if(!hand.graspPose){hand.graspPose=new THREE.Object3D();hand.graspPose.matrixAutoUpdate=false;}
+        hand.graspPose.matrix.fromArray(contact.graspMatrix);if(grip.parent){grip.parent.updateWorldMatrix(true,false);hand.graspPose.matrix.premultiply(grip.parent.matrixWorld);}return hand.graspPose;
+      }
+      return grip;
+    }
     if (hand.data.grip && hand.source.gripSpace) return visible(hand.data.grip) ? hand.data.grip : null;
     return hand.data.grip && visible(hand.data.grip) ? hand.data.grip : visible(hand.data.controller) ? hand.data.controller : null;
   }
@@ -112,6 +121,10 @@ export default class VehicleCabInteraction {
   }
   local(control, point) {return point.clone().applyMatrix4(control.inverse).sub(control.origin);}
   angle(control, point) {const local = this.local(control, point); return Math.atan2(local.dot(control.v), local.dot(control.u));}
+  wheelOrientation(hand,control){
+    if(!hand.wheelPose)hand.wheelPose={position:new THREE.Vector3(),scale:new THREE.Vector3(),frame:new THREE.Quaternion(),local:new THREE.Quaternion(),previous:new THREE.Quaternion(),delta:new THREE.Quaternion()};
+    const p=hand.wheelPose,pose=this.pose(hand);control.frame.decompose(p.position,p.frame,p.scale);pose.getWorldQuaternion(p.local);p.local.premultiply(p.frame.inverse());return p;
+  }
   distance(control, point) {
     const descriptor = control.descriptor;
     if (control.kind !== 'wheel' || descriptor.gripOnly) return descriptor.grip ? descriptor.grip.getWorldPosition(new THREE.Vector3()).distanceTo(point) : control.object.getWorldPosition(new THREE.Vector3()).distanceTo(point);
@@ -157,8 +170,9 @@ export default class VehicleCabInteraction {
       const angle = 2 * Math.atan2(twist, relative.w), wrapped = Math.atan2(Math.sin(angle), Math.cos(angle));
       if (Number.isFinite(wrapped)) control.value = clamp(wrapped / (control.descriptor.maxAngle || 1.25));
     }
-    hand.control = control; control.owner = hand; hand.startPoint = this.local(control, point); hand.lastLocal = hand.startPoint.clone();
+    hand.control = control; control.owner = hand;hand.lastControlSample=undefined; hand.startPoint = this.local(control, point); hand.lastLocal = hand.startPoint.clone();
     hand.lastAngle = this.angle(control, point); hand.rotation = control.value * (control.descriptor.maxAngle || 1.25);
+    if(control.kind==='wheel'){const pose=this.wheelOrientation(hand,control);pose.previous.copy(pose.local);}
     if(control.kind==='button'){control.repeatAt=0;this.pressButton(control);}
     if(control.kind==='pedal')this.setValue(control,1);
     this.haptic(hand, .25); return true;
@@ -185,6 +199,11 @@ export default class VehicleCabInteraction {
     if (control.kind === 'wheel') {
       const angle = this.angle(control, point); let delta = angle - hand.lastAngle;
       if (delta > Math.PI) delta -= Math.PI * 2; if (delta < -Math.PI) delta += Math.PI * 2;
+      const pose=this.wheelOrientation(hand,control);pose.delta.copy(pose.previous).inverse().premultiply(pose.local);pose.previous.copy(pose.local);
+      const twist=2*Math.atan2(pose.delta.x*control.axis.x+pose.delta.y*control.axis.y+pose.delta.z*control.axis.z,pose.delta.w),wrist=Math.atan2(Math.sin(twist),Math.cos(twist));
+      // Rim travel is authoritative. A wrist twist also turns the wheel when
+      // the grip stays in place; the two rotation samples are never added.
+      if(Math.abs(delta)<.012&&Math.abs(wrist)>Math.max(.004,Math.abs(delta)))delta=wrist;
       if (Math.abs(delta) > Math.PI / 2) {this.release(hand); return;}
       const limit = descriptor.maxAngle || 1.25; hand.rotation = Math.max(-limit, Math.min(limit, hand.rotation + delta)); control.value = hand.rotation / limit; hand.lastAngle = angle;
     } else control.value = clamp(local.clone().sub(hand.startPoint).dot(control.axis) / (descriptor.travel || .13));
@@ -203,7 +222,7 @@ export default class VehicleCabInteraction {
     const r=this.driving.record(),v=r&&r.components.vehicle;
     for(const c of this.controls){
       if(c.kind==='lever'||c.kind==='pedal'){
-        const sign=c.descriptor.inputSign===undefined?(c.channel==='lift'?-1:1):c.descriptor.inputSign,value=c.kind==='pedal'?(v&&v.powered&&v.running&&!v.emergency?Math.max(0,input[c.channel]||0):0):(input[c.channel]||0)*sign;
+        const sign=c.descriptor.inputSign===undefined?(c.channel==='lift'?-1:1):c.descriptor.inputSign,value=c.kind==='pedal'?(v&&v.powered&&v.running&&!v.emergency?(c.channel==='throttle'?Math.abs(input.throttle||0):Math.max(0,input[c.channel]||0)):0):(input[c.channel]||0)*sign;
         c.object.userData.cabDisplayValue=value;
         if(!c.owner)this.poseValue(c,value);
       }
@@ -245,7 +264,12 @@ export default class VehicleCabInteraction {
         this.consumedSources.add(hand.source);
         if (!this.take(hand, nearest, point)) hand.grabBlocked = true;
       }
-      if (hand.control && grip) {this.consumedSources.add(hand.source); this.updateControl(hand, point);}
+      if (hand.control && grip) {
+        this.consumedSources.add(hand.source);
+        // Physics may advance several times for one measured XR pose. Reusing
+        // the held value prevents the moving cab from steering its own wheel.
+        if(this.ctx.xrPoseSequence===undefined||hand.lastControlSample!==this.ctx.xrPoseSequence){this.updateControl(hand,point);hand.lastControlSample=this.ctx.xrPoseSequence;}
+      }
       // A second hand cannot steal a control or turn its blocked grip into a
       // cargo action. A new release/press is required after the owner lets go.
       if (grip && (nearest||ambiguous) && !hand.control) this.consumedSources.add(hand.source);

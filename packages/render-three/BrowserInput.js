@@ -167,6 +167,7 @@ export default class BrowserInput {
     const flight = this.syncFlightMode();
     if ((!this.walkAllowed() || ctx.drivingVehicle || ctx.vrMode) && (this.keys.size || this.pointers.size || this.flightPointers.size || this.axes.x || this.axes.y || this.axes.z)) this.reset();
     if (ctx.vrMode && session) {
+      ctx.xrPoseSequence=this.xrPoseSequence=(this.xrPoseSequence||0)+1;
       this.controllers.forEach((controller, index) => {
         const source = session.inputSources[index], previous = this.ray.controllers.find(data => data.controller === controller);
         updateXRGrip(ctx.renderer, controller, source, frame, delta);

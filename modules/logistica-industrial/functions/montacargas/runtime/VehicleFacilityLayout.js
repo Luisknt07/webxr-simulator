@@ -4,7 +4,7 @@ const MACHINE_TYPES = ['conveyor', 'source', 'processor', 'palletQueue', 'robot'
 const LIMIT = 200, MESH_LIMIT = 600, POINT_LIMIT = 128, LOCATION_LIMIT = 256;
 const C = {background: '#10232e', floor: '#193441', grid: '#274854', wall: '#52717b', text: '#ecf6f7', muted: '#a7c0c7',
   conveyor: '#55a1bd', source: '#58ab8a', processor: '#869eae', palletQueue: '#547eac', robot: '#e39d58', vehicle: '#bdcbd0',
-  walkway: '#27534f', bay: '#2c4145',
+  walkway: '#27534f', bay: '#2c4145',traffic:'#354547',
   product: '#d7c59a', pickup: '#39d9ed', drop: '#ffc34d', ready: '#70e3b1', blocked: '#f17f87', outline: '#10252e'};
 const TYPE_LABELS = {conveyor: 'Banda', source: 'Carga', processor: 'Proceso', palletQueue: 'Almacén', robot: 'Robot', vehicle: 'Vehículo', bay: 'Pallet a piso'};
 const shown = object => { for (let node = object; node; node = node.parent) if (!node.visible) return false; return !!object; };
@@ -95,11 +95,11 @@ export default class VehicleFacilityLayout {
       if (!node || !shown(node) || helper(node) || excluded.has(node) || budget.value <= 0 || actors.length >= LIMIT) return;
       const descriptor = node.userData && node.userData.editorDescriptor;
       if (descriptor && descriptor.type === 'industrialFloor') {
-        for (const [key, type] of [['walkways', 'walkway'], ['bays', 'bay']]) for (const [index, row] of (descriptor[key] || []).slice(0, 80).entries()) {
+        for (const [key, type] of [['vehicleLanes','traffic'],['walkways', 'walkway'], ['bays', 'bay']]) for (const [index, row] of (descriptor[key] || []).slice(0, 80).entries()) {
           if (actors.length >= LIMIT) break;
           if (!Array.isArray(row) || row.length < 4 || !row.slice(0, 4).every(finite)) continue;
           const points = [[row[0], row[1]], [row[2], row[1]], [row[2], row[3]], [row[0], row[3]]].map(point => { this.scratch.set(point[0], descriptor.floorY || 0, point[1]).applyMatrix4(node.matrixWorld); return [this.scratch.x, this.scratch.z]; });
-          actors.push(Object.freeze({id: (node.userData.editorId || node.uuid) + ':' + type + ':' + index, type, name: type === 'walkway' ? 'Pasillo peatonal' : 'Demarcación de pallet', points: freezePoints(points), state: ''}));
+          actors.push(Object.freeze({id: (node.userData.editorId || node.uuid) + ':' + type + ':' + index, type, name: type==='traffic'?'Ruta montacargas':type === 'walkway' ? 'Pasillo peatonal' : 'Demarcación de pallet', points: freezePoints(points), state: ''}));
         }
       }
       if (node.geometry) {

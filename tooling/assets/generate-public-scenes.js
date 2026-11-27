@@ -3,6 +3,7 @@ const __layout = require("../layout.cjs");
 const fs = require('node:fs'), path = require('node:path'), THREE = require('three');
 const schema = require('../../modules/logistica-industrial/contracts/behaviors'), {POLICY, PUBLIC_DEMO, project} = require('../../projects/smarttwin/public-scenes');
 const {buildPublicDemoScene} = require('../../projects/smarttwin/PublicDemoScene.cjs');
+const publicTraffic=require('../../projects/smarttwin/PublicDemoTraffic.cjs');
 const read = file => fs.readFileSync(__layout.map(path.join(__layout.oldDir("scripts/generate-public-scenes.js"), '..', file)), 'utf8').replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
 const dependencies = require('../../tests/support/load-robot-prefabs')(THREE);
 const factory = new Function('THREE', 'behaviorSchema', 'require', read("modules/logistica-industrial/functions/presentacion/runtime/IndustrialPrefabs.js") + '\nreturn createIndustrialPrefab;')(THREE, schema, dependencies.resolve);
@@ -23,15 +24,7 @@ function authorPublicAdvisoryRoute(document, roomId) {
   if (!truck) throw new Error('La demostración pública no contiene su montacargas.');
   const vehicle = truck.behaviors.find(value => value.type === 'vehicle');
   if (vehicle.mode !== 'manual' || !vehicle.sourceId || !vehicle.outputId || !rows.some(row => row.id === vehicle.sourceId && row.behaviors.some(value => value.type === 'conveyor')) || !rows.some(row => row.id === vehicle.outputId && row.behaviors.some(value => value.type === 'palletQueue'))) throw new Error('La ruta pública necesita su banda y sus bahías originales.');
-  // Home-relative chassis staging points: in this transfer cell these are
-  // (9.4,0) -> (8.4,0) pickup, then back to (9.4,0) -> (9.4,1.5) delivery.
-  // Exact pocket/support alignment remains the real target's docking guide.
-  vehicle.waypointsJson = JSON.stringify([
-    {x:0,z:0,action:'drive'},
-    {x:0,z:1,action:'pickup',targetId:vehicle.sourceId},
-    {x:0,z:0,reverse:true},
-    {x:1.5,z:0,action:'drop',targetId:vehicle.outputId}
-  ]);
+  vehicle.waypointsJson=publicTraffic.waypoints(vehicle.sourceId,vehicle.outputId);
   return vehicle;
 }
 async function generate(root = __layout.map(path.resolve(__layout.oldDir("scripts/generate-public-scenes.js"), '..')), options = {}) {

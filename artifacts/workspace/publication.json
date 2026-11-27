@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "57105d307ceb92a5997a75f1f0946c80f7595296",
-  "bundleSha256": "45ae59e7b1d4a82ebe7c1d662aa3d8ab59a48c9f0109a13d94b735388c890d10",
+  "revision": "04ba3636360c853004962608f6f7ae39e7a9f36c",
+  "bundleSha256": "e05e4c15cea08feebafc1eb52c0f43f012183bf4437ff604722dd5418f1093d7",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "45ae59e7b1d4a82ebe7c1d662aa3d8ab59a48c9f0109a13d94b735388c890d10"
+      "sha256": "e05e4c15cea08feebafc1eb52c0f43f012183bf4437ff604722dd5418f1093d7"
     },
     {
       "path": "cad-worker.js",
@@ -3600,7 +3600,7 @@
     },
     {
       "path": "practice-configuration-preview.js",
-      "sha256": "ad95f54aa7bb34c3a9c20ad7f84bc8a7b4049cbe55c3d0cf7441895e7d5baa64"
+      "sha256": "9d51299c0dde2d9e0d9bd62c5ac56fbcd769b663451b619c7e6639993ee32ab0"
     },
     {
       "path": "projects/smarttwin/branding/apple-touch-icon-114x114.png",
@@ -3924,7 +3924,7 @@
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-dispatch.json",
-      "sha256": "13d1366b5a17a59867a508a45d27550f20eb5400a08cd3d4be46451103f7bc0b"
+      "sha256": "58cb311afef12e13161da6b6976ca49bd80dea01e3a664e25b3838c7e6102861"
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-transfer.json",
@@ -3949,8 +3949,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "a30ffa86a442bd5a0a14",
-    "statsSha256": "9796831f7fe92b5dee468f41f8b7f9f742a7ea18c67eaa39faa4337899f17921",
+    "hash": "1a75ef5f426ffd0f55d5",
+    "statsSha256": "e4189e6f54a5ea3bdf92fc62d91f3784668e8aa8f5be7656b5ae1c2e9903e874",
     "assets": [
       {
         "path": "13.js",
@@ -3982,7 +3982,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7413741
+        "size": 7419150
       },
       {
         "path": "configurable-practice-reference.js",
@@ -4018,7 +4018,7 @@
       },
       {
         "path": "practice-configuration-preview.js",
-        "size": 3178819
+        "size": 3179571
       },
       {
         "path": "receiving-video-guide.js",
