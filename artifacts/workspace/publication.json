@@ -2,7 +2,7 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "f906af193c7b0dbe34ba2c2c985129b022ca2358",
+  "revision": "17af60e31a9a6ace1bced42664ff6f81eaf0bdfd",
   "bundleSha256": "7b69a0a0f8a54ec67fb7b9868e1e547ac5a556490f7137839cdc044a7f4c1e98",
   "scenes": [
     "advanced-packing",
@@ -3924,7 +3924,7 @@
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-dispatch.json",
-      "sha256": "bcb6f7aa1b8a1b59c809432386f25bbe3d534b94743c54c002c8e42b1c44ed9b"
+      "sha256": "5794e600ae7e16b9b03e3ad23f2979f40f1806f13dbf65fd55fdbe845f1bad1e"
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-transfer.json",
@@ -3950,7 +3950,7 @@
   "compilation": {
     "compiler": "workspace",
     "hash": "8d8fd817c231c111ec2c",
-    "statsSha256": "4a900952ce3bc46b99ae0a57ce26b66c65b013d63c229afac36c8e12a39dd116",
+    "statsSha256": "26bd7ff266c6fdacd19e57b53330fdc037dc9bbe7c0816f8ee04ac405f8ba797",
     "assets": [
       {
         "path": "13.js",

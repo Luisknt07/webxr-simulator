@@ -32,12 +32,15 @@ async function run(expected){
    const pallets=[...q.d.simulation.products.values()].filter(p=>p.sourceEntry?.load?.physicalAssembly),arrivals=pallets.flatMap(p=>p.sourceEntry.members.map(entry=>entry.product.object.uuid)).sort();
    return{arrivals,metrics:q.d.operations.snapshot(),seen:q.seen.map(set=>[...set].sort()),frames:q.frames,robot:q.d.stats().robot,frameError:q.a.getStats().frameError};
   });assert.equal(report.flow.arrivals.length,8);assert.equal(report.flow.metrics.pallets,2);assert.equal(report.flow.metrics.arrived,8);for(const seen of report.flow.seen)assert.deepEqual(seen,report.flow.arrivals);assert.equal(report.flow.frameError,null);
-  report.controlDesk=await b.call(()=>{
-   const q=__scenarioQA,s=q.d.simulation,rows=[...q.a.document.additions.values()].map(row=>row.object),buttons=rows.filter(o=>q.a.document.getBehaviors(o).some(v=>v.type==='control')),source=q.d.operations.refs().source,results=[];
-   for(const action of ['stop','emergency','resetEmergency','start']){const button=buttons.find(o=>q.a.document.getBehaviors(o).some(v=>v.type==='control'&&v.command===action));q.view([button.position.x,1.6,7.1],button.getWorldPosition(new q.a.THREE.Vector3()).toArray());const ray=q.c.raycontrol;ray.execute(q.c,.016,s.time);const data=ray.controllers.find(row=>row.desktop),state=s.states.find(entry=>entry.state.colliderMesh===button).state,selected=ray.selectionEntries(data).some(entry=>entry.state===state);ray.onSelectStart({target:q.c.desktopController});ray.onSelectEnd({target:q.c.desktopController});results.push({action,selected,handTouchable:state.handTouchable,running:source.components.source.running,emergency:source.components.source.emergency});}
-   return results;
-  });assert(report.controlDesk.every(r=>r.selected&&r.handTouchable));assert(!report.controlDesk[0].running);assert(report.controlDesk[1].emergency);assert(!report.controlDesk[2].emergency&&!report.controlDesk[2].running);assert(report.controlDesk[3].running);
-  await b.call(()=>__scenarioQA.view([-3.4,1.7,8],[-3.4,1.55,5.5]));await shot('native-supervision-desk');
+  report.digitalControls=await b.call(()=>{
+   const q=__scenarioQA,s=q.d.simulation,entry=[...q.d.monitors.entries.values()][0],source=q.d.operations.refs().source,results=[];
+   const click=key=>{const region=entry.regions.find(row=>row.key===key);if(!region)throw Error('Missing digital control: '+key);const point=entry.plane.localToWorld(new q.a.THREE.Vector3(((region.x+region.width/2)/1024-.5)*.98,(.5-(region.y+region.height/2)/576)*.98,0));q.view([-3.4,1.85,7.7],point.toArray());const ray=q.c.raycontrol;ray.execute(q.c,.016,s.time);const data=ray.controllers.find(row=>row.desktop),selected=ray.selectionEntries(data).some(row=>row.state===entry.state);ray.onSelectStart({target:q.c.desktopController});ray.onSelectEnd({target:q.c.desktopController});q.d.monitors.sync('hall',0,false);return selected;};
+   if(!click('control')||entry.page!=='control')throw Error('The existing CONTROL tab is unavailable.');
+   for(const action of ['stop','emergency','resetEmergency','start']){const selected=click(action);results.push({action,selected,handTouchable:entry.state.handTouchable,running:source.components.source.running,emergency:source.components.source.emergency});}
+   click('diagram');return results;
+  });assert(report.digitalControls.every(r=>r.selected&&r.handTouchable));assert(!report.digitalControls[0].running);assert(report.digitalControls[1].emergency);assert(!report.digitalControls[2].emergency&&!report.digitalControls[2].running);assert(report.digitalControls[3].running);
+  await b.call(()=>__scenarioQA.view([-3.4,1.7,8],[-3.4,1.85,5.5]));await shot('native-suspended-monitor');
+  await b.call(()=>__scenarioQA.view([-4.3,3.15,9.4],[-3.4,3.2,5.5]));await shot('monitor-ceiling-mount');
   report.doors=await b.call(()=>{
    const q=__scenarioQA,T=q.a.THREE;q.d.setPaused(true);
    const doors=Array.from(q.a.document.additions.values()).map(row=>row.object).filter(o=>q.a.document.getBehaviors(o).some(v=>v.type==='hingeDoor'));

@@ -20,7 +20,7 @@ test('public recipe has a native dashboard, one robot, six belts, reachable stoc
  const f=fixture();try{
   const saved=await f.document.serialize(),rows=saved.rooms.hall.additions;
   const count=type=>rows.filter(row=>row.behaviors.some(b=>b.type===type)).length;
-  assert.equal(count('robot'),1);assert.equal(count('conveyor'),6);assert.equal(count('lineMonitor'),1);assert.equal(count('hingeDoor'),2);assert.equal(count('info'),6);assert.equal(count('control'),4);
+  assert.equal(count('robot'),1);assert.equal(count('conveyor'),6);assert.equal(count('lineMonitor'),1);assert.equal(count('hingeDoor'),2);assert.equal(count('info'),6);assert.equal(count('control'),0);
   assert(!rows.some(row=>row.name==='CEDI · RV pared frontal'||/guía de la práctica/.test(row.name)));
   validateDocument(saved,()=>{throw Error('No external imports');});
   assert.equal(f.built.rackLayout.cells.length,12);assert.equal(f.built.rackStock.length,4);

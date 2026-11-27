@@ -72,16 +72,12 @@ function buildPublicDemoScene({THREE,schema,document,roomId,scene,base,ConveyorA
   }
 
   const dashboard=part('Supervisión · dashboard de recepción y producción','#152d38',[-3.4,1.85,5.5],[2.8,1.575,.10],[solid(),Object.assign(schema.defaultBehavior('lineMonitor'),{targetId:source.userData.editorId,scope:'line',title:'RECEPCIÓN · PALETIZADO · DESPACHO',refreshHz:2})]);
-  part('Supervisión · soporte del dashboard','#314954',[-3.4,.55,5.5],[.16,1.1,.16],[solid()]);
-  part('Supervisión · base del dashboard','#314954',[-3.4,.06,5.5],[1,.12,.5],[solid()]);
-  part('Supervisión · placa de mandos','#314954',[-3.4,.86,5.55],[2.8,.36,.12],[solid()]);
-  const controls=[];
-  for(const [index,command]of [[0,'start'],[1,'stop'],[2,'emergency'],[3,'resetEmergency']]){
-    const button=document.addPrefab(roomId,'control',command);
-    document.setProperty(button,'name','Operación · '+({start:'Iniciar línea',stop:'Detener línea',emergency:'Emergencia',resetEmergency:'Rearmar'}[command]));
-    document.setTransform(button,{position:[-4.45+index*.7,.9,5.64],scale:[2,2,2]});
-    document.setBehaviors(button,[Object.assign(schema.defaultBehavior('control'),{targetId:source.userData.editorId,scope:'line',mode:'command',command})]);
-    controls.push(button);additions.push(button);
+  // Suspend the existing screen from the actual ceiling (underside y=5.6).
+  // Its digital CONTROL page remains the only set of monitor controls.
+  const screenTop=dashboard.position.y+dashboard.scale.y/2,ceilingY=5.6;
+  for(const x of [-4.4,-2.4]){
+    part('Supervisión · tirante de techo del monitor','#314954',[x,(screenTop+ceilingY)/2,5.5],[.065,ceilingY-screenTop,.065],[solid()]);
+    part('Supervisión · anclaje superior del monitor','#314954',[x,ceilingY-.025,5.5],[.24,.05,.24],[solid()]);
   }
 
   const floor=document.addIndustrialFloorPresentation(roomId,{type:'industrialFloor',version:1,bounds:[-9,-10,15,12.5],floorY:0,
@@ -105,7 +101,7 @@ function buildPublicDemoScene({THREE,schema,document,roomId,scene,base,ConveyorA
     title,text,presentation:'contextual',width,revealDistance:4.5,fadeDistance:.65,fadeTime:.22,gazeAngle:105,fontSize:.045
   })]);
   const messages=[
-    message('Bienvenido a la instalación','Sigue la ruta peatonal verde hasta SUPERVISIÓN. El dashboard muestra entradas, producción, estados y eventos reales. Los botones permiten iniciar, detener, enclavar emergencia y rearmar. Rearmar no pone la línea en marcha.',[-5.25,1.6,8.6]),
+    message('Bienvenido a la instalación','Sigue la ruta peatonal verde hasta SUPERVISIÓN. El dashboard muestra entradas, producción, estados y eventos reales. Su pestaña CONTROL permite iniciar, detener, enclavar emergencia y rearmar. Rearmar no pone la línea en marcha.',[-5.25,1.6,8.6]),
     message('Llegada y recepción de cajas','El lote inicial tiene ocho cajas. Pasan por banda, rodillos, curva y descarga hasta la mesa de recepción del robot. Puedes detener la línea desde el dashboard o controlar un equipo desde CONTROL.',[-5.3,1.6,2.2]),
     message('Una célula de paletizado','El robot recoge las cajas que llegaron a recepción y forma dos pallets de cuatro cajas. Conserva la identidad y la masa de cada caja. Observa desde fuera de la demarcación amarilla.',[-2.65,1.6,1.8]),
     message('Recogida y transporte','Pulsa Subir y arrancar. Conduce con el stick izquierdo y frena con el gatillo izquierdo. Frente al pallet, pulsa A: la ayuda detiene su banda y ajusta las horquillas. Junto a un hueco libre de la estantería, pulsa A de nuevo para colocarlo.',[5.7,1.6,2.9]),
@@ -115,6 +111,6 @@ function buildPublicDemoScene({THREE,schema,document,roomId,scene,base,ConveyorA
   const studio=document.studio||{},existingIds=new Set(document.getObjects(roomId).map(object=>object.userData.editorId));
   document.setStudio({groups:(studio.groups||[]).map(group=>Object.assign({},group,{members:group.members.filter(id=>existingIds.has(id))})).concat({id:'public-demo-transfer-hall',name:'Demostración · transferencia de cajas y recorrido',roomId,members:additions.map(object=>object.userData.editorId)})});
   base.objects.push(...additions);base.conveyors.push(...belts);base.sources.push(source);base.receivers.push(rack);base.links.push(...transferLinks);
-  return Object.assign(base,{publicDemo:true,transfer:{source,belts,receiver,expectedUnits:8},rack,stock:rackStock[0],rackStock,rackLayout,monitors:[dashboard],dashboard,controls,doors,messages,floorPresentation:floor});
+  return Object.assign(base,{publicDemo:true,transfer:{source,belts,receiver,expectedUnits:8},rack,stock:rackStock[0],rackStock,rackLayout,monitors:[dashboard],dashboard,doors,messages,floorPresentation:floor});
 }
 module.exports={buildPublicDemoScene};
