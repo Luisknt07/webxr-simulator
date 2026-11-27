@@ -9,7 +9,7 @@ const FAMILIES = [
   {id:'pallet-truck',name:'Transpaletas'}, {id:'tow',name:'Tractores de arrastre'}, {id:'cart',name:'Carros de transporte'}
 ];
 const DEFAULTS = {type:'vehicle',enabled:true,variant:'forklift-electric-4w',family:'counterbalance',powered:true,running:true,
-  mode:'manual',parkingBrake:true,paused:false,emergency:false,lights:false,speed:2.2,reverseSpeed:1.5,acceleration:1.2,brakeDeceleration:3,
+  mode:'manual',naturalHandling:true,parkingBrake:true,paused:false,emergency:false,lights:false,speed:2.2,reverseSpeed:1.5,acceleration:1.2,brakeDeceleration:3,
   accelerationJerk:.9,coastDeceleration:.65,steerRate:.65,steerReturnRate:.85,maxLateralAcceleration:.75,maxYawRate:.65,
   steerLimit:.9,wheelbase:1.65,track:1.05,length:2.4,width:1.25,height:2.15,wheelRadius:.28,
   mastHeight:2.1,maxLift:4,liftSpeed:.35,initialLift:0,forkBaseHeight:.085,forkLength:1.05,forkWidth:.11,forkThickness:.045,forkSpread:.56,
@@ -41,7 +41,7 @@ function defaults(id) { return Object.assign({},(getDefinition(id)||VARIANTS[1])
 const number=(key,label,min,max,step=.05)=>({key,label,input:'number',default:DEFAULTS[key],min,max,step});
 const check=(key,label)=>({key,label,input:'checkbox',default:DEFAULTS[key]});
 const select=(key,label,values)=>({key,label,input:'select',default:DEFAULTS[key],options:values.map(value=>typeof value==='string'?{value,label:value}:{value:value.id,label:value.name})});
-function fields() { return [select('variant','Tipología de vehículo',VARIANTS),select('family','Arquitectura',FAMILIES),select('mode','Operación',[{id:'manual',name:'Conducir'},{id:'automatic',name:'Ruta y misiones automáticas'}]),
+function fields() { return [select('variant','Tipología de vehículo',VARIANTS),select('family','Arquitectura',FAMILIES),select('mode','Operación',[{id:'manual',name:'Conducir'},{id:'automatic',name:'Ruta y misiones automáticas'}]),check('naturalHandling','Carga por apoyo, fricción e inercia'),
   check('powered','Alimentación'),check('running','Habilitado para operar'),check('parkingBrake','Freno de estacionamiento'),check('paused','Pausado'),check('emergency','Emergencia enclavada'),check('lights','Luces de trabajo'),
   number('speed','Velocidad máxima · m/s',.1,5),number('reverseSpeed','Velocidad en reversa · m/s',.1,3),number('acceleration','Aceleración · m/s²',.1,3),number('brakeDeceleration','Frenado · m/s²',.2,8),number('steerLimit','Giro máximo de ruedas · rad',.1,1.3),
   number('accelerationJerk','Cambio máximo de aceleración · m/s³',.2,5,.1),number('coastDeceleration','Retención al soltar acelerador · m/s²',.1,2,.1),
@@ -70,4 +70,4 @@ function supports(value={}) { const family=value.family||(getDefinition(value.va
 function getDimensions(value={}) { const c=Object.assign(defaults(value.variant||value.family),value);return Object.assign({},c,{forkHeelZ:c.family==='telehandler'?c.boomLength-c.length*.24:c.length/2,bodyTop:['pallet-truck','stacker'].includes(c.family)?c.wheelRadius*2+.2:Math.min(.85,c.height*.4),wheelZ:c.wheelbase/2,hasThreeWheels:c.variant==='forklift-electric-3w',features:supports(c)}); }
 function effectiveCapacity(value={},state={}) { const c=Object.assign(defaults(value.variant||value.family),value),center=Math.max(c.loadCenter,state.loadCenter||c.loadCenter),extension=Math.max(0,state.reach||0);const moment=c.loadCenter/(center+(c.family==='telehandler'?extension:extension*.45));const height=Math.max(.35,1-Math.max(0,(state.lift||0)-c.capacityHeightLimit)*.045);return Math.max(0,c.payloadKg*Math.min(1,moment)*height); }
 function initialPose(value={}) { const c=Object.assign(defaults(value.variant||value.family),value),pose={lift:c.family==='telehandler'?0:c.initialLift,tilt:0,reach:0,sideShift:0,turret:0,steer:0,wheelRoll:0,boomAngle:0,lights:c.lights};if(c.family==='telehandler'&&c.initialLift>0){pose.reach=Math.min(c.maxReach,c.maxBoomExtension,Math.max(0,c.initialLift/Math.sin(c.boomAngleLimit)-c.boomLength));pose.boomAngle=Math.asin(Math.min(1,c.initialLift/(c.boomLength+pose.reach)));}return pose; }
-module.exports={VERSION:1,FAMILIES,VARIANTS,DEFAULTS,variants:VARIANTS.map(value=>value.id),defaults,getDefinition,fields,parseWaypoints,normalize,validate:normalize,supports,getDimensions,effectiveCapacity,initialPose,missions,training};
+module.exports={loadPhysics:require('../runtime/VehicleLoadPhysics.cjs'),VERSION:1,FAMILIES,VARIANTS,DEFAULTS,variants:VARIANTS.map(value=>value.id),defaults,getDefinition,fields,parseWaypoints,normalize,validate:normalize,supports,getDimensions,effectiveCapacity,initialPose,missions,training};

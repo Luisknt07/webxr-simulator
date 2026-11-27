@@ -80,6 +80,7 @@ function create(THREE,runtime){
  helper.end=p=>{if(p.directGrips)for(const c of p.directGrips.keys()){runtime.held.delete(c);delete c.userData.xrHeldObject;}p.directGrips=null;p.twoGrip=null;};
  helper.options=(p,c)=>{
   const options=runtime.productCollisionOptions(p,c);
+  const fork=p.freeMotion&&p.freeMotion.forkIgnore;if(fork&&runtime.time<fork.until)options.ignore.push(fork.object);
   if(p.directGrips)for(const hand of p.directGrips.keys()){options.ignore.push(hand);const grip=hand.userData.gripObject;if(grip)options.ignore.push(grip);}
   return options;
  };
@@ -108,10 +109,10 @@ function create(THREE,runtime){
  };
  helper.fall=p=>{helper.free.add(p);p.freeMotion={velocity:p.directVelocity?p.directVelocity.clone():V(),angular:p.directAngular?p.directAngular.clone():V(),rest:0};};
  helper.physics=dt=>{
-  for(const p of helper.free){const f=p.freeMotion;if(!f||p.heldBy||p.packedInto||p.item&&(p.item.beltId||p.item.palletOwnerId)||!runtime.products.has(p.object)){helper.free.delete(p);continue;}
+  for(const p of helper.free){const f=p.freeMotion;if(!f||p.heldBy||p.vehicleOwnerId||p.robotOwnerId||p.packedInto||p.item&&(p.item.beltId||p.item.palletOwnerId)||!runtime.products.has(p.object)){helper.free.delete(p);p.freeMotion=null;continue;}
    if(f.velocity.y<=0){const placement=helper.packPlan(p);if(placement){const inverse=M().getInverse(world(placement.parent.object)),current=p.bounds.clone().applyMatrix4(inverse.multiply(world(p.object)));if(current.min.y-placement.bounds.min.y<.035){helper.pack(p,placement);continue;}}}
    f.velocity.y=Math.max(-6,f.velocity.y-9.81*dt);const w=runtime.ctx.collisionWorld;if(!w){helper.free.delete(p);continue;}const options=helper.options(p),position=p.object.getWorldPosition(V());let landed=false;
-   for(const axis of ['x','z','y']){const box=p.bounds.clone().applyMatrix4(p.object.matrixWorld),motion=V();motion[axis]=f.velocity[axis]*dt;const hit=w.sweepBox(box,motion,options);position.add(hit.movement);runtime.setProductMatrix(p,world(p.object).setPosition(position));if(hit.blocked){if(axis==='y'&&f.velocity.y<0){landed=true;f.velocity.y=Math.abs(f.velocity.y)>.55?-f.velocity.y*.10:0;f.velocity.x*=Math.max(0,1-12*dt);f.velocity.z*=Math.max(0,1-12*dt);f.angular.multiplyScalar(.7);}else f.velocity[axis]=0;}}
+   for(const axis of ['x','z','y']){const box=p.bounds.clone().applyMatrix4(p.object.matrixWorld),motion=V();motion[axis]=f.velocity[axis]*dt;const hit=w.sweepBox(box,motion,options);position.add(hit.movement);runtime.setProductMatrix(p,world(p.object).setPosition(position));if(hit.blocked){if(axis==='y'&&f.velocity.y<0){landed=true;if(p.unstableCargo&&Math.abs(f.velocity.y)>1.2)helper.spillPallet(p,f.velocity,f.angular);f.velocity.y=Math.abs(f.velocity.y)>.55?-f.velocity.y*.10:0;f.velocity.x*=Math.max(0,1-12*dt);f.velocity.z*=Math.max(0,1-12*dt);f.angular.multiplyScalar(.7);}else f.velocity[axis]=0;}}
    if(f.angular.lengthSq()>.001){const pos=V(),q=Q(),scale=V(),center=p.bounds.getCenter(V()).applyMatrix4(p.object.matrixWorld);world(p.object).decompose(pos,q,scale);const angle=Math.min(.10,f.angular.length()*dt),candidate=M().compose(pos,q.premultiply(Q().setFromAxisAngle(f.angular.clone().normalize(),angle)),scale);candidate.setPosition(pos.add(center.sub(p.bounds.getCenter(V()).applyMatrix4(candidate))));if(!w.testBox(p.bounds.clone().applyMatrix4(candidate),options))runtime.setProductMatrix(p,candidate);else f.angular.multiplyScalar(.2);}
    if(landed){const belt=runtime.findProductBelt(p,.06);if(belt&&runtime.captureProduct(p,belt)){helper.free.delete(p);continue;}f.rest=f.velocity.length()<.045&&f.angular.length()<.1?f.rest+dt:0;if(f.rest>.22){p.freeMotion=null;helper.free.delete(p);helper.sleeping.add(p);}}
    if(position.y< -10){f.velocity.set(0,0,0);helper.free.delete(p);}
@@ -180,6 +181,7 @@ function create(THREE,runtime){
   const parent=p.packedInto;if(!parent)return;const matrix=world(p.object),entry=p.sourceEntry,owner=parent.sourceEntry;parent.packing.items.delete(p);owner.members=owner.members.filter(e=>e!==entry);owner.units=owner.members.reduce((n,m)=>n+m.units,0);entry.ownerId='';runtime.sourceRuntime.entries.add(entry);p.packedInto=null;const root=runtime.document.getRoot(runtime.roomId);root.add(p.object);runtime.setProductMatrix(p,matrix);runtime.invalidateCollision(parent.object);
  };
  helper.capacity=(p,unit)=>{if(!p.packing)return 0;const a=p.packing.inner.getSize(V()).multiply(p.scale),b=unit.bounds.getSize(V()).multiply(unit.scale);return Math.min(p.packing.limit,Math.floor((a.x+.004)/(b.x+.004))*Math.floor((a.z+.004)/(b.z+.004))*Math.floor((a.y+.003)/(b.y+.003)));};
+ helper.spillPallet=(parent,velocity,angular)=>{helper.expose(parent);const owner=parent.sourceEntry;if(!owner||!owner.members)return;for(const member of [...owner.members].reverse()){const child=helper.detach(parent,member);if(!child)continue;child.directVelocity=velocity.clone().clampLength(0,5);child.directAngular=angular.clone();helper.fall(child);}parent.unstableCargo=false;};
  helper.poll=()=>{
   const input=runtime.ctx.raycontrol;if(!input)return;
   if(runtime.time>=(helper.assemblyScanAt||0)){helper.assemblyScanAt=runtime.time+.25;const eye=runtime.ctx.camera&&runtime.ctx.camera.getWorldPosition(V());for(const p of [...runtime.products.values()]){if(!eye||runtime.ctx.drivingVehicle)continue;const b=p.bounds.clone().applyMatrix4(world(p.object));if(b.distanceToPoint(eye)<2.2)helper.expose(p);}for(const [object,proxy]of helper.proxies){if(runtime.products.get(proxy.parent.object)!==proxy.parent){runtime.ctx.raycontrol.deactivateState(proxy.name);delete runtime.ctx.raycontrol.states[proxy.name];runtime.states=runtime.states.filter(s=>s.name!==proxy.name);helper.proxies.delete(object);continue;}const enabled=!runtime.ctx.drivingVehicle&&visible(proxy.parent.object)&&(!eye||proxy.product.bounds.clone().applyMatrix4(world(proxy.product.object)).distanceToPoint(eye)<2.3);proxy.state.colliderMesh=enabled?proxy.product.object:[];}}
@@ -193,6 +195,7 @@ function create(THREE,runtime){
  };
  helper.step=dt=>{
   helper.physics(dt);
+  for(const p of runtime.products.values())if(p.unstableCargo&&Y.clone().transformDirection(p.object.matrixWorld).y<.7)helper.spillPallet(p,p.freeMotion&&p.freeMotion.velocity||V(),p.freeMotion&&p.freeMotion.angular||V());
   if(runtime.time>=helper.scanAt){helper.scanAt=runtime.time+.1;for(const p of helper.sleeping){if(!runtime.products.has(p.object)||p.heldBy||p.packedInto){helper.sleeping.delete(p);continue;}const w=runtime.ctx.collisionWorld,box=p.bounds.clone().applyMatrix4(p.object.matrixWorld);if(w&&!w.sweepBox(box,new THREE.Vector3(0,-.004,0),helper.options(p)).blocked){helper.sleeping.delete(p);helper.fall(p);}}}
   for(const p of runtime.products.values())if(p.packing&&p.packing.items.size){const up=Y.clone().transformDirection(p.object.matrixWorld);if(up.y<.5)for(const child of [...p.packing.items.keys()]){const offset=child.object.getWorldPosition(V()).sub(p.object.getWorldPosition(V()));child.directVelocity=(p.directVelocity||V()).clone().add((p.directAngular||V()).clone().cross(offset)).clampLength(0,3);child.directAngular=(p.directAngular||V()).clone();helper.unpack(child);helper.fall(child);}}
  };

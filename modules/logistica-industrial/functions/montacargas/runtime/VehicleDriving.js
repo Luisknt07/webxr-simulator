@@ -200,11 +200,12 @@ export default class VehicleDriving {
       if(!v.powered||!v.running||v.paused||v.emergency)throw Error('Revisa el estado del vehículo antes de arrancar.');
       if(v.parkingBrake)send('parkingBrake',false);
       this.machineInputBlocked=false;this.externalStopLatch=false;this.guideUpdated=this.hudUpdated=-Infinity;this.updateHUD();
-      this.notify(this.ctx.vrMode?'Listo. Suelta los controles, centra el stick izquierdo y muévelo para conducir. A toma o coloca el pallet.':'Listo para conducir. Usa W/S y el volante o A/D. G toma el pallet y K lo coloca.');return true;
+      this.notify(this.naturalLoads()?'Listo para conducir. Introduce ambas horquillas y eleva para tomar el peso; baja hasta apoyar y retrocede para descargar.':this.ctx.vrMode?'Listo. Suelta los controles y centra el stick izquierdo para conducir.':'Listo para conducir. Usa W/S y el volante o A/D.');return true;
     }catch(error){this.resetInput();this.notify(error.message);return false;}
   }
   command(action) {
     const record = this.record(); if (!record) return false;
+    if(this.naturalLoads()&&['pickup','release','depositIntent'].includes(action)){this.notify('Introduce ambas horquillas y eleva para tomar; baja hasta el apoyo y retíralas para depositar.');return false;}
     if (this.blocked()) { this.notify('Cierra el menú o reanuda la simulación para usar la cabina.'); return false; }
     try { if(action==='quickStart')return this.quickStart();if(action==='practicePreparation')return this.openPracticePreparation(); if (action === 'mode') { this.mode = (this.mode + 1) % MODES.length; this.updateHUD(); return true; } if (action === 'exit') return this.unmount();
       if (action === 'cursor') return this.toggleCursor();
@@ -289,8 +290,8 @@ export default class VehicleDriving {
         else {
           if (!physical) {
             if (this.mode === 0) { input.lift = -y; input.tilt = x; } else if (this.mode === 1) { input.reach = -y; input.sideShift = x; } else { input.lift = -y; input.turret = x; }
-            if (this.xrControlMode === 'controllers' && grip && !state.grip) this.command(this.record().components.vehicle.entry ? 'release' : 'pickup');
-            if (primary && !state.primary) {
+            if (!this.naturalLoads()&&this.xrControlMode === 'controllers' && grip && !state.grip) this.command(this.record().components.vehicle.entry ? 'release' : 'pickup');
+            if (primary && !state.primary&&!this.naturalLoads()) {
               state.primary = true;
               const vehicle = this.record().components.vehicle, features = this.features();
               const action = features.hitch && !features.forks && !features.platform ? (vehicle.trailerId ? 'uncouple' : 'couple') : (vehicle.entry ? 'release' : 'pickup');
@@ -454,7 +455,8 @@ export default class VehicleDriving {
     if(this.options.keepCabWarm){this.cab.reset();this.docking.suspend();if(this.worldPanel)this.worldPanel.plane.visible=false;}else{this.cab.clear();this.docking.unmount();this.removeWorldPanel();} this.frontVisibility.unmount(); this.holographicGuide.unmount(); this.id = null; this.seat = null; this.saved = null; this.visualRoot = null; this.cabLayoutRig = this.cabLayout = null; ctx.drivingVehicle = null; if (ctx.resetCollisionPose) ctx.resetCollisionPose(); this.updateHUD(); return true;
   }
   features() { const record = this.record(); return record ? vehicles.supports(record.components.vehicle.config) : {}; }
-  definitions() { const record = this.record(),values=record ? VehicleControlGuide.definitions(this.features(), record.components.vehicle.config) : [];return this.ctx.vrMode&&this.ctx.graphics&&this.ctx.graphics.hints&&this.ctx.graphics.hints.standaloneXR?values.filter(value=>!['forkCamera','forkCameraMode','forkCameraSide','rearView'].includes(value.action)):values; }
+  naturalLoads(){const record=this.record();return !!(record&&record.components.vehicle.config.naturalHandling!==false&&this.features().forks);}
+  definitions() { const record = this.record(),values=record ? VehicleControlGuide.definitions(this.features(), record.components.vehicle.config) : [],local=this.options.facilityView&&this.options.facilityView.inspection;return this.ctx.vrMode&&this.ctx.graphics&&this.ctx.graphics.hints&&this.ctx.graphics.hints.standaloneXR?values.filter(value=>!(local?['rearView']:['forkCamera','forkCameraMode','forkCameraSide','rearView']).includes(value.action)):values; }
   updateGuide(force = false) {
     const record = this.record(); if (!record) return;
     const vehicle = record.components.vehicle, entry = vehicle.entry, now = this.simulation.time || 0;
@@ -479,6 +481,7 @@ export default class VehicleDriving {
     this.cab.setGuidance(this.ctx.vrMode ? channel : null);
   }
   controlButton(action, parent) {
+    if(this.naturalLoads()&&['pickup','release','depositIntent'].includes(action))return null;
     const dom = this.document, definition = VehicleControlGuide.actions.find(value => value.action === action);
     if (!definition) return null;
     const button = dom.createElement('button'); button.type = 'button';
@@ -645,8 +648,8 @@ export default class VehicleDriving {
     c.fillStyle = '#eff6fb'; text(Number(v.actualSpeed || 0).toFixed(2) + ' m/s · ' + Number(v.loadKg || 0).toFixed(0) + ' kg · ' + (v.enabled===false ? 'PREPARACIÓN PENDIENTE' : !v.powered ? 'APAGADO' : v.emergency ? 'EMERGENCIA' : v.running ? 'MARCHA' : 'PARADO') + ' · Freno ' + (v.parkingBrake ? 'P' : 'libre'), 28, 81, 965, 25, 1);
     c.fillStyle = '#f1d286'; text(next.title || 'Siguiente paso', 28, 120, 960, 26, 1);
     c.fillStyle = '#edf5f8'; text(next.instruction, 28, 154, 955, 24, full ? 1 : 2);
-    if (!full&&!needsStart) { c.fillStyle = '#a9c5cf'; text(this.xrControlMode === 'cab' ? 'Stick izquierdo: avanzar, retroceder y girar. Gatillo izquierdo: frenar. A: tomar / colocar pallet cercano. También puedes agarrar volante y palancas.' : 'Sticks: conducir/hidráulica · GRIP der.: carga · GRIP izq.: frenar. X: freno P · A: carga · B: bajar · Y: menú.', 28, 215, 960, 23, 3); }
-    const definitions = this.definitions().filter(value => !value.continuous && !['view', 'cursor', 'forkCameraSide', 'forkCameraMode'].includes(value.action) && (value.action !== 'depositIntent' || record.components.vehicle.entry));
+    if (!full&&!needsStart) { c.fillStyle = '#a9c5cf'; text(record.components.vehicle.config.naturalHandling!==false?'Inserta ambas horquillas y eleva. Para dejar la carga, baja hasta el apoyo y retrocede. Stick izquierdo: conducir. Gatillo izquierdo: frenar. Palancas: elevación, inclinación y lateral.':this.xrControlMode === 'cab' ? 'Stick izquierdo: conducir. Gatillo izquierdo: frenar. A: tomar / colocar pallet.' : 'Sticks: conducir/hidráulica · GRIP der.: carga · GRIP izq.: frenar.', 28, 215, 960, 23, 3); }
+    const definitions = this.definitions().filter(value => !value.continuous && !['view', 'cursor'].includes(value.action) && (value.action !== 'depositIntent' || record.components.vehicle.entry));
     const supported = new Set(definitions.map(value => value.action));
     const startAction=v.operatorInterlock?(!v.powered?'powerOn':!v.running||v.paused?'start':'parkingBrake'):'quickStart';
     let actions = full ? definitions.map(value => [value.action, value.label]) : [v.emergency?'resetEmergency':needsStart?startAction:'parkingBrake', record.components.vehicle.entry ? this.options.assistedLoads?'release':this.operatorIntent === 'deposit' ? 'release' : 'depositIntent' : 'pickup', 'emergency', 'exit'].filter(action => supported.has(action)).map(action => [action, VehicleControlGuide.actions.find(value => value.action === action).label]);

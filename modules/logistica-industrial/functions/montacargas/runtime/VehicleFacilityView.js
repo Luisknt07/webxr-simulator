@@ -7,7 +7,7 @@ export default class VehicleFacilityView {
  constructor(ctx){
   this.ctx=ctx;this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#aebbb9');this.rows=new Map();this.materials=new Map();this.scanned=-Infinity;
   this.scene.add(new THREE.HemisphereLight(0xffffff,0x71817d,1.05));const sun=new THREE.DirectionalLight(0xffffff,.7);sun.position.set(-15,40,20);this.scene.add(sun);
-  this.stats={meshes:0,candidates:0,scans:0,truncated:false};
+  this.stats={meshes:0,candidates:0,scans:0,truncated:false};this.inspectionRows=new Map();this.inspectionScene=new THREE.Scene();this.inspectionScene.background=new THREE.Color('#aebbb9');this.inspectionScene.add(new THREE.HemisphereLight(0xffffff,0x71817d,1.1));this.inspectionScanned=-Infinity;
  }
  material(source,floor){
   if(floor)return source;
@@ -38,5 +38,17 @@ export default class VehicleFacilityView {
   return this.scene;
  }
  getStats(){return {...this.stats};}
- dispose(){for(const row of this.rows.values())this.scene.remove(row.mesh);this.rows.clear();for(const material of this.materials.values())material.dispose();this.materials.clear();}
+ inspection(world,driving,frame){
+  const record=driving.record(),rig=record&&driving.simulation.vehicleRuntime.rig(record);if(!rig)return this.inspectionScene;
+  const product=frame&&frame.product,target=frame&&frame.placement&&driving.simulation.records.get(frame.placement.targetId),key=(product&&product.object.uuid||'')+':'+(target&&target.id||''),now=typeof performance==='undefined'?Date.now():performance.now(),focus=rig.forks.getWorldPosition(new THREE.Vector3());
+  if(key!==this.inspectionKey||now-this.inspectionScanned>300){this.inspectionKey=key;this.inspectionScanned=now;const sources=[],seen=new Set(),cap=112;let triangles=0;
+   for(const root of [rig.forks,product&&product.object,target&&target.object])if(root)root.traverse(source=>{if(seen.has(source)||!source.isMesh||!source.geometry||source.userData.editorRuntimeHelper||source.userData.editorGeometryReplaced)return;seen.add(source);source.updateWorldMatrix(true,false);if(target&&root===target.object){if(!source.geometry.boundingBox)source.geometry.computeBoundingBox();if(source.geometry.boundingBox.clone().applyMatrix4(source.matrixWorld).distanceToPoint(focus)>3)return;}sources.push(source);});
+   const selected=[];for(const source of sources){const count=(source.geometry.index?source.geometry.index.count:source.geometry.attributes.position.count)/3;if(selected.length>=cap||triangles+count>120000)continue;triangles+=count;selected.push(source);}const keep=new Set(selected);
+   for(const [source,mesh]of this.inspectionRows)if(!keep.has(source)){this.inspectionScene.remove(mesh);this.inspectionRows.delete(source);}
+   for(const source of selected){let mesh=this.inspectionRows.get(source);if(mesh&&mesh.geometry!==source.geometry){this.inspectionScene.remove(mesh);this.inspectionRows.delete(source);mesh=null;}if(!mesh){const material=Array.isArray(source.material)?source.material.map(m=>this.material(m,false)):this.material(source.material,false);mesh=source.isInstancedMesh?new THREE.InstancedMesh(source.geometry,material,source.count):new THREE.Mesh(source.geometry,material);mesh.matrixAutoUpdate=false;mesh.name='Inspección nativa · '+source.name;if(source.isInstancedMesh)mesh.instanceMatrix=source.instanceMatrix;this.inspectionScene.add(mesh);this.inspectionRows.set(source,mesh);}}
+   this.inspectionStats={meshes:selected.length,triangles,maxMeshes:cap};
+  }
+  for(const [source,mesh]of this.inspectionRows){source.updateWorldMatrix(true,false);mesh.matrix.copy(source.matrixWorld);mesh.matrixWorldNeedsUpdate=true;mesh.visible=!!source.parent;if(source.isInstancedMesh)mesh.count=source.count;}return this.inspectionScene;
+ }
+ dispose(){for(const row of this.rows.values())this.scene.remove(row.mesh);this.rows.clear();for(const mesh of this.inspectionRows.values())this.inspectionScene.remove(mesh);this.inspectionRows.clear();for(const material of this.materials.values())material.dispose();this.materials.clear();}
 }

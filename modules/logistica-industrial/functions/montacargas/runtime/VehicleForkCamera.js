@@ -104,7 +104,7 @@ export default class VehicleForkCamera {
   switchSide() { this.side *= -1; this.elapsed = Infinity; this.nextFeed = 0; return this.side; }
   setMode(value) { if (!['isometric', 'entry', 'tips'].includes(value)) return false; this.setRearView(false); this.mode = value; this.elapsed = Infinity; this.nextFeed = 0; return true; }
   toggleMode() { const modes = ['isometric', 'entry', 'tips']; this.setMode(modes[(modes.indexOf(this.mode) + 1) % modes.length]); return this.mode; }
-  setRearView(value) { const next = value ? 'mirror' : 'front'; if (next !== this.selectedFeed) {this.release('switching-view'); this.selectedFeed = next;} this.elapsed = Infinity; return this.selectedFeed === 'mirror'; }
+  setRearView(value) { if(value&&this.lightweightXR())return false;const next = value ? 'mirror' : 'front'; if (next !== this.selectedFeed) {this.release('switching-view'); this.selectedFeed = next;} this.elapsed = Infinity; return this.selectedFeed === 'mirror'; }
   toggleRearView() { return this.setRearView(this.selectedFeed !== 'mirror'); }
   getStats() { return Object.assign({}, this.stats, {enabled: this.enabled, targetAllocated: !!this.target, mirrorTargetAllocated: !!this.mirrorTarget, totalFrames: this.stats.frames, mounted: this.mounted, side: this.side, mode: this.mode, selectedFeed: this.selectedFeed, hasCurrentFrame: this.hasCurrentFrame(), framePhase: this.framing && this.framing.phase || '', placementId: this.framing && this.framing.placement && this.framing.placement.targetId || ''}); }
   dropPlacement(record) {
@@ -147,6 +147,7 @@ export default class VehicleForkCamera {
     };
     const profile = {width: fitted(this.element, minimum, maximum), fps: economy ? 8 : high ? 15 : 12, pixelRatio: dpr, gpuBudgetBytes: (xr ? 12 : 32) * 1024 * 1024};
     profile.mirrorWidth = profile.width;
+    if(!this.facility&&this.driving.options&&this.driving.options.facilityView&&this.driving.options.facilityView.inspection){samples=0;profile.width=Math.min(profile.width,xr?640:832);profile.mirrorWidth=profile.width;profile.fps=xr?5:8;}
     if (xr) profile.fps = Math.min(10, profile.fps);
     const aspect=this.facility?this.facility.projection.plot.width/this.facility.projection.plot.height:ASPECT;
     if(this.facility)profile.fps=Math.min(profile.fps,this.driving.options&&this.driving.options.facilityView?xr?1:2:xr?4:6);
@@ -162,7 +163,7 @@ export default class VehicleForkCamera {
   active() {
     // A complete second world pass can stall the standalone compositor even
     // at a small resolution. Quest uses direct head views and the 2D plan.
-    if(this.lightweightXR()&&!(this.facility&&this.driving.options&&this.driving.options.facilityView))return false;
+    if(this.lightweightXR()&&!(this.driving.options&&this.driving.options.facilityView&&(this.facility||this.driving.options.facilityView.inspection&&this.selectedFeed==='front')))return false;
     const driving = this.driving, record = driving.record(), document = driving.document, xr = this.renderer && this.renderer.xr, session = xr && xr.getSession && xr.getSession();
     return !!(this.mounted && (this.enabled||this.facility) && this.available && !this.lost && !this.failed && this.renderer && driving.id && record && shown(record.object) && driving.visualRoot && driving.visualRoot.userData.vehicleRig && driving.visualRoot.userData.vehicleRig.forks && !this.ctx.roomTransition && !(this.ctx.editor && this.ctx.editor.active) && (!document || !document.hidden || this.ctx.vrMode) && (!this.ctx.vrMode || session && (!session.visibilityState || session.visibilityState === 'visible')));
   }
@@ -452,9 +453,9 @@ export default class VehicleForkCamera {
     const saved = this.saveState(), savedFog=scene.fog, started = typeof performance === 'undefined' ? Date.now() : performance.now();
     try {
       this.resources(profile, name); const camera = this.facility?this.frameFacility():name === 'front' ? (this.frame(this.driving.docking && this.driving.docking.snapshot), this.camera) : (this.frameMirror(), this.mirrorCamera);
-      this.hideHelpers(name); if(this.facility)scene.fog=null; if (name === 'front'&&!this.facility) this.prepareDropOverlay(scene); if (renderer.xr) renderer.xr.enabled = false; renderer.autoClear = true; if (renderer.shadowMap) { renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; } if (renderer.info) renderer.info.autoReset = false;
-      const view=this.facility&&this.driving.options&&this.driving.options.facilityView;
-      renderer.setRenderTarget(name === 'front' ? this.target : this.mirrorTarget); renderer.setScissorTest(false); renderer.render(view?view.sync(scene):scene, camera); this.elapsed = 0; this.lastFrameKey = frameKey; this.rendered.add(name); this.stats.frames++; this.stats[name === 'front' ? 'frontFrames' : 'mirrorFrames']++; this.stats.lastFeed = name; this.stats.status = 'active'; return true;
+      const view=this.driving.options&&this.driving.options.facilityView,local=!this.facility&&name==='front'&&view&&view.inspection?view.inspection(scene,this.driving,this.framing):null;
+      if(!local)this.hideHelpers(name); if(this.facility)scene.fog=null; if (name === 'front'&&!this.facility) this.prepareDropOverlay(local||scene); if (renderer.xr) renderer.xr.enabled = false; renderer.autoClear = true; if (renderer.shadowMap) { renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false; } if (renderer.info) renderer.info.autoReset = false;
+      renderer.setRenderTarget(name === 'front' ? this.target : this.mirrorTarget); renderer.setScissorTest(false); renderer.render(this.facility&&view?view.sync(scene):local||scene, camera); this.elapsed = 0; this.lastFrameKey = frameKey; this.rendered.add(name); this.stats.frames++; this.stats[name === 'front' ? 'frontFrames' : 'mirrorFrames']++; this.stats.lastFeed = name; this.stats.status = 'active'; return true;
     } catch (_) { this.stats.failures++; this.failed = true; this.release('unavailable'); this.elapsed = 0; return false; }
     finally {
       scene.fog=savedFog;if (this.dropVisual) this.dropVisual.root.visible = false; if (this.hidden) { this.hidden.forEach(([node, visible]) => { node.visible = visible; }); this.hidden = null; } this.restoreState(saved);

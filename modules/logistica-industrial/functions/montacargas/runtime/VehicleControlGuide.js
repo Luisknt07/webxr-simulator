@@ -84,7 +84,7 @@ function controls(action, xr, features) {
 export default class VehicleControlGuide {
   static get actions() { return ACTIONS; }
   static presentation(action) {const value = PRESENTATION[action], definition = BY_ACTION.get(action); return {label: value ? value[0] : definition && definition.label || action, icon: value ? value[1] : '•'};}
-  static definitions(features = {}, config = {}) { return ACTIONS.filter(value => supported(value, features, config)); }
+  static definitions(features = {}, config = {}) { return ACTIONS.filter(value => supported(value, features, config)&&!(features.forks&&config.naturalHandling===true&&['pickup','release','depositIntent'].includes(value.action))); }
   static shortcut(event = {}) {
     const target = event.target || {};
     if (event.ctrlKey || event.altKey || event.metaKey || event.repeat || event.isComposing || target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || '')) return null;
@@ -128,6 +128,11 @@ export default class VehicleControlGuide {
       finite(pose.lift) ? pose.lift : finite(vehicle.liftHeight) ? vehicle.liftHeight : finite(vehicle.lift) ? vehicle.lift : 0;
     const carry = Math.min(finite(config.maxLift) ? config.maxLift : Infinity, finite(config.carryLift) ? config.carryLift : .25);
     if (attached && speed > .6 && (stability.raised || lift > .6 || stability.turnSpeedLimited)) return model('slow', 'Reduce la velocidad', 'Mantén una marcha lenta con carga elevada o durante el giro.', 'brake', 'La carga elevada reduce la estabilidad.', true);
+    if(config.naturalHandling===true&&features.forks){
+      if(vehicle.loadContact&&['sliding','unstable'].includes(vehicle.loadContact.stability))return model('load-sliding','Carga inestable','Frena suavemente, baja la carga y corrige la inclinación. Una frenada o un giro brusco pueden hacerla caer.','brake',vehicle.warning,true);
+      if(attached){if(docking&&docking.destination||intent==='deposit')return model('natural-lower','Apoyar para descargar','Baja y nivela hasta que el pallet descanse en el soporte; después retrocede para retirar las horquillas.','liftDown',reason,stopped);if(lift>carry+.2)return model('natural-travel','Bajar antes de circular','Baja a la altura de transporte y conserva una ligera inclinación hacia atrás.','liftDown',reason,stopped);return model('natural-carry','Carga apoyada en las horquillas','Conduce suavemente. En el destino, baja hasta apoyar el pallet y retrocede; no hay botón de depósito.','driveForward',reason,true);}
+      if(docking&&docking.ready)return model('natural-raise','Horquillas insertadas','Eleva suavemente hasta apoyar el pallet en ambas horquillas. Comprueba el peso y el centro de carga.','liftUp',reason,stopped);
+    }
     if (!stopped && docking && (!attached && docking.targetId || attached && (docking.destination || intent === 'deposit'))) return model('stop-to-dock', 'Detener para manipular la carga', 'Frena suavemente hasta detenerte antes de tomar o depositar.', 'brake', reason, true);
     if (attached && intent === 'transport') {
       if (overloaded) return model('capacity', 'Capacidad insuficiente', 'Mantén el vehículo detenido y busca un apoyo seguro para descargar.', null, reason);

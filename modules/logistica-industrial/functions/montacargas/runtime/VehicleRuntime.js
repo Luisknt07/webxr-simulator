@@ -14,7 +14,7 @@ function within(object,parent){for(let node=object;node;node=node.parent)if(node
 
 /** Grounded kinematic industrial trucks. No rigid-body stability certification. */
 export default class VehicleRuntime {
-  constructor(runtime){this.runtime=runtime;this.carrierMeshes=new WeakMap();}
+  constructor(runtime){this.runtime=runtime;this.carrierMeshes=new WeakMap();this.loadPhysics=vehicles.loadPhysics.create(THREE,this);}
   attach(record,component){const c=component.config;let visualRoot=record.object;record.object.traverse(node=>{if(node.userData.vehicleRig)visualRoot=node;});
     const pose=vehicles.initialPose(c);
     Object.assign(component,{enabled:true,powered:c.powered,running:c.running&&!c.emergency,parkingBrake:c.parkingBrake,paused:c.paused,emergency:c.emergency,lights:c.lights,
@@ -39,7 +39,7 @@ export default class VehicleRuntime {
       lift:this.liftHeight(v),forkHeight:height,tilt:v.pose.tilt,reach:v.pose.reach,sideShift:v.pose.sideShift,turret:v.pose.turret,steer:v.pose.steer,
       boomAngle:v.pose.boomAngle,loadKg:load?load.mass:0,capacityKg:this.capacity(v,load),payloadKg:c.payloadKg,loaded:!!v.entry,inFlight:v.entry?1:0,queued:v.entry?1:0,
       entryCount:v.received,exitCount:v.delivered,received:v.received,delivered:v.delivered,receivedUnits:v.receivedUnits,deliveredUnits:v.deliveredUnits,
-      distance:v.distance,actualAcceleration:v.longitudinalAcceleration||0,runSeconds:v.runSeconds,idleSeconds:v.idleSeconds,blockedSeconds:v.blockedSeconds,blocked:v.blocked,hydraulicMoving:v.hydraulicMoving,warning:v.warning,batteryPercent:v.batteryPercent,
+      distance:v.distance,actualAcceleration:v.longitudinalAcceleration||0,lostLoads:v.lostLoads||0,loadSlipM:v.loadContact&&v.loadContact.slipM||0,loadSupportMarginM:v.loadContact&&v.loadContact.marginM||0,loadNormalN:v.loadContact&&v.loadContact.normalN||0,runSeconds:v.runSeconds,idleSeconds:v.idleSeconds,blockedSeconds:v.blockedSeconds,blocked:v.blocked,hydraulicMoving:v.hydraulicMoving,warning:v.warning,batteryPercent:v.batteryPercent,
       hornCount:v.hornCount,trailerId:v.trailerId,towedBy:v.towedBy,family:c.family,variant:c.variant,missionStage:v.missionStage,missionStatus:v.missionStatus,waitingForLoad:v.missionWaiting==='source',waitingForCapacity:v.missionWaiting==='capacity',routeIndex:v.routeIndex,routePoints:v.route.length,missionsCompleted:v.missionsCompleted,missionObstacle:v.missionObstacle};
   }
   liftHeight(v){return v.config.family==='telehandler'?Math.max(0,(v.config.boomLength+v.pose.reach)*Math.sin(v.pose.boomAngle)):v.pose.lift;}
@@ -134,6 +134,7 @@ export default class VehicleRuntime {
   }
   pickup(record,selectedProduct,explicit=false){const v=record.components.vehicle,c=v.config,plan=this.pickupPlan(record,selectedProduct),refuse=reason=>{if(explicit&&this.runtime.vehicleTraining&&this.runtime.vehicleTraining.onAttemptFailed)this.runtime.vehicleTraining.onAttemptFailed(record,'pickup',Object.assign({},plan,{reason}));return this.warn(record,reason);};if(!plan.ready)return refuse(plan.reason);const candidate=plan.candidate,{product,metadata}=candidate,existing=product.sourceEntry,owner=existing&&this.runtime.records.get(existing.ownerId),inventory=owner&&(owner.components.source||owner.components.processor&&owner.components.processor.output);
     if(!this.applyPose(record,plan.pose,true))return refuse('No hay espacio para apoyar la carga sobre las horquillas.');
+    if(this.runtime.manualProducts){this.runtime.manualProducts.free.delete(product);this.runtime.manualProducts.sleeping.delete(product);}product.freeMotion=null;product.unstableCargo=false;
     const entry=this.runtime.sourceRuntime.entryForProduct(record,product);
     if(inventory)this.runtime.sourceRuntime.remove(owner,entry,'vehículo',inventory);
     if(owner&&owner.components.palletQueue)this.runtime.palletQueueRuntime.picked(product);
@@ -141,6 +142,7 @@ export default class VehicleRuntime {
     const beltOwner=product.item&&this.runtime.records.get(product.item.beltId),belt=beltOwner&&beltOwner.components.conveyor;if(belt){belt.packages=belt.packages.filter(item=>item!==product.item);belt.inFlight=belt.packages.length;belt.exitCount++;belt.exitUnits+=entry.units;this.runtime.packageCount--;product.item.beltId=null;}
     product.object.updateWorldMatrix(true,true);const matrix=product.object.matrixWorld.clone(),forks=this.rig(record).forks;
     entry.ownerId=record.id;entry.lineage=(entry.lineage||[]).concat(record.id).slice(-64);v.entry=entry;v.queue=[entry];v.loadCenter=candidate.loadCenter||c.loadCenter;v.loadMatrix=new THREE.Matrix4().getInverse(forks.matrixWorld).multiply(matrix);forks.add(product.object);this.runtime.setProductMatrix(product,matrix);
+    product.item.box.copy(product.bounds).applyMatrix4(matrix);product.item.previous.copy(product.item.box);product.item.swept.copy(product.item.box);
     product.vehicleOwnerId=record.id;product.object.userData.vehicleOwnerId=record.id;product.processorLocked=true;product.processorOwnerId=record.id;
     if(v.missionCandidate===product){this.unreserve(v);v.missionEntryId=entry.id;v.missionStage='carry-lift';}
     Object.defineProperty(product.object,'industrialHeld',{value:true,configurable:true,writable:true,enumerable:false});this.runtime.sourceRuntime.entries.add(entry);v.received++;v.receivedUnits+=entry.units;v.warning='';this.runtime.invalidateCollision(product.object);
@@ -314,7 +316,7 @@ export default class VehicleRuntime {
       // Brake, lift-off and a lower governed speed cut propulsive torque
       // immediately; coasting/braking then ramps without a velocity jump.
       if((brake||opposite||slowing)&&v.actualSpeed*(v.longitudinalAcceleration||0)>0)v.longitudinalAcceleration=0;
-      const magnitude=brake||opposite?c.brakeDeceleration:slowing?Math.min(c.brakeDeceleration*.45,c.coastDeceleration||.65):c.acceleration;
+      const magnitude=brake||opposite?c.brakeDeceleration:slowing?Math.min(c.brakeDeceleration*.45,c.coastDeceleration||.65):c.acceleration*(this.loadPhysics.enabled(record)?this.loadPhysics.factor(record):1);
       const wanted=Math.sign(error)*Math.min(magnitude,Math.sqrt(2*jerk*Math.abs(error)));
       v.longitudinalAcceleration=approach(v.longitudinalAcceleration||0,wanted,jerk*delta);
       const next=v.actualSpeed+v.longitudinalAcceleration*delta;
@@ -339,19 +341,19 @@ export default class VehicleRuntime {
     if(record.object.parent){next.applyMatrix4(new THREE.Matrix4().getInverse(record.object.parent.matrixWorld));nextRotation.premultiply(record.object.parent.getWorldQuaternion(new THREE.Quaternion()).inverse());}
     record.object.position.copy(next);record.object.quaternion.copy(nextRotation);record.object.updateMatrix();record.object.updateWorldMatrix(true,true);v.pose.steer=v.steering;v.pose.wheelRoll+=distance/c.wheelRadius;updateVehiclePose(v.visualRoot,v.pose);
     const world=this.runtime.ctx.collisionWorld,options=this.collisionOptions(record,v.entry&&v.entry.product),body=this.bodyBox(record),bodyMovement=body.getCenter(new THREE.Vector3()).sub(priorBody.getCenter(new THREE.Vector3()));const blocked=world&&(world.sweepBox(priorBody,bodyMovement,options).blocked||world.testBox(body,options))||!this.mechanismClear(record,priorMechanism)||!this.carry(record,true)||!this.trailerPose(record,delta);
-    if(blocked){record.object.position.copy(p);record.object.quaternion.copy(q);record.object.updateMatrix();record.object.updateWorldMatrix(true,true);v.pose.wheelRoll=oldRoll;updateVehiclePose(v.visualRoot,v.pose);this.carry(record,false);v.actualSpeed=0;v.longitudinalAcceleration=0;if(manual&&!v.blocked&&this.runtime.vehicleTraining&&this.runtime.vehicleTraining.onCollision)this.runtime.vehicleTraining.onCollision(record);v.blocked=true;return;}
+    if(blocked){if(manual)this.loadPhysics.impact(record,bodyMovement,Math.max(Math.abs(priorSpeed),Math.abs(v.actualSpeed)),delta);record.object.position.copy(p);record.object.quaternion.copy(q);record.object.updateMatrix();record.object.updateWorldMatrix(true,true);v.pose.wheelRoll=oldRoll;updateVehiclePose(v.visualRoot,v.pose);this.carry(record,false);v.actualSpeed=0;v.longitudinalAcceleration=0;if(manual&&!v.blocked&&this.runtime.vehicleTraining&&this.runtime.vehicleTraining.onCollision)this.runtime.vehicleTraining.onCollision(record);v.blocked=true;return;}
     v.blocked=false;v.distance+=Math.abs(distance);v.batteryPercent=Math.max(0,v.batteryPercent-Math.abs(distance)*c.batteryDrainPerMeter);this.syncAttachedParts(record);this.runtime.invalidateCollision(record.object);
   }
   step(delta){this.runtime.records.forEach(record=>{const v=record.components.vehicle;if(!v)return;v.hydraulicMoving=false;if(v.towedBy){const tractor=this.runtime.records.get(v.towedBy);v.actualSpeed=tractor&&tractor.components.vehicle?tractor.components.vehicle.actualSpeed:0;return;}v.elapsed+=delta;v.inputAge+=delta;if(!visible(record.object))return;if(v.paused){v.actualSpeed=0;v.longitudinalAcceleration=0;v.idleSeconds+=delta;return;}
       const manual=v.driving||this.runtime.ctx.drivingVehicle===record.id;
       const input=v.config.mode==='automatic'&&!manual?this.automatic(record,delta):v.inputAge<.3?v.input:Object.assign(zeroInput(),{brake:1});
-      if(this.operational(v)){const c=v.config,f=vehicles.supports(c),pose=Object.assign({},v.pose,{lights:v.lights});
-        if(f.boom){pose.boomAngle=clamp(pose.boomAngle+input.lift*delta*.25,-.08,c.boomAngleLimit);pose.reach=clamp(pose.reach+input.reach*delta*c.reachSpeed,0,Math.min(c.maxReach,c.maxBoomExtension));}
-        else if(f.lift)pose.lift=clamp(pose.lift+input.lift*delta*c.liftSpeed,0,c.maxLift);
-        if(f.tilt)pose.tilt=clamp(pose.tilt+input.tilt*delta*.10,-c.tiltLimit,c.tiltLimit);if(f.reach&&!f.boom)pose.reach=clamp(pose.reach+input.reach*delta*c.reachSpeed,0,c.maxReach);if(f.sideShift)pose.sideShift=clamp(pose.sideShift+input.sideShift*delta*.1,-c.maxSideShift,c.maxSideShift);if(f.turret)pose.turret=clamp(pose.turret+input.turret*delta*.4,-c.turretLimit,c.turretLimit);
+      if(this.operational(v)){this.loadPhysics.before(record,input,delta);const c=v.config,f=vehicles.supports(c),hydraulic=this.loadPhysics.enabled(record)?this.loadPhysics.factor(record):1,pose=Object.assign({},v.pose,{lights:v.lights});
+        if(f.boom){pose.boomAngle=clamp(pose.boomAngle+input.lift*delta*.25*hydraulic,-.08,c.boomAngleLimit);pose.reach=clamp(pose.reach+input.reach*delta*c.reachSpeed*hydraulic,0,Math.min(c.maxReach,c.maxBoomExtension));}
+        else if(f.lift)pose.lift=clamp(pose.lift+input.lift*delta*c.liftSpeed*hydraulic,0,c.maxLift);
+        if(f.tilt)pose.tilt=clamp(pose.tilt+input.tilt*delta*.10*hydraulic,-c.tiltLimit,c.tiltLimit);if(f.reach&&!f.boom)pose.reach=clamp(pose.reach+input.reach*delta*c.reachSpeed*hydraulic,0,c.maxReach);if(f.sideShift)pose.sideShift=clamp(pose.sideShift+input.sideShift*delta*.1*hydraulic,-c.maxSideShift,c.maxSideShift);if(f.turret)pose.turret=clamp(pose.turret+input.turret*delta*.4*hydraulic,-c.turretLimit,c.turretLimit);
         const prior=v.pose;if(this.applyPose(record,pose,true))v.hydraulicMoving=['lift','tilt','reach','sideShift','turret','boomAngle'].some(key=>Math.abs((v.pose[key]||0)-(prior[key]||0))>1e-8);
       }
-      this.drive(record,delta,input);if(v.blocked&&v.config.mode==='automatic'&&!manual){v.missionObstacle=true;v.missionStatus='Obstáculo: libera el pasillo y pulsa Marcha.';}if(v.blocked||v.missionWaiting==='capacity')v.blockedSeconds+=delta;else if(Math.abs(v.actualSpeed)>.01||v.hydraulicMoving)v.runSeconds+=delta;else v.idleSeconds+=delta;
+      this.drive(record,delta,input);this.loadPhysics.after(record,input,delta);if(v.blocked&&v.config.mode==='automatic'&&!manual){v.missionObstacle=true;v.missionStatus='Obstáculo: libera el pasillo y pulsa Marcha.';}if(v.blocked||v.missionWaiting==='capacity')v.blockedSeconds+=delta;else if(Math.abs(v.actualSpeed)>.01||v.hydraulicMoving)v.runSeconds+=delta;else v.idleSeconds+=delta;
       if(v.actualSpeed<-.05&&!vehicles.supports(v.config).manual){v.reverseElapsed+=delta;if(v.reverseElapsed>=.75){v.reverseElapsed=0;this.runtime.event(record.id,'vehicle-reverse-alarm','Aviso de reversa');}}else v.reverseElapsed=.75;
     });}
   stop(){this.runtime.records.forEach(record=>{const v=record.components.vehicle;if(!v)return;this.unreserve(v);if(v.entry&&v.entry.product)this.clearLock(v.entry.product);v.input=zeroInput();v.actualSpeed=0;v.longitudinalAcceleration=0;v.trailerId='';v.towedBy='';updateVehiclePose(v.visualRoot,v.initialPose);});}

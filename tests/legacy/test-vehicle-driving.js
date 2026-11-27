@@ -22,6 +22,8 @@ class Element {
 }
 function setup(vr = false, load = false) {
   const f = h.fixture('forklift-electric-4w', false, load), dom = new Element('document'), window = new Element('window');
+  // This fixture audits the explicitly retained legacy cargo-command profile.
+  f.v.config.naturalHandling=false;
   dom.body = new Element('body'); dom.createElement = tag => new Element(tag); dom.defaultView = window;
   const cameraRig = new THREE.Group(), camera = new THREE.PerspectiveCamera(70, 1, .05, 100);
   camera.position.set(.12, 1.65, .08); camera.rotation.set(.12, .18, .04); cameraRig.position.set(1, 0, -2); cameraRig.rotation.y = .3; cameraRig.add(camera); f.scene.add(cameraRig);

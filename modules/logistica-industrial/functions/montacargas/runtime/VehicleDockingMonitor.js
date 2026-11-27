@@ -37,10 +37,11 @@ export default class VehicleDockingMonitor {
   lightweightXR(){return !!(this.ctx.vrMode&&this.ctx.graphics&&this.ctx.graphics.hints&&this.ctx.graphics.hints.standaloneXR);}
   lightweightCab(){return !!(this.driving.options&&this.driving.options.lightweightCab);}
   facilityView(){return this.driving.options&&this.driving.options.facilityView;}
+  localInspection(){return !!(this.facilityView()&&this.facilityView().inspection);}
   schematicMap(){return !this.facilityView()&&(this.lightweightXR()||this.lightweightCab());}
   get cameraEnabled() { return this.forkCamera.enabled && this.cameraSupported; }
   toggleCamera() { if (!this.cameraSupported) return false; const enabled = this.forkCamera.setEnabled(this.forceLayout || !this.cameraEnabled);if(!enabled)this.forkCamera.setRearView(false); this.forceLayout = false; this.update(true); return enabled; }
-  toggleRearView() { if (!this.cameraSupported || this.driving.blocked()) return false; this.forceLayout = false; this.forkCamera.setEnabled(true); const rear = this.forkCamera.toggleRearView(); this.update(true); return rear; }
+  toggleRearView() { if (!this.cameraSupported || this.lightweightXR() || this.driving.blocked()) return false; this.forceLayout = false; this.forkCamera.setEnabled(true); const rear = this.forkCamera.toggleRearView(); this.update(true); return rear; }
   guidance() { return this.driving.holographicGuide || null; }
   applyHologramState(value) {
     const guide=this.guidance();
@@ -71,8 +72,7 @@ export default class VehicleDockingMonitor {
   postRender() { const result=this.forkCamera.postRender();if(this.mode==='layout'&&this.forkCamera.hasCurrentFrame()&&!this.liveMapPainted){this.paintLayout(this.facilityLayout.model);this.texture.needsUpdate=true;}this.updateCameraFallback();return result; }
   mount() {
     if(this.element&&this.preparedSeat===this.driving.seat&&this.driving.options&&this.driving.options.keepCabWarm){
-      this.cameraSupported=!!(this.driving.visualRoot&&this.driving.visualRoot.userData.vehicleRig&&this.driving.visualRoot.userData.vehicleRig.forks)&&!this.lightweightXR();
-      this.panels.hidden=false;this.forkCamera.enabled=!this.lightweightCab();this.forkCamera.setRearView(false);this.forkCamera.setFacility(null);this.lastUpdate=-Infinity;this.inspectionMode.reset();this.forceLayout=false;this.update(true);return;
+      this.cameraSupported=!!(this.driving.visualRoot&&this.driving.visualRoot.userData.vehicleRig.forks)&&(!this.lightweightXR()||this.localInspection());this.panels.hidden=false;this.forkCamera.enabled=true;this.forkCamera.setRearView(false);this.forkCamera.setFacility(null);this.lastUpdate=-Infinity;this.inspectionMode.reset();this.forceLayout=false;this.update(true);return;
     }
     this.unmount(); const dom = this.driving.document;
     if (!dom || !dom.createElement) return;
@@ -156,10 +156,10 @@ export default class VehicleDockingMonitor {
     this.plane.name = 'Monitor de alineación de cargas'; this.driving.placeCabPanel(this.plane, panelLayout.alignment);
     this.plane.userData.editorRuntimeHelper = true; this.driving.seat.add(this.plane);
     const rig = this.driving.visualRoot && this.driving.visualRoot.userData.vehicleRig;
-    this.cameraSupported = !!(rig && rig.forks && rig.config && !['tow', 'cart'].includes(rig.config.family))&&!this.lightweightXR();
+    this.cameraSupported = !!(rig && rig.forks && rig.config && !['tow', 'cart'].includes(rig.config.family))&&(!this.lightweightXR()||this.localInspection());
     if (this.cameraSupported||this.facilityView()) this.forkCamera.mount({element: this.feedViewport, parent: this.driving.seat,
       planeLayout: {front: panelLayout.front, mirror: panelLayout.mirror}});
-    if(this.lightweightCab())this.forkCamera.enabled=false;
+    this.forkCamera.enabled=true;
     const input = this.ctx.raycontrol;
     this.stateName = this.driving.simulation.statePrefix + 'vehicle-docking-monitor';
     this.state = {colliderMesh: this.plane, handTouchable: true, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
@@ -210,7 +210,7 @@ export default class VehicleDockingMonitor {
     if(y>=15&&y<=57){
       if(x>=16&&x<=246){this.toggleCamera();return true;}
       if(x>=264&&x<=494){if(!this.driving.blocked()){this.forceLayout=!this.forceLayout;this.update(true);}return true;}
-      if(x>=512&&x<=752){this.toggleRearView();return true;}
+      if(x>=512&&x<=752){if(this.lightweightXR()&&this.cameraSupported){this.forkCamera.toggleMode();this.update(true);}else this.toggleRearView();return true;}
     }
     if (this.page === 'guide' && y >= 374 && y <= 420) {
       if (x >= 16 && x <= 208 && this.guidance()) {this.toggleHologram(); return true;}
@@ -278,6 +278,7 @@ export default class VehicleDockingMonitor {
     }
     if(this.dropView&&!withdrawing){this.severity=this.dropView.severity;reason=this.dropView.instruction;}
     const phase = withdrawing ? 'RETIRADA' : data.phase === 'drop' ? 'DEPÓSITO' : 'TOMA DE PALLET';
+    if(record.components.vehicle.config.naturalHandling!==false&&!withdrawing){const contact=record.components.vehicle.loadContact;if(contact)reason='Apoyo '+({supported:'estable',sliding:'deslizándose',unstable:'inestable','near-capacity':'cerca del límite'}[contact.stability]||'por comprobar')+' · '+contact.massKg.toFixed(0)+' kg · margen '+(contact.marginM*100).toFixed(1)+' cm · deslizamiento '+(contact.slipM*100).toFixed(1)+' cm. Baja hasta apoyar y retira las horquillas.';else if(data.ready)reason='Horquillas insertadas: eleva suavemente para apoyar el pallet.';else reason=reason.replace('Pulsa K / Depositar','Baja hasta apoyar y retrocede');}
     [this.cameraButton, this.cameraModeButton, this.sideButton, this.planButton, this.rearButton].forEach(button => {button.disabled = blocked;});
     this.summary.textContent = (withdrawing ? 'RETIRADA · ' : this.severity === 'ready' ? 'LISTO · ' : this.severity === 'near' ? 'AJUSTAR · ' : 'NO DISPONIBLE · ') + reason;
     this.updateGuidance(data, blocked);
@@ -292,7 +293,7 @@ export default class VehicleDockingMonitor {
     }
     if(this.mode==='rear'){this.summary.textContent='Retrovisor · comprueba que el recorrido esté libre.';this.metrics.hidden=true;this.element.dataset.state='navigation';}
     this.element.dataset.state = this.mode==='rear'?'navigation':this.severity; this.canvas.setAttribute('aria-label', phase + '. ' + this.summary.textContent);
-    this.paint(data, phase, reason); this.texture.needsUpdate = true;
+    if(this.mode==='inspection'&&this.facilityView()){const layout=this.facilityLayout.update(record,{lesson,guide:guided,snapshot:data});this.paintLayout(layout,false);}else this.paint(data, phase, reason); this.texture.needsUpdate = true;
     this.updateCameraFallback();
     this.lastUpdate=typeof performance==='undefined'?Date.now():performance.now();
   }
@@ -334,11 +335,11 @@ export default class VehicleDockingMonitor {
     this.metrics.textContent = 'Lateral ' + measure(errors.lateralM, 100, ' cm') + ' · Altura ' + measure(errors.verticalM, 100, ' cm') + ' · Ángulo ' + measure(errors.yawRad, 180 / Math.PI, '°') + ' · Inserción ' + measure(insertion.actualM, 100, ' cm') + ' / ' + measure(insertion.requiredM, 100, ' cm');
   }
   paintScreenActions(c) {
-    if(this.lightweightXR()){c.fillStyle='#142d39';c.fillRect(0,0,WIDTH,68);c.fillStyle='#eff8fa';c.font='bold 24px sans-serif';c.fillText('PLANO DE LA INSTALACIÓN',20,32);c.font='17px sans-serif';c.fillText('Comprueba el recorrido mirando a tu alrededor.',20,56);return;}
-    const labels = ['CÁMARA AUTO ' + (this.cameraEnabled ? 'ON' : 'OFF'), 'PLANO', this.forkCamera.selectedFeed === 'mirror' ? 'HORQUILLAS' : 'RETROVISOR'];
+    if(this.lightweightXR()&&!this.cameraSupported){c.fillStyle='#142d39';c.fillRect(0,0,WIDTH,68);c.fillStyle='#eff8fa';c.font='bold 24px sans-serif';c.fillText('PLANO DE LA INSTALACIÓN',20,32);c.font='17px sans-serif';c.fillText('Comprueba el recorrido mirando a tu alrededor.',20,56);return;}
+    const labels = ['CÁMARA AUTO ' + (this.cameraEnabled ? 'ON' : 'OFF'), 'PLANO', this.lightweightXR()?'VISTA: '+({isometric:'ISO',entry:'FRONTAL',tips:'PUNTAS'}[this.forkCamera.mode]):this.forkCamera.selectedFeed === 'mirror' ? 'HORQUILLAS' : 'RETROVISOR'];
     labels.forEach((label,index)=>{const x=16+index*248;c.fillStyle=index===0&&this.cameraEnabled?'#226856':'#294551';c.fillRect(x,15,230,42);c.fillStyle='#eff8fa';c.font='bold 20px sans-serif';c.fillText(label,x+12,43);});
   }
-  paintLayout(model) {
+  paintLayout(model,liveFeed=true) {
     const c=this.context;
     let width=WIDTH,height=HEIGHT;
     const win=this.canvas.ownerDocument&&this.canvas.ownerDocument.defaultView;
@@ -350,7 +351,7 @@ export default class VehicleDockingMonitor {
     // Unlike CSS stretching, one metric scale preserves every pallet and aisle.
     if(this.canvas.width!==width)this.canvas.width=width;
     if(this.canvas.height!==height)this.canvas.height=height;
-    const lightweight=this.schematicMap(),live=!lightweight&&this.forkCamera.facility&&this.forkCamera.hasCurrentFrame();this.liveMapPainted=!!live;
+    const lightweight=this.schematicMap()||!liveFeed,live=!lightweight&&this.forkCamera.facility&&this.forkCamera.hasCurrentFrame();this.liveMapPainted=!!live;
     if(this.plan&&this.plan.dataset)this.plan.dataset.renderMode=live?'live':lightweight?'schematic':'preparing';
     this.facilityLayout.paint(c,width,height,model,{live:!!live,full:true});
     if(this.ctx.vrMode)this.paintScreenActions(c);
