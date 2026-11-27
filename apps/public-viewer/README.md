@@ -39,9 +39,12 @@ the simulation system in the generic host. Primary render, locomotion, collision
 frame boundaries and auxiliary vehicle cameras share that loop. Native XR head
 poses are never written; locomotion changes the rig. The inherited camera feed
 has one bounded auxiliary world pass per update, shared by front and rear.
-The public cab opts into `lightweightCab`: its live 2D map does not render the
-world again, and desktop inspection/rear cameras require an explicit C or
-Shift+R request. Boarding returns to the schematic with cameras off. Advisory
+The public cab opts into `lightweightCab` with a native `VehicleFacilityView`:
+its overhead map reuses the actual floor and equipment geometry in a bounded
+display scene (up to 320 meshes on desktop, 160 on Quest), without a second full-world render. Initial
+GPU work is warmed during loading; map updates cap at 2 Hz on desktop and 1 Hz
+on Quest, with no multisampling. Desktop inspection/rear cameras require an
+explicit C or Shift+R request. Boarding returns to the native overhead map. Advisory
 route sweeps are omitted in this free-play lesson; actual driving and native
 pickup/drop validation remain active. Other scenes keep their automatic views.
 

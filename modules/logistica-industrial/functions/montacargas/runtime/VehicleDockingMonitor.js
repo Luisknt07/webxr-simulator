@@ -36,7 +36,8 @@ export default class VehicleDockingMonitor {
   }
   lightweightXR(){return !!(this.ctx.vrMode&&this.ctx.graphics&&this.ctx.graphics.hints&&this.ctx.graphics.hints.standaloneXR);}
   lightweightCab(){return !!(this.driving.options&&this.driving.options.lightweightCab);}
-  schematicMap(){return this.lightweightXR()||this.lightweightCab();}
+  facilityView(){return this.driving.options&&this.driving.options.facilityView;}
+  schematicMap(){return !this.facilityView()&&(this.lightweightXR()||this.lightweightCab());}
   get cameraEnabled() { return this.forkCamera.enabled && this.cameraSupported; }
   toggleCamera() { if (!this.cameraSupported) return false; const enabled = this.forkCamera.setEnabled(this.forceLayout || !this.cameraEnabled);if(!enabled)this.forkCamera.setRearView(false); this.forceLayout = false; this.update(true); return enabled; }
   toggleRearView() { if (!this.cameraSupported || this.driving.blocked()) return false; this.forceLayout = false; this.forkCamera.setEnabled(true); const rear = this.forkCamera.toggleRearView(); this.update(true); return rear; }
@@ -156,7 +157,7 @@ export default class VehicleDockingMonitor {
     this.plane.userData.editorRuntimeHelper = true; this.driving.seat.add(this.plane);
     const rig = this.driving.visualRoot && this.driving.visualRoot.userData.vehicleRig;
     this.cameraSupported = !!(rig && rig.forks && rig.config && !['tow', 'cart'].includes(rig.config.family))&&!this.lightweightXR();
-    if (this.cameraSupported) this.forkCamera.mount({element: this.feedViewport, parent: this.driving.seat,
+    if (this.cameraSupported||this.facilityView()) this.forkCamera.mount({element: this.feedViewport, parent: this.driving.seat,
       planeLayout: {front: panelLayout.front, mirror: panelLayout.mirror}});
     if(this.lightweightCab())this.forkCamera.enabled=false;
     const input = this.ctx.raycontrol;
@@ -244,10 +245,10 @@ export default class VehicleDockingMonitor {
     if(this.plane&&this.plane.material.transparent!==(this.mode==='layout')){this.plane.material.transparent=this.mode==='layout';this.plane.material.depthWrite=this.mode!=='layout';this.plane.material.needsUpdate=true;}
     this.applyHologramState(!blocked&&this.inspectionMode.hologram);
     this.page=this.mode==='layout'?'layout':'alignment';
-    this.forkCamera.setAvailable(visible && !blocked && (!this.lightweightXR()||this.mode!=='layout'));
+    this.forkCamera.setAvailable(visible && !blocked && (!this.lightweightXR()||this.facilityView()||this.mode!=='layout'));
     if(this.mode!=='layout'&&this.forkCamera.facility)this.forkCamera.setFacility(null);
     this.feed.hidden = this.mode==='layout'; this.cameraButton.setAttribute('aria-pressed', String(!!this.cameraEnabled));
-    this.cameraButton.textContent=(this.lightweightCab()?'Cámara manual ':this.lightweightXR()?'Cámara auxiliar ':'Cámara auto ')+(this.cameraEnabled?'ON':'OFF')+' · C';
+    this.cameraButton.textContent=(this.lightweightCab()?'Inspección ':this.lightweightXR()?'Cámara auxiliar ':'Cámara auto ')+(this.cameraEnabled?'ON':'OFF')+' · C';
     this.cameraButton.title=this.schematicMap()?'Activa la cámara cuando necesites inspeccionar la carga; el plano sigue disponible durante la conducción.':'La cámara aparece cerca de la recogida o del destino; durante el trayecto se muestra el plano.';
     this.navigationTitle.textContent=this.mode==='layout'?'Plano de la instalación':this.mode==='rear'?'Retrovisor':'Inspección de carga';
     this.planButton.setAttribute('aria-pressed',String(this.forceLayout));
@@ -333,7 +334,7 @@ export default class VehicleDockingMonitor {
     this.metrics.textContent = 'Lateral ' + measure(errors.lateralM, 100, ' cm') + ' · Altura ' + measure(errors.verticalM, 100, ' cm') + ' · Ángulo ' + measure(errors.yawRad, 180 / Math.PI, '°') + ' · Inserción ' + measure(insertion.actualM, 100, ' cm') + ' / ' + measure(insertion.requiredM, 100, ' cm');
   }
   paintScreenActions(c) {
-    if(this.schematicMap()){c.fillStyle='#142d39';c.fillRect(0,0,WIDTH,68);c.fillStyle='#eff8fa';c.font='bold 24px sans-serif';c.fillText('PLANO DE LA INSTALACIÓN',20,32);c.font='17px sans-serif';c.fillText('Comprueba el recorrido mirando a tu alrededor.',20,56);return;}
+    if(this.lightweightXR()){c.fillStyle='#142d39';c.fillRect(0,0,WIDTH,68);c.fillStyle='#eff8fa';c.font='bold 24px sans-serif';c.fillText('PLANO DE LA INSTALACIÓN',20,32);c.font='17px sans-serif';c.fillText('Comprueba el recorrido mirando a tu alrededor.',20,56);return;}
     const labels = ['CÁMARA AUTO ' + (this.cameraEnabled ? 'ON' : 'OFF'), 'PLANO', this.forkCamera.selectedFeed === 'mirror' ? 'HORQUILLAS' : 'RETROVISOR'];
     labels.forEach((label,index)=>{const x=16+index*248;c.fillStyle=index===0&&this.cameraEnabled?'#226856':'#294551';c.fillRect(x,15,230,42);c.fillStyle='#eff8fa';c.font='bold 20px sans-serif';c.fillText(label,x+12,43);});
   }
@@ -356,7 +357,7 @@ export default class VehicleDockingMonitor {
     // One throttled auxiliary pass serves either the real plan or inspection.
     // The overlay uses exactly the same metric projection as the GPU camera.
     if(lightweight&&this.forkCamera.facility)this.forkCamera.setFacility(null);
-    if(model&&this.cameraSupported&&!lightweight){
+    if(model&&(this.cameraSupported||this.facilityView())&&!lightweight){
       this.forkCamera.setFacility(model,this.facilityLayout.projection,this.canvas);
       if(this.ctx.vrMode&&this.forkCamera.plane&&this.plane){
         const image=this.forkCamera.plane,g=image.geometry.parameters;

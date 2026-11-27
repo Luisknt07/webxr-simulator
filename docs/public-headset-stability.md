@@ -141,11 +141,15 @@ la ergonomía y los FPS finales requieren comprobarlos en las gafas físicas.
 
 ## Cabina en escritorio
 
-La demostración pública usa `lightweightCab` también en escritorio. El mapa 2D
-mantiene actores, pallets y ubicaciones actualizados sin volver a renderizar
-toda la instalación en una textura. Las cámaras empiezan apagadas al subir;
+La demostración pública usa `lightweightCab` también en escritorio. El plano
+mantiene la vista superior de los modelos reales mediante `VehicleFacilityView`,
+una escena de presentación que reutiliza geometría, piso y texturas originales
+sin volver a renderizar toda la instalación. Se limita a 320 mallas en escritorio
+y 160 en Quest, prepara su
+primer renderizado durante la carga y se actualiza a 2 Hz en escritorio y 1 Hz
+en Quest, sin multisampling. Las cámaras de inspección empiezan apagadas al subir;
 C permite solicitar inspección y Shift+R el retrovisor. Al volver a subir se
-restaura el plano. El resto de escenas conserva su política de cámara automática.
+restaura el plano 3D. El resto de escenas conserva su política de cámara automática.
 
 En esta demostración se omiten los barridos de recorridos de orientación de
 la cabina. Los destinos y el progreso nativo de misión siguen disponibles,
@@ -170,7 +174,7 @@ El informe compara subida, conducción con teclado nativo, tiempo entre
 fotogramas y renderizados auxiliares en Chrome D3D11 aislado en el mismo PC.
 Los resultados no representan los FPS de todos los equipos.
 
-La comparación del 26 de noviembre de 2026 midió la entrada en 401,5 ms antes
+La comparación inicial con esquema 2D del 26 de noviembre de 2026 midió la entrada en 401,5 ms antes
 y 71,4 ms después. El primer renderizado auxiliar del mapa tardaba unos 8,45 s;
 ahora no se solicita al subir. La mediana entre fotogramas durante la conducción
 pasó de 321,1 a 54 ms en este PC. Las tres nuevas subidas costaron entre 12,7 y

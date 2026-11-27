@@ -8,6 +8,7 @@ import LineMonitorSystem from '../../modules/logistica-industrial/functions/alma
 import * as THREE from 'three';
 import seedPublicDemoStock from '../../projects/smarttwin/PublicDemoStock.cjs';
 import DemoVehicleEntry from './DemoVehicleEntry.js';
+import VehicleFacilityView from '../../modules/logistica-industrial/functions/montacargas/runtime/VehicleFacilityView.js';
 import {PresentationGuard} from './SceneResilience.js';
 import BehaviorRuntime from '../../packages/tools/editor/src/BehaviorRuntime.js';
 
@@ -23,7 +24,8 @@ export const demoFunction = defineFunction({
     const ctx = scope.port('platform.scene'), document = scope.port('platform.document');
     const collision = new CollisionWorld(ctx, document); ctx.collisionWorld = collision;
     const simulation = new SimulationRuntime(ctx, document, ctx.notify);
-    const driving = new VehicleDriving(ctx, simulation, {notify: ctx.notify,keepCabWarm:true,assistedLoads:true,lightweightCab:true});
+    const facilityView=new VehicleFacilityView(ctx);
+    const driving = new VehicleDriving(ctx, simulation, {notify: ctx.notify,keepCabWarm:true,assistedLoads:true,lightweightCab:true,facilityView});
     const visuals = new IndustrialVisuals(ctx, document, simulation);
     const equipmentStudy = new EquipmentStudyViewer(ctx, document, simulation, {notify:ctx.notify});
     const monitors = new LineMonitorSystem(ctx, document, simulation);
@@ -71,7 +73,7 @@ export const demoFunction = defineFunction({
       }
     };
     // Register cleanup before any attach/start operation can throw.
-    scope.onDispose(() => {interactions.stop();vehicleEntry.dispose();monitors.dispose();equipmentStudy.dispose();driving.dispose(); visuals.dispose(); simulation.stop(); if (ctx.collisionWorld === collision) delete ctx.collisionWorld; if (ctx.demo === session) delete ctx.demo;});
+    scope.onDispose(() => {interactions.stop();vehicleEntry.dispose();monitors.dispose();equipmentStudy.dispose();driving.dispose();facilityView.dispose(); visuals.dispose(); simulation.stop(); if (ctx.collisionWorld === collision) delete ctx.collisionWorld; if (ctx.demo === session) delete ctx.demo;});
     scope.register('systems', 'logistics', session);
     // Explicit opt-in for this read-only lesson. Reuse the runtime's existing
     // rig-aware render banks and actor-local immutable microfinish pooling.

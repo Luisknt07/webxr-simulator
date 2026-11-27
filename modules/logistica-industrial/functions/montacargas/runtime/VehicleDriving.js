@@ -117,7 +117,7 @@ export default class VehicleDriving {
     finally{this.seat=seat;this.visualRoot=root;if(this.worldPanel)this.worldPanel.plane.visible=false;}
     // Compile camera/material variants during the loading screen, before an
     // immersive frame can be held up by the first new direction or monitor.
-    if(!this.ctx.vrMode&&this.ctx.renderer&&this.ctx.renderer.compile)this.ctx.renderer.compile(this.ctx.scene,this.ctx.camera);
+    if(!this.ctx.vrMode&&this.ctx.renderer&&this.ctx.renderer.compile){this.ctx.renderer.compile(this.ctx.scene,this.ctx.camera);if(this.options.facilityView){this.options.facilityView.sync(this.ctx.scene,true);this.ctx.renderer.compile(this.options.facilityView.scene,this.docking.forkCamera.camera);this.docking.forkCamera.warmFacility();}}
     return true;
   }
   mount(id) {
