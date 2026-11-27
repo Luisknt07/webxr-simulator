@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "04ba3636360c853004962608f6f7ae39e7a9f36c",
-  "bundleSha256": "e05e4c15cea08feebafc1eb52c0f43f012183bf4437ff604722dd5418f1093d7",
+  "revision": "b47d9f8f1136717dff54050cee65b8ec99b9a72e",
+  "bundleSha256": "bbe3bd56aae33a9c43ac10bea9fc43347bb39a331ecc17779a6b2b1529b5a259",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "e05e4c15cea08feebafc1eb52c0f43f012183bf4437ff604722dd5418f1093d7"
+      "sha256": "bbe3bd56aae33a9c43ac10bea9fc43347bb39a331ecc17779a6b2b1529b5a259"
     },
     {
       "path": "cad-worker.js",
@@ -112,7 +112,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "c9199a0cdbdba9fd536e605f1223dae7924e50082e54cdc298cd6bac9e838775"
+      "sha256": "b64d846d861e4818020496db3a12519fb62bb78eee87865917c4f6859c916912"
     },
     {
       "path": "logistics-documentation.js",
@@ -3949,8 +3949,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "1a75ef5f426ffd0f55d5",
-    "statsSha256": "e4189e6f54a5ea3bdf92fc62d91f3784668e8aa8f5be7656b5ae1c2e9903e874",
+    "hash": "1b05f80afd5d3c519351",
+    "statsSha256": "df5ebb87876b4ddafa955bfdc2256aa3f448283baa7de84a6c8cfa630158b19c",
     "assets": [
       {
         "path": "13.js",
@@ -3982,7 +3982,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7419150
+        "size": 7419250
       },
       {
         "path": "configurable-practice-reference.js",

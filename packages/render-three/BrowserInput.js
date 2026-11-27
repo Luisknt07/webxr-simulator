@@ -7,6 +7,7 @@ import originalNavigation from './src/OriginalNavigationAssets.cjs';
 
 const UP = new THREE.Vector3(0, 1, 0), WALK_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
 const FLIGHT_KEYS = new Set(['KeyQ', 'KeyE', 'ControlLeft', 'ControlRight']);
+const RUN_KEYS = new Set(['ShiftLeft', 'ShiftRight']);
 const clamp = value => Math.max(-1, Math.min(1, value));
 
 export default class BrowserInput {
@@ -40,7 +41,7 @@ export default class BrowserInput {
     this.listen(window, 'keydown', event => {
       const flight = this.syncFlightMode(), target = event.target;
       if (this.ctx.vrMode || this.ctx.drivingVehicle || !this.walkAllowed() || event.metaKey || event.altKey || target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable) || event.ctrlKey && !flight) return;
-      if (WALK_KEYS.has(event.code) || flight && FLIGHT_KEYS.has(event.code)) {event.preventDefault(); this.keys.add(event.code); this.flightBoost = flight && !!event.ctrlKey;}
+      if (WALK_KEYS.has(event.code) || flight && FLIGHT_KEYS.has(event.code) || !flight && RUN_KEYS.has(event.code)) {event.preventDefault(); this.keys.add(event.code); this.flightBoost = flight && !!event.ctrlKey;}
     });
     this.listen(window, 'keyup', event => {this.keys.delete(event.code); if (!event.ctrlKey || event.code === 'ControlLeft' || event.code === 'ControlRight') this.flightBoost = false;}); this.listen(window, 'blur', () => this.reset());
     this.listen(document, 'visibilitychange', () => {if (document.hidden) this.reset();});
@@ -189,8 +190,9 @@ export default class BrowserInput {
         ctx.cameraRig.position.add(this.to.sub(this.from));
       } else if (x || y) {
         ctx.camera.getWorldDirection(this.forward); this.forward.y = 0; this.forward.normalize(); this.right.crossVectors(this.forward, UP).normalize();
-        const seconds = Number.isFinite(delta) ? Math.min(.1, Math.max(0, delta)) : 0;
-        ctx.camera.getWorldPosition(this.from); this.to.copy(this.from).addScaledVector(this.forward, clamp(y) * seconds * 2).addScaledVector(this.right, clamp(x) * seconds * 2);
+        const seconds = Number.isFinite(delta) ? Math.min(.1, Math.max(0, delta)) : 0, speed = key('ShiftLeft') || key('ShiftRight') ? 4 : 2;
+        const stride = seconds * speed / Math.max(1, Math.hypot(clamp(x), clamp(y)));
+        ctx.camera.getWorldPosition(this.from); this.to.copy(this.from).addScaledVector(this.forward, clamp(y) * stride).addScaledVector(this.right, clamp(x) * stride);
         const world = ctx.collisionWorld;
         const resolved = seconds > 0 && world ? (world.moveWalkingCapsule || world.moveCapsule).call(world, this.from, this.to, {radius: .25, height: 1.65, eyeHeight: 1.65}) : this.to;
         ctx.cameraRig.position.add(resolved.clone().sub(this.from));

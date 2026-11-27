@@ -68,6 +68,7 @@ test('the exact workspace keyboard/mobile path follows floors and leaves occupie
  for(const mobile of [false,true]){const {root,world}=fixture(),camera=new T.PerspectiveCamera(),rig=new T.Group();rig.add(camera);camera.position.set(0,1.6,-.5);box(root,[4,.24,2],[0,-.12,-1]);box(root,[4,.24,2],[0,-1.27,13]);ramp(root);
   const keyboard=mobile?{}:{KeyS:true},ctx={cameraRig:rig,collisionWorld:world,...(mobile?{mobileNavigation:{consume:()=>({forward:-1,right:0})}}:{})},controls={moveForward(distance){camera.position.z-=distance;},moveRight(distance){camera.position.x+=distance;}};
   const move=new Function('THREE','context','camera','controls','keyboardState','keyboardMoveSpeed',app.slice(a,b)+'\nreturn updateKeyboardMovement;')(T,ctx,camera,controls,keyboard,2);try{
+   if(!mobile)for(const shift of ['ShiftLeft','ShiftRight']){keyboard[shift]=true;const before=camera.position.z;move(.1);assert(Math.abs(camera.position.z-before-.4)<.002,'Workspace Shift doubles walking speed while following the real ramp.');delete keyboard[shift];}
    for(let i=0;i<65;i++){world.beginFrame();move(.1);world.endFrame();}assert(Math.abs(camera.position.y-.452)<.008);assert(camera.position.z>12.4);
    for(const flag of ['drivingVehicle','vrMode']){ctx[flag]=true;const before=camera.position.clone();move(.1);assert(camera.position.equals(before),flag+' must retain control of its own camera.');ctx[flag]=false;}
   }finally{dispose(root);}

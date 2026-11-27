@@ -603,7 +603,7 @@ function onKeyDown(event) {
     return;
   }
 
-  if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(event.code) !== -1 || context.desktopFlight && ['KeyQ', 'KeyE', 'ControlLeft', 'ControlRight'].includes(event.code)) {
+  if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(event.code) !== -1 || !context.desktopFlight && ['ShiftLeft', 'ShiftRight'].includes(event.code) || context.desktopFlight && ['KeyQ', 'KeyE', 'ControlLeft', 'ControlRight'].includes(event.code)) {
     event.preventDefault();
     keyboardState[event.code] = true;
     return;
@@ -742,7 +742,8 @@ function updateKeyboardMovement(delta) {
     const resolved = context.collisionWorld ? context.collisionWorld.moveSphere(previous, desired, .25) : desired;
     camera.position.copy(camera.parent ? camera.parent.worldToLocal(resolved.clone()) : resolved); context.cameraRig.updateMatrixWorld(true); return;
   }
-  const distance = keyboardMoveSpeed * (Number.isFinite(delta) ? Math.max(0, Math.min(delta, 0.1)) : 0) /
+  const run = keyboardState.ShiftLeft || keyboardState.ShiftRight ? 2 : 1;
+  const distance = keyboardMoveSpeed * run * (Number.isFinite(delta) ? Math.max(0, Math.min(delta, 0.1)) : 0) /
     Math.max(1, Math.hypot(forward, right));
   controls.moveForward(forward * distance);
   controls.moveRight(right * distance);

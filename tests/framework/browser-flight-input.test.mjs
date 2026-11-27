@@ -42,6 +42,23 @@ function fixture(){
 const pointer=id=>({pointerId:id,button:0});
 const near=(actual,expected)=>assert(Math.abs(actual-expected)<1e-8,actual+' != '+expected);
 
+test('either held Shift doubles walking speed, releases normally, normalizes diagonals and retains real wall collisions',()=>{
+ for(const shift of ['ShiftLeft','ShiftRight']){
+  const f=fixture();try{
+   f.wall.visible=false;f.key('KeyW');let before=f.position();f.input.step(.1);near(f.position().z-before.z,-.2);
+   f.key(shift);before=f.position();f.input.step(.1);near(f.position().z-before.z,-.4);
+   f.key('KeyD');before=f.position();f.input.step(.1);near(f.position().distanceTo(before),.4);
+   f.up('KeyD');f.up(shift);before=f.position();f.input.step(.1);near(f.position().z-before.z,-.2);
+   f.key('ShiftLeft');f.key('ShiftRight');f.up('ShiftLeft');before=f.position();f.input.step(.1);near(f.position().z-before.z,-.4);
+   f.window.fire('blur');before=f.position();f.input.step(.1);assert(f.position().equals(before));f.key('KeyW');before=f.position();f.input.step(.1);near(f.position().z-before.z,-.2,'Refocusing cannot revive a held Shift.');
+   f.input.reset();f.ctx.cameraRig.position.set(0,0,0);f.wall.visible=true;f.key('KeyW');f.key(shift);for(let i=0;i<10;i++)f.input.step(.1);assert(f.position().z>-.8,'Running cannot cross the native wall.');
+  }finally{f.input.dispose();f.world.dispose();}
+ }
+ for(const flag of ['vrMode','drivingVehicle','publicDialogOpen','studioMenuOpen']){
+  const f=fixture();try{f.key('KeyS');f.key('ShiftLeft');f.ctx[flag]=true;const before=f.position();f.input.step(.1);assert(f.position().equals(before));assert.equal(f.input.keys.size,0);f.ctx[flag]=false;f.key('KeyS');f.input.step(.1);near(f.position().z-before.z,.2);}finally{f.input.dispose();f.world.dispose();}
+ }
+});
+
 test('desktop and touch walking settle down the physical ramp while flight and vehicle guards retain their own control',()=>{
  for(const touch of [false,true]){
   const f=fixture();f.wall.visible=false;f.room.remove(f.floor);f.floor.geometry.dispose();f.floor.material.dispose();
