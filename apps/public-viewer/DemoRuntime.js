@@ -23,7 +23,7 @@ export const demoFunction = defineFunction({
     const ctx = scope.port('platform.scene'), document = scope.port('platform.document');
     const collision = new CollisionWorld(ctx, document); ctx.collisionWorld = collision;
     const simulation = new SimulationRuntime(ctx, document, ctx.notify);
-    const driving = new VehicleDriving(ctx, simulation, {notify: ctx.notify,keepCabWarm:true});
+    const driving = new VehicleDriving(ctx, simulation, {notify: ctx.notify,keepCabWarm:true,assistedLoads:true});
     const visuals = new IndustrialVisuals(ctx, document, simulation);
     const equipmentStudy = new EquipmentStudyViewer(ctx, document, simulation, {notify:ctx.notify});
     const monitors = new LineMonitorSystem(ctx, document, simulation);

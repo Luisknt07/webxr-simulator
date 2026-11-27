@@ -239,7 +239,7 @@ export default class PalletQueueRuntime {
     return true;
   }
 
-  rackPlacement(record,product,reservations=[],preferredCenter,receivingIgnore,connectionOnly=false) {
+  rackPlacement(record,product,reservations=[],preferredCenter,receivingIgnore,connectionOnly=false,requestedIndex) {
     const component=record.components.palletQueue,state=component.rack,definition=state.definition;
     if(this.rackBusy(component)||component.paused||component.emergency||component.powered===false||state.presentedSlot!==null)return null;
     const metadata=this.runtime.productMetadata(product),pallet=metadata.loadMode==='pallet'||metadata.productType==='pallet';
@@ -247,7 +247,7 @@ export default class PalletQueueRuntime {
     const item=this.itemFor(product),physical=item.bounds.getSize(new THREE.Vector3()).multiply(item.scale),mass=Math.max(0,Number(metadata.mass)||0);
     const occupied=new Set(component.items.map(value=>value.palletIndex));reservations.forEach(value=>occupied.add(value.palletIndex));
     const palletId=this.palletIdentity(product),plan=this.plannedLocation(palletId),assigned=new Map((state.assignments||[]).map(row=>[row.locationCode,row.palletId]));
-    let cells=state.layout.cells.filter(cell=>!occupied.has(cell.index)&&(!plan||plan.record===record&&plan.locationCode===cell.code)&&(!assigned.has(cell.code)||assigned.get(cell.code)===palletId));
+    let cells=state.layout.cells.filter(cell=>(requestedIndex===undefined||cell.index===requestedIndex)&&!occupied.has(cell.index)&&(!plan||plan.record===record&&plan.locationCode===cell.code)&&(!assigned.has(cell.code)||assigned.get(cell.code)===palletId));
     if(definition.mechanism==='cube')cells=cells.filter(cell=>behaviorSchema.warehouseRacks.catalogueStorage.cubeSupported(state.layout.cells,component.items,cell));
     if(connectionOnly&&!this.rackAutomatic(component))cells=cells.filter(cell=>this.rackAtPort(component,cell,false));
     if(definition.mechanism==='mobile')cells=cells.filter(cell=>cell.bank===state.openAisle);
@@ -587,11 +587,11 @@ export default class PalletQueueRuntime {
     return null;
   }
 
-  placement(record, product, reservations = [], preferredCenter, markFull = false, receivingIgnore) {
+  placement(record, product, reservations = [], preferredCenter, markFull = false, receivingIgnore, requestedIndex) {
     const component = record.components.palletQueue;
     if (!component || component.queue.length + reservations.length >= component.config.capacity) return null;
     if(component.config.palletize&&(!component.pallets[0].assemblyProduct||component.pallets[0].sealed||this.runtime.productMetadata(product).loadMode==='pallet'))return null;
-    if(component.rack)return this.rackPlacement(record,product,reservations,preferredCenter,receivingIgnore);
+    if(component.rack)return this.rackPlacement(record,product,reservations,preferredCenter,receivingIgnore,false,requestedIndex);
     const item = this.itemFor(product), perPallet = component.config.acceptsPallets ? 1 : component.config.columns * component.config.rows * component.config.layers;
     // Authored pallets keep their metadata in the visual child; generated
     // loads keep it on the root. Resolve both through the custody runtime.

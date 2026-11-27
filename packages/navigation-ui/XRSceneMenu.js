@@ -72,7 +72,7 @@ export default class XRSceneMenu {
       const nearby=driving&&(driving.id||driving.nearest());
       const rows=[['guide','Guía del escenario',()=>{this.page='guide';}],['controls','Controles y manos',()=>{this.page='controls';}],
         ['navigation','Navegación RV',()=>{this.page='navigation';}],['voice','Voz y consultas',()=>{this.close();if(ctx.voicePanel)ctx.voicePanel.open();}],
-        ['drive',driving&&driving.id?'Bajar del vehículo':'Subir al montacargas',()=>{this.close();if(this.options.onBoard()===false){this.open();this.error='Detén el vehículo y acércate a la cabina.';}},!nearby],['pause',ctx.demo&&ctx.demo.paused?'Continuar simulación':'Pausar simulación',()=>{this.options.onPause();}],
+        ['drive',driving&&driving.id?'Bajar del vehículo':'Subir y arrancar',()=>{this.close();if(this.options.onBoard()===false){this.open();this.error='Detén el vehículo y acércate a la cabina.';}},!nearby],['pause',ctx.demo&&ctx.demo.paused?'Continuar simulación':'Pausar simulación',()=>{this.options.onPause();}],
         ['restart','Reiniciar escenario',()=>{this.close();this.options.onRestart();}],['recenter','Recentrar este menú',()=>this.place()]];
       rows.forEach(([key,label,action,disabled],i)=>this.button(key,label,42+(i%2)*480,180+Math.floor(i/2)*138,458,98,action,disabled));
       this.wrap('Menú: X/A al caminar · Y izquierdo en cabina. Con manos, usa Menú RV junto a la muñeca o frente a ti.',780,27);
@@ -83,9 +83,9 @@ export default class XRSceneMenu {
       this.wrap('El stick izquierdo camina; el derecho gira por pasos de 30°. Suelta los botones y centra los sticks después de cerrar el menú.',740,28);
     }else {
       const lines=this.page==='guide'?[
-        'Explora una instalación conectada con robots, bandas, almacén y montacargas. Observa los monitores de producción.',
+        'Explora una instalación con bandas conectadas, robot, almacén y montacargas. Acércate a las estaciones para leer sus mensajes.',
         'Recoge un pallet cuando esté detenido y completo. Alinea ambas horquillas; mantén baja la carga al conducir.',
-        'Acércate al vehículo para usar Subir al montacargas. Los controles físicos y el panel de cabina siguen disponibles en RV.',
+        'Acércate y pulsa Subir y arrancar. Centra el stick izquierdo y muévelo para conducir; el gatillo izquierdo frena. A toma o coloca un pallet cercano con asistencia.',
         'Usa Voz y consultas para preguntar. Micrófono y voz dependen del soporte y los permisos del navegador del visor.'
       ]:[
         'Caminar: stick izquierdo. Girar: stick derecho hacia un lado y volver al centro.',

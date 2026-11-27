@@ -99,3 +99,41 @@ npm.cmd run test:vehicle-assistance
 ```
 
 Los informes y capturas quedan en `data/qa-studio/vehicle-xr-performance/`.
+
+## Arranque y pallets en la demostración libre
+
+`Subir y arrancar` prepara contacto, marcha y freno P con una selección. Dentro
+de la cabina, `Arrancar y conducir` o Enter repite esa preparación sin alternar
+el freno si ya está listo. Siempre exige centrar los controles antes de aceptar
+movimiento; no acelera automáticamente ni rearma una emergencia.
+
+La demostración pública activa `assistedLoads`. El botón A de Quest o las acciones
+Tomar/Colocar ayudan al operador que no consigue insertar las horquillas con
+precisión. El modo manual de las otras escenas mantiene sus márgenes originales.
+
+Para tomar, busca delante de las horquillas, hasta 85 cm de descentrado lateral
+y 1,4 m de diferencia de altura. Detiene primero el camión y la banda de origen;
+una petición pendiente se cancela al abrir un menú, salir o activar emergencia.
+El ajuste local mueve el mismo pallet como máximo 1,2 m, alinea sus entradas y
+su altura y utiliza la recogida nativa para transferir su custodia. La banda
+reanuda su marcha después de la operación. Un intento fallido restaura el pallet
+y la pose hidráulica.
+
+Para colocar, busca una ubicación real compatible y libre con hasta 95 cm de
+distancia horizontal, 1,5 m de desnivel y 45° de diferencia de rumbo. Es un ajuste
+discreto de posición, sin exigir recorrer la trayectoria de inserción manual.
+La disponibilidad, la cara de acceso, la capacidad, las reglas de práctica y
+la colisión final siguen siendo responsabilidad del almacén nativo. No crea
+copias del pallet ni modifica su masa o contenido.
+
+Validación reproducible:
+
+```powershell
+node --test tests/framework/vehicle-easy-operation.test.mjs
+node tooling/qa/vehicle-easy-operation.cjs <sha-del-viewer-compilado>
+npm.cmd run test:drop-placement
+```
+
+La prueba de navegador usa los pallets de reserva y las ubicaciones de la
+demostración compilada con UA de Quest 3. Emula la sesión XR y el botón A en PC;
+la ergonomía y los FPS finales requieren comprobarlos en las gafas físicas.

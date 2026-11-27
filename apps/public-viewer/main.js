@@ -148,7 +148,7 @@ async function start() {
   const toggleVehicle=()=>{
     if(ctx.demo.paused)ctx.demo.setPaused(false);
     const driving=ctx.demo.driving,vehicle=driving.nearest();closeMenu();let result=false;
-    if(driving.id)result=driving.unmount();else if(vehicle)result=driving.mount(vehicle.id);else notice('Acércate al montacargas y pulsa F para subir.');
+    if(driving.id)result=driving.unmount();else if(vehicle)result=driving.boardAndStart(vehicle.id);else notice('Acércate al montacargas y pulsa F para subir.');
     input.reset();return result;
   };
   const shortcuts=mountTourShortcuts({document,actions:[
@@ -229,7 +229,7 @@ async function start() {
       const stats = ctx.demo.stats(), driving = !!ctx.demo.driving.id;
       const cameraMode = getSceneCameraMode(ctx); tools.dataset.mode = cameraMode.mode;
       modeButtons.forEach(button => {button.disabled = cameraMode.blocked; button.setAttribute('aria-pressed', String(button.dataset.cameraMode === cameraMode.mode)); button.title = cameraMode.reason || (button.dataset.cameraMode === 'drone' ? 'Vuela por la instalación · Q subir · E bajar' : 'Volver a un apoyo peatonal libre');});
-      document.body.classList.toggle('driving', driving); setMenuActionLabel(byId('drive'),driving ? 'Bajar del vehículo · F' : 'Subir al montacargas · F');
+      document.body.classList.toggle('driving', driving); setMenuActionLabel(byId('drive'),driving ? 'Bajar del vehículo · F' : 'Subir y arrancar · F');
       setMenuActionLabel(byId('menu-overview'),overview?'Volver a caminar':'Vista general');byId('menu-overview').setAttribute('aria-pressed',String(overview));
       const locked = ctx.desktopLook.isLocked;
       document.body.classList.toggle('look-locked', locked);

@@ -16,8 +16,9 @@ module.exports = THREE => {
   // substituted by the legacy DOM/keyboard fixtures.
   const HolographicGuide = require('../../modules/logistica-industrial/functions/montacargas/runtime/VehicleHolographicGuide.js').default;
   const FrontVisibility = require('../../modules/logistica-industrial/functions/montacargas/runtime/VehicleFrontVisibility.js').default;
+  const LoadAssist = require('../../modules/logistica-industrial/functions/montacargas/runtime/VehicleLoadAssist.js').default;
   const GamepadInput = require('../../packages/input-devices/GamepadInput.js').default;
   const InputDevicePanel = require('../../packages/input-devices/InputDevicePanel.js').default;
-  const Driving = new Function('THREE', 'VehicleCabInteraction', 'VehicleDockingMonitor', 'VehicleControlGuide', 'VehicleHolographicGuide', 'VehicleFrontVisibility', 'vehicles', 'GamepadInput', 'InputDevicePanel', read('VehicleDriving.js').replace('export default class VehicleDriving', 'return class VehicleDriving'))(THREE, Interaction, Monitor, Guide, HolographicGuide, FrontVisibility, require('../../modules/logistica-industrial/functions/montacargas/schema/vehicles'), GamepadInput, InputDevicePanel);
+  const Driving = new Function('THREE', 'VehicleCabInteraction', 'VehicleDockingMonitor', 'VehicleControlGuide', 'VehicleHolographicGuide', 'VehicleFrontVisibility','VehicleLoadAssist', 'vehicles', 'GamepadInput', 'InputDevicePanel', read('VehicleDriving.js').replace('export default class VehicleDriving', 'return class VehicleDriving'))(THREE, Interaction, Monitor, Guide, HolographicGuide, FrontVisibility,LoadAssist, require('../../modules/logistica-industrial/functions/montacargas/schema/vehicles'), GamepadInput, InputDevicePanel);
   return {Driving, Interaction, Monitor, ForkCamera, Labels, FrontVisibility};
 };

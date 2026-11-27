@@ -5,6 +5,7 @@ const command = (action, label, code, key, vr, section = 'operation', shift = fa
 const hold = (action, label, code, key, vr, capability = '') =>
   Object.freeze({action, label, code, key, shift: false, vr, section: 'movement', capability, continuous: true});
 const ACTIONS = Object.freeze([
+  command('quickStart','Arrancar y conducir','Enter','Enter','Botón Arrancar y conducir de la cabina'),
   command('powerOn', 'Encender', 'KeyB', 'B', 'Botón Encender de la cabina'),
   command('start', 'Marcha', 'KeyV', 'V', 'Botón Marcha de la cabina'),
   command('powerOff', 'Apagar', 'KeyB', 'Shift+B', 'Botón Apagar de la cabina', 'operation', true),
@@ -54,7 +55,7 @@ const PRESENTATION = Object.freeze({
   powerOn: ['Encender', '⏻'], start: ['Marcha', '▷'], powerOff: ['Apagar', '⏻'], stop: ['Detener', '■'], pause: ['Pausa', 'Ⅱ'],
   parkingBrake: ['Freno P', 'Ⓟ'], emergency: ['Emergencia', '!'], resetEmergency: ['Rearmar', '↺'],
   pickup: ['Tomar', '↥'], release: ['Depositar', '↧'], depositIntent: ['Preparar', '▱'], couple: ['Acoplar', '⇥'], uncouple: ['Separar', '⇤'],
-  horn: ['Bocina', '◖'], lights: ['Luces', '☼'], forkCamera: ['Cámara', '▣'], forkCameraMode: ['Encuadre', '◇'], forkCameraSide: ['Lado', '↔'],
+  quickStart:['Arrancar','▶'],horn: ['Bocina', '◖'], lights: ['Luces', '☼'], forkCamera: ['Cámara', '▣'], forkCameraMode: ['Encuadre', '◇'], forkCameraSide: ['Lado', '↔'],
   rearView: ['Retrovisor', '◧'], view: ['Cabina', '◉'], mode: ['Sticks RV', '⊕'], dockingHelp: ['Plano', '▤'], holographicGuide: ['Holograma', '⌖'],
   guidanceNext: ['Objetivo', '◎'], cursor: ['Cursor', '↖'], exit: ['Bajar', '⇥'],
   driveForward: ['Avanzar', '↑'], driveReverse: ['Retroceder', '↓'], steerLeft: ['Izquierda', '↶'], steerRight: ['Derecha', '↷'], brake: ['Frenar', '⊣'],

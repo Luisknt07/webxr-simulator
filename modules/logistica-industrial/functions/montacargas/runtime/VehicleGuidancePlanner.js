@@ -31,7 +31,9 @@ function requestedPlacement(runtime, api, record, target, product) {
     const pallet = stock.pallets[target.slotIndex]; if (!pallet) return null;
     center = position(pallet.object);
   }
-  const placement = queue.placement(target.record, product, [], center, false, matrix => api.receivingForks(record, product, matrix));
+  // A named rack cell needs one admission check, not a scan of every other
+  // level for each displayed destination. Occupancy/capacity/collision remain native.
+  const placement = queue.placement(target.record, product, [], center, false, matrix => api.receivingForks(record, product, matrix), stock.rack ? target.slotIndex : undefined);
   if (!placement || placement.palletIndex !== target.slotIndex || stock.rack && target.locationCode && placement.locationCode !== target.locationCode) return null;
   return {kind: 'stock', matrix: placement.matrix, placement, targetId: target.targetId};
 }

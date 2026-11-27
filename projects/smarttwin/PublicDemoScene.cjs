@@ -78,7 +78,7 @@ function buildPublicDemoScene({THREE,schema,document,roomId,scene,base,ConveyorA
     message('Bienvenido a la instalación','Sigue la ruta peatonal verde. Pulsa las puertas para abrirlas. Observa la transferencia de cajas, la célula robotizada y el almacén; cada estación tiene una guía al acercarte.',[-5.25,1.6,8.6]),
     message('Cajas de banda en banda','Ocho cajas recorren banda, rodillos, curva y descarga. Sigue cada caja en los empalmes y observa el cambio de superficie. Usa el panel de la primera banda para detenerla y reanudar la alimentación.',[-4.7,1.6,-3.1]),
     message('Una célula de paletizado','El robot toma ocho cajas individuales y forma dos pallets de cuatro cajas. Observa su herramienta y sus movimientos desde fuera de la demarcación amarilla.',[-2.65,1.6,1.2]),
-    message('Recogida y transporte','Detén la banda antes de recoger el pallet. Sube al montacargas con F o seleccionando su acceso, libera Freno P y alinea ambas horquillas. Deposita en las bahías demarcadas.',[5.7,1.6,2.9]),
+    message('Recogida y transporte','Pulsa Subir y arrancar. Conduce con el stick izquierdo y frena con el gatillo izquierdo. Frente al pallet, pulsa A: la ayuda detiene su banda y ajusta las horquillas. Junto a un hueco libre de la estantería, pulsa A de nuevo para colocarlo.',[5.7,1.6,2.9]),
     message('Almacén A01 / R01','Dos módulos, tres niveles y doce ubicaciones reales. Cuatro pallets de reserva y ocho posiciones libres. Detén el vehículo antes de elevar; recoge y deposita de frente.',[7.8,1.6,-3.8]),
     message('Salida del recorrido','Sigue las flechas hasta la puerta SALIDA. Puedes volver a explorar o reiniciar la demostración desde el menú para repetir ambos procesos con los mismos lotes finitos.',[11,1.6,8.6])
   ];

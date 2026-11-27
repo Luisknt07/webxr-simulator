@@ -4,6 +4,7 @@ import VehicleDockingMonitor from './VehicleDockingMonitor.js';
 import VehicleControlGuide from './VehicleControlGuide.js';
 import VehicleHolographicGuide from './VehicleHolographicGuide.js';
 import VehicleFrontVisibility from './VehicleFrontVisibility.js';
+import VehicleLoadAssist from './VehicleLoadAssist.js';
 import vehicles from '../schema/vehicles.js';
 import GamepadInput from '../../../../../packages/input-devices/GamepadInput.js';
 import InputDevicePanel from '../../../../../packages/input-devices/InputDevicePanel.js';
@@ -46,6 +47,7 @@ export default class VehicleDriving {
     this.docking = new VehicleDockingMonitor(this);
     this.holographicGuide = new VehicleHolographicGuide(this);
     this.frontVisibility = new VehicleFrontVisibility(this);
+    this.loadAssist=new VehicleLoadAssist(this);
     ctx.vehicleDriving = this;
   }
   listen(target, type, callback, options) { if (!target || !target.addEventListener) return; target.addEventListener(type, callback, options); this.listeners.push(() => target.removeEventListener(type, callback, options)); }
@@ -147,7 +149,7 @@ export default class VehicleDriving {
     // a second entry toast would cover those controls on a narrow screen.
     if(this.ctx.vrMode)this.notify('Cabina RV activa: agarre lateral en volante o palancas; stick izquierdo avanza, gatillo izquierdo frena. Click del stick derecho abre los mandos; B derecho permite bajar detenido.'); return true;
   }
-  resetInput(preservePads = false) { if(this.fineControlActive)this.hudUpdated=-Infinity;this.fineControlActive=false;this.keys.forEach(key => this.blockedKeys.add(key)); this.keys.clear(); this.touches.clear(); if (!preservePads) {this.padState = new WeakMap(); if(this.externalInput&&(this.externalWasReady||this.externalInput.getState().armed))this.externalInput.reset();this.externalWasReady=false;} if (this.cab) this.cab.reset(); const record = this.record(); if (record && this.simulation.vehicleRuntime) this.simulation.vehicleRuntime.setInput(record, ZERO()); }
+  resetInput(preservePads = false) {if(this.loadAssist&&this.loadAssist.pending)this.loadAssist.cancel(); if(this.fineControlActive)this.hudUpdated=-Infinity;this.fineControlActive=false;this.keys.forEach(key => this.blockedKeys.add(key)); this.keys.clear(); this.touches.clear(); if (!preservePads) {this.padState = new WeakMap(); if(this.externalInput&&(this.externalWasReady||this.externalInput.getState().armed))this.externalInput.reset();this.externalWasReady=false;} if (this.cab) this.cab.reset(); const record = this.record(); if (record && this.simulation.vehicleRuntime) this.simulation.vehicleRuntime.setInput(record, ZERO()); }
   releaseCursor() {
     if (this.ctx.vrMode) return false;
     const look = this.ctx.desktopLook;
@@ -183,10 +185,28 @@ export default class VehicleDriving {
     if(controller.panel&&controller.panel.openWorkflowAction)return controller.panel.openWorkflowAction(interlock.actionId);
     this.notify(interlock.instruction);return false;
   }
+  boardAndStart(id){if(!this.mount(id))return false;this.command('quickStart');return true;}
+  quickStart(){
+    const record=this.record(),v=record&&record.components.vehicle;if(!v||this.blocked())return false;
+    if(v.emergency){this.notify('Rearma primero el pulsador de emergencia; después pulsa Arrancar y conducir.');return false;}
+    if(v.enabled===false||v.config.enabled===false){this.notify(v.operatorInterlock&&v.operatorInterlock.instruction||'Este vehículo no está habilitado para conducir.');return false;}
+    if(Number.isFinite(v.batteryPercent)&&v.batteryPercent<=0){this.notify('La batería está agotada.');return false;}
+    if(v.powered&&v.running&&!v.paused&&!v.parkingBrake)return true;
+    if(Math.abs(v.actualSpeed||0)>.06){this.notify('Detén el vehículo para prepararlo.');return false;}
+    this.loadAssist.cancel();this.resetInput();
+    try{
+      const send=(action,value)=>{if(this.simulation.command(record.id,action,value)===false)throw Error('No se pudo preparar el vehículo.');};
+      if(!v.powered)send('powerOn');if(!v.running||v.paused)send('start');
+      if(!v.powered||!v.running||v.paused||v.emergency)throw Error('Revisa el estado del vehículo antes de arrancar.');
+      if(v.parkingBrake)send('parkingBrake',false);
+      this.machineInputBlocked=false;this.externalStopLatch=false;this.guideUpdated=this.hudUpdated=-Infinity;this.updateHUD();
+      this.notify(this.ctx.vrMode?'Listo. Suelta los controles, centra el stick izquierdo y muévelo para conducir. A toma o coloca el pallet.':'Listo para conducir. Usa W/S y el volante o A/D. G toma el pallet y K lo coloca.');return true;
+    }catch(error){this.resetInput();this.notify(error.message);return false;}
+  }
   command(action) {
     const record = this.record(); if (!record) return false;
     if (this.blocked()) { this.notify('Cierra el menú o reanuda la simulación para usar la cabina.'); return false; }
-    try { if(action==='practicePreparation')return this.openPracticePreparation(); if (action === 'mode') { this.mode = (this.mode + 1) % MODES.length; this.updateHUD(); return true; } if (action === 'exit') return this.unmount();
+    try { if(action==='quickStart')return this.quickStart();if(action==='practicePreparation')return this.openPracticePreparation(); if (action === 'mode') { this.mode = (this.mode + 1) % MODES.length; this.updateHUD(); return true; } if (action === 'exit') return this.unmount();
       if (action === 'cursor') return this.toggleCursor();
       if (action === 'controls') { this.worldPage = this.worldPage === 'cab' ? 'controls' : 'cab'; this.resetInput(); this.paintWorldPanel(); return true; }
       if (action === 'xrControls') { this.resetInput(); this.xrControlMode = this.xrControlMode === 'cab' ? 'controllers' : 'cab'; this.hudUpdated = -Infinity; this.updateHUD(); return true; }
@@ -199,8 +219,8 @@ export default class VehicleDriving {
       if (action === 'view') return this.cycleView();
       if (action === 'dockingHelp') { this.docking.toggle(); this.updateHUD(); return true; }
       if (action === 'forkCamera') { this.docking.toggleCamera(); this.updateHUD(); return true; }
-      if (['stop', 'powerOff', 'emergency', 'parkingBrake'].includes(action)) this.resetInput();
-      const result = this.simulation.command(record.id, action);
+      if (['stop', 'powerOff', 'emergency', 'parkingBrake'].includes(action)) {this.loadAssist.cancel();this.resetInput();}
+      const result = this.loadAssist.enabled()&&['pickup','release'].includes(action)?this.loadAssist[action]():this.simulation.command(record.id, action);
       if(action==='horn'&&result!==false)this.cab.hornUntil=(this.simulation.time||0)+.28;
       if (result !== false && action === 'pickup' && record.components.vehicle.entry) this.operatorIntent = 'transport';
       if (result !== false && action === 'release' && !record.components.vehicle.entry) this.operatorIntent = 'auto';
@@ -289,15 +309,17 @@ export default class VehicleDriving {
     const record = this.record(); if (!this.id) { this.updateHUD(); return; }
     if (!record || this.simulation.roomId !== this.roomId || !shown(record.object)) { this.unmount(true); return; }
     const vehicle = record.components.vehicle;
-    if (this.blocked()) { this.externalStopLatch=true;this.resetInput(); this.machineInputBlocked = true; this.updateHUD(); return; }
+    if (this.blocked()) {this.loadAssist.cancel(); this.externalStopLatch=true;this.resetInput(); this.machineInputBlocked = true; this.updateHUD(); return; }
     if (external && (external.stopped || external.suspended)) {this.externalStopLatch=true;this.resetInput(); this.updateHUD(); return;}
     if (!vehicle.enabled || !vehicle.powered || !vehicle.running || vehicle.paused || vehicle.emergency) {
+      this.loadAssist.cancel();
       if (!this.machineInputBlocked) this.resetInput(); this.machineInputBlocked = true;
       // A stopped cockpit retains command buttons (including B to exit), but
       // cannot forward hydraulic/drive axes or stale held controls.
       this.cab.sample();if (this.ctx.vrMode) this.xrInput(ZERO());this.simulation.vehicleRuntime.setInput(record,ZERO());this.cab.showInput(ZERO()); this.updateHUD(); return;
     }
     if (this.machineInputBlocked) { this.resetInput(); this.machineInputBlocked = false; }
+    if(this.loadAssist.update()){this.simulation.vehicleRuntime.setInput(record,ZERO());this.cab.showInput(ZERO());this.updateHUD();return;}
     const key = code => this.keys.has(code) || [...this.touches.values()].includes(code), axis = (a, b) => Number(key(a)) - Number(key(b));
     const input = {throttle: axis('KeyW', 'KeyS'), steer: axis('KeyD', 'KeyA'), brake: key('Space') ? 1 : 0,
       lift: axis('KeyQ', 'KeyE') + axis('ArrowUp', 'ArrowDown'), tilt: axis('KeyT', 'KeyR'), reach: axis('KeyX', 'KeyZ'), sideShift: axis('KeyL', 'KeyJ'), turret: axis('KeyO', 'KeyU')};
@@ -394,6 +416,7 @@ export default class VehicleDriving {
     this.follow(); this.updateHUD(); return true;
   }
   unmount(force = false) {
+    this.loadAssist.cancel();
     if(this.externalPanel)this.externalPanel.close();
     if (!this.id) return true; const record = this.record(), ctx = this.ctx, rig = ctx.cameraRig, camera = ctx.camera;
     let destination;
@@ -499,7 +522,7 @@ export default class VehicleDriving {
     const groups = element('div', 'vehicle-control-groups vehicle-driving-actions', hud);
     const group = (parent, title, name) => { const node = element('div', 'vehicle-control-group', parent); node.dataset.group = name; node.controls = []; node.heading = element('h3', 'vehicle-control-group-title', node, title); this.controlGroups.push(node); return node; };
     const drive = group(groups, 'Conducir', 'drive');
-    ['powerOn', 'start', 'driveForward', 'driveReverse', 'steerLeft', 'steerRight', 'brake', 'parkingBrake'].forEach(action => this.controlButton(action, drive));
+    ['quickStart', 'powerOn', 'start', 'driveForward', 'driveReverse', 'steerLeft', 'steerRight', 'brake', 'parkingBrake'].forEach(action => this.controlButton(action, drive));
     const cargo = group(groups, 'Carga y horquillas', 'cargo'); this.cargoGroup = cargo;
     ['pickup', 'release', 'depositIntent', 'liftUp', 'liftDown', 'tiltBack', 'tiltForward', 'retract', 'extend', 'sideLeft', 'sideRight', 'turretLeft', 'turretRight', 'couple', 'uncouple'].forEach(action => this.controlButton(action, cargo));
     const view = group(groups, 'Visión y ayuda', 'view'); ['forkCamera', 'rearView', 'forkCameraMode', 'forkCameraSide', 'view', 'holographicGuide', 'guidanceNext', 'dockingHelp', 'cursor', 'mode'].forEach(action => this.controlButton(action, view));
@@ -611,7 +634,8 @@ export default class VehicleDriving {
     const v = this.state(record), next = this.nextStep || {}, full = this.worldPage === 'controls';
     const signature = [v.actualSpeed, v.lift, v.loadKg, v.parkingBrake, v.powered, v.running, v.paused, v.emergency, v.operatorInterlock&&v.operatorInterlock.actionId, v.operatorInterlock&&v.operatorInterlock.label, next.stage, next.instruction, next.reason, next.action, this.mode, this.xrControlMode, this.worldPage, this.operatorIntent, this.docking.visible, this.docking.cameraEnabled, this.docking.forkCamera.selectedFeed, this.holographicGuide.enabled, this.holographicGuide.getState().targetId].map(value => typeof value === 'number' ? value.toFixed(1) : value).join('|');
     if (panel.signature === signature) return; panel.signature = signature;
-    panel.plane.scale.setScalar(full ? 1 : .68); this.placeCabPanel(panel.plane, this.cabPanelLayout().controls);
+    const needsStart=!v.powered||!v.running||v.paused||v.parkingBrake;
+    panel.plane.scale.setScalar(full ? 1 : .68); this.placeCabPanel(panel.plane,this.ctx.vrMode&&!full&&needsStart&&!v.operatorInterlock?[0,-.30,.9]:this.cabPanelLayout().controls);
     const c = panel.context, text = (value, x, y, width, size = 25, lines = 2) => {
       c.font = size + 'px sans-serif'; const words = String(value || '').split(/\s+/); let line = '', row = 0;
       words.forEach(word => { const candidate = line ? line + ' ' + word : word; if (line && (c.measureText ? c.measureText(candidate).width : candidate.length * size * .54) > width) { if (row < lines) c.fillText(line, x, y + row * (size + 6)); row++; line = word; } else line = candidate; });
@@ -621,16 +645,21 @@ export default class VehicleDriving {
     c.fillStyle = '#eff6fb'; text(Number(v.actualSpeed || 0).toFixed(2) + ' m/s · ' + Number(v.loadKg || 0).toFixed(0) + ' kg · ' + (v.enabled===false ? 'PREPARACIÓN PENDIENTE' : !v.powered ? 'APAGADO' : v.emergency ? 'EMERGENCIA' : v.running ? 'MARCHA' : 'PARADO') + ' · Freno ' + (v.parkingBrake ? 'P' : 'libre'), 28, 81, 965, 25, 1);
     c.fillStyle = '#f1d286'; text(next.title || 'Siguiente paso', 28, 120, 960, 26, 1);
     c.fillStyle = '#edf5f8'; text(next.instruction, 28, 154, 955, 24, full ? 1 : 2);
-    if (!full) { c.fillStyle = '#a9c5cf'; text(this.xrControlMode === 'cab' ? 'Volante/palancas: acercar + GRIP o pinza. Tirar de la palanca eleva; empujar baja. Stick izq.: avance/giro. Sin mandos: mantener Avanzar/Retroceder.' : 'Sticks: conducir/hidráulica · GRIP der.: carga · GRIP izq.: frenar. X: freno P · A: carga · B: bajar · Y: menú.', 28, 215, 960, 23, 3); }
+    if (!full&&!needsStart) { c.fillStyle = '#a9c5cf'; text(this.xrControlMode === 'cab' ? 'Stick izquierdo: avanzar, retroceder y girar. Gatillo izquierdo: frenar. A: tomar / colocar pallet cercano. También puedes agarrar volante y palancas.' : 'Sticks: conducir/hidráulica · GRIP der.: carga · GRIP izq.: frenar. X: freno P · A: carga · B: bajar · Y: menú.', 28, 215, 960, 23, 3); }
     const definitions = this.definitions().filter(value => !value.continuous && !['view', 'cursor', 'forkCameraSide', 'forkCameraMode'].includes(value.action) && (value.action !== 'depositIntent' || record.components.vehicle.entry));
     const supported = new Set(definitions.map(value => value.action));
-    let actions = full ? definitions.map(value => [value.action, value.label]) : [!v.powered ? 'powerOn' : !v.running || v.paused ? 'start' : 'parkingBrake', record.components.vehicle.entry ? this.operatorIntent === 'deposit' ? 'release' : 'depositIntent' : 'pickup', 'emergency', 'exit'].filter(action => supported.has(action)).map(action => [action, VehicleControlGuide.actions.find(value => value.action === action).label]);
+    const startAction=v.operatorInterlock?(!v.powered?'powerOn':!v.running||v.paused?'start':'parkingBrake'):'quickStart';
+    let actions = full ? definitions.map(value => [value.action, value.label]) : [v.emergency?'resetEmergency':needsStart?startAction:'parkingBrake', record.components.vehicle.entry ? this.options.assistedLoads?'release':this.operatorIntent === 'deposit' ? 'release' : 'depositIntent' : 'pickup', 'emergency', 'exit'].filter(action => supported.has(action)).map(action => [action, VehicleControlGuide.actions.find(value => value.action === action).label]);
+    if(this.options.assistedLoads)actions=actions.map(([action,label])=>[action,action==='pickup'?'Tomar pallet cercano':action==='release'?'Colocar en estantería':label]);
     if(v.operatorInterlock)actions=v.enabled===false&&!full?[['practicePreparation',v.operatorInterlock.label],['emergency','Emergencia'],['exit','Bajar del vehículo']]:[['practicePreparation',v.operatorInterlock.label]].concat(actions);
     actions = actions.concat([['driveForward','Avanzar · mantener'],['driveReverse','Retroceder · mantener'],['brake','Frenar · mantener'],['xrControls', this.xrControlMode === 'cab' ? 'RV: Cabina → Sticks' : 'RV: Sticks → Cabina'], ['controls', full ? 'Volver a la cabina' : 'Todos los mandos']]);
     panel.actions = actions; panel.regions = [];
-    const columns = 3, rows = Math.ceil(actions.length / columns), top = full ? 190 : 310, bottom = 590, height = (bottom - top) / rows, width = 1024 / columns;
+    const launch=!full&&actions[0]&&actions[0][0]==='quickStart';
+    if(launch){c.fillStyle='#19816c';c.fillRect(28,190,968,114);c.fillStyle='#ffffff';text('▶  ARRANCAR Y CONDUCIR',56,239,900,40,1);text('Enciende, habilita la marcha y libera el freno P',56,280,900,25,1);panel.regions.push({action:'quickStart',x:28,y:190,w:968,h:114});}
+    const grid=launch?actions.slice(1):actions;
+    const columns = 3, rows = Math.ceil(grid.length / columns), top = full ? 190 : 310, bottom = 590, height = (bottom - top) / rows, width = 1024 / columns;
     const active = {powerOn: v.powered, start: v.running && !v.paused && !v.emergency, parkingBrake: v.parkingBrake, lights: v.lights, emergency: v.emergency, holographicGuide: this.holographicGuide.enabled, rearView: this.docking.forkCamera.selectedFeed === 'mirror'};
-    actions.forEach(([action, label], index) => {
+    grid.forEach(([action, label], index) => {
       const x = index % columns * width + 12, y = top + Math.floor(index / columns) * height + 4, w = width - 24, h = height - 8;
       panel.regions.push({action, x, y, w, h}); c.fillStyle = action === 'emergency' ? '#763b41' : next.action === action && next.canAct ? '#655326' : active[action] ? '#226856' : '#254450'; c.fillRect(x, y, w, h);
       c.fillStyle = '#edf7fa'; text(action === 'mode' ? 'Hidráulica: ' + MODES[this.mode] : action === 'holographicGuide' ? 'Holograma ' + (active.holographicGuide ? 'ON' : 'OFF') : action === 'rearView' ? 'Retrovisor ' + (active.rearView ? 'ON' : 'OFF') : label, x + 14, y + Math.min(32, h * .56), w - 28, full ? 21 : 27, full ? 1 : 2);
