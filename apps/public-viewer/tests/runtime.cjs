@@ -31,7 +31,7 @@ const monitors = [...document.additions.values()].filter(entry => document.getBe
 const sources = records.filter(record => record.components.source);
 assert(robot && belt && vehicle); assert.equal(robots.length, 1, 'The public demo uses one operational robot.');
 assert.equal(conveyors.length, 6, 'Four carton transfers feed the robot and two conveyors transport its pallets.');
-assert(document.additions.size < 80, 'The public installation must remain a compact authored scene.');
+assert(document.additions.size < 100, 'The public installation and its finite manual workbench remain bounded.');
 assert.equal(racks.length, 1, 'The public rack must have a real warehouse runtime, not a decorative primitive.');
 assert(racks[0].components.palletQueue.rack.layout.cells.length >= 4, 'The rack has individually addressed pallet slots.');
 assert(racks[0].components.palletQueue.queue.length > 0, 'The public rack starts with real stocked loads.');
@@ -95,7 +95,7 @@ assert.equal(completed.find(record => record.id === 'custom-public-4').completed
 assert.equal(sources.find(record=>!record.components.source.config.autoGenerate).components.source.receivedUnits,8,'All arriving boxes feed the native robot workbench.');
 const finite = sources.map(record => ({id: record.id, generated: record.components.source.generated, limit: record.components.source.config.totalLimit}));
 assert(finite.every(source => source.generated <= source.limit));
-assert(peakProducts <= 20 && simulation.products.size <= 20, 'Finite stock must prevent unbounded product growth.');
+assert(peakProducts <= 40 && simulation.products.size <= 40, 'Finite production and manual stock must prevent unbounded product growth.');
 assert.equal(JSON.stringify(snapshot), saved, 'Read-only loading and simulation must not mutate the snapshot.');
 simulation.stop(); assert.equal(simulation.products.size, 0);
 simulation.start('hall');

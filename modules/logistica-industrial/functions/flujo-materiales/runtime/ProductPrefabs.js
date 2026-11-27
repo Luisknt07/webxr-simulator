@@ -219,12 +219,12 @@ function cargo(config, variant, placements, singleSpec) {
     const standardHeight = config.palletMaterial === 'plastic' ? .16 : config.palletType === 'euro-1200x800' ? .144 : .15;
     const baseHeight = empty ? config.height : config.palletHeight || Math.min(standardHeight, config.height * .2), base = pallet(config, baseHeight); root.add(base); root.userData.forkPockets = base.userData.forkPockets;
     if (loaded) {
-      if (placements && singleSpec) placements.forEach(placement => { const object = fit(unit(singleSpec, singleSpec.variant || ({crate: 'crate', bottle: 'bottle'}[singleSpec.type] || 'box-medium')), {width: singleSpec.width, height: singleSpec.height, depth: singleSpec.depth}); object.position.set(placement.x + placement.width / 2 - config.width / 2, baseHeight + placement.y, placement.z + placement.depth / 2 - config.depth / 2); object.rotation.y = placement.rotated ? Math.PI / 2 : 0; root.add(object); });
+      if (placements && singleSpec) placements.forEach(placement => { const object = fit(unit(singleSpec, singleSpec.variant || ({crate: 'crate', bottle: 'bottle'}[singleSpec.type] || 'box-medium')), {width: singleSpec.width, height: singleSpec.height, depth: singleSpec.depth}); object.position.set(placement.x + placement.width / 2 - config.width / 2, baseHeight + placement.y, placement.z + placement.depth / 2 - config.depth / 2); object.rotation.y = placement.rotated ? Math.PI / 2 : 0;object.userData.industrialPalletCargo={type:singleSpec.type||'box',baseHeight}; root.add(object); });
       else {
         const layers = Math.min(5, Math.max(1, Math.ceil(config.units / 8))), perLayer = Math.ceil(config.units / layers), columns = Math.max(1, Math.ceil(Math.sqrt(perLayer * config.width / config.depth))), rows = Math.ceil(perLayer / columns);
         const spec = Object.assign({}, config, {productType: config.contents === 'crates' ? 'crate' : config.contents === 'bottles' ? 'bottle' : 'box', variant: config.contents === 'crates' ? 'crate' : config.contents === 'bottles' ? 'bottle' : 'box-medium'});
         for (let n = 0; n < config.units; n++) { const layer = Math.floor(n / perLayer), cell = n % perLayer, col = cell % columns, row = Math.floor(cell / columns);
-          const object = fit(unit(spec, spec.variant), {width: config.width / columns * .96, height: (config.height - baseHeight) / layers, depth: config.depth / rows * .96}); object.position.set((col - (columns - 1) / 2) * config.width / columns, baseHeight + layer * (config.height - baseHeight) / layers, (row - (rows - 1) / 2) * config.depth / rows); root.add(object); }
+          const object = fit(unit(spec, spec.variant), {width: config.width / columns * .96, height: (config.height - baseHeight) / layers, depth: config.depth / rows * .96}); object.position.set((col - (columns - 1) / 2) * config.width / columns, baseHeight + layer * (config.height - baseHeight) / layers, (row - (rows - 1) / 2) * config.depth / rows);object.userData.industrialPalletCargo={type:spec.productType,baseHeight}; root.add(object); }
       }
       root.updateMatrixWorld(true);
       root.userData.palletIdentificationAnchors = root.children.filter(child => child !== base).map(child => {
@@ -240,6 +240,7 @@ function cargo(config, variant, placements, singleSpec) {
       }
     }
   } else root.add(fit(unit(config, variant), config));
+  if(loaded&&config.manualUnpacking){const pieces=root.children.filter(child=>child.userData.industrialPalletCargo);pieces.forEach(child=>root.remove(child));merge(root);pieces.forEach(child=>{merge(child);root.add(child);});return root;}
   return merge(root);
 }
 export function createProduct(variant, value = {}) {

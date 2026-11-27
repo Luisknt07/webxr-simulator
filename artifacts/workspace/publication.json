@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "6f9b73e0553d2d9fed34087ab514422bc5aa7047",
-  "bundleSha256": "d9276b27cb0ad570dd4a23d5c06669eb640af12070179473b1e7edde9b4dd5f8",
+  "revision": "a103550dba3d89fe2b0a727a35ee6901793dc82d",
+  "bundleSha256": "61951846e5bdd8388813723b37d4d126e2f787b75225010bab81295bda16270d",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -44,7 +44,7 @@
   "files": [
     {
       "path": "13.js",
-      "sha256": "3030c624ec1e195fdac6dcb9f945b1e9318abfd6eff38c5a74e0f06ecb433dda"
+      "sha256": "d758b23c0e4ca5482931bbd934cb24911ec27e6d86f33b1362ceaf87d5326963"
     },
     {
       "path": "14.js",
@@ -52,23 +52,23 @@
     },
     {
       "path": "15.js",
-      "sha256": "b16a6aa86e6b5735586373c01f41a8ce8c57bdcf09a40ba82af4e3cf5109931e"
+      "sha256": "3c84753dc350ebea42557303d3dc3bd4abb1d08a4f6285b7f524958ac36eba83"
     },
     {
       "path": "16.js",
-      "sha256": "78f23dcf297767b28f8ff04bdfa7b3016c016470a5dfc5088ebe8e63881befdc"
+      "sha256": "43c095f0248d4efaef89be6c9e890fa5b28c008fc5622a6c954ace105977ff94"
     },
     {
       "path": "17.js",
-      "sha256": "5152f5fbf4682c931235fcb3a116f7e44d3e7981b861ff11a202b887009a6c54"
+      "sha256": "891c17e13b88b373d06ac1e632e11c1be10a0f4f23d398d54429fc89df3a2e20"
     },
     {
       "path": "18.js",
-      "sha256": "1a18081e03124fc9a60261edb55fc8275fbd6f29d553f8cde1d7cbe51fcc6504"
+      "sha256": "35226c0ea6eac08ead399d2ae69a7a4fa23aefa4496c90e164183f570bba0f77"
     },
     {
       "path": "3.js",
-      "sha256": "91de6757fe62c283b47b2729c2cad066eb2d335c5a144bc86ab9f9f8f9eb15bc"
+      "sha256": "44cd26c87f86ab99717c28a7688ddd9f4b9f6fee1270965b21941e3666ce653a"
     },
     {
       "path": "apps/workspace/scenario-library.css",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "d9276b27cb0ad570dd4a23d5c06669eb640af12070179473b1e7edde9b4dd5f8"
+      "sha256": "61951846e5bdd8388813723b37d4d126e2f787b75225010bab81295bda16270d"
     },
     {
       "path": "cad-worker.js",
@@ -104,7 +104,7 @@
     },
     {
       "path": "configurable-practice-reference.js",
-      "sha256": "5f5a59d03b99d0cdaa1f9a98b07a42a8413d1b27849e8e067ee3bdabbf174bf0"
+      "sha256": "3cf795935152adf095cdd4c60613dbffb2256583b9d62e65f68688693e942c53"
     },
     {
       "path": "editor-tools.json",
@@ -116,23 +116,23 @@
     },
     {
       "path": "logistics-documentation.js",
-      "sha256": "fcf38bc1636d770be1f744e08daf452b220c2253383a38a7131b51a4ac5635a7"
+      "sha256": "761462887211e87bb38ae78cbfb5fe7a2677564ca77cdc4155231572479ef413"
     },
     {
       "path": "logistics-equipment-workspace.js",
-      "sha256": "de1673b29ac9b4346a3fa034cb698a40173bd3e3ce3dc9317f3f1037dd0772de"
+      "sha256": "2777625267280d10eecf683653a96a663f57c7dcbdaeac0177cadaf05c5fd3fd"
     },
     {
       "path": "logistics-practice-browser.js",
-      "sha256": "b2d3c1eeb5385b4aa709ba4c30cf5372322c466d077d45ca0a011a29aa35378a"
+      "sha256": "21970c583a89e1bc4994a2472e3dcb5c428592cc4fe23cbb76480232dc9127d5"
     },
     {
       "path": "logistics-practice-index.js",
-      "sha256": "71399903999075bc3524bb802e5e583133f3cd5cec81e356982e6db68f20129c"
+      "sha256": "dd9968c282fea393420f071e42ff1fb95249f0d69947413ac10994a02a577577"
     },
     {
       "path": "logistics-practice-scenes.js",
-      "sha256": "03f6cfa7c14e17d19e18a9533790621453fae5c0a650739ea418ef708c576993"
+      "sha256": "db698990112945315b7cab2627adb9a97e7a49a8ab31fe25edcd52df210a93cc"
     },
     {
       "path": "mesh-optimizer-worker.js",
@@ -3336,11 +3336,11 @@
     },
     {
       "path": "nexus-equipment-reference.js",
-      "sha256": "429817a29b12bcdace413f8d7b24f36cfbb3cf91dc9786ca91a174411f999070"
+      "sha256": "2d2e992ee90001d9c2c4b6f32d3884cf69f81d545cbbffe08ab350fedc14025c"
     },
     {
       "path": "nexus-practices-reference.js",
-      "sha256": "f2483be9542bbf0dd8ecb8e4070463fa509a959a6b68c32180904a88df465781"
+      "sha256": "33d0d303b770637935ea96159ce957b76d1f9b6f2b740e9abf9f745cdba062ae"
     },
     {
       "path": "packages/assistant-ui/assistant-workspace.css",
@@ -3600,7 +3600,7 @@
     },
     {
       "path": "practice-configuration-preview.js",
-      "sha256": "d90dba2c80c72afeae963f7ec93cf4704e4fdfbcf4a4c7ce01d822f819cdc1d8"
+      "sha256": "4eb068e3f4185c9ed830a49cc9aacb0ffaba2f7d60ce766c1d0cf2564d8b34c1"
     },
     {
       "path": "projects/smarttwin/branding/apple-touch-icon-114x114.png",
@@ -3924,7 +3924,7 @@
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-dispatch.json",
-      "sha256": "a4987db3f673aae60f112baf02fd4b82735b6dd9e6b9ffdde6acda22219f35d6"
+      "sha256": "3b8f8f01815a27567451a98159b47cb7c1e43ac742a161d4c57017bda0596008"
     },
     {
       "path": "projects/smarttwin/scenes/vr-robot-transfer.json",
@@ -3940,17 +3940,17 @@
     },
     {
       "path": "receiving-video-guide.js",
-      "sha256": "b30f36caf4f06342c60fc0339c500356705a01af9fcf245dfd0753e3674af272"
+      "sha256": "3d4469394810a17e54fd759a9815306479c90e3c0fbc7ea7d7b2759277385357"
     },
     {
       "path": "scenario-library.js",
-      "sha256": "16d8831c1f86d144462cafe2aeadb7808ec60b44d82c9895ca8479e378aa71bf"
+      "sha256": "b0f603657f2b6f6ff7a6838e7149d09f72e0e1052187a7f750ab609773617948"
     }
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "88abc107d9f71fdbb616",
-    "statsSha256": "c7fb627bf73f5a774ea55ebb95bf792c04b5ea24ba96c72f93df94f836512e93",
+    "hash": "5b968564a0c98d0bfad7",
+    "statsSha256": "9739a6c948b33226cb2af6339b00440820828a3e1240bafa5eb4ddb1d8125def",
     "assets": [
       {
         "path": "13.js",
@@ -3982,7 +3982,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7374125
+        "size": 7398746
       },
       {
         "path": "configurable-practice-reference.js",
@@ -4018,7 +4018,7 @@
       },
       {
         "path": "practice-configuration-preview.js",
-        "size": 3155778
+        "size": 3178150
       },
       {
         "path": "receiving-video-guide.js",
@@ -4026,7 +4026,7 @@
       },
       {
         "path": "scenario-library.js",
-        "size": 849751
+        "size": 849787
       }
     ]
   }

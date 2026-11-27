@@ -104,6 +104,7 @@ export default class SimulationRuntime {
     this.controlFeedback = new Map();
     this.actorMatrices = new WeakMap();
     this.productFeedback = new ProductFeedback(ctx);
+    this.manualProducts = behaviorSchema.manualProductHandling.create(THREE,this);
     this.sourceRuntime = new ProductSourceRuntime(this);
     this.processorRuntime = new ProcessorRuntime(this);
     this.palletQueueRuntime = new PalletQueueRuntime(this);
@@ -227,6 +228,7 @@ export default class SimulationRuntime {
     this.stopping = true;
     if (this.robotRuntime) this.robotRuntime.stop();
     this.restoreProductInput();
+    this.manualProducts.stop();
     if (this.ctx.raycontrol) this.states.forEach(entry => {
       if (this.ctx.raycontrol.states[entry.name] !== entry.state) return;
       this.ctx.raycontrol.deactivateState(entry.name);
@@ -750,7 +752,7 @@ export default class SimulationRuntime {
     };
     const size = product ? product.bounds.getSize(new THREE.Vector3()).multiply(product.scale) : new THREE.Vector3(PACKAGE_SIZE, PACKAGE_SIZE, PACKAGE_SIZE);
     const defects = leaves.map(spec => spec.defect || 'none').filter(value => value !== 'none');
-    return {sku: uniform('sku', 'product'), productType: uniform('productType', 'box'), color: uniform('color', '#b78b53'),
+    return {sku: product&&product.packing?metadata.sku:uniform('sku', 'product'), productType: product&&product.packing?metadata.productType:uniform('productType', 'box'), color: product&&product.packing?metadata.color:uniform('color', '#b78b53'),
       catalogueEquipmentId:uniform('catalogueEquipmentId',''),materialClass:uniform('materialClass',''),
       quality: leaves.length ? leaves.some(spec => spec.quality === 'defective') ? 'defective' : leaves.every(spec => spec.quality === 'good') ? 'good' : 'mixed' : metadata.quality,
       defect: leaves.length ? !defects.length ? 'none' : defects.every(value => value === defects[0]) ? defects[0] : 'mixed' : metadata.defect,
@@ -915,32 +917,25 @@ export default class SimulationRuntime {
       mass: config.mass || source.mass || 1, units: config.units || source.units || 1, loadMode: config.loadMode || source.loadMode || 'individual', base: config.base || source.base || 'flat', initialVelocity: config.initialVelocity || 0,
       catalogueEquipmentId:config.catalogueEquipmentId||source.catalogueEquipmentId||object.userData.catalogueEquipmentId||'',materialClass:config.materialClass||source.materialClass||''});
     this.products.set(object, product);
+    this.manualProducts.register(product);
     if (!this.ctx.raycontrol) return product;
     const name = this.statePrefix + 'product-' + (++this.productSequence);
-    const state = {colliderMesh: object, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
-      handGrabHit: controller => {
-        const contact=controller.userData.xrHandContact,grip=controller.userData.gripObject;
-        if(!contact||!contact.valid||!grip||!grip.visible||product.heldBy)return null;
-        object.updateWorldMatrix(true,false);
-        const point=grip.getWorldPosition(new THREE.Vector3()),local=object.worldToLocal(point.clone());
-        const closest=product.bounds.clampPoint(local,new THREE.Vector3()).applyMatrix4(object.matrixWorld),distance=closest.distanceTo(point);
-        if(distance>.075)return null;
-        const hit={object,point:closest,distance};
-        return this.validInteraction(object,hit,controller,true)?hit:null;
-      },
-      isSelectable: (hit, controller) => this.validInteraction(object, hit, controller, false),
+    const state = {colliderMesh: object, controller: 'both', raycaster: true, directOnly:true,consumeSelect: true, mergeSelection: true, captureSelect: true,
+      handGrabHit: controller => this.manualProducts.near(product,controller),
+      isSelectable: (hit, controller) => this.manualProducts.policy(product).allowed&&(!this.ctx.vrMode||!!this.manualProducts.near(product,controller))&&this.validInteraction(object, hit, controller, false),
       onSelectStart: (hit, controller) => {
         if (!this.running || this.ctx.editor && this.ctx.editor.active) return;
         controller = controller || this.ctx.desktopController || this.ctx.camera;
         if (!controller || !this.validInteraction(object, hit, controller, true)) return;
+        if(this.ctx.vrMode){const data=this.ctx.raycontrol.controllers.find(entry=>entry.controller===controller);this.manualProducts.request(product,controller,data&&data.inputSource.hand?'pinch':'grip-select');return;}
         if (product.heldBy === controller && product.holdInput === 'select') this.releaseProduct(product);
         else if (product.heldBy) return;
         else {
           const data=this.ctx.raycontrol.controllers.find(entry=>entry.controller===controller);
           this.pickupProduct(product, controller, data&&data.inputSource.hand?'pinch':'select');
         }
-      }, onSelectEnd: (hit, controller) => this.releaseHeldProducts(controller, 'pinch'),
-      onSelectCancel: (hit, controller) => this.releaseHeldProducts(controller, 'pinch')};
+      }, onSelectEnd: (hit, controller) => {this.releaseHeldProducts(controller, 'pinch');this.releaseHeldProducts(controller,'grip-select');},
+      onSelectCancel: (hit, controller) => {this.releaseHeldProducts(controller, 'pinch');this.releaseHeldProducts(controller,'grip-select');}};
     product.stateEntry = {name, state};
     this.ctx.raycontrol.addState(name, state); this.ctx.raycontrol.activateState(name);
     this.states.push(product.stateEntry);
@@ -1008,15 +1003,8 @@ export default class SimulationRuntime {
       if (!this.running || this.ctx.drivingVehicle || !this.ctx.vrMode || this.ctx.studioMenuOpen || controller.userData && controller.userData.studioMenuTrigger || this.ctx.editor && this.ctx.editor.active ||
         !input || input.enabled === false || !data.enabled || data.active || binding.down || this.held.has(controller)) return;
       binding.down = true;
-      const entries = input.selectionEntries ? input.selectionEntries(data) : [];
-      const entry = entries.find(value => {
-        const product = value.state && this.products.get(value.state.colliderMesh);
-        return product && product.stateEntry && product.stateEntry.state === value.state;
-      });
-      if (!entry) return;
-      const product = this.products.get(entry.state.colliderMesh);
-      if (!this.validInteraction(product.object, entry.intersection, controller, true)) return;
-      if (this.pickupProduct(product, controller, 'squeeze')) binding.product = product;
+      const near=this.manualProducts.nearest(controller);if(!near)return;
+      if(this.manualProducts.request(near.product,controller,'squeeze'))binding.product=near.product;
     };
     binding.end = () => {
       binding.down = false; binding.product = null;
@@ -1065,6 +1053,7 @@ export default class SimulationRuntime {
     if (![0, 1, 2].includes(mode)) return false;
     const canvas = this.productWheelInput && this.productWheelInput.canvas;
     const pixels = event.deltaY * (mode === 1 ? 16 : mode === 2 ? canvas && canvas.clientHeight || 800 : 1);
+    if(event.shiftKey||event.altKey){const matrix=held.holdMatrix.clone(),position=new THREE.Vector3(),rotation=new THREE.Quaternion(),scale=new THREE.Vector3();matrix.decompose(position,rotation,scale);const axis=event.altKey?new THREE.Vector3(1,0,0):new THREE.Vector3(0,1,0);rotation.premultiply(new THREE.Quaternion().setFromAxisAngle(axis,THREE.Math.clamp(pixels,-200,200)*.004));held.holdMatrix.compose(position,rotation,scale);if(event.preventDefault)event.preventDefault();if(event.stopPropagation)event.stopPropagation();return true;}
     const distance = Number.isFinite(held.holdDistance) ? held.holdDistance : PRODUCT_HOLD_DISTANCE;
     held.holdDistance = THREE.Math.clamp(distance + THREE.Math.clamp(pixels, -400, 400) * 0.0012, PRODUCT_HOLD_MIN, PRODUCT_HOLD_MAX);
     if (event.preventDefault) event.preventDefault();
@@ -1078,9 +1067,11 @@ export default class SimulationRuntime {
     this.invalidateCollision(product.object);
   }
 
-  pickupProduct(product, controller, inputMode = 'select') {
+  pickupProduct(product, controller, inputMode = 'select', direct = false) {
     if (!controller || product.heldBy || this.held.has(controller) || controller.userData && controller.userData.grabbing) return false;
     if (this.ctx.drivingVehicle || product.vehicleOwnerId || product.robotOwnerId || product.robotReservedBy || product.vehicleReservedBy) return false;
+    const handling=this.manualProducts.policy(product);if(!handling.allowed){this.notify(handling.reason);return false;}
+    if(this.ctx.vrMode&&!direct)return this.manualProducts.request(product,controller,inputMode);
     const sector = this.document.studio && this.document.studio.moduleData && this.document.studio.moduleData['sector.logistics-industrial'];
     const practice = sector && (sector.levels || []).find(row => row.roomId === this.roomId && row.plan && row.plan.kind === 'configurable');
     if (practice) {
@@ -1132,6 +1123,7 @@ export default class SimulationRuntime {
     product.holdMatrix = matrix.clone(); product.holdDistance = PRODUCT_HOLD_DISTANCE;
     product.heldBy = controller; product.holdInput = ['squeeze','pinch'].includes(inputMode) ? inputMode : 'select'; this.held.set(controller, product);
     controller.userData.xrHeldObject={object:product.object,held:true};
+    if(direct){product.holdInput=inputMode;this.manualProducts.begin(product,controller,inputMode);}
     if(inputMode==='pinch'){
       const grip=controller.userData.gripObject;
       product.pinchOffset=grip&&grip.visible?product.object.getWorldPosition(new THREE.Vector3()).sub(grip.getWorldPosition(new THREE.Vector3())):null;
@@ -1170,6 +1162,7 @@ export default class SimulationRuntime {
     const world = this.ctx.collisionWorld;
     if (!world) return null;
     updateTree(product.object);
+    const packed=this.manualProducts.packPlan(product);if(packed)return{matrix:packed.matrix,bounds:product.bounds.clone().applyMatrix4(packed.matrix),target:packed.parent.object,kind:'container',distance:packed.score,snapped:true};
     const processorInput = this.processorRuntime.findInput(product, PRODUCT_PREVIEW_DISTANCE);
     if (processorInput && processorInput.accepted) return processorInput;
     const palletPlacement = this.palletQueueRuntime.findPlacement(product, PRODUCT_PREVIEW_DISTANCE);
@@ -1216,7 +1209,9 @@ export default class SimulationRuntime {
   }
 
   updateHeldProducts() {
+    this.manualProducts.poll();const seen=new Set();
     this.held.forEach((product, controller) => {
+      if(seen.has(product))return;seen.add(product);if(product.directGrips){this.manualProducts.updateGrip(product);return;}
       if(product.holdInput==='pinch'){
         const contact=controller.userData.xrHandContact,grip=controller.userData.gripObject;
         if(!contact||!contact.valid||!grip||!grip.visible){this.releaseProduct(product,true);return;}
@@ -1306,6 +1301,9 @@ export default class SimulationRuntime {
   releaseProduct(product, force = false) {
     if (!product.heldBy) return false;
     const controller = product.heldBy;
+    if(product.directGrips){this.manualProducts.end(product);this.held.set(controller,product);}
+    const packing=this.manualProducts.packPlan(product);
+    if(packing){this.held.delete(controller);product.heldBy=null;product.holdInput=null;delete controller.userData.xrHeldObject;this.restoreProductCollision(product);this.productFeedback.release(product.object);this.manualProducts.pack(product,packing);this.refreshVariables();return true;}
     const placement = this.findProductPlacement(product, controller);
     const processorInput = this.processorRuntime.findInput(product);
     const palletPlacement = this.palletQueueRuntime.findPlacement(product);
@@ -1335,15 +1333,7 @@ export default class SimulationRuntime {
       // shared sweep prevents it from falling through floors or other boxes.
       const world = this.ctx.collisionWorld;
       if (placement && placement.snapped) this.setProductMatrix(product, placement.matrix);
-      else if (world) {
-        const bounds = product.bounds.clone().applyMatrix4(product.object.matrixWorld);
-        const result = world.sweepBox(bounds, new THREE.Vector3(0, -3, 0), this.productCollisionOptions(product, controller));
-        if (result.blocked) {
-          const matrix = product.object.matrixWorld.clone();
-          matrix.setPosition(new THREE.Vector3().setFromMatrixPosition(matrix).add(result.movement));
-          this.setProductMatrix(product, matrix);
-        }
-      }
+      else if (world) this.manualProducts.fall(product);
     }
     this.event(product.record ? product.record.id : 'simulation', 'product-released', onPallet ? 'Carga apilada en la estiba.' : onProcessor ? 'Carga colocada en la entrada del proceso.' : candidate ? 'Caja colocada en la banda.' : 'Caja soltada.');
     this.refreshVariables();
@@ -1351,7 +1341,9 @@ export default class SimulationRuntime {
   }
 
   releaseHeldProducts(controller, inputMode) {
+    for(const [product,pending]of this.manualProducts.pending)if((!controller||pending.controller===controller)&&(!inputMode||pending.input===inputMode))this.manualProducts.pending.delete(product);
     Array.from(this.held.entries()).forEach(([owner, product]) => {
+      if(product.directGrips){const grip=product.directGrips.get(owner);if((!controller||owner===controller)&&grip&&(!inputMode||grip.input===inputMode))this.manualProducts.dropHand(product,owner,true);return;}
       if ((!controller || owner === controller) && (!inputMode || product.holdInput === inputMode)) this.releaseProduct(product, true);
     });
   }
@@ -1365,6 +1357,7 @@ export default class SimulationRuntime {
   }
 
   captureProduct(product, candidate, receivingIgnore = []) {
+    if(product.packedInto)return false;
     const {record, belt, offset, lateral} = candidate;
     if (!this.productCompatible(record, belt, product) || !this.admissionReady(record, belt, false)) return false;
     if (belt.packages.length >= belt.config.maxPackages || this.packageCount >= MAX_PACKAGES) return false;
@@ -1632,6 +1625,7 @@ export default class SimulationRuntime {
       while (remaining > 1e-10) {
         const step = Math.min(remaining, STEP);
         this.time += step;
+        this.manualProducts.step(step);
         this.records.forEach(record => this.move(record, step));
         this.syncActorMatrices();
         this.sourceRuntime.step(step);
@@ -1790,12 +1784,12 @@ export default class SimulationRuntime {
       // its intake must not collide with that station's displayed first load.
       if (product.processorLocked && product.processorOwnerId === record.id) return;
       if (item && (item === excluded || item.beltId || item.palletOwnerId) ||
-        excluded && excluded.mesh === product.object || !visible(product.object) || !product.heldBy && !product.robotOwnerId && !product.vehicleOwnerId && !this.collisionWorld(product.object)) return;
+        excluded && excluded.mesh === product.object || product.packing || product.packedInto || !visible(product.object) || !product.heldBy && !product.robotOwnerId && !product.vehicleOwnerId && !this.collisionWorld(product.object)) return;
       updateTree(product.object);
       ignore.push(product.object);
       extraBoxes.push(product.bounds.clone().applyMatrix4(product.object.matrixWorld));
     });
-    return {ignore, extraBoxes};
+    return this.manualProducts.collision(record,excluded,{ignore, extraBoxes});
   }
 
   spawn(record, belt, reserved = false) {

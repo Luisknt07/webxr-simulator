@@ -492,8 +492,8 @@ export default class RayControl extends EventDispatcher {
 
         let controller = controllerData.controller;
         let active = controllerData.active;
-        const near=state.handGrabHit&&controllerData.inputSource.hand&&state.handGrabHit(controller);
-        let intersections = near ? [near] : this.getIntersections(controller, state.colliderMesh);
+        const near=state.handGrabHit&&state.handGrabHit(controller);
+        let intersections = near ? [near] : state.directOnly&&this.ctx.vrMode?[]:this.getIntersections(controller, state.colliderMesh);
         if (state.isSelectable) intersections = intersections.filter(hit => state.isSelectable(hit, controller));
 
         if (intersections.length > 0) {

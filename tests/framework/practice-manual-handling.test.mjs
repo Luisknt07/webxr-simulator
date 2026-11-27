@@ -27,8 +27,8 @@ test('practice picking still supports a light individual box and an empty pallet
  }
 });
 
-test('the practice-specific handling rule does not silently change saved legacy levels or another room',()=>{
+test('loaded-pallet handling restrictions also apply outside configurable practices and to other rooms',()=>{
  for(const spec of [{practice:false},{roomId:'another-room'}]){
-  const f=setup(spec);try{assert.equal(f.runtime.pickupProduct(f.product,f.hand),true);}finally{f.runtime.stop();native.releaseGeometry(f);}
+  const f=setup(spec);try{assert.equal(f.runtime.pickupProduct(f.product,f.hand),false);}finally{f.runtime.stop();native.releaseGeometry(f);}
  }
 });

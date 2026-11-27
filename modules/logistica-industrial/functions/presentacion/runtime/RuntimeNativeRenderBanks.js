@@ -47,7 +47,7 @@ function compactVertexTuples(geometry){
  for(let a=0;a<names.length;a++){const original=attributes[a],array=new original.array.constructor(vertices.length*original.itemSize);for(let i=0;i<vertices.length;i++)for(let k=0;k<original.itemSize;k++)array[i*original.itemSize+k]=original.array[vertices[i]*original.itemSize+k];geometry.setAttribute(names[a],new THREE.BufferAttribute(array,original.itemSize,original.normalized));}
  const source=geometry.index,indices=new Uint16Array(source.count);for(let i=0;i<source.count;i++)indices[i]=remap[source.getX(i)];geometry.setIndex(new THREE.BufferAttribute(indices,1));
 }
-const protectedSubtree=data=>data.editorHelper||data.editorRuntimeHelper||data.industrialAction||data.industrialButton||data.industrialDisplay||/vehicle\.(?:steering|controls)/.test(data.equipmentComponentId||'');
+const protectedSubtree=data=>data.editorHelper||data.editorRuntimeHelper||data.industrialAction||data.industrialButton||data.industrialDisplay||data.industrialPalletCargo||/vehicle\.(?:steering|controls)/.test(data.equipmentComponentId||'');
 const rigidBoundary=(object,anchors)=>{const data=object.userData||{};return anchors.has(object)||data.robotJoint||/^vehicle\./.test(data.equipmentComponentId||'')||data.robotRig||data.vehicleRig||data.warehouseRackRig;};
 function rigidPlacement(object,owner,excluded,anchors){
  let anchor=object.parent;const path=[];

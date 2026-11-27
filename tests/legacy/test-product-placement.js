@@ -37,7 +37,8 @@ async function run() {
   const authored = await document.serialize();
   runtime.start('hall');
   const product = runtime.products.get(box), other = runtime.products.get(second);
-  assert(runtime.pickupProduct(product, left));
+  const grasp=(product,controller)=>{controller.position.copy(product.bounds.getCenter(new THREE.Vector3()).applyMatrix4(product.object.matrixWorld));scene.updateMatrixWorld(true);return runtime.pickupProduct(product,controller);};
+  assert(grasp(product, left));
   const initialBasis = basis(box.matrixWorld);
   let candidate = runtime.updateProductPlacement(product, left);
   assert(candidate && candidate.target === table && !candidate.snapped, 'A nearby top surface offers a yellow destination before it enters magnetic reach.');
@@ -62,14 +63,14 @@ async function run() {
   // A second box is a physical stacking support, rather than a fixed joint:
   // the top one can immediately be picked up and moved away again.
   runtime.setProductMatrix(other, second.matrixWorld.clone().setPosition(new THREE.Vector3(0, 1.6, 0)));
-  assert(runtime.pickupProduct(other, right));
+  assert(grasp(other, right));
   candidate = runtime.updateProductPlacement(other, right);
   assert(candidate && candidate.snapped && candidate.target !== table);
   assert(runtime.releaseProduct(other));
   const lower = product.bounds.clone().applyMatrix4(box.matrixWorld), upper = other.bounds.clone().applyMatrix4(second.matrixWorld);
   assert(upper.min.y >= lower.max.y - 0.001 && upper.min.y <= lower.max.y + 0.006,
     'Stacking rests on the real box top, allowing the millimetric decorative tape above its broad support face.');
-  assert(runtime.pickupProduct(other, right));
+  assert(grasp(other, right));
   runtime.setProductMatrix(other, second.matrixWorld.clone().setPosition(new THREE.Vector3(4, 4, 4)));
   assert.equal(runtime.updateProductPlacement(other, right), null);
   const otherEntry = runtime.productFeedback.bindings.get(second);
@@ -77,7 +78,7 @@ async function run() {
 
   // Both hands can hold products; the industrialHeld flag must not make one
   // hand's box disappear from the other hand's dynamic collision checks.
-  assert(runtime.pickupProduct(product, left));
+  assert(grasp(product, left));
   runtime.setProductMatrix(product, box.matrixWorld.clone().setPosition(new THREE.Vector3(0, 1.31, 0)));
   runtime.setProductMatrix(other, second.matrixWorld.clone().setPosition(new THREE.Vector3(1.5, 1.31, 0)));
   left.position.set(0, 1.335, 0.35); right.position.copy(left.position);

@@ -22,7 +22,7 @@ function ensure(THREE,api,record) {
  runtime.setProductMatrix(product,matrix);
  if(!base.canPlace(record,product.bounds,matrix,product)){runtime.disposePackage(item);c.assembly.retryAt=runtime.time+.5;return;}
  const entry={id:record.id+':'+runtime.runSequence+':pallet'+(++c.assembly.created),originId:record.id,ownerId:record.id,spec,load,units:0,lineage:[record.id],product};
- product.sourceEntry=entry;product.palletAssemblyIncomplete=true;product.scale.copy(object.getWorldScale(new THREE.Vector3()));
+ product.sourceEntry=entry;product.manualBaseBounds=product.bounds.clone();product.palletAssemblyIncomplete=true;product.scale.copy(object.getWorldScale(new THREE.Vector3()));
  Object.assign(object.userData,{sourceProductId:entry.id,sourceOriginId:record.id,sourceUnits:0,sourceLineage:entry.lineage.slice()});
  if(object.userData.sourceProduct)object.userData.sourceProduct.units=0;
  item.sourceEntry=entry;item.box.copy(product.bounds).applyMatrix4(matrix);item.previous.copy(item.box);item.swept.copy(item.box);

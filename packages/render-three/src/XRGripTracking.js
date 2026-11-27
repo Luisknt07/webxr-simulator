@@ -144,6 +144,16 @@ export function updateXRGrip(renderer, controller, source, frame, delta) {
     const valid=!!(matrixOf(wrist)&&matrixOf(thumb)&&matrixOf(index));
     const prior=controller.userData.xrHandContact;
     const contact=controller.userData.xrHandContact={valid,pinching:false};
+    contact.grasping=false;
+    if(matrixOf(wrist)){
+      const wristPoint=new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().fromArray(matrixOf(wrist))),palm=wristPoint.clone();let anchors=1;
+      for(const name of ['index-finger-phalanx-proximal','middle-finger-phalanx-proximal','pinky-finger-phalanx-proximal']){const pose=jointPose(name);if(matrixOf(pose)){palm.add(new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().fromArray(matrixOf(pose))));anchors++;}}
+      palm.divideScalar(anchors);const tips=[];
+      for(const name of ['middle-finger-tip','ring-finger-tip','pinky-finger-tip']){const pose=jointPose(name);if(matrixOf(pose))tips.push(new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().fromArray(matrixOf(pose))).distanceTo(palm));}
+      contact.grasping=anchors>=2&&tips.length>=2&&tips.filter(distance=>distance<(prior&&prior.grasping?.095:.075)).length>=2;
+      if(anchors>=2){contact.palm=palm;const matrix=new THREE.Matrix4().fromArray(matrixOf(wrist));matrix.setPosition(palm);contact.graspMatrix=matrix.toArray();}
+      if(contact.grasping)contact.valid=true;
+    }
     // Reference-space measurements, transformed by the current rig by each
     // consumer. Poking does not require a thumb pose or a target-ray pose.
     contact.pokeValid=!!(matrixOf(wrist)&&matrixOf(index)&&matrixOf(distal));
@@ -152,7 +162,8 @@ export function updateXRGrip(renderer, controller, source, frame, delta) {
       contact.indexTip=point(index);contact.indexDistal=point(distal);contact.wrist=point(wrist);
       contact.indexRadius=Number.isFinite(index.radius)?Math.max(.003,Math.min(.012,index.radius)):.007;
     }
-    grip.visible=valid;
+    grip.visible=contact.valid;
+    if(!valid&&contact.grasping){grip.matrix.fromArray(contact.graspMatrix);grip.matrix.decompose(grip.position,grip.quaternion,grip.scale);grip.updateMatrixWorld(true);}
     if(valid){
       const a=new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().fromArray(matrixOf(thumb))),b=new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().fromArray(matrixOf(index)));
       const distance=a.distanceTo(b);contact.pinching=distance<(prior&&prior.pinching?.045:.025);

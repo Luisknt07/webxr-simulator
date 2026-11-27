@@ -218,6 +218,8 @@ const definitions = [
     text('sourceId', 'Banda de origen', '', 400, 'object'), checkbox('normallyClosed', 'Contacto normalmente cerrado', false)
   ]},
   {type: 'product', label: 'Producto manipulable / caja', fields: [
+    checkbox('packingEnabled', 'Recipiente abierto para colocación manual', false),
+    checkbox('manualUnpacking', 'Cajas individuales extraíbles del pallet', false),
     number('mass', 'Masa del producto (kg)', 1, .01, 3000, .1), number('initialVelocity', 'Impulso inicial en gravedad (m/s)', 0, 0, 5, .05),
     {key: 'base', label: 'Base del producto', input: 'select', default: 'flat', options: [['flat', 'Plana'], ['rigid', 'Bandeja rígida'], ['runners', 'Patines de pallet'], ['unstable', 'Inestable']].map(([value, label]) => ({value, label}))},
     text('sourceId', 'Banda preferida (vacío = cercana)', '', 400, 'object'),
@@ -360,6 +362,7 @@ function normalizeBehaviors(list) {
       result[field.key] = field.input === 'color' ? item.toLowerCase() : item;
     });
     if (value.type === 'product') {
+      if(result.packingEnabled&&!['tote','crate'].includes(result.productType))throw new Error('El llenado manual necesita un contenedor abierto o una caja plástica abierta.');
       if (value.variant) Object.assign(result, productEquipment.normalize(Object.assign({}, result, value)));
       else productOptionalFields.forEach(field => delete result[field.key]);
     }
@@ -458,4 +461,4 @@ function normalizeBehaviors(list) {
 
 function fieldsFor(config){const definition=definitionFor(config.type),fields=definition?definition.fields.slice():[];if(!config.catalogueEquipmentId)return fields;for(const item of [number('height','Altura del modelo · m',1.5,.001,20,.01),number('wear','Desgaste del equipo',.12,0,1,.01),text('frameColor','Color de estructura','#466574',7,'color'),text('accentColor','Color de componentes','#e9b849',7,'color'),{key:'detail',label:'Detalle geométrico',input:'select',default:'balanced',options:[{value:'low',label:'Ligero'},{value:'balanced',label:'Equilibrado'},{value:'high',label:'Alto'}]}]){if(!fields.some(row=>row.key===item.key))fields.push(item);}return fields;}
 const simulationTypes = ['motion', 'conveyor', 'source', 'processor', 'palletQueue', 'robot', 'vehicle', 'sensor', 'product', 'automation', 'analytics', 'control'];
-module.exports = {catalogueCapabilities:()=>require('../functions/equipamiento/schema/equipmentCapabilities.cjs'),controlPanels, definitions, definitionFor, fieldsFor, defaultBehavior, normalizeBehaviors, assetReference, simulationTypes, conveyorLayout, conveyorEquipment: conveyorLayout.equipment, productSources, processors, palletQueues, warehouseRacks, warehouseRackVisual: require('../functions/almacenamiento/schema/warehouseRackVisual.js'), conveyorRouting, robots, vehicles, productEquipment, vehicleEquipment: require('../functions/montacargas/schema/vehicle-equipment.js'), robotEquipment: require('../functions/robots/schema/robot-equipment.js'), robotKinematics: require('../functions/robots/schema/robot-kinematics.js'), machineAudio, industrialFloor: require('../functions/presentacion/schema/industrialFloor.js'), productionAnalytics: require('../functions/flujo-materiales/schema/productionAnalytics.js'), studio: require('../../../packages/project-model/shared/studio-document.js')};
+module.exports = {manualProductHandling:require('../functions/flujo-materiales/runtime/ManualProductHandling.cjs'),catalogueCapabilities:()=>require('../functions/equipamiento/schema/equipmentCapabilities.cjs'),controlPanels, definitions, definitionFor, fieldsFor, defaultBehavior, normalizeBehaviors, assetReference, simulationTypes, conveyorLayout, conveyorEquipment: conveyorLayout.equipment, productSources, processors, palletQueues, warehouseRacks, warehouseRackVisual: require('../functions/almacenamiento/schema/warehouseRackVisual.js'), conveyorRouting, robots, vehicles, productEquipment, vehicleEquipment: require('../functions/montacargas/schema/vehicle-equipment.js'), robotEquipment: require('../functions/robots/schema/robot-equipment.js'), robotKinematics: require('../functions/robots/schema/robot-kinematics.js'), machineAudio, industrialFloor: require('../functions/presentacion/schema/industrialFloor.js'), productionAnalytics: require('../functions/flujo-materiales/schema/productionAnalytics.js'), studio: require('../../../packages/project-model/shared/studio-document.js')};

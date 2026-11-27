@@ -10,6 +10,13 @@ const Teleport=new Function('THREE',source('packages/render-three/src/Teleport.j
 const {createXRGrip,updateXRGrip,disposeXRGrip}=require('../support/load-xr-grip.js')(THREE);
 const vec=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
 
+test('whole-hand grip uses measured wrist and curled finger joints, tolerates an occluded thumb and cancels a missing wrist',()=>{
+ const scene=new THREE.Scene(),controller=new THREE.Group();scene.add(controller);const renderer={xr:{getReferenceSpace:()=>({})}},grip=createXRGrip(renderer,controller,0);scene.add(grip);
+ const names=['wrist','thumb-tip','index-finger-tip','index-finger-phalanx-proximal','middle-finger-phalanx-proximal','pinky-finger-phalanx-proximal','middle-finger-tip','ring-finger-tip','pinky-finger-tip'],hand=new Map(names.map(name=>[name,{name}])),source={hand,handedness:'right'};
+ const frame=(closed,{thumb=true,wrist=true}={})=>({getJointPose:joint=>{if(joint.name==='thumb-tip'&&!thumb||joint.name==='wrist'&&!wrist)return null;const proximal=joint.name.includes('proximal'),tip=joint.name.includes('tip'),z=joint.name==='wrist'?0:proximal?-.06:tip?(closed?-.04:-.18):0,x=joint.name==='thumb-tip'?.06:0;return{radius:.007,transform:{matrix:new THREE.Matrix4().makeTranslation(x,1.2,z).toArray()}};}});
+ try{updateXRGrip(renderer,controller,source,frame(false));assert.equal(controller.userData.xrHandContact.grasping,false);updateXRGrip(renderer,controller,source,frame(true,{thumb:false}));const contact=controller.userData.xrHandContact;assert(contact.valid&&contact.grasping&&grip.visible);assert.equal(contact.pinching,false);assert(contact.graspMatrix.every(Number.isFinite));updateXRGrip(renderer,controller,source,frame(true,{thumb:false,wrist:false}));assert.equal(controller.userData.xrHandContact.valid,false);assert.equal(controller.userData.xrHandContact.grasping,false);assert.equal(grip.visible,false);updateXRGrip(renderer,controller,source,frame(false));assert.equal(controller.userData.xrHandContact.grasping,false);}finally{disposeXRGrip(controller);}
+});
+
 function tracked(ctx,ray,parent,name='right'){
  const controller=new THREE.Group();parent.add(controller);
  const hand=new Map(['wrist','thumb-tip','index-finger-tip','index-finger-phalanx-distal'].map(name=>[name,{}]));

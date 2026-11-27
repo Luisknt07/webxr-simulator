@@ -32,7 +32,7 @@ async function run(expected){
     view(position,target){c.camera.position.fromArray(position);c.camera.lookAt(...target);c.camera.updateMatrixWorld(true);c.scene.updateMatrixWorld(true);c.renderer.render(c.scene,c.camera);}};
    return{robots:records.filter(r=>r.components.robot).length,belts:records.filter(r=>r.components.conveyor).length,monitors:d.monitors.entries.size,
     messages:d.interactions.contextual.length,doors:rows.filter(row=>a.document.getBehaviors(row.object).some(v=>v.type==='hingeDoor')).length};
-  });assert.deepEqual(report.layout,{robots:1,belts:6,monitors:1,messages:6,doors:2});
+  });assert.deepEqual(report.layout,{robots:1,belts:6,monitors:1,messages:7,doors:2});
   await b.call(()=>{__scenarioQA.tick(17);__scenarioQA.view([-7.4,4.5,7.8],[2,1,-2.8]);});await shot('installation-overview');
   await b.call(()=>__scenarioQA.view([-6.7,3,2.8],[-3.4,1,-1.8]));await shot('boxes-between-belts');
   report.flow=await b.call(async()=>{
@@ -71,7 +71,7 @@ async function run(expected){
   report.restart=await b.call(()=>{
    const q=__scenarioQA;q.d.restart();return{states:q.d.interactions.states.length,messages:q.d.interactions.contextual.length,
     openDoors:Array.from(q.a.document.additions.values()).filter(row=>row.object.userData.hingeDoorOpen).length,errors:q.a.getStats().frameError};
-  });assert.deepEqual(report.restart,{states:2,messages:6,openDoors:0,errors:null});
+  });assert.deepEqual(report.restart,{states:2,messages:7,openDoors:0,errors:null});
  });assert.deepEqual(report.exceptions,[]);assert.deepEqual(report.consoleErrors,[]);assert.deepEqual(fixture.errors,[]);report.passed=true;
  }catch(error){report.failure=error.stack||String(error);throw error;}
  finally{fs.writeFileSync(path.join(OUT,'report.json'),JSON.stringify(report,null,2));await fixture.close();console.log(JSON.stringify({passed:!!report.passed,report:path.join(OUT,'report.json')}));}
