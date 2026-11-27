@@ -37,12 +37,12 @@ assert(racks[0].components.palletQueue.rack.layout.cells.length >= 4, 'The rack 
 assert(racks[0].components.palletQueue.queue.length > 0, 'The public rack starts with real stocked loads.');
 assert.equal(monitors.length, 1, 'The supervision dashboard monitors the real connected production line.');
 assert(sources.length >= 2);
-for (const record of sources) assert(record.components.source.config.totalLimit > 0 && record.components.source.config.totalLimit <= 8,
+for (const record of sources) assert(record.components.source.config.totalLimit > 0 && record.components.source.config.totalLimit <= 32,
   'Every demo source has a finite production limit.');
 for (const record of robots) assert(record.components.robot.config.enabled && record.components.robot.config.powered,
   'Both robots must be enabled and powered in the published configuration.');
 const architecture = [...document.additions.values()].map(entry => entry.object), walls = architecture.filter(object => /CEDI.*RV pared/.test(object.name)), roof = architecture.filter(object => /CEDI.*RV cubierta industrial cerrada/.test(object.name));
-assert.equal(walls.length, 3, 'Three closed walls and the authored front openings enclose the public cell.');
+assert.equal(walls.length, 2, 'The side walls and two opposite goods openings enclose the public cell.');
 assert.equal(architecture.filter(object=>document.getBehaviors(object).some(b=>b.type==='hingeDoor')).length,2);
 assert.equal(roof.length, 1, 'The selected public cell must have one enclosed industrial roof.');
 assert.equal(architecture.filter(object => /RV luminaria LED de techo/.test(object.name)).length, 4);
@@ -55,9 +55,10 @@ for (let i=0;i<walls.length;i++) for (let j=i+1;j<walls.length;j++) {
 assert.equal(document.getObject('custom-public-2').visible, false, 'The camera marker must not render in the lesson.');
 for (const entry of document.additions.values()) for (const node of entry.nodes.values()) for (const behavior of document.getBehaviors(node)) assert.notEqual(behavior.targetId, '@root');
 let peakProducts = simulation.products.size;
+const Operations=require(path.join(ROOT,'projects/smarttwin/PublicDemoOperations.js')).default,operations=new Operations(simulation);operations.createOrder(operations.catalog[0].id,8);operations.authorize();
 const advance = (seconds, stop = () => false) => {
   for (let frame = 0; frame < Math.ceil(60 * seconds) && !stop(); frame++) {
-    scene.updateMatrixWorld(true); simulation.execute(1 / 60); peakProducts = Math.max(peakProducts, simulation.products.size);
+    scene.updateMatrixWorld(true); operations.step(1/60);simulation.execute(1 / 60); peakProducts = Math.max(peakProducts, simulation.products.size);
     for (const record of robots) assert.equal(record.components.robot.fault, '', record.id + ': ' + record.components.robot.warning);
   }
 };

@@ -834,6 +834,7 @@ export default class PalletQueueRuntime {
     else if(action==='requestRetrieval')result=this.rackRequestRetrieval(record,value);
     else if(action==='openAisle')result=this.rackRequestAisle(record,value);
     else if(action==='prepareRackInput')result=this.rackPrepareInput(record);
+    else if (action === 'sealPallet') result = this.operational(component)&&behaviorSchema.palletQueues.physical.seal(THREE,this,record,true);
     else if (action === 'dispatch') result = this.dispatch(record);
     else if (action === 'dispatchPallet') result = this.releasePallet(record, component.pallets.findIndex((pallet, index) => this.bayFull(component, index)));
     else if (action === 'start') { runtime.setVariable(record.id, 'paused', false); result = runtime.setVariable(record.id, 'running', true); }

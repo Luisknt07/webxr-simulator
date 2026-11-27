@@ -29,11 +29,11 @@ function ensure(THREE,api,record) {
  pallet.assemblyProduct=product;pallet.sealed=false;base.entries.add(entry);runtime.invalidateCollision(object);
  const target=runtime.records.get(config.outputId);if(target&&target.components.conveyor)runtime.setVariable(target.id,'running',false);
 }
-function seal(THREE,api,record) {
+function seal(THREE,api,record,partial=false) {
  const runtime=api.runtime,c=record.components.palletQueue,pallet=c.pallets[0];
- if(!c.assembly||pallet.sealed||!pallet.assemblyProduct||!api.bayFull(c,0))return;
+ if(!c.assembly||pallet.sealed||!pallet.assemblyProduct||!(api.bayFull(c,0)||partial&&pallet.items.length))return false;
  const aggregate=pallet.assemblyProduct,entry=aggregate.sourceEntry,members=c.queue.filter(value=>value.product&&value.product.item.palletIndex===0);
- if(members.length!==c.config.capacity||members.some(value=>value.product.heldBy||value.product.vehicleOwnerId||value.product.robotOwnerId||value.product.robotReservedBy||value.product.vehicleReservedBy))return;
+ if((partial?members.length<1||members.length>c.config.capacity:members.length!==c.config.capacity)||members.some(value=>value.product.heldBy||value.product.vehicleOwnerId||value.product.robotOwnerId||value.product.robotReservedBy||value.product.vehicleReservedBy))return false;
  aggregate.object.updateWorldMatrix(true,true);const inverse=new THREE.Matrix4().getInverse(aggregate.object.matrixWorld),bounds=aggregate.bounds.clone();
  for(const member of members){
   const product=member.product;product.object.updateWorldMatrix(true,true);const matrix=product.object.matrixWorld.clone();
@@ -52,7 +52,7 @@ function seal(THREE,api,record) {
  item.box.copy(bounds).applyMatrix4(aggregate.object.matrixWorld);item.previous.copy(item.box);item.swept.copy(item.box);
  c.queue.push(entry);c.items.push(item);pallet.items.push(item);pallet.full=true;pallet.sealed=true;c.assembly.completed++;
  runtime.invalidateCollision(record.object);runtime.invalidateCollision(aggregate.object);
- runtime.event(record.id,'pallet-built','Pallet completo: '+entry.units+' unidades; mismas cajas y tara incluida.');
+ runtime.event(record.id,'pallet-built',(partial?'Pallet parcial cerrado: ':'Pallet completo: ')+entry.units+' unidades; mismas cajas y tara incluida.');return true;
 }
 function dispatch(THREE,api,record) {
  const runtime=api.runtime,c=record.components.palletQueue,pallet=c.pallets[0],product=pallet.assemblyProduct,entry=product&&product.sourceEntry,target=runtime.records.get(c.config.outputId),belt=target&&target.components.conveyor;

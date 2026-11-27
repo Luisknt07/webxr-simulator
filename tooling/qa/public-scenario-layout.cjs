@@ -11,14 +11,22 @@ async function run(expected){
   await b.send('Page.navigate',{url:fixture.origin+'/'});await b.until(()=>b.evaluate('!!window.smartTwinGallery'),'Welcome unavailable.');
   await b.evaluate('document.querySelector("#explore-demo").click()');await b.until(()=>b.evaluate('!!window.smartTwinViewer?.context.demo?.interactions'),'Scenario unavailable.',90000);
   report.dashboard=await b.call(()=>{document.querySelector('[data-tour-tool="dashboard"]').click();const c=smartTwinViewer.context;return{open:document.querySelector('.demo-operations').open,blocked:c.publicDialogOpen,continues:c.demoOperationsOpen,time:c.demo.simulation.time,cards:document.querySelectorAll('.demo-operations-kpis strong').length};});
-  assert(report.dashboard.open&&report.dashboard.blocked&&report.dashboard.continues);assert.equal(report.dashboard.cards,8);
+  assert(report.dashboard.open&&report.dashboard.blocked&&report.dashboard.continues);assert.equal(report.dashboard.cards,12);
   await b.until(()=>b.call(time=>smartTwinViewer.context.demo.simulation.time>time+1,report.dashboard.time),'Opening the dashboard froze production.');
   await shot('operations-dashboard');
+  report.reception=await b.call(()=>{
+   const o=smartTwinViewer.context.demo.operations,p=document.querySelector('.demo-operations'),before=o.snapshot().generated,form=p.querySelector('details form');p.querySelector('details').open=true;form.querySelector('[name=id]').value='QA-RET';form.querySelector('[name=name]').value='Retornable de prueba';form.querySelectorAll('select')[0].value='crate';form.requestSubmit();
+   p.querySelector('[data-receiving=quantity]').value=3;p.querySelector('[data-receiving=prepare]').click();const order=o.orders.at(-1);p.querySelector('[data-order="'+order.id+'"]').click();p.querySelector('[data-receiving=sku]').value=o.catalog[0].id;p.querySelector('[data-receiving=quantity]').value=8;p.querySelector('[data-receiving=prepare]').click();p.querySelector('[data-receiving=authorize]').click();
+   return{before,registered:o.catalog.some(row=>row.id==='QA-RET'&&row.type==='crate'),cancelled:order.cancelled,authorized:o.orders.at(-1).authorized};
+  });assert.equal(report.reception.before,0);assert(report.reception.registered&&report.reception.cancelled&&report.reception.authorized);
   report.commands=await b.call(()=>{const d=smartTwinViewer.context.demo,p=document.querySelector('.demo-operations'),s=d.operations.refs().source,click=action=>p.querySelector('[data-operation="'+action+'"]').click();click('stop');const stopped=!s.components.source.running;click('emergency');click('emergency');const latched=s.components.source.emergency;click('resetEmergency');const reset=!s.components.source.emergency&&!s.components.source.running;d.setPaused(true);click('start');const started=s.components.source.running&&!d.paused;p.querySelector('.demo-operations-header button').click();return{stopped,latched,reset,started,unblocked:!smartTwinViewer.context.publicDialogOpen};});assert(Object.values(report.commands).every(Boolean));
+  await b.call(()=>{document.querySelector('[data-tour-tool="dashboard"]').click();document.querySelector('[data-receiving=hold]').click();});
+  await b.until(()=>b.call(()=>{const load=smartTwinViewer.context.demo.operations.snapshot().loads.find(p=>p.withdrawable);return load&&[...document.querySelector('[data-receiving=load]').options].some(option=>option.value===load.id);}), 'No real incoming cargo available for inspection.');
+  report.receivingInspection=await b.call(()=>{const o=smartTwinViewer.context.demo.operations,p=document.querySelector('.demo-operations'),load=o.snapshot().loads.find(row=>row.withdrawable),held=o.snapshot().receptionHeld,select=p.querySelector('[data-receiving=load]');select.value=load.id;select.dispatchEvent(new Event('change'));p.querySelector('[data-receiving=inspect]').click();const inspected=o.snapshot().loads.find(row=>row.id===load.id).inspected;p.querySelector('[data-receiving=hold]').click();p.querySelector('.demo-operations-header button').click();return{held,inspected,released:!o.snapshot().receptionHeld};});assert(Object.values(report.receivingInspection).every(Boolean));
   report.layout=await b.call(()=>{
    const a=smartTwinViewer,c=a.context,d=c.demo,records=Array.from(d.simulation.records.values()),rows=Array.from(a.document.additions.values());c.renderer.setAnimationLoop(null);
    const belts=records.filter(r=>r.components.conveyor&&/^DEMOSTRACIÓN/.test(r.object.name));
-   const receiver=records.find(r=>/recepción de ocho cajas/.test(r.object.name));
+   const receiver=d.operations.refs().arrival;
    window.__scenarioQA={a,c,d,belts,receiver,seen:belts.map(()=>new Set()),frames:0,
     tick(seconds){for(let i=0;i<seconds*30;i++){c.scene.updateMatrixWorld(true);d.step(1/30);belts.forEach((r,n)=>r.components.conveyor.packages.forEach(item=>this.seen[n].add(item.product.object.uuid)));this.frames++;}d.present(1/30);},
     view(position,target){c.camera.position.fromArray(position);c.camera.lookAt(...target);c.camera.updateMatrixWorld(true);c.scene.updateMatrixWorld(true);c.renderer.render(c.scene,c.camera);}};
@@ -34,27 +42,27 @@ async function run(expected){
   });assert.equal(report.flow.arrivals.length,8);assert.equal(report.flow.metrics.pallets,2);assert.equal(report.flow.metrics.arrived,8);for(const seen of report.flow.seen)assert.deepEqual(seen,report.flow.arrivals);assert.equal(report.flow.frameError,null);
   report.digitalControls=await b.call(()=>{
    const q=__scenarioQA,s=q.d.simulation,entry=[...q.d.monitors.entries.values()][0],source=q.d.operations.refs().source,results=[];
-   const click=key=>{const region=entry.regions.find(row=>row.key===key);if(!region)throw Error('Missing digital control: '+key);const point=entry.plane.localToWorld(new q.a.THREE.Vector3(((region.x+region.width/2)/1024-.5)*.98,(.5-(region.y+region.height/2)/576)*.98,0));q.view([-3.4,1.85,7.7],point.toArray());const ray=q.c.raycontrol;ray.execute(q.c,.016,s.time);const data=ray.controllers.find(row=>row.desktop),selected=ray.selectionEntries(data).some(row=>row.state===entry.state);ray.onSelectStart({target:q.c.desktopController});ray.onSelectEnd({target:q.c.desktopController});q.d.monitors.sync('hall',0,false);return selected;};
+   const click=key=>{const region=entry.regions.find(row=>row.key===key);if(!region)throw Error('Missing digital control: '+key);const point=entry.plane.localToWorld(new q.a.THREE.Vector3(((region.x+region.width/2)/1024-.5)*.98,(.5-(region.y+region.height/2)/576)*.98,0)),eye=entry.plane.getWorldPosition(new q.a.THREE.Vector3()).addScaledVector(new q.a.THREE.Vector3(0,0,1).transformDirection(entry.plane.matrixWorld),2.2);q.view(eye.toArray(),point.toArray());const ray=q.c.raycontrol;ray.execute(q.c,.016,s.time);const data=ray.controllers.find(row=>row.desktop),selected=ray.selectionEntries(data).some(row=>row.state===entry.state);ray.onSelectStart({target:q.c.desktopController});ray.onSelectEnd({target:q.c.desktopController});q.d.monitors.sync('hall',0,false);return selected;};
    if(!click('control')||entry.page!=='control')throw Error('The existing CONTROL tab is unavailable.');
    for(const action of ['stop','emergency','resetEmergency','start']){const selected=click(action);results.push({action,selected,handTouchable:entry.state.handTouchable,running:source.components.source.running,emergency:source.components.source.emergency});}
-   click('diagram');return results;
+   click('receiving');for(const key of ['sku-next','new-sku','prepare','cancel','hold','hold'])if(!click('receiving:'+key))throw Error('Unavailable VR reception action: '+key);return results;
   });assert(report.digitalControls.every(r=>r.selected&&r.handTouchable));assert(!report.digitalControls[0].running);assert(report.digitalControls[1].emergency);assert(!report.digitalControls[2].emergency&&!report.digitalControls[2].running);assert(report.digitalControls[3].running);
-  await b.call(()=>__scenarioQA.view([-3.4,1.7,8],[-3.4,1.85,5.5]));await shot('native-suspended-monitor');
-  await b.call(()=>__scenarioQA.view([-4.3,3.15,9.4],[-3.4,3.2,5.5]));await shot('monitor-ceiling-mount');
+  await b.call(()=>__scenarioQA.view([-6.3,1.7,-6.8],[-8.65,1.85,-6.8]));await shot('native-suspended-monitor');
+  await b.call(()=>{const q=__scenarioQA;q.savedFov=q.c.camera.fov;q.c.camera.fov=75;q.c.camera.updateProjectionMatrix();q.view([-4.8,3,-4.7],[-8.65,3,-6.8]);});await shot('monitor-ceiling-mount');await b.call(()=>{const q=__scenarioQA;q.c.camera.fov=q.savedFov;q.c.camera.updateProjectionMatrix();});
   report.doors=await b.call(()=>{
    const q=__scenarioQA,T=q.a.THREE;q.d.setPaused(true);
    const doors=Array.from(q.a.document.additions.values()).map(row=>row.object).filter(o=>q.a.document.getBehaviors(o).some(v=>v.type==='hingeDoor'));
    return doors.map(door=>{
-    const x=door.position.x;q.view([x,1.65,8.2],door.getWorldPosition(new T.Vector3()).toArray());
+    const x=door.position.x,z=door.position.z,side=z<0?1:-1;q.view([x,1.65,z+side*1.8],door.getWorldPosition(new T.Vector3()).toArray());
     const ray=q.c.raycontrol;ray.execute(q.c,.016,q.d.simulation.time);
     const data=ray.controllers.find(row=>row.desktop),selected=ray.selectionEntries(data).some(entry=>entry.state.colliderMesh===door);
     ray.onSelectStart({target:q.c.desktopController});ray.onSelectEnd({target:q.c.desktopController});q.tick(1);
-    const passage=!q.c.collisionWorld.rayBlocked(new T.Vector3(x,1.2,8.5),new T.Vector3(x,1.2,11.5));
+    const passage=!q.c.collisionWorld.rayBlocked(new T.Vector3(x,1.2,z+side*1.5),new T.Vector3(x,1.2,z-side*1.5));
     return{name:door.name,selected,open:door.userData.hingeDoorOpen,passage};
    });
   });assert(report.doors.every(door=>door.selected&&door.open&&door.passage));
-  await b.call(()=>__scenarioQA.view([-4.5,1.9,6.8],[-6,1.4,10]));await shot('entrance-open');
-  await b.call(()=>__scenarioQA.view([10.5,1.9,6.8],[12,1.4,10]));await shot('exit-open');
+  await b.call(()=>__scenarioQA.view([-5.8,1.9,-6.8],[-4.3,1.6,-10]));await shot('entrance-open');
+  await b.call(()=>__scenarioQA.view([10.5,1.9,6.8],[9.4,1.6,10]));await shot('exit-open');
   report.message=await b.call(()=>{
    const q=__scenarioQA;q.view([-5.3,1.65,4],[-5.3,1.6,2.2]);q.tick(1.5);q.c.renderer.render(q.c.scene,q.c.camera);
    const runtime=q.d.interactions,active=runtime.contextualActive;

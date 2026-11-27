@@ -66,10 +66,10 @@ function pose(ctx, mode) {
   if (!ctx.vrMode && ctx.desktopLook) {ctx.desktopLook.unlock(); ctx.desktopLook.reset();}
   if (ctx.vrMode) {
     // Only the rig changes in XR. The native headset pose remains untouched.
-    ctx.cameraRig.position.set(4, ctx.xrReferenceSpaceType === 'local' ? 1.65 : 0, 8);
+    ctx.cameraRig.position.set(-6.4, ctx.xrReferenceSpaceType === 'local' ? 1.65 : 0, -8.6);
   } else if (mode === 'overview') {
     ctx.camera.position.set(-7.4, 4.6, 7.8); ctx.camera.lookAt(3, 1, -2.8);
-  } else {ctx.camera.position.set(4, 1.65, 8); ctx.camera.lookAt(2, 1.2, 0);}
+  } else {ctx.camera.position.set(-6.4, 1.65, -8.6); ctx.camera.lookAt(-8.65, 1.85, -6.8);}
   ctx.cameraRig.updateWorldMatrix(true, true); return true;
 }
 
@@ -211,7 +211,7 @@ async function start() {
     listen(byId('overview'), 'click', () => {const next = !overview; if (pose(ctx, next ? 'overview' : 'walk')) {overview = next; byId('overview').textContent = overview ? 'Volver a caminar' : 'Vista general';}});
     byId('overview').textContent = 'Vista general';
     listen(byId('drive'), 'click', toggleVehicle);
-    operationsPanel=new DemoOperationsPanel({document,window,operations:ctx.demo.operations,notify:notice,onStart:()=>ctx.demo.setPaused(false),onRestart:()=>{ctx.demo.restart();input.reset();notice('Escenario reiniciado. Comienza un nuevo lote de ocho cajas.');},onOpen:()=>{closeMenu();releaseTourInput();ctx.demoOperationsOpen=true;ctx.publicDialogOpen=true;},onClose:()=>{ctx.demoOperationsOpen=false;ctx.publicDialogOpen=false;input.reset();ctx.demo.driving.resetInput();}});
+    operationsPanel=new DemoOperationsPanel({document,window,operations:ctx.demo.operations,notify:notice,onStart:()=>ctx.demo.setPaused(false),onRestart:()=>{ctx.demo.restart();input.reset();notice('Escenario reiniciado. Autoriza las entradas desde recepción.');},onOpen:()=>{closeMenu();releaseTourInput();ctx.demoOperationsOpen=true;ctx.publicDialogOpen=true;},onClose:()=>{ctx.demoOperationsOpen=false;ctx.publicDialogOpen=false;input.reset();ctx.demo.driving.resetInput();}});
     browser.onDispose(()=>operationsPanel.dispose());listen(byId('operations'),'click',()=>operationsPanel.open());
     listen(byId('pause'), 'click', () => {ctx.demo.setPaused(!ctx.demo.paused); input.reset();});
     function restoreDemonstration(automatic=false){

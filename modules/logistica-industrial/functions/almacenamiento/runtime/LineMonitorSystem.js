@@ -146,8 +146,9 @@ function previewModel(meshes, parts, turn = 0, mode = 'isometric', options) { re
 /** World-space, ray-operated HMI. Simulation remains the sole source of machine
  * state; canvases, hit regions and render resources never enter the document. */
 export default class LineMonitorSystem {
-  constructor(ctx, document, simulation) {
+  constructor(ctx, document, simulation, options = {}) {
     this.ctx = ctx; this.document = document; this.simulation = simulation;
+    this.extension=options.extension||null;
     this.entries = new Map(); this.roomId = null;
     this.inventory = []; this.inventoryStamp = []; this.inventoryDirty = true; this.scanElapsed = 1;
     this.prefix = 'industrial-line-monitor-' + (++nextMonitor) + '-';
@@ -185,7 +186,7 @@ export default class LineMonitorSystem {
     backPlane.name = 'Monitor de línea · pantalla posterior'; backPlane.position.z = -.516; backPlane.rotation.y = Math.PI; owner.add(backPlane);
     // Each outward-facing plane uses the same unmodified UVs. Rotating the rear
     // geometry preserves readable text and identical button coordinates there.
-    const entry = {owner, config, canvas, drawing, texture, plane, backPlane, planes: [plane, backPlane], selectedId: config.targetId, page: 'diagram', detailPage: 0, eventPage: 0, analysisPage: 0, equipmentPage: 0, equipmentOffset: 0,
+    const entry = {owner, config, canvas, drawing, texture, plane, backPlane, planes: [plane, backPlane], selectedId: config.targetId, page: this.extension?this.extension.pageId:'diagram', detailPage: 0, eventPage: 0, analysisPage: 0, equipmentPage: 0, equipmentOffset: 0,
       moduleOnly: false, focused: false, selectedProductId: null, previewPart: '', preview: null, regions: [], presses: new Map(), dirty: true, elapsed: 0, editing: true, active: false, notice: '', signature: '', model: null};
     const state = {colliderMesh: entry.planes, handTouchable: true, controller: 'both', raycaster: true, consumeSelect: true, mergeSelection: true, captureSelect: true,
       isSelectable: (hit, controller) => this.valid(entry, hit, controller),
@@ -220,6 +221,7 @@ export default class LineMonitorSystem {
     const pressed = Array.from(entry.presses.values()).some(key => key === region.key);
     entry.presses.set(controller, region.key); entry.dirty = true;
     if (pressed) return; // One virtual button has one action until both hands release it.
+    if(region.operation&&this.extension){try{this.extension.press(this,entry,region.operation);}catch(error){entry.notice=error.message;}return;}
     if (this.simulation.pulse) this.simulation.pulse(controller, .18, 25);
     if (region.product) { entry.selectedProductId = region.product; return; }
     if (region.part !== undefined) { entry.previewPart = region.part; return; }
@@ -828,10 +830,12 @@ export default class LineMonitorSystem {
       aggregate.transferBlocked ? 'ESPERANDO SALIDA' : aggregate.powered === false ? 'APAGADA' : aggregate.running === false ? 'DETENIDA' : 'OPERATIVA';
     this.text(entry, 'Utilización ' + firstNumber(measured.utilization, aggregate.utilization).toFixed(1) + '% · ' + status, 540, 55, 15,
       aggregate.emergency ? COLORS.red : aggregate.palletFull || aggregate.transferBlocked ? COLORS.amber : COLORS.dim);
-    ['diagram', 'analytics', 'equipment', 'control', 'details', 'events'].forEach((page, index) => this.button(entry, page, ['RESUMEN', 'ANALÍTICA', 'EQUIPO', 'CONTROL', 'VARIABLES', 'EVENTOS'][index], 20 + index * 116, 70, 108, 36, {page, active: entry.page === page, fontSize: 14}));
+    const pages=[['diagram','RESUMEN'],['analytics','ANALÍTICA'],['equipment','EQUIPO'],['control','CONTROL'],['details','VARIABLES'],['events','EVENTOS']];if(this.extension)pages.unshift([this.extension.pageId,this.extension.label]);
+    pages.forEach(([page,label],index)=>this.button(entry,page,label,20+index*(this.extension?100:116),70,this.extension?94:108,36,{page,active:entry.page===page,fontSize:this.extension?12:14}));
     const scopeLabel = {line: 'LÍNEA', segment: 'TRAMO', module: 'MÓDULO'}[entry.config.scope || 'line'];
     this.button(entry, 'scope', entry.moduleOnly ? 'ALCANCE: MÓDULO' : 'ALCANCE: ' + scopeLabel, 724, 70, 280, 36);
-    if (entry.page === 'diagram') {
+    if(this.extension&&entry.page===this.extension.pageId){this.extension.draw(this,entry);
+    } else if (entry.page === 'diagram') {
       this.drawDiagram(entry, model, selected);
     } else if (entry.page === 'analytics') {
       this.drawAnalytics(entry, model);
@@ -901,7 +905,7 @@ export default class LineMonitorSystem {
       const analyticsSignature = analytics && [analytics.observedSeconds, analytics.summary,
         analytics.machines.map(machine => [machine.id, machine.state, machine.metrics, machine.capacity, machine.contents]),
         samples.length, samples[0] && samples[0].time, samples[samples.length - 1], analytics.control];
-      const signature = JSON.stringify([editing, entry.page, entry.detailPage, entry.eventPage, entry.analysisPage, entry.equipmentPage, entry.equipmentOffset, entry.selectedId, entry.selectedProductId, entry.focused, entry.moduleOnly, entry.previewMode, entry.previewTurn, entry.page === 'equipment' ? Math.floor(this.previewClock*2) : 0,
+      const signature = JSON.stringify([this.extension&&this.extension.signature(),editing, entry.page, entry.detailPage, entry.eventPage, entry.analysisPage, entry.equipmentPage, entry.equipmentOffset, entry.selectedId, entry.selectedProductId, entry.focused, entry.moduleOnly, entry.previewMode, entry.previewTurn, entry.page === 'equipment' ? Math.floor(this.previewClock*2) : 0,
         model.records.map(item => [item.id, item.object.name, item.object.matrixWorld.elements, item.config, item.variables]),
         model.products.map(item => [item.contour.map(point => point.toArray()), item.stage, item.sku, item.quality, item.defect]), model.events.map(item => item.id), model.snapshot && model.snapshot.variables, analyticsSignature]);
       if (entry.dirty || signature !== entry.signature) { entry.signature = signature; this.draw(entry, model); }

@@ -24,10 +24,10 @@ test('public recipe has a native dashboard, one robot, six belts, reachable stoc
   assert(!rows.some(row=>row.name==='CEDI · RV pared frontal'||/guía de la práctica/.test(row.name)));
   validateDocument(saved,()=>{throw Error('No external imports');});
   assert.equal(f.built.rackLayout.cells.length,12);assert.equal(f.built.rackStock.length,4);
-  assert(rows.filter(row=>row.behaviors.some(b=>b.type==='source'&&b.autoGenerate)).length===1);
+  assert(rows.filter(row=>row.behaviors.some(b=>b.type==='source'&&b.autoGenerate)).length===0);
   assert(f.built.rackLayout.cells.every(cell=>cell.position[1]+f.built.rack.position.y<=3));
   const floor=rows.find(row=>row.descriptor.type==='industrialFloor').descriptor;
-  assert(floor.walkways.some(box=>box[0]<-6&&box[2]>-6&&box[3]===10));assert(floor.walkways.some(box=>box[0]<12&&box[2]>12&&box[3]===10));
+  assert(floor.walkways.some(box=>box[0]<-6.4&&box[2]>-6.4&&box[1]<-9));assert(floor.walkways.some(box=>box[0]<9.4&&box[2]>9.4&&box[3]===10));
   assert(floor.crossings.length&&floor.bays.length&&floor.zones.length>=3);
   for(const row of rows.filter(row=>row.behaviors.some(b=>b.type==='info')))assert.equal(row.behaviors.find(b=>b.type==='info').presentation,'contextual');
  }finally{dispose(f);}
@@ -35,7 +35,7 @@ test('public recipe has a native dashboard, one robot, six belts, reachable stoc
 
 test('the same eight cartons traverse every belt and the real robot makes two 33kg pallets without collisions',()=>{
  const f=require('../support/public-demo-fixture.cjs')();try{
-  const Ops=require('../../projects/smarttwin/PublicDemoOperations.js').default,operations=new Ops(f.runtime),record=f.record;
+  const operations=f.operations,record=f.record;
   const belts=f.built.transfer.belts.map(object=>record(object).components.conveyor),seen=belts.map(()=>new Set()),robot=record(f.built.robot).components.robot;
   for(let frame=0;frame<150*30&&robot.completed<8;frame++){
    f.tick(1/30);belts.forEach((belt,index)=>belt.packages.forEach(item=>seen[index].add(item.product.object)));assert.equal(robot.fault,'');
@@ -50,13 +50,13 @@ test('the same eight cartons traverse every belt and the real robot makes two 33
 
 test('dashboard commands preserve the lot, emergency stays latched and reset requires an explicit start',()=>{
  const f=require('../support/public-demo-fixture.cjs')();try{
-  const Ops=require('../../projects/smarttwin/PublicDemoOperations.js').default,o=new Ops(f.runtime);f.tick(4);o.command('stop');
+  const o=f.operations;f.tick(4);o.command('stop');
   const poses=[...f.runtime.products.values()].map(p=>[p.object,p.object.matrixWorld.toArray()]),count=o.snapshot().generated;f.tick(1);
   assert.equal(o.snapshot().generated,count);for(const [object,matrix]of poses)assert.deepEqual(object.matrixWorld.toArray(),matrix);
   o.command('emergency');o.command('emergency');const members=f.runtime.lineLookup.get(o.refs().source.id).memberIds;
   assert(members.every(id=>f.runtime.machineComponent(f.runtime.records.get(id)).emergency));
   assert.throws(()=>o.command('start'),/emergencia/);o.command('resetEmergency');assert(members.every(id=>!f.runtime.machineComponent(f.runtime.records.get(id)).running));
-  o.command('start');f.tick(1);assert.equal(o.snapshot().generated,count);assert(members.every(id=>!f.runtime.machineComponent(f.runtime.records.get(id)).emergency));
+  o.command('start');f.tick(1);assert(o.snapshot().generated>=count);assert(members.every(id=>!f.runtime.machineComponent(f.runtime.records.get(id)).emergency));
   const robot=o.refs().robot;o.command('stop',robot.id);assert(!robot.components.robot.running);assert(o.refs().source.components.source.running);o.command('start',robot.id);assert(robot.components.robot.running);
  }finally{dispose(f);}
 });
@@ -73,8 +73,8 @@ test('native message engine animates either door around its hinge, opens the col
   f.scene.updateMatrixWorld(true);f.ctx.collisionWorld.setRoom('hall');runtime.start('hall');assert.equal(runtime.states.length,2);
   for(const door of f.built.doors){
    const start=door.position.clone(),rotation=door.quaternion.clone(),x=start.x;
-   f.ctx.camera.position.set(x,1.6,8.3);f.scene.updateMatrixWorld(true);
-   const blocked=()=>f.ctx.collisionWorld.rayBlocked(new THREE.Vector3(x,1.2,8.5),new THREE.Vector3(x,1.2,11.5));
+   const z=start.z,side=z<0?1:-1;f.ctx.camera.position.set(x,1.6,z+side*1.7);f.scene.updateMatrixWorld(true);
+   const blocked=()=>f.ctx.collisionWorld.rayBlocked(new THREE.Vector3(x,1.2,z+side*1.5),new THREE.Vector3(x,1.2,z-side*1.5));
    assert(blocked(),'Closed door must occupy the doorway.');
    const state=runtime.states.find(entry=>entry.state.colliderMesh===door).state;assert(state.isSelectable());assert(state.handTouchable&&state.captureSelect);state.onSelectStart();
    for(let i=0;i<60;i++)runtime.execute(1/60,i/60);
