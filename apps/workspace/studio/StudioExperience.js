@@ -9,6 +9,7 @@ import RemotePresentation from '../../../packages/tools/collaboration/src/Remote
 import PresenceAvatar from '../../../packages/tools/collaboration/src/PresenceAvatar.js';
 import RoomMedia from '../../../packages/tools/collaboration/src/RoomMedia.js';
 import RoomVisuals from '../../../packages/tools/collaboration/src/RoomVisuals.js';
+import SessionDock from '../../../packages/tools/collaboration/src/SessionDock.js';
 import AdminWorkspace from './AdminWorkspace.js';
 import ImmersiveStudioMenu from './ImmersiveStudioMenu.js';
 import VehicleMissionOverlay from '../../../packages/tools/editor/src/VehicleMissionOverlay.js';
@@ -45,8 +46,8 @@ export default class StudioExperience {
     editor.enter = () => { if (this.room) { this.message('Sal de la sala compartida para editar el proyecto.'); return; } if (this.client.configured && (!this.client.user || !this.client.user.permissions.editor)) { this.open('account'); return; } this.close(); return this.originalEnter(); };
     this.build(vrButton); this.bindSimulation(); this.sharedGrabs = new SharedGrabs(this); this.presentation = new RemotePresentation();
     this.roomVisuals=new RoomVisuals(this);
-    this.roomMedia=new RoomMedia(this,{onChange:()=>this.renderRoomMedia(),onVisual:value=>this.roomVisuals.receive(value)});
-    window.addEventListener('pagehide',()=>this.roomMedia.dispose());
+    this.roomMedia=new RoomMedia(this,{onChange:()=>{this.renderRoomMedia();this.renderParticipants();if(this.sessionDock)this.sessionDock.update();},onVisual:value=>this.roomVisuals.receive(value)});
+    window.addEventListener('pagehide',()=>{this.roomMedia.dispose();if(this.sessionDock)this.sessionDock.dispose();});
     this.immersiveMenu = new ImmersiveStudioMenu(this);
     this.missionOverlay = new VehicleMissionOverlay();
     this.practiceGuideAvatar = new PracticeGuideAvatar({context:this.ctx,document,window,onInteract:()=>{this.editor.hooks.unlock();this.editor.hooks.clearKeyboard();},getTourState:()=>!this.editor.initializing&&!this.editor.loadingProject&&this.client.user&&!this.editor.practiceController?{title:this.editor.currentProject&&this.editor.currentProject.name||'Explora el escenario',lastMessage:this.ctx.drivingVehicle?'Manipula los mandos del vehículo; consulta Controles para conocer sus funciones.':this.ctx.desktopFlight?'Explora en dron. Q sube y E baja; pulsa Dron para volver a caminar.':'Recorre la escena y selecciona sus objetos. Usa Guía para consultar la documentación o Chat para preguntar.'}:null});
@@ -214,7 +215,6 @@ export default class StudioExperience {
     if(typeof connectExperienceHeader==='function')this.experienceHeader=connectExperienceHeader(this.header,{brand,actions,controls:{scenes:this.practicesButton,rooms:this.roomsButton,guide:this.guideButton,results:this.resultsButton,account:this.accountButton,xr:vrButton,menu:this.menuButton},onInteract:()=>{this.editor.hooks.unlock();this.editor.hooks.clearKeyboard();}});
     this.tourShortcuts=mountTourShortcuts({document,actions:[
       {id:'scenes',label:'Escenarios',icon:'scenes',action:()=>this.practicesButton.click()},
-      {id:'rooms',label:'Sala grupal',icon:'rooms',action:()=>this.open('rooms')},
       {id:'guide',label:'Guía',icon:'guide',action:()=>this.guideButton.click()},
       {id:'flight',label:'Dron',icon:'move',action:()=>this.setDesktopFlight(!this.ctx.desktopFlight),getState:()=>{const state=getSceneCameraMode(this.ctx);return{pressed:state.mode==='drone',disabled:state.blocked,title:state.reason||'Alternar caminar / vuelo dron'};}},
       {id:'controls',label:'Controles',icon:'controls',action:()=>this.open('controls')},
@@ -226,6 +226,7 @@ export default class StudioExperience {
     this.controls = button(document.body, '⌘ Controles', () => this.open('controls'), 'studio-controls');
     this.controls.hidden = true;
     this.contextHint = el('output', undefined, document.body, 'studio-context'); this.contextHint.hidden = true;
+    this.sessionDock=new SessionDock(this);
   }
   message(text) { this.notice.textContent = text; this.notice.hidden = false; clearTimeout(this.noticeTimer); this.noticeTimer = setTimeout(() => { this.notice.hidden = true; }, 6500); }
   setDesktopFlight(enabled) {
@@ -262,13 +263,13 @@ export default class StudioExperience {
     }
     if (page === 'users' && this.client.user && this.client.user.permissions.manageUsers && this.administration.openModal) return this.guard(() => this.users());
     if (this.administration) this.administration.close();
-    if (!this.client.user && ['avatar', 'sessions', 'rooms', 'progress', 'users', 'classroom'].includes(page)) page = 'account';
+    if (!this.client.user && ['avatar', 'sessions', 'rooms','participants','chat', 'progress', 'users', 'classroom'].includes(page)) page = 'account';
     this.editor.hooks.unlock(); this.editor.hooks.clearKeyboard(); this.close(); this.page = page; this.drawer.textContent = ''; this.drawer.hidden = false; this.shade.hidden = false; this.menuButton.setAttribute('aria-expanded', 'true');
     this.drawer.className = 'studio-drawer' + (page === 'scenes' ? ' studio-scene-library-modal' : ['personal','camera','controls'].includes(page)?' st-app-menu':''); this.drawer.setAttribute('aria-label', page === 'scenes' ? 'Biblioteca de escenarios' : 'Mi espacio');
-    const head = el('div', undefined, this.drawer, 'studio-drawer-head'); el('h1', ({account: this.client.user ? 'Mi cuenta' : 'Iniciar sesión', avatar: 'Mi avatar', sessions: 'Sesiones guardadas', rooms: 'Sesiones multiusuario', progress: 'Mi progreso', settings: 'Ajustes', controls: 'Controles y ayuda', camera:'Cámara y navegación', scenes: 'Escenarios', classroom: 'Mis prácticas', users: 'Administración'})[page] || 'Mi espacio', head); const closer = button(head, '×', () => this.close()); closer.setAttribute('aria-label', 'Cerrar panel');
+    const head = el('div', undefined, this.drawer, 'studio-drawer-head'); el('h1', ({account: this.client.user ? 'Mi cuenta' : 'Iniciar sesión', avatar: 'Mi avatar', sessions: 'Sesiones guardadas', rooms: 'Sesiones multiusuario',participants:'Participantes y turnos',chat:'Chat de la sala', progress: 'Mi progreso', settings: 'Ajustes', controls: 'Controles y ayuda', camera:'Cámara y navegación', scenes: 'Escenarios', classroom: 'Mis prácticas', users: 'Administración'})[page] || 'Mi espacio', head); const closer = button(head, '×', () => this.close()); closer.setAttribute('aria-label', 'Cerrar panel');
     this.content = el('div', undefined, this.drawer, 'studio-drawer-content');
     if(['camera','controls'].includes(page))button(this.content,'← Volver al menú',()=>this.open('personal'),'st-menu-back');
-    if(page==='camera'){el('p','Elige cómo recorrer la instalación o guarda una foto y un vídeo de la vista 3D.',this.content,'st-menu-description');this.menuSceneTools=this.mountPracticeSceneTools(this.content);}else if (page === 'account') this.account(); else if (page === 'avatar') this.avatar(); else if (page === 'sessions') this.guard(() => this.sessions()); else if (page === 'rooms') this.rooms(); else if (page === 'progress') this.progress(); else if (page === 'settings') this.settings(); else if (page === 'controls') this.help(); else if (page === 'users') this.guard(() => this.users()); else if (page === 'classroom') this.guard(() => this.classroom()); else if (page === 'scenes') this.guard(() => this.scenes()); else this.personal();
+    if(page==='camera'){el('p','Elige cómo recorrer la instalación o guarda una foto y un vídeo de la vista 3D.',this.content,'st-menu-description');this.menuSceneTools=this.mountPracticeSceneTools(this.content);}else if(page==='participants')this.participants();else if(page==='chat')this.chat();else if (page === 'account') this.account(); else if (page === 'avatar') this.avatar(); else if (page === 'sessions') this.guard(() => this.sessions()); else if (page === 'rooms') this.rooms(); else if (page === 'progress') this.progress(); else if (page === 'settings') this.settings(); else if (page === 'controls') this.help(); else if (page === 'users') this.guard(() => this.users()); else if (page === 'classroom') this.guard(() => this.classroom()); else if (page === 'scenes') this.guard(() => this.scenes()); else this.personal();
     closer.focus();
   }
   needAccount() { if (!this.client.user) { this.open('account'); this.message('Inicia sesión para sincronizar esta información.'); return true; } return false; }
@@ -280,7 +281,6 @@ export default class StudioExperience {
     const navigation=menuSection(content,'Navegación');
     add(navigation,'home','Inicio','home',()=>this.goHome());
     add(navigation,'scenes','Escenarios','scenes',()=>this.open('scenes'));
-    const multiplayer=menuSection(content,'Sesión grupal');add(multiplayer,'rooms','Crear o unirse a una sala','rooms',()=>this.open('rooms'));
     const explore=menuSection(content,'Explorar');
     add(explore,'guide','Guía del escenario','guide',()=>{this.close();this.guideButton.click();});
     add(explore,'camera','Cámara y navegación','camera',()=>this.open('camera'));
@@ -409,12 +409,13 @@ export default class StudioExperience {
   avatar() {
     if (this.needAccount()) return;
     const user = this.client.user, config = Object.assign({}, user.avatar), content = this.content;
-    el('p', 'Avatar 3D para salas compartidas. La imagen de perfil se mantiene por separado.', content, 'studio-muted');
-    const preview = el('div', undefined, content, 'studio-avatar-preview'); const renderer = new THREE.WebGLRenderer({alpha: true, antialias: true}); renderer.setPixelRatio(1); renderer.setSize(340, 260); renderer.outputEncoding = THREE.sRGBEncoding; preview.appendChild(renderer.domElement);
-    const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(35, 340 / 260, 0.1, 20); camera.position.set(1.3, 0, -2.2); camera.lookAt(0, -0.55, 0); scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 1.5)); let avatar = null;
+    el('p', 'Tu identidad en el grupo: operador con equipo de protección, cuerpo articulado y colores propios.', content, 'studio-muted');
+    const preview = el('div', undefined, content, 'studio-avatar-preview'); const renderer = new THREE.WebGLRenderer({alpha: true, antialias: true,preserveDrawingBuffer:true}); renderer.setPixelRatio(1); renderer.setSize(340, 260); renderer.outputEncoding = THREE.sRGBEncoding; preview.appendChild(renderer.domElement);
+    const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(35, 340 / 260, 0.1, 20); camera.position.set(1.35, .05, -3.3); camera.lookAt(0, -.73, 0); scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 1.5));const keyLight=new THREE.DirectionalLight(0xffffff,.8);keyLight.position.set(-2,3,-4);scene.add(keyLight);let avatar = null;
     const render = () => { if (avatar) { scene.remove(avatar); avatar.userData.dispose(); } avatar = createAvatar(config); scene.add(avatar); renderer.render(scene, camera); }; render();
-    const base = select(content, 'Avatar base', ['capsule', 'robot', 'explorer'], config.base); base.addEventListener('change', () => { config.base = base.value; render(); });
-    [['bodyColor', 'Cuerpo'], ['accentColor', 'Detalles'], ['skinColor', 'Cabeza']].forEach(([key, label]) => { const control = input(content, label, 'color', config[key]); control.addEventListener('input', () => { config[key] = control.value; render(); }); });
+    const base = select(content, 'Diseño', [{label:'Operador industrial',value:'capsule'},{label:'Supervisor industrial',value:'explorer'},{label:'Asistente robótico',value:'robot'}], config.base); base.addEventListener('change', () => { config.base = base.value; render(); });
+    const rotation=input(content,'Girar vista previa','range','0');rotation.min='-180';rotation.max='180';rotation.addEventListener('input',()=>{avatar.rotation.y=Number(rotation.value)*Math.PI/180;renderer.render(scene,camera);});
+    [['bodyColor', 'Chaleco y casco'], ['accentColor', 'Uniforme'], ['skinColor', 'Tono de piel']].forEach(([key, label]) => { const control = input(content, label, 'color', config[key]); control.addEventListener('input', () => { config[key] = control.value; render(); }); });
     button(content, 'Guardar avatar', () => this.guard(async () => { await this.client.updateProfile({avatar: config}); this.identity(); this.message('Avatar guardado en tu perfil.'); }), 'studio-primary');
     const displayName = input(content, 'Nombre visible', 'text', user.displayName); button(content, 'Guardar nombre', () => this.guard(async () => { await this.client.updateProfile({displayName: displayName.value}); this.identity(); this.message('Nombre guardado.'); }));
     this.avatarCleanup = () => { avatar.userData.dispose(); renderer.dispose(); };
@@ -495,7 +496,7 @@ export default class StudioExperience {
       el('p', 'Rol: ' + this.room.role + ' · ' + (this.roomError || 'Conectado'), content, 'studio-muted');
       const social=el('section',undefined,content,'studio-room-media');social.setAttribute('aria-label','Voz y conversación de la sala');this.roomMediaElement=social;this.roomMediaSignature='';this.renderRoomMedia();
       button(content, 'Copiar invitación', () => this.guard(async () => { const url = new URL('/play', window.location);url.searchParams.set('scene','vr-robot-dispatch');url.searchParams.set('room', this.room.code); await navigator.clipboard.writeText(url.href); this.message('Invitación copiada.'); }));
-      const participants = el('div', undefined, content, 'studio-room-participants'); this.participantList = participants; this.renderParticipants();
+      button(content,'Participantes y turnos',()=>this.open('participants'));button(content,'Chat de la sala',()=>this.open('chat'));
       if (this.room.role === 'host') { button(content, 'Guardar estado de sala', () => this.guard(() => this.publishRoom()), 'studio-primary'); button(content, 'Pausar / reanudar sala', () => this.guard(() => this.connection.action({type: 'simulation', action: this.editor.simulationPaused ? 'resume' : 'pause'}))); button(content, 'Reiniciar sala', () => this.guard(() => this.connection.action({type: 'simulation', action: 'reset'}))); }
       el('p', 'Simulación compartida con autoridad del anfitrión. Los participantes pueden accionar controles y agarrar cargas con reserva exclusiva. Los observadores tienen acceso de lectura.', content, 'studio-muted');
       button(content, 'Salir de la sala', () => this.guard(async () => { await this.leaveRoom(); this.open('personal'); }));
@@ -525,18 +526,19 @@ export default class StudioExperience {
     this.connection.connect(room); this.lastPublish = performance.now(); this.editor.toast('Sala conectada · ' + room.code);
     if(this.roomMedia)this.roomMedia.connect(room);
   }
-  async leaveRoom() {if(this.roomMedia)this.roomMedia.disconnect(); if (this.sharedGrabs) this.sharedGrabs.detach(); if (this.presentation) this.presentation.clear(); await this.connection.leave(); this.room = null; this.roomRevision = 0; this.pendingRoomState = null; this.editor.simulationPaused = false; this.avatars.forEach(avatar => { if (avatar.parent) avatar.parent.remove(avatar); avatar.userData.dispose(); }); this.avatars.clear(); }
+  async leaveRoom() {if(this.roomMedia)this.roomMedia.disconnect(); if (this.sharedGrabs) this.sharedGrabs.detach(); if (this.presentation) this.presentation.clear(); await this.connection.leave(); this.room = null; this.roomRevision = 0; this.pendingRoomState = null; this.editor.simulationPaused = false; this.avatars.forEach(avatar => { if (avatar.parent) avatar.parent.remove(avatar); avatar.userData.dispose(); }); this.avatars.clear();if(this.sessionDock)this.sessionDock.update(); }
   pose() {
     if(!this.room)return null;const ctx=this.ctx,xr=ctx.renderer&&ctx.renderer.xr,camera=xr&&xr.isPresenting?xr.getCamera(ctx.camera):ctx.camera;
     const sample=object=>{object.updateWorldMatrix(true,false);return{position:object.getWorldPosition(new THREE.Vector3()).toArray(),quaternion:object.getWorldQuaternion(new THREE.Quaternion()).toArray()};},result=sample(camera);
     if(ctx.vrMode)for(const data of ctx.raycontrol.controllers||[]){const side=data.inputSource&&data.inputSource.handedness,grip=data.grip;if(!['left','right'].includes(side)||!grip)continue;let visible=true;for(let p=grip;p;p=p.parent)if(!p.visible)visible=false;if(visible)result[side]=sample(grip);}
-    return result;
+    result.seated=!!ctx.drivingVehicle;return result;
   }
   async receiveRoom(room) {
     if (!this.room || this.room.id !== room.id) return;
     const needsState = room.state && room.revision !== this.roomRevision;
     if (needsState && this.room.role !== 'host') { if (this.sharedGrabs && this.sharedGrabs.holding) this.pendingRoomState = room.state; else this.applyRemoteState(room.state); }
-    this.roomRevision = room.revision; this.room = room; this.roomError = null;
+    const previousVoice=this.room&&this.room.voice;if(previousVoice&&room.voice&&previousVoice.revision>room.voice.revision)room.voice=previousVoice;
+    this.roomRevision = room.revision; this.room = room; this.roomError = null;if(this.roomMedia)this.roomMedia.syncVoice(room.voice);
     if (this.sharedGrabs) this.sharedGrabs.receiveRoom(room);
     const live = new Set();
     room.participants.forEach(person => {
@@ -550,16 +552,27 @@ export default class StudioExperience {
     this.avatars.forEach((avatar, id) => { if (!live.has(id)) { avatar.parent.remove(avatar); avatar.userData.dispose(); this.avatars.delete(id); } });
     this.renderParticipants();
   }
-  renderParticipants() { if (!this.participantList || !this.participantList.isConnected || !this.room) return; this.participantList.textContent = ''; this.room.participants.forEach(person => el('p', person.displayName + ' · ' + person.role + (person.online ? ' · conectado' : ' · desconectado'), this.participantList)); }
+  participants(){
+    if(!this.room)return this.rooms();el('p','Un micrófono a la vez. Pide la palabra y activa tu micrófono cuando el anfitrión te conceda el turno.',this.content,'studio-muted');
+    if(this.room.role==='host')button(this.content,'Silenciar a todos',()=>this.guard(()=>this.roomMedia.voiceAction('mute-all')),'studio-primary');
+    this.participantList=el('div',undefined,this.content,'studio-participant-list');this.participantSignature='';this.renderParticipants();
+  }
+  chat(){if(!this.room)return this.rooms();this.roomMediaElement=el('section',undefined,this.content,'studio-room-media');this.roomMediaElement.setAttribute('aria-label','Conversación de la sala');this.roomMediaSignature='';this.renderRoomMedia();}
+  renderParticipants() {
+    if(!this.participantList||!this.participantList.isConnected||!this.room||!this.roomMedia)return;
+    const voice=this.roomMedia.voiceState(),members=this.room.participants,signature=JSON.stringify([voice,members.map(p=>[p.id,p.displayName,p.role,p.online,p.avatar])]);if(signature===this.participantSignature)return;this.participantSignature=signature;this.participantList.textContent='';
+    for(const person of members){const row=el('article',undefined,this.participantList,'studio-participant-card');row.appendChild(avatarBadge(person.avatar));const copy=el('div',undefined,row);el('strong',person.displayName,copy);el('p',(person.role==='host'?'Instructor':person.role==='observer'?'Observador':'Participante')+' · '+(!person.online?'Desconectado':voice.speakerId===person.id?'Turno concedido':voice.requests.includes(person.id)?'Pide la palabra':'Micrófono silenciado'),copy,'studio-muted');
+      if(this.room.role==='host'&&person.online){const granted=voice.speakerId===person.id;button(row,granted?'Retirar turno':'Dar palabra',()=>this.guard(()=>this.roomMedia.voiceAction(granted?'mute-all':'grant',person.id)),granted?'studio-primary':'');}
+    }
+  }
   renderRoomMedia(){
     const root=this.roomMediaElement,media=this.roomMedia;if(!root||!root.isConnected||!this.room||!media)return;
-    const signature=[media.status,media.muted,media.deafened,media.proximity,media.error,media.chat.map(row=>row.id+':'+row.at).join(',')].join('|');if(signature===this.roomMediaSignature)return;this.roomMediaSignature=signature;
+    const voice=media.voiceState(),signature=[this.page,media.status,media.muted,media.deafened,media.proximity,media.error,voice.revision,media.chat.map(row=>row.id+':'+row.at).join(',')].join('|');if(signature===this.roomMediaSignature)return;this.roomMediaSignature=signature;
     const prior=root.querySelector('input'),draft=prior&&prior.value||'',focused=prior&&prior===document.activeElement;root.textContent='';
     const labels={connected:'Tiempo real conectado',connecting:'Conectando sala…',reconnecting:'Reconectando…',unconfigured:'Voz y presencia rápida pendientes de configurar en el servidor',disconnected:'Tiempo real desconectado',error:'No se pudo conectar la sala'};
     el('p',labels[media.status]||media.status,root,'studio-muted');if(media.error)el('p',media.error,root,'studio-error');
     if(media.status==='connected'){
-      button(root,media.muted?'Activar micrófono':'Silenciar micrófono',()=>this.guard(()=>media.microphone()),'studio-primary');button(root,media.deafened?'Escuchar sala':'Silenciar escucha',()=>this.guard(()=>media.listen()));
-      button(root,media.proximity?'Voz cercana: activa':'Voz para toda la sala',()=>{media.proximity=!media.proximity;media.changed();});
+      if(this.page!=='chat'){const speaker=this.room.participants.find(p=>p.id===voice.speakerId);el('p',speaker?'Turno de voz: '+speaker.displayName:'Todos entran silenciados. Usa la mano de la barra para pedir la palabra.',root);button(root,media.proximity?'Voz cercana: activa':'Voz para toda la sala',()=>{media.proximity=!media.proximity;media.changed();});return;}
       const log=el('div',undefined,root,'studio-room-chat');log.setAttribute('aria-live','polite');for(const row of media.chat)el('p',row.name+': '+row.text,log);
       const form=el('form',undefined,root,'studio-form'),text=input(form,'Mensaje para la sala','text',draft);text.maxLength=400;if(focused)text.focus();const send=el('button','Enviar',form,'studio-primary');send.type='submit';form.addEventListener('submit',e=>{e.preventDefault();const value=text.value;text.value='';this.guard(()=>media.send(value));});
     }else if(media.status!=='unconfigured'&&media.status!=='connecting')button(root,'Reconectar tiempo real',()=>media.connect(this.room));
@@ -596,6 +609,7 @@ export default class StudioExperience {
   }
   tick() {
     if(this.tourShortcuts)this.tourShortcuts.update();
+    if(this.sessionDock)this.sessionDock.update();
     this.syncSceneCapture();
     if(this.sceneToolbars)for(const toolbar of this.sceneToolbars)toolbar.update();
     this.header.hidden = this.editor.active || this.ctx.vrMode; this.controls.hidden = true;
@@ -609,7 +623,7 @@ export default class StudioExperience {
     }
     const now = performance.now();
     if(this.roomVisuals&&this.room)this.roomVisuals.tick(this.lastAvatarTime?Math.min(.1,(now-this.lastAvatarTime)/1000):1/60);
-    if(this.roomMedia&&this.room){this.roomMedia.tick();const delta=this.lastAvatarTime?Math.min(.1,(now-this.lastAvatarTime)/1000):1/60;for(const [id,avatar]of this.avatars){const presence=avatar.userData.presence;if(presence){const remote=this.roomMedia.received.get(id);presence.voice(remote?remote.muted:true,this.roomMedia.speakers.has(id));presence.tick(this.ctx.camera,delta);}}this.lastAvatarTime=now;}
+    if(this.roomMedia&&this.room){this.roomMedia.tick();const delta=this.lastAvatarTime?Math.min(.1,(now-this.lastAvatarTime)/1000):1/60,voice=this.roomMedia.voiceState();for(const [id,avatar]of this.avatars){const presence=avatar.userData.presence;if(presence){const remote=this.roomMedia.received.get(id);presence.voice(voice.speakerId!==id||!remote||remote.muted,this.roomMedia.speakers.has(id),voice.requests.includes(id));presence.tick(this.ctx.camera,delta);}}this.lastAvatarTime=now;}
     if (this.presentation && this.room && this.room.role !== 'host') this.presentation.tick(this.editor.simulation);
     if (this.room && this.room.role === 'host' && now - this.lastPublish > 750) { this.lastPublish = now; this.publishRoom().catch(error => this.message('Estado compartido pendiente: ' + error.message)); }
     const data = this.ctx.desktopControllerData;

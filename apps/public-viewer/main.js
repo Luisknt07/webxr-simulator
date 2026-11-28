@@ -126,7 +126,7 @@ async function start() {
     if (window.smartTwinViewer && window.smartTwinViewer.context === ctx) window.smartTwinViewer = null;});
   const dispose = () => browser.dispose();
   const menu = byId('viewer-menu'), menuToggle = byId('viewer-menu-toggle');
-  for(const [id,icon]of [['menu-home','home'],['menu-scenes','scenes'],['menu-rooms','rooms'],['menu-guide','guide'],['menu-camera','camera'],['menu-overview','overview'],['menu-xr','xr'],['drive','drive'],['pause','pause'],['restart','restart'],['operations','scenes'],['menu-controls','controls'],['menu-voice','sound'],['menu-account','account']])decorateMenuAction(byId(id),icon);
+  for(const [id,icon]of [['menu-home','home'],['menu-scenes','scenes'],['menu-guide','guide'],['menu-camera','camera'],['menu-overview','overview'],['menu-xr','xr'],['drive','drive'],['pause','pause'],['restart','restart'],['operations','scenes'],['menu-controls','controls'],['menu-voice','sound'],['menu-account','account']])decorateMenuAction(byId(id),icon);
   let menuPage='home';
   const showMenuPage=page=>{
     menuPage=page;
@@ -151,7 +151,6 @@ async function start() {
   listen(byId('viewer-menu-close'), 'click', closeMenu);
   listen(byId('menu-home'),'click',()=>{closeMenu();byId('home-link').click();});
   listen(byId('menu-scenes'),'click',()=>{closeMenu();byId('back-scenes').click();});
-  listen(byId('menu-rooms'),'click',()=>{closeMenu();openRooms();});
   listen(byId('menu-voice'),'click',()=>{closeMenu();const launcher=document.querySelector('[data-voice-assistant-toggle]');if(launcher)launcher.click();});
   listen(byId('menu-overview'),'click',()=>{closeMenu();byId('overview').click();});
   listen(byId('menu-xr'),'click',()=>{closeMenu();const xr=byId('xr-action').querySelector('button');if(xr)xr.click();});
@@ -168,7 +167,6 @@ async function start() {
   };
   const shortcuts=mountTourShortcuts({document,actions:[
     {id:'scenes',label:'Escenarios',icon:'scenes',action:()=>byId('back-scenes').click()},
-    {id:'rooms',label:'Sala grupal',icon:'rooms',action:openRooms},
     {id:'overview',label:'Vista',icon:'overview',action:()=>byId('overview').click(),getState:()=>({pressed:overview})},
     {id:'flight',label:'Dron',icon:'move',action:()=>byId('viewer-menu-camera').querySelector('[data-camera-mode='+(ctx.desktopFlight?'walk':'drone')+']').click(),getState:()=>{const state=getSceneCameraMode(ctx);return{pressed:state.mode==='drone',disabled:state.blocked,title:state.reason||'Alternar caminar / vuelo dron'};}},
     {id:'controls',label:'Controles',icon:'controls',action:()=>openMenu('controls')},

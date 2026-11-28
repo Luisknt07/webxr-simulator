@@ -65,6 +65,11 @@ Solo para una vista compartida de lectura, `captureSimulation(runtime,{allowHeld
 - `POST /rooms/:id/action`: acción admitida de la lista inferior.
 - `PUT /rooms/:id/state`: `{state, expectedRevision, appliedSequence}`; solo el anfitrión.
 - `POST /rooms/:id/leave`: `{}`. El anfitrión puede volver a entrar con su código.
+- `POST /rooms/:id/voice`: `{action:'request'|'cancel'|'release'|'grant'|'mute-all', participantId?}`.
+  Un miembro solicita/cancela su petición o devuelve su turno; solo el anfitrión
+  concede turnos y silencia a todos. Cada respuesta de sala incluye `voice`
+  con modo, hablante, peticiones y revisión. Los cambios se serializan y se
+  aplican en el SFU; los tokens de entrada no conceden micrófono.
 
 Roles: anfitrión, participante y observador. Hasta 10 personas activas por sala. El anfitrión publica el estado autoritativo de la simulación. Los eventos transportan solicitudes; el cliente anfitrión debe validarlas y ejecutarlas en el simulador. La API no simula física en Node ni permite edición colaborativa de proyectos.
 

@@ -12,19 +12,22 @@ async function run(){
    await b.send('Page.navigate',{url:fixture.origin+'/'});
    await b.until(()=>b.evaluate('!!document.querySelector("#explore-demo")'),'Public entry unavailable.');await b.call(()=>document.querySelector('#explore-demo').click());
    await b.until(()=>b.evaluate('!!window.smartTwinViewer?.context?.demo&&!document.body.classList.contains("welcome-open")'),'Public demo unavailable.',90000);
-   report.desktop=await b.call(()=>{const header=document.querySelector('#rooms-access'),side=document.querySelector('[data-tour-tool=rooms]'),r=header.getBoundingClientRect();return{header:header.textContent,side:side.textContent,visible:r.width>0&&r.height>0,right:r.right,width:innerWidth};});
-   assert(report.desktop.header.includes('Sala grupal')&&report.desktop.side==='Sala grupal'&&report.desktop.visible&&report.desktop.right<=report.desktop.width);await shot('desktop-room-shortcut');
+   report.desktop=await b.call(()=>{const header=document.querySelector('#rooms-access'),side=document.querySelector('[data-tour-tool=rooms]'),r=header.getBoundingClientRect();return{header:header.textContent,side:!!side,visible:r.width>0&&r.height>0,right:r.right,width:innerWidth};});
+   assert(report.desktop.header.includes('Sala grupal')&&!report.desktop.side&&report.desktop.visible&&report.desktop.right<=report.desktop.width);await shot('desktop-room-shortcut');
    await b.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
    report.mobile=await b.call(()=>{document.body.classList.add('driving');const r=document.querySelector('#rooms-access').getBoundingClientRect();return{visible:r.width>0&&r.height>0,left:r.left,right:r.right,width:innerWidth};});assert(report.mobile.visible&&report.mobile.left>=0&&report.mobile.right<=report.mobile.width);await shot('mobile-room-shortcut');
    await b.call(()=>document.body.classList.remove('driving'));await b.send('Emulation.clearDeviceMetricsOverride');
-   await b.call(()=>document.querySelector('#viewer-menu-toggle').click());await b.until(()=>b.evaluate('document.querySelector("#viewer-menu").open'),'Public menu unavailable.');
-   assert(await b.evaluate('document.querySelector("#menu-rooms").textContent.includes("Crear o unirse")'));await shot('public-menu-room-entry');await b.call(()=>document.querySelector('#menu-rooms').click());
+   await b.call(()=>document.querySelector('#rooms-access').click());
    await b.until(()=>b.evaluate('location.pathname==="/login"&&!!document.querySelector("#login")'),'Room entry did not request authentication.');
    report.login=await b.call(()=>({next:new URL(location.href).searchParams.get('next')}));assert.equal(report.login.next,'/play?scene=vr-robot-dispatch&panel=rooms');
    await b.call(password=>{const f=document.querySelector('#login');f.elements.username.value='qa_production_owner';f.elements.password.value=password;f.requestSubmit();},password);
    await b.until(()=>b.evaluate('!!window.context?.studio&&!context.editor.initializing&&!context.editor.loadingProject'),'Authenticated scene unavailable.',90000);await b.evaluate('context.studio.ready');
    report.panel=await b.call(()=>({page:context.studio.page,visible:!context.studio.drawer.hidden,text:context.studio.drawer.textContent}));assert.equal(report.panel.page,'rooms');assert(report.panel.visible&&report.panel.text.includes('Crear sala con este escenario')&&report.panel.text.includes('Código de invitación')&&report.panel.text.includes('Unirse'));await shot('native-create-or-join');
    await b.call(()=>{context.studio.close();context.studio.roomsButton.click();});assert(await b.evaluate('context.studio.page==="rooms"&&!context.studio.drawer.hidden'));
+   await b.call(()=>context.studio.open('avatar'));
+   report.avatar=await b.call(()=>{const canvas=document.querySelector('.studio-avatar-preview canvas'),gl=canvas.getContext('webgl')||canvas.getContext('webgl2'),pixels=new Uint8Array(canvas.width*canvas.height*4);gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);let visible=0;for(let i=3;i<pixels.length;i+=4)if(pixels[i]>0)visible++;return{width:canvas.width,height:canvas.height,visiblePixels:visible,designs:[...context.studio.content.querySelector('select').options].map(o=>o.textContent)};});assert(report.avatar.visiblePixels>1000,'The real avatar preview rendered no character.');await shot('avatar-personalization');
+   await b.call(async()=>{await context.studio.createSharedRoom();context.studio.close();});await b.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+   report.sessionDock=await b.call(()=>{const dock=document.querySelector('.studio-session-dock'),r=dock.getBoundingClientRect();return{buttons:dock.querySelectorAll('button').length,visible:!dock.hidden,left:r.left,right:r.right,width:innerWidth};});assert(report.sessionDock.visible&&report.sessionDock.buttons===7&&report.sessionDock.left>=0&&report.sessionDock.right<=report.sessionDock.width);await shot('mobile-session-controls');await b.call(()=>context.studio.leaveRoom());
   });
   assert.deepEqual(report.exceptions,[]);assert.deepEqual(report.consoleErrors,[]);assert.deepEqual(fixture.errors,[]);report.passed=true;
  }catch(error){report.failure=error.stack;throw error;}finally{

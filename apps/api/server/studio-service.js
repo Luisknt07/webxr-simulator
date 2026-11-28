@@ -307,6 +307,7 @@ class StudioService {
     return {id: room.id, code: room.code, name: room.name, projectId: room.project_id, projectRevision: room.project_revision,
       roomId: room.room_id, hostId: room.host_id, role: member.role, revision: room.revision, sequence: latestSequence,
       stateSequence: room.state_sequence,
+      voice:this.media&&this.media.voice.state(room.id),
       needsSnapshot, state: needsSnapshot ? JSON.parse(room.state) : undefined,
       // Every poll carries snapshot revision so clients can retrieve it when a
       // host checkpoint advances even without a missing action in their cursor.
@@ -523,6 +524,10 @@ class StudioService {
           const after = integer(Number(cursor));
           if (after > room.next_sequence - 1) fail(409, 'El cursor de la sala se reinició. Recupera su estado.', 'room_cursor_invalid');
           send(200, {room: this._roomResult(room, member, after)});
+        } else if(parts.length===3&&parts[2]==='voice'&&method==='POST'){
+          this._limit(req,'room-voice-'+user.id,60,60000);const data=await roomBody(2048);
+          if(!this.media)fail(503,'El servicio de voz no está configurado.');
+          send(200,{voice:await this.media.voice.command(req,user,room,data)});
         } else if(parts.length===3&&parts[2]==='media'&&method==='POST'){
           this._limit(req,'room-media-'+user.id,30,60000);
           await roomBody(1024);

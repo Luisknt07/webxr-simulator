@@ -14,6 +14,18 @@ export function loadRoomSDK(dom=document){
 export default class RoomMedia {
  constructor(studio,options={}){this.studio=studio;this.options=options;this.status='disconnected';this.generation=0;this.muted=true;this.deafened=false;this.proximity=false;this.audio=new Map();this.speakers=new Set();this.received=new Map();this.chat=[];this.sequence=0;this.lastPose=0;this.lastChat=-Infinity;}
  changed(){if(this.options.onChange)this.options.onChange(this);if(this.studio.immersiveMenu)this.studio.immersiveMenu.dirty=true;}
+ voiceState(){return this.studio.room&&this.studio.room.voice||{mode:'moderated',speakerId:null,requests:[],revision:0};}
+ syncVoice(value){
+  if(!value||!this.studio.room)return;const old=this.voiceState();if(value.revision<old.revision)return;this.studio.room.voice=value;
+  if(value.speakerId!==(this.studio.client.user&&this.studio.client.user.id)&&!this.muted){this.muted=true;if(this.connection)this.connection.localParticipant.setMicrophoneEnabled(false).catch(()=>{});}this.changed();
+ }
+ async voiceAction(action,participantId){
+  const room=this.studio.room;if(!room)throw Error('Entra a una sala primero.');const generation=this.generation;
+  const result=await this.studio.client.request('POST','/rooms/'+encodeURIComponent(room.id)+'/voice',{action,participantId});
+  if(generation===this.generation&&this.studio.room&&this.studio.room.id===room.id)this.syncVoice(result.voice);return result.voice;
+ }
+ microphoneLabel(){const room=this.studio.room;return !this.muted?'Silenciar micrófono':room&&room.role!=='host'&&this.voiceState().speakerId!==this.studio.client.user.id?'Pedir la palabra':'Activar micrófono';}
+ async hand(){const voice=this.voiceState(),id=this.studio.client.user.id;return this.voiceAction(voice.speakerId===id?'release':voice.requests.includes(id)?'cancel':'request');}
  async connect(room){
   this.disconnect();const capabilities=this.studio.client.capabilities;if(!capabilities||!capabilities.roomRealtime||!capabilities.roomRealtime.enabled){this.status='unconfigured';this.changed();return false;}
   const generation=this.generation,current=()=>generation===this.generation;this.status='connecting';this.changed();
@@ -34,7 +46,15 @@ export default class RoomMedia {
  async microphone(){
   if(this.status!=='connected')throw Error('Conecta la sala de tiempo real antes de activar el micrófono.');
   if(this.microphonePending)return this.microphonePending;const generation=this.generation,enabled=this.muted,connection=this.connection;
-  this.microphonePending=(async()=>{await connection.startAudio();if(generation!==this.generation)return;await connection.localParticipant.setMicrophoneEnabled(enabled);if(generation!==this.generation){await connection.localParticipant.setMicrophoneEnabled(false);return;}this.muted=!enabled;this.changed();})().finally(()=>{this.microphonePending=null;});return this.microphonePending;
+  this.microphonePending=(async()=>{
+   const id=this.studio.client.user.id;
+   if(enabled&&this.voiceState().speakerId!==id){if(this.studio.room.role==='host')await this.voiceAction('grant',id);else{await this.voiceAction('request');if(this.studio.message)this.studio.message('Solicitud enviada. El anfitrión te dará la palabra.');return false;}}
+   await connection.startAudio();if(generation!==this.generation)return;
+   const start=performance.now();while(enabled&&connection.localParticipant.permissions&&connection.localParticipant.permissions.canPublish===false){if(generation!==this.generation||this.voiceState().speakerId!==id)return;if(performance.now()-start>3500)throw Error('El permiso de voz aún no está disponible. Intenta de nuevo.');await new Promise(resolve=>setTimeout(resolve,50));}
+   if(enabled&&this.voiceState().speakerId!==id)return;await connection.localParticipant.setMicrophoneEnabled(enabled);
+   if(generation!==this.generation||enabled&&this.voiceState().speakerId!==id){await connection.localParticipant.setMicrophoneEnabled(false);return;}this.muted=!enabled;
+   if(!enabled&&this.voiceState().speakerId===id)await this.voiceAction('release');this.changed();return true;
+  })().finally(()=>{this.microphonePending=null;});return this.microphonePending;
  }
  async listen(){this.deafened=!this.deafened;if(!this.deafened&&this.connection)await this.connection.startAudio();this.changed();}
  removeAudio(id){const entry=this.audio.get(id);if(entry){entry.track.detach().forEach(node=>node.remove());entry.element.remove();this.audio.delete(id);}}

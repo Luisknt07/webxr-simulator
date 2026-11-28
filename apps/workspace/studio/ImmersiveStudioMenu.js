@@ -16,7 +16,7 @@ export default class ImmersiveStudioMenu {
     this.studio = studio; this.editor = studio.editor; this.ctx = studio.ctx; this.client = studio.client; this.options = options;
     this.stateName = 'studio-immersive-menu-' + (++serial); this.active = false; this.opened = false; this.disposed = false;
     this.page = 'home'; this.regions = []; this.presses = new Map(); this.hovers = new Map(); this.padButtons = new WeakMap();
-    this.fields = {username: '', password: '', code: ''}; this.keyboardField = ''; this.keyboardMode = 'letters'; this.shift = false;
+    this.fields = {username: '', password: '', code: '',message:''}; this.keyboardField = ''; this.keyboardMode = 'letters'; this.shift = false;
     this.items = []; this.listPage = 0; this.generation = 0; this.busy = false; this.notice = ''; this.error = ''; this.dirty = true;
     this.practicePages=new PracticeImmersivePages(this);
     this.handLauncher=new XRMenuLauncher(this.ctx,{open:()=>this.open('home'),isOpen:()=>this.opened,enabled:()=>this.active});
@@ -99,7 +99,7 @@ export default class ImmersiveStudioMenu {
     const ray = this.ctx.raycontrol; if (ray && this.state && ray.states[this.stateName] === this.state) ray.deactivateState(this.stateName);
     this.dirty = true;
   }
-  clearCredentials() { this.fields.username = ''; this.fields.password = ''; this.fields.code = ''; this.keyboardField = ''; this.shift = false; this.keyboardMode = 'letters'; }
+  clearCredentials() { this.fields.username = ''; this.fields.password = ''; this.fields.code = '';this.fields.message=''; this.keyboardField = ''; this.shift = false; this.keyboardMode = 'letters'; }
   identityChanged() {
     if(this.practicePages)this.practicePages.dispose();this.practicePages=new PracticeImmersivePages(this);
     this.generation++; this.clearCredentials(); this.items = []; this.privateProject = null; this.listPage = 0;
@@ -221,12 +221,13 @@ export default class ImmersiveStudioMenu {
   }
   keyboard(value) {
     if (!this.keyboardField) return;
-    const key = this.keyboardField, maximum = key === 'password' ? 256 : key === 'code' ? 80 : 40;
+    const key = this.keyboardField, maximum = key === 'message' ? 400 : key === 'password' ? 256 : key === 'code' ? 80 : 40;
     if (value === 'delete') this.fields[key] = this.fields[key].slice(0, -1);
     else if (value === 'clear') this.fields[key] = '';
     else if (value === 'shift') this.shift = !this.shift;
     else if (value === 'symbols') this.keyboardMode = this.keyboardMode === 'letters' ? 'symbols' : 'letters';
     else if (value === 'done') {
+      if(this.page==='roomChat'){const message=this.fields.message;return this.run(async()=>{await this.studio.roomMedia.send(message);this.fields.message='';this.dirty=true;});}
       if(this.page==='rooms'){const code=this.fields.code.trim();this.keyboardField='';return this.run(async()=>{await this.studio.joinRoom(code,'participant');this.fields.code='';this.navigate('rooms');});}
       if (key === 'username') this.keyboardField = 'password';
       else if (key === 'password' && this.page === 'register') this.keyboardField = 'code';
@@ -255,7 +256,7 @@ export default class ImmersiveStudioMenu {
       keys.forEach((value, at) => this.button('key:' + index + ':' + at, this.shift ? value.toUpperCase() : value, x + at * (width + gap), y + index * 61, width, 52, () => this.keyboard(value), {size: 29}));
     });
     const next = this.keyboardField === 'username' || this.keyboardField === 'password' && this.page === 'register';
-    [['shift', 'Mayús'], ['symbols', this.keyboardMode === 'letters' ? 'Símbolos' : 'Letras'], ['delete', 'Borrar'], ['clear', 'Vaciar'], ['done', next ? 'Siguiente' : this.page === 'register' ? 'Crear cuenta' : 'Entrar']].forEach(([key, label], index) => this.button('key:' + key, label, 46 + index * 187, y + 250, 176, 54, () => this.keyboard(key), {size: 24, accent: key === 'done'}));
+    [['shift', 'Mayús'], ['symbols', this.keyboardMode === 'letters' ? 'Símbolos' : 'Letras'], ['delete', 'Borrar'], ['clear', 'Vaciar'], ['done', this.page==='roomChat'?'Enviar':next ? 'Siguiente' : this.page === 'register' ? 'Crear cuenta' : 'Entrar']].forEach(([key, label], index) => this.button('key:' + key, label, 46 + index * 187, y + 250, 176, 54, () => this.keyboard(key), {size: 24, accent: key === 'done'}));
   }
   paintList() {
     const pages = Math.max(1, Math.ceil(this.items.length / PAGE_SIZE)); this.listPage = Math.min(this.listPage, pages - 1);
@@ -316,12 +317,23 @@ export default class ImmersiveStudioMenu {
     }
     this.text(short(room.name,54),46,185,31);this.text('Código: '+room.code,46,236,30,C.accent);
     const state=media&&media.status,connected=state==='connected';this.text(connected?'Tiempo real conectado':state==='unconfigured'?'Tiempo real pendiente de configurar':state==='connecting'?'Conectando…':'Tiempo real desconectado',46,284,25,C.dim);
-    this.button('room-microphone',media&&media.muted?'Activar micrófono':'Silenciar micrófono',46,320,445,68,()=>this.run(()=>media.microphone()),{disabled:!connected,accent:connected&&!media.muted,size:25});
-    this.button('room-listen',media&&media.deafened?'Escuchar sala':'Silenciar escucha',514,320,464,68,()=>this.run(()=>media.listen()),{disabled:!connected,size:25});
-    this.button('room-proximity',media&&media.proximity?'Voz cercana: activa':'Voz para toda la sala',46,405,932,60,()=>{media.proximity=!media.proximity;media.changed();},{disabled:!connected,size:26});
-    room.participants.filter(p=>p.online).slice(0,10).forEach((p,i)=>this.text((media&&media.speakers.has(p.id)?'● ':'')+short(p.displayName,23),46+(i%2)*468,520+Math.floor(i/2)*54,26,p.role==='host'?C.accent:C.text));
+    const voice=media.voiceState(),mine=this.client.user.id;
+    this.button('room-microphone',media.microphoneLabel(),46,320,445,68,()=>this.run(()=>media.microphone()),{disabled:!connected,accent:connected&&!media.muted,size:25});
+    this.button('room-hand',voice.speakerId===mine?'Devolver palabra':voice.requests.includes(mine)?'Cancelar solicitud':'Pedir la palabra',514,320,464,68,()=>this.run(()=>media.hand()),{disabled:!connected,size:25});
+    this.button('room-listen',media.deafened?'Escuchar sala':'Silenciar escucha',46,405,445,60,()=>this.run(()=>media.listen()),{disabled:!connected,size:25});
+    if(room.role==='host')this.button('room-mute-all','Silenciar a todos',514,405,464,60,()=>this.run(()=>media.voiceAction('mute-all')),{disabled:!connected,size:25});
+    this.text(room.role==='host'?'Toca un nombre para conceder o retirar la palabra.':'Espera tu turno y después activa el micrófono.',46,497,24,C.dim);
+    room.participants.filter(p=>p.online).slice(0,10).forEach((p,i)=>this.button('room-person-'+p.id,(voice.requests.includes(p.id)?'✋ ':'')+short(p.displayName,23),46+(i%2)*468,520+Math.floor(i/2)*54,445,46,()=>this.run(()=>media.voiceAction(voice.speakerId===p.id?'mute-all':'grant',p.id)),{disabled:room.role!=='host'||!connected,accent:voice.speakerId===p.id,size:23}));
     if(!connected&&state!=='unconfigured')this.button('room-reconnect','Reconectar',46,792,932,54,()=>this.run(()=>media.connect(room)),{size:26});
-    this.button('room-leave','Salir de la sala',46,855,932,64,()=>this.run(async()=>{await this.studio.leaveRoom();this.navigate('home');}),{danger:true});
+    this.button('room-chat','Chat de la sala',46,855,445,64,()=>this.navigate('roomChat'),{size:25});
+    this.button('room-leave','Salir de la sala',514,855,464,64,()=>this.run(async()=>{await this.studio.leaveRoom();this.navigate('home');}),{danger:true,size:25});
+  }
+  paintRoomChat(){
+    const media=this.studio.roomMedia;if(!this.studio.room){this.page='rooms';this.paintRooms();return;}
+    media.chat.slice(-3).forEach((row,i)=>{this.text(short(row.name,24),46,180+i*54,22,C.accent);this.text(short(row.text,70),46,206+i*54,23);});
+    this.field('message','Mensaje para la sala',385);if(this.keyboardField==='message')this.paintKeyboard(475);
+    else this.button('chat-keyboard','Escribir mensaje',46,500,932,64,()=>{this.keyboardField='message';this.dirty=true;});
+    this.button('chat-back','Volver a la sala',46,855,932,64,()=>this.navigate('rooms'),{size:25});
   }
   paintSettings() {
     const audio = this.editor.industrialAudio, volume = audio ? audio.volume : .7;
@@ -392,12 +404,12 @@ export default class ImmersiveStudioMenu {
   paint() {
     if (!this.drawing || !this.opened) return; this.regions = [];
     const d = this.drawing; d.fillStyle = C.bg; d.fillRect(0, 0, WIDTH, HEIGHT); d.fillStyle = '#1a3443'; d.fillRect(0, 0, WIDTH, 126);
-    const names = {home: 'SMART-TWIN Simulator',rooms:'Sala grupal', account: 'Iniciar sesión', register: 'Crear cuenta', scenes: 'Rutas de prácticas', practiceRoute:'Prácticas de la ruta', practiceSetup:'Configurar ensayo',practice:'Misión activa',practiceGuide:'Guía y planos', projects: 'Mis proyectos', projectScenes: 'Escenarios del proyecto', settings: 'Ajustes del visor', controls: 'Controles VR', users: 'Usuarios · resumen', classroom: 'Mis prácticas', progress: 'Mi progreso'};
+    const names = {home: 'SMART-TWIN Simulator',rooms:'Sala grupal',roomChat:'Chat de la sala', account: 'Iniciar sesión', register: 'Crear cuenta', scenes: 'Rutas de prácticas', practiceRoute:'Prácticas de la ruta', practiceSetup:'Configurar ensayo',practice:'Misión activa',practiceGuide:'Guía y planos', projects: 'Mis proyectos', projectScenes: 'Escenarios del proyecto', settings: 'Ajustes del visor', controls: 'Controles VR', users: 'Usuarios · resumen', classroom: 'Mis prácticas', progress: 'Mi progreso'};
     this.text(names[this.page] || 'SMART-TWIN Simulator', 46, 70, this.page === 'home' ? 32 : 35, C.text, 'bold'); this.text(this.busy ? 'Procesando…' : 'Apunta y pulsa · con manos: toca o haz pinza', 46, 110, 22, C.dim);
     this.button('exit-vr', this.exiting ? 'Saliendo…' : 'Salir de RV', 500, 28, 184, 64, () => this.exitVR(), {size: 23, danger: true, disabled: this.exiting});
     this.button('close', '×', 886, 24, 92, 72, () => this.close(), {size: 42});
     if (this.page !== 'home') this.button('home', '← Menú', 704, 28, 158, 64, () => this.navigate('home'), {size: 25});
-    if (this.page === 'home') this.paintHome(); else if(this.page==='rooms')this.paintRooms();else if (this.page === 'account' || this.page === 'register') this.paintAccount(); else if (this.page === 'settings') this.paintSettings(); else if (this.page === 'modules') this.paintModules(); else if (this.page === 'controls') this.paintControls(); else if(this.practicePages.paint()){} else this.paintList();
+    if (this.page === 'home') this.paintHome(); else if(this.page==='roomChat')this.paintRoomChat();else if(this.page==='rooms')this.paintRooms();else if (this.page === 'account' || this.page === 'register') this.paintAccount(); else if (this.page === 'settings') this.paintSettings(); else if (this.page === 'modules') this.paintModules(); else if (this.page === 'controls') this.paintControls(); else if(this.practicePages.paint()){} else this.paintList();
     if (this.error || this.notice) { d.fillStyle = '#10212d'; d.fillRect(32, 918, WIDTH - 64, 38); this.text(short(this.error || this.notice, 90), 46, 945, 23, this.error ? C.error : C.accent); }
     this.texture.needsUpdate = true; this.dirty = false;
   }

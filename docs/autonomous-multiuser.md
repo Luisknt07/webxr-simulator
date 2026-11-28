@@ -31,8 +31,24 @@ Foundation. No se requiere un servicio de Mozilla para este desarrollo.
   y recibo de integridad; se carga al entrar a la sala y no se descarga de un CDN.
 - Cabeza y manos medidas se transmiten a 15 Hz; se interpolan avatares ligeros
   con nombres e indicador de voz. No se modifican las matrices del visor local.
-- Voz desactivada inicialmente, activación voluntaria, silencio de escucha,
-  volumen según distancia opcional y chat limitado a la sala.
+- Voz desactivada inicialmente. La sala usa turnos moderados: una sola persona
+  puede publicar micrófono. Los participantes piden la palabra; el anfitrión
+  concede o retira el turno y puede silenciar a todos. Conceder el turno nunca
+  activa remotamente el micrófono: su dueño debe pulsar para hablar.
+- El permiso se aplica en LiveKit mediante `UpdateParticipant`, conservando
+  suscripciones y datos de presencia. Antes de conceder un turno se retiran
+  los anteriores; los cambios concurrentes se serializan por sala. Los tokens
+  de entrada siempre comienzan sin permiso de micrófono y el webhook firmado
+  aplica el turno vigente tras entrar. El servidor conserva la política en SQLite.
+- La barra inferior de una sesión reúne micrófono, pedir/devolver la palabra,
+  escucha, participantes, chat, personalización del avatar y salida. El acceso
+  **Sala grupal** permanece arriba; se retira su duplicado lateral.
+- Avatares nativos de operador, supervisor y robot: rostro, casco, chaleco,
+  guantes y cuerpo articulado, con colores de perfil. Cabeza y manos conservan
+  sus poses medidas. Brazos, piernas y postura sentada son una aproximación
+  visual; no representan seguimiento físico de codos, pies o cuerpo entero.
+  Cada avatar usa 13 mallas, materiales por vértice y ninguna textura externa.
+  El cartel muestra nombre, rol, silencio, solicitud y actividad de voz.
 - Poses visuales de vehículos y cargas del instructor se envían a 10 Hz.
   Colas, identidad, masa, custodia y controles conservan la autoridad de los
   eventos autenticados y los estados de Studio. Los datos visuales de un
@@ -100,14 +116,15 @@ No se soluciona este caso llamando a un TURN público externo.
 ## Uso
 
 1. Abrir el dominio HTTPS de la universidad e iniciar sesión local.
-2. Abrir un escenario y pulsar **Sala grupal** en la cabecera o en la barra
-   lateral. También está en Menú → Sesión grupal → Crear o unirse a una sala.
+2. Abrir un escenario y pulsar **Sala grupal** en la cabecera.
    El acceso de la demostración pública abre directamente este panel; si hace
    falta iniciar sesión, conserva el destino al finalizar el acceso.
 3. Crear la sala o introducir el código. El enlace de invitación carga el visor
    y permite unirse antes de pedir el proyecto privado compartido.
-4. Activar el micrófono cuando se desee hablar. En RV el menú incluye Sala grupal,
-   micrófono, escucha, cercanía y salida; no requiere un panel externo.
+4. Usar la mano de la barra para pedir la palabra. El anfitrión abre Participantes
+   y turnos para concederla. Después, activar el micrófono; volver a pulsarlo
+   devuelve el turno. En RV están disponibles los turnos, micrófono, escucha,
+   chat y salida dentro del panel de Sala grupal.
 5. El instructor conserva abierta la ejecución y comparte los controles admitidos.
 
 GitHub Pages sigue siendo la demostración individual estática. Las salas se abren
@@ -119,9 +136,10 @@ integración y copias de seguridad siguen siendo recursos de la institución.
 
 La prueba `tooling/qa/autonomous-rooms.cjs` usa dos perfiles independientes de
 Chrome con la aplicación compilada y ocho clientes WebRTC adicionales. Verificó
-diez participantes en el SFU local, nueve avatares remotos (81 mallas), nueve
-pistas de audio con paquetes RTP recibidos, chat entre navegadores, movimiento
-visual compartido y expulsión de la conexión al abandonar la sala. Los micrófonos
+diez participantes en el SFU local, nueve avatares remotos (117 mallas), petición
+y concesión del turno desde la interfaz, retirada del micrófono anterior,
+recepción RTP de un único hablante y silencio general. También verificó chat
+entre navegadores, movimiento visual compartido y expulsión al abandonar la sala. Los micrófonos
 eran sintéticos y todas las solicitudes HTTP/WebSocket se dirigían a localhost.
 No aparecieron errores de JavaScript ni WebGL. No sustituye la prueba de diez
 visores físicos, redes remotas, reconexión prolongada o saturación del servidor.

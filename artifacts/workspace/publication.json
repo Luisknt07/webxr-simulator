@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "635337f69a55a13f7e54769d32931c4ac6fbd917",
-  "bundleSha256": "06d9789d9842d03a619cf9e6bd61c421d8cbec5955835979c7ca270bc25bf3fd",
+  "revision": "b6513a29f300b0cf4b9531c00a2fac1d050e3d0c",
+  "bundleSha256": "9072c404baade0ff919b7ea87bf0fae45af95ab9f109e5bd5155671e1dd99627",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -84,11 +84,11 @@
     },
     {
       "path": "apps/workspace/studio/studio.css",
-      "sha256": "a45cdf47fa42f5e87d9219721c758ce5568c877a9b735db89ea0c1ccbaa63033"
+      "sha256": "9547e7ea75697cd997e7be58b2da8b32ab0e1669e59585e11026fc9f3d8f8904"
     },
     {
       "path": "bundle.js",
-      "sha256": "06d9789d9842d03a619cf9e6bd61c421d8cbec5955835979c7ca270bc25bf3fd"
+      "sha256": "9072c404baade0ff919b7ea87bf0fae45af95ab9f109e5bd5155671e1dd99627"
     },
     {
       "path": "cad-worker.js",
@@ -3961,8 +3961,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "029564fc91d9315771e6",
-    "statsSha256": "40ce8813d8d78b9db89abe49c761ce01b27354dac33e47dc63d57d5784d02c2d",
+    "hash": "c66d84a280cfe740a817",
+    "statsSha256": "a25df6705d0c2c3171dec24499367369f388faaaba1d1ce32500b2405ad5969a",
     "assets": [
       {
         "path": "13.js",
@@ -3994,7 +3994,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7439786
+        "size": 7453395
       },
       {
         "path": "configurable-practice-reference.js",

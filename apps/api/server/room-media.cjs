@@ -3,6 +3,7 @@
 // is included in the browser bundle or a persisted scene.
 const {createHmac,createHash,timingSafeEqual}=require('node:crypto');
 const {ApiError}=require('./validation');
+const RoomVoice=require('./room-voice.cjs');
 const encoded=value=>Buffer.from(JSON.stringify(value)).toString('base64url');
 function sign(secret,key,claims){const body=encoded({alg:'HS256',typ:'JWT'})+'.'+encoded({...claims,iss:key});return body+'.'+createHmac('sha256',secret).update(body).digest('base64url');}
 class RoomMedia {
@@ -17,16 +18,18 @@ class RoomMedia {
    const backend=new URL(this.serverURL);if(!['https:','http:'].includes(backend.protocol)||backend.username||backend.password||backend.pathname!=='/'||backend.search||backend.hash)throw Error('Dirección interna de salas inválida.');
    this.timer=setInterval(()=>this.audit(),options.auditIntervalMs||5000);this.timer.unref?.();
   }
+  this.voice=new RoomVoice(this);
  }
  capabilities(){return{enabled:this.enabled,provider:'self-hosted-webrtc',externalAccount:false,maxParticipants:this.studio.roomLimit||10};}
  issue(req,user,room){
   if(!this.enabled)throw new ApiError(503,'El servidor de tiempo real aún no está configurado en esta instalación.','room_media_unconfigured');
   const now=Math.floor(this.now()/1000),roomName='smarttwin-'+room.id,exp=now+120;
-  const token=sign(this.secret,this.key,{sub:user.id,name:user.display_name,nbf:now-5,exp,video:{room:roomName,roomJoin:true,canSubscribe:true,canPublish:true,canPublishSources:['microphone'],canPublishData:true,canUpdateOwnMetadata:false}});
+  const token=sign(this.secret,this.key,{sub:user.id,name:user.display_name,nbf:now-5,exp,video:{room:roomName,roomJoin:true,canSubscribe:true,canPublish:false,canPublishSources:['microphone'],canPublishData:true,canUpdateOwnMetadata:false}});
   this.sessions.set(room.id+':'+user.id,{req:{headers:{cookie:req.headers.cookie}},userId:user.id,roomId:room.id,roomName});
   return{url:this.url,token,expiresAt:exp*1000,participantId:user.id,roomName,maxParticipants:this.studio.roomLimit||10};
  }
  revoke(roomId,userId){
+  if(this.studio.db)this.voice.clear(roomId,userId);
   if(!this.enabled)return Promise.resolve();const key=roomId+':'+userId;let entry=this.sessions.get(key);if(!entry){entry={roomId,userId,roomName:'smarttwin-'+roomId};this.sessions.set(key,entry);}
   if(entry.pending)return entry.pending;
   const task=(async()=>{
@@ -53,8 +56,14 @@ class RoomMedia {
    const name=event.room&&event.room.name,userId=event.participant&&event.participant.identity;if(typeof name!=='string'||!/^smarttwin-[a-f0-9-]{36}$/.test(name)||typeof userId!=='string'||!/^[a-f0-9-]{36}$/.test(userId))throw new ApiError(400,'Participante de sala inválido.');
    const roomId=name.slice(10),entry=this.sessions.get(roomId+':'+userId);let allowed=false;
    try{if(entry&&entry.req){const user=this.studio.user(entry.req,false);if(user&&user.id===userId){this.studio._room(roomId,user,false);allowed=true;}}}catch(_){}
-   if(!allowed)await this.revoke(roomId,userId);
+   if(!allowed)await this.revoke(roomId,userId);else await this.voice.enforce(roomId,userId);
   }
+ }
+ async rpc(roomId,method,data,missingOK=false){
+  const now=Math.floor(this.now()/1000),token=sign(this.secret,this.key,{nbf:now-5,exp:now+30,video:{room:'smarttwin-'+roomId,roomAdmin:true}});
+  try{const response=await this.fetch(this.serverURL+'/twirp/livekit.RoomService/'+method,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({room:'smarttwin-'+roomId,...data}),signal:AbortSignal.timeout(5000)});
+   if(missingOK&&response.status===404)return null;if(!response.ok)throw Error('media');return await response.json();
+  }catch(_){throw new ApiError(503,'No se pudo aplicar el turno de voz. Intenta de nuevo.','room_voice_unavailable');}
  }
  audit(){
   if(this.closed)return;
