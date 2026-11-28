@@ -66,7 +66,14 @@ Solo para una vista compartida de lectura, `captureSimulation(runtime,{allowHeld
 - `PUT /rooms/:id/state`: `{state, expectedRevision, appliedSequence}`; solo el anfitrión.
 - `POST /rooms/:id/leave`: `{}`. El anfitrión puede volver a entrar con su código.
 
-Roles: anfitrión, participante y observador. Hasta 16 personas activas por sala. El anfitrión publica el estado autoritativo de la simulación. Los eventos transportan solicitudes; el cliente anfitrión debe validarlas y ejecutarlas en el simulador. La API no simula física en Node ni permite edición colaborativa de proyectos.
+Roles: anfitrión, participante y observador. Hasta 10 personas activas por sala. El anfitrión publica el estado autoritativo de la simulación. Los eventos transportan solicitudes; el cliente anfitrión debe validarlas y ejecutarlas en el simulador. La API no simula física en Node ni permite edición colaborativa de proyectos.
+
+La presencia rápida y la voz usan el SFU de la institución mediante
+`POST /api/studio/rooms/:id/media`. Solo un miembro vigente obtiene un token
+limitado a su sala, micrófono y datos; no obtiene permisos de administración ni
+publicación de vídeo. Las poses HTTP y estados completos conservan la recuperación
+del escenario. Instalación, autenticación de webhooks y límites en
+[Salas propias de SMART-TWIN](autonomous-multiuser.md).
 
 Acciones:
 

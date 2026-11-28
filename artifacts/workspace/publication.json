@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "b47d9f8f1136717dff54050cee65b8ec99b9a72e",
-  "bundleSha256": "bbe3bd56aae33a9c43ac10bea9fc43347bb39a331ecc17779a6b2b1529b5a259",
+  "revision": "3705f62117ec1f66c04679d3638aa9d2eded5993",
+  "bundleSha256": "a59b38b7e44d3a822685d718c30ed8cfad3d2e89a579c195dd0edcccbd8b411a",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -84,11 +84,11 @@
     },
     {
       "path": "apps/workspace/studio/studio.css",
-      "sha256": "e026e110ce414143a058799a4852b4eca990c74093b011268b5cece8e90dcca6"
+      "sha256": "a45cdf47fa42f5e87d9219721c758ce5568c877a9b735db89ea0c1ccbaa63033"
     },
     {
       "path": "bundle.js",
-      "sha256": "bbe3bd56aae33a9c43ac10bea9fc43347bb39a331ecc17779a6b2b1529b5a259"
+      "sha256": "a59b38b7e44d3a822685d718c30ed8cfad3d2e89a579c195dd0edcccbd8b411a"
     },
     {
       "path": "cad-worker.js",
@@ -3483,6 +3483,18 @@
       "sha256": "495a95753d8445d6caec19239026f34bab3b06dd7d6b95744ded982af929ad6b"
     },
     {
+      "path": "packages/tools/collaboration/assets/livekit/LICENSE",
+      "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b"
+    },
+    {
+      "path": "packages/tools/collaboration/assets/livekit/dist/livekit-client.umd.js",
+      "sha256": "45ae7540ab3feded1ee740fdca2a59072179833f6159bc04f137b361fe224e02"
+    },
+    {
+      "path": "packages/tools/collaboration/assets/livekit/provenance.json",
+      "sha256": "d056e86164b02734af820f8ef6029e5bac756a2e0df314c6260f4c3a6617d219"
+    },
+    {
       "path": "packages/tools/editor/assets/catalog.json",
       "sha256": "42cf31c1d9d9f22ccc0bba4f880bb560c68e83b9c95e1673d1cd5dcfc14f4dea"
     },
@@ -3949,8 +3961,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "1b05f80afd5d3c519351",
-    "statsSha256": "df5ebb87876b4ddafa955bfdc2256aa3f448283baa7de84a6c8cfa630158b19c",
+    "hash": "baf09ce33277f514ef12",
+    "statsSha256": "cc295f5c114014d85c080ebcb0ed76a1a44df7e04ef77205556a8a0d4c70d103",
     "assets": [
       {
         "path": "13.js",
@@ -3982,7 +3994,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7419250
+        "size": 7439329
       },
       {
         "path": "configurable-practice-reference.js",

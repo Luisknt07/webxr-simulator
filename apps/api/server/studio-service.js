@@ -92,6 +92,7 @@ class StudioService {
     this.now = options.now || Date.now;
     this.allowBootstrapRegistration = options.allowBootstrapRegistration === true;
     this.requireSecureCookies = options.requireSecureCookies !== false;
+    this.roomLimit=options.roomLimit||10;
     this.publicSceneId = options.publicSceneId === undefined ? 'vr-robot-dispatch' : options.publicSceneId;
     if (this.publicSceneId !== null && !/^[a-z0-9-]{1,80}$/.test(this.publicSceneId)) throw new Error('El perfil público no es válido.');
     this.exampleCatalogPath = options.exampleCatalogPath;
@@ -339,7 +340,7 @@ class StudioService {
       const ownerConfigured=!!this.db.prepare("SELECT value FROM studio_settings WHERE key='owner'").get();
       send(200, {user: user && this._profile(user), configured: !!this.db.prepare('SELECT 1 FROM studio_users LIMIT 1').get(),
         registration: {enabled: ownerConfigured || this.allowBootstrapRegistration, invitationRequired: !!(ownerConfigured && this.administration && this.administration.policy().invitationOnly)},
-        capabilities: {accounts: true, avatars: AVATAR_BASES, recovery: false, rooms: true, roomTransport: 'http-poll',
+        capabilities: {accounts: true, avatars: AVATAR_BASES, recovery: false, rooms: true, roomTransport: 'http-poll',roomRealtime:this.media&&this.media.capabilities(),maxRoomParticipants:this.roomLimit,
           checkpointVersion: 1, maxStateBytes: MAX_STATE_BYTES, sharedEditing: true, privateProjects: true, publicSceneCatalog: true}});
     } else if (parts.length === 1 && parts[0] === 'register' && method === 'POST') {
       if (!this.allowBootstrapRegistration && !this.db.prepare("SELECT value FROM studio_settings WHERE key='owner'").get()) fail(503, 'Configura el administrador con la herramienta local antes de registrar cuentas.', 'owner_setup_required');
@@ -386,6 +387,7 @@ class StudioService {
       if (user) this._expectedUser(req, user);
       const token = cookieToken(req);
       if (token) this.db.prepare('DELETE FROM studio_sessions WHERE token_hash=?').run(hash(token));
+      if(user&&this.media)this.media.revokeUser(user.id);
       this._cookie(req, res, '', 0);
       send(200, {ok: true});
     } else {
@@ -496,7 +498,7 @@ class StudioService {
         // room code. Authoring still requires an explicit editor share.
         const previous = this.db.prepare('SELECT * FROM studio_members WHERE room_id=? AND user_id=?').get(room.id, user.id);
         const count = this.db.prepare('SELECT COUNT(*) AS count FROM studio_members WHERE room_id=? AND active=1 AND seen_at>?').get(room.id, this.now() - PRESENCE_MS).count;
-        if (count >= 16 && (!previous || !previous.active || previous.seen_at <= this.now() - PRESENCE_MS)) fail(409, 'Esta sala alcanzó el límite de 16 participantes.', 'room_full');
+        if (count >= this.roomLimit && (!previous || !previous.active || previous.seen_at <= this.now() - PRESENCE_MS)) fail(409, 'Esta sala alcanzó el límite de '+this.roomLimit+' participantes.', 'room_full');
         const role = room.host_id === user.id ? 'host' : data.role === 'observer' ? 'observer' : 'participant';
         this.access.checkQuota(room.host_id, 1024);
         this.db.prepare(`INSERT INTO studio_members(room_id,user_id,role,active,pose,seen_at) VALUES(?,?,?,1,NULL,?)
@@ -521,6 +523,11 @@ class StudioService {
           const after = integer(Number(cursor));
           if (after > room.next_sequence - 1) fail(409, 'El cursor de la sala se reinició. Recupera su estado.', 'room_cursor_invalid');
           send(200, {room: this._roomResult(room, member, after)});
+        } else if(parts.length===3&&parts[2]==='media'&&method==='POST'){
+          this._limit(req,'room-media-'+user.id,30,60000);
+          await roomBody(1024);
+          if(!this.media)fail(503,'El servidor de tiempo real aún no está configurado.','room_media_unconfigured');
+          send(200,this.media.issue(req,user,room));
         } else if (parts.length === 3 && parts[2] === 'pose' && method === 'POST') {
           const data = await roomBody(4096);
           this.db.prepare('UPDATE studio_members SET pose=?,seen_at=? WHERE room_id=? AND user_id=?').run(JSON.stringify(pose(data)), this.now(), room.id, user.id);
@@ -591,6 +598,7 @@ class StudioService {
           try { this._event(room.id, user.id, 'left', {}); } catch (error) { if (error.code !== 'storage_quota_exceeded' && error.code !== 'project_quota_exceeded') throw error; }
           this.db.prepare('UPDATE studio_members SET active=0 WHERE room_id=? AND user_id=?').run(room.id, user.id);
           this.db.prepare('DELETE FROM studio_locks WHERE room_id=? AND user_id=?').run(room.id, user.id);
+          if(this.media)this.media.revoke(room.id,user.id);
           // The host can reconnect with the invitation code. The durable room
           // stays available; guests see host online=false and pause authority.
           send(200, {ok: true});

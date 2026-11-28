@@ -51,7 +51,7 @@ function createApplication(options={}){
  if(allowLocal&&!loopback(host))throw Error('HTTP sin TLS sólo se permite con escucha local explícita.');
  if(!options.tls&&!trusted.size&&!allowLocal)throw Error('Configura TLS o un proxy HTTPS confiable; para desarrollo local usa allowInsecureLocal explícito.');
  let publicBuild=artifact(options.publicDir||path.join(ROOT,'artifacts/public-viewer'),true),workspaceBuild=artifact(options.workspaceDir||path.join(ROOT,'artifacts/workspace'),false);
- const api=createApiHandler({dataDir:options.dataDir||path.join(ROOT,'data'),voice:options.voice,voiceFetch:options.voiceFetch,allowBootstrapRegistration:false,requireSecureCookies:!allowLocal,publicSceneId:PUBLIC_SCENE,
+ const api=createApiHandler({dataDir:options.dataDir||path.join(ROOT,'data'),voice:options.voice,voiceFetch:options.voiceFetch,roomMedia:options.roomMedia,allowBootstrapRegistration:false,requireSecureCookies:!allowLocal,publicSceneId:PUBLIC_SCENE,
    exampleCatalogPath:options.exampleCatalogPath||path.join(ROOT,'projects/smarttwin/scenes/catalog.json'),projectionsDir:options.projectionsDir||path.join(ROOT,'projects/smarttwin/scenes'),maintenanceIntervalMs:options.maintenanceIntervalMs,onError:options.onError});
  const handler=async(req,res)=>{
   res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Cross-Origin-Resource-Policy','same-origin');res.setHeader('Content-Security-Policy',"frame-ancestors 'self'; base-uri 'self'; object-src 'none'");
@@ -111,6 +111,7 @@ async function main(){
  if(!!env.SMARTTWIN_TLS_KEY!==!!env.SMARTTWIN_TLS_CERT)throw Error('Configura la clave y el certificado TLS juntos.');
  const app=createApplication({host:env.SMARTTWIN_API_HOST||'127.0.0.1',dataDir:env.SMARTTWIN_DATA_DIR,publicDir:env.SMARTTWIN_PUBLIC_DIR,workspaceDir:env.SMARTTWIN_WORKSPACE_DIR,
   trustedProxyAddresses:(env.SMARTTWIN_TRUSTED_PROXY_ADDRESSES||'').split(',').map(value=>value.trim()).filter(Boolean),allowInsecureLocal:env.SMARTTWIN_ALLOW_INSECURE_LOCAL==='true',
+  roomMedia:{url:env.SMARTTWIN_ROOM_URL,serverURL:env.SMARTTWIN_ROOM_SERVER_URL,apiKey:env.SMARTTWIN_ROOM_API_KEY,apiSecret:env.SMARTTWIN_ROOM_API_SECRET},
   tls:env.SMARTTWIN_TLS_KEY?{key:fs.readFileSync(env.SMARTTWIN_TLS_KEY),cert:fs.readFileSync(env.SMARTTWIN_TLS_CERT)}:null});
  await new Promise((resolve,reject)=>{app.server.once('error',reject);app.server.listen(port,app.host,resolve);});console.log('SmartTwin API disponible en el puerto '+port+'.');
  const stop=()=>app.close().then(()=>{process.exitCode=0;});process.once('SIGINT',stop);process.once('SIGTERM',stop);

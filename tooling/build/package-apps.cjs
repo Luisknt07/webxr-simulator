@@ -181,6 +181,7 @@ function makePlan(root, application, compilation) {
   } else if (application === 'core-empty') add('core.css', 'apps/core-empty/core.css');
   else {
     add('catalogue.html', 'apps/workspace/catalogue.html');
+    for(const name of ['dist/livekit-client.umd.js','LICENSE','provenance.json']){const file='packages/tools/collaboration/assets/livekit/'+name;add(file,file);}
     documentationAssets(root).forEach(name => add(name, name));
     practiceAssets(root).forEach(name=>add(name,name));
     configurablePracticeAssets(root).forEach(name=>add(name,name));

@@ -1,0 +1,17 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),net=require('node:net'),{randomBytes}=require('node:crypto');
+function configuration(options){
+ const hosts=[options.appHost,options.mediaHost,options.turnHost];for(const host of hosts)if(typeof host!=='string'||host.length>253||!/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/.test(host)||!host.includes('.')||host.includes('..'))throw Error('Usa tres nombres DNS válidos de la universidad.');if(new Set(hosts).size!==3)throw Error('Usa nombres distintos para aplicación, voz y TURN.');if(!net.isIP(options.publicIP))throw Error('Configura la IP pública real del servidor.');
+ const certificate=options.certificate||'/etc/smarttwin/tls/fullchain.pem',privateKey=options.privateKey||'/etc/smarttwin/tls/privkey.pem';for(const name of [certificate,privateKey])if(!/^\/[A-Za-z0-9_./-]+$/.test(name)||name.includes('..'))throw Error('Usa rutas absolutas de certificados en Linux.');
+ const apiKey='st_'+randomBytes(12).toString('hex'),apiSecret=randomBytes(48).toString('base64url'),q=JSON.stringify;
+ const environment=['SMARTTWIN_API_HOST=127.0.0.1','SMARTTWIN_API_PORT=8081','SMARTTWIN_DATA_DIR=/var/lib/smarttwin','SMARTTWIN_TRUSTED_PROXY_ADDRESSES=127.0.0.1','SMARTTWIN_ROOM_URL=wss://'+options.mediaHost,'SMARTTWIN_ROOM_SERVER_URL=http://127.0.0.1:7880','SMARTTWIN_ROOM_API_KEY='+apiKey,'SMARTTWIN_ROOM_API_SECRET='+apiSecret].join('\n')+'\n';
+ const media=['port: 7880','bind_addresses: ["0.0.0.0"]','rtc:','  tcp_port: 7881','  udp_port: 7882','  node_ip: '+q(options.publicIP),'  use_external_ip: false','room:','  auto_create: true','  max_participants: 10','  empty_timeout: 120','turn:','  enabled: true','  domain: '+q(options.turnHost),'  udp_port: 3478','  tls_port: 5349','  cert_file: '+q(certificate),'  key_file: '+q(privateKey),'keys:','  '+apiKey+': '+q(apiSecret),'webhook:','  api_key: '+q(apiKey),'  urls: ['+q('https://'+options.appHost+'/api/studio/room-media/webhook')+']','logging:','  level: warn'].join('\n')+'\n';
+ const proxy=hosts.slice(0,2).map((host,i)=>host+' {\n  tls '+certificate+' '+privateKey+'\n  reverse_proxy 127.0.0.1:'+(i?7880:8081)+'\n}\n').join('\n');
+ return{'runtime.env':environment,'livekit.yaml':media,Caddyfile:proxy};
+}
+function write(options){
+ const directory=path.resolve(options.directory||'data/university-config');if(fs.existsSync(directory)&&fs.lstatSync(directory).isSymbolicLink())throw Error('El directorio de configuración no puede ser un enlace.');
+ for(const name of ['runtime.env','livekit.yaml','Caddyfile'])if(fs.existsSync(path.join(directory,name)))throw Error('La configuración ya existe. No se sobrescriben claves ni ajustes.');
+ const files=configuration(options);fs.mkdirSync(directory,{recursive:true,mode:0o700});for(const [name,body]of Object.entries(files))fs.writeFileSync(path.join(directory,name),body,{mode:0o600,flag:'wx'});return directory;
+}
+module.exports={configuration,write};if(require.main===module){try{const args=process.argv.slice(2),options={};for(let i=0;i<args.length;i+=2){const key={'--directory':'directory','--app-host':'appHost','--media-host':'mediaHost','--turn-host':'turnHost','--public-ip':'publicIP','--certificate':'certificate','--private-key':'privateKey'}[args[i]];if(!key||!args[i+1])throw Error('Argumentos: --app-host --media-host --turn-host --public-ip [--directory --certificate --private-key].');options[key]=args[i+1];}console.log('Configuración privada creada en '+write(options)+'. No se imprimen claves.');}catch(error){console.error(error.message);process.exitCode=1;}}

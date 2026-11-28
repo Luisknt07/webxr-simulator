@@ -1,0 +1,22 @@
+[Unit]
+Description=SMART-TWIN application and private sessions
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=smarttwin
+Group=smarttwin
+WorkingDirectory=/opt/smarttwin
+ExecStart=/usr/bin/node --env-file=/etc/smarttwin/runtime.env apps/api/index.cjs
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/smarttwin
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

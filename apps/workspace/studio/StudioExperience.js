@@ -6,6 +6,9 @@ import {createAvatar, avatarBadge, DEFAULT_AVATAR} from '../../../packages/tools
 import {captureSimulation, restoreSimulation} from '../../../modules/logistica-industrial/runtime/SimulationCheckpoint.js';
 import SharedGrabs from '../../../packages/tools/collaboration/src/SharedGrabs.js';
 import RemotePresentation from '../../../packages/tools/collaboration/src/RemotePresentation.js';
+import PresenceAvatar from '../../../packages/tools/collaboration/src/PresenceAvatar.js';
+import RoomMedia from '../../../packages/tools/collaboration/src/RoomMedia.js';
+import RoomVisuals from '../../../packages/tools/collaboration/src/RoomVisuals.js';
 import AdminWorkspace from './AdminWorkspace.js';
 import ImmersiveStudioMenu from './ImmersiveStudioMenu.js';
 import VehicleMissionOverlay from '../../../packages/tools/editor/src/VehicleMissionOverlay.js';
@@ -41,6 +44,9 @@ export default class StudioExperience {
     this.originalEnter = editor.enter.bind(editor);
     editor.enter = () => { if (this.room) { this.message('Sal de la sala compartida para editar el proyecto.'); return; } if (this.client.configured && (!this.client.user || !this.client.user.permissions.editor)) { this.open('account'); return; } this.close(); return this.originalEnter(); };
     this.build(vrButton); this.bindSimulation(); this.sharedGrabs = new SharedGrabs(this); this.presentation = new RemotePresentation();
+    this.roomVisuals=new RoomVisuals(this);
+    this.roomMedia=new RoomMedia(this,{onChange:()=>this.renderRoomMedia(),onVisual:value=>this.roomVisuals.receive(value)});
+    window.addEventListener('pagehide',()=>this.roomMedia.dispose());
     this.immersiveMenu = new ImmersiveStudioMenu(this);
     this.missionOverlay = new VehicleMissionOverlay();
     this.practiceGuideAvatar = new PracticeGuideAvatar({context:this.ctx,document,window,onInteract:()=>{this.editor.hooks.unlock();this.editor.hooks.clearKeyboard();},getTourState:()=>!this.editor.initializing&&!this.editor.loadingProject&&this.client.user&&!this.editor.practiceController?{title:this.editor.currentProject&&this.editor.currentProject.name||'Explora el escenario',lastMessage:this.ctx.drivingVehicle?'Manipula los mandos del vehículo; consulta Controles para conocer sus funciones.':this.ctx.desktopFlight?'Explora en dron. Q sube y E baja; pulsa Dron para volver a caminar.':'Recorre la escena y selecciona sus objetos. Usa Guía para consultar la documentación o Chat para preguntar.'}:null});
@@ -147,7 +153,7 @@ export default class StudioExperience {
     this.accountServiceEpoch = (this.accountServiceEpoch || 0) + 1;
     const editor = this.editor;
     if (this.administration) this.administration.close();
-    if (this.connection) this.connection.stop(); if (this.sharedGrabs) this.sharedGrabs.detach(); if (this.presentation) this.presentation.clear();
+    if (this.connection) this.connection.stop();if(this.roomMedia)this.roomMedia.disconnect(); if (this.sharedGrabs) this.sharedGrabs.detach(); if (this.presentation) this.presentation.clear();
     this.room = null; this.roomRevision = 0; this.pendingRoomState = null; this.client.user = null;
     if (this.drawer) { this.close(); this.drawer.textContent = ''; this.content = null; }
     this.avatars.forEach(avatar => { if (avatar.parent) avatar.parent.remove(avatar); avatar.userData.dispose(); }); this.avatars.clear();
@@ -484,26 +490,45 @@ export default class StudioExperience {
     if (this.room) {
       el('strong', this.room.name, content); el('p', 'Código: ' + this.room.code, content, 'studio-room-code');
       el('p', 'Rol: ' + this.room.role + ' · ' + (this.roomError || 'Conectado'), content, 'studio-muted');
-      const participants = el('div', undefined, content); this.participantList = participants; this.renderParticipants();
-      button(content, 'Copiar invitación', () => this.guard(async () => { const url = new URL('/', window.location); url.searchParams.set('room', this.room.code); await navigator.clipboard.writeText(url.href); this.message('Invitación copiada.'); }));
+      const social=el('section',undefined,content,'studio-room-media');social.setAttribute('aria-label','Voz y conversación de la sala');this.roomMediaElement=social;this.roomMediaSignature='';this.renderRoomMedia();
+      button(content, 'Copiar invitación', () => this.guard(async () => { const url = new URL('/play', window.location);url.searchParams.set('scene','vr-robot-dispatch');url.searchParams.set('room', this.room.code); await navigator.clipboard.writeText(url.href); this.message('Invitación copiada.'); }));
+      const participants = el('div', undefined, content, 'studio-room-participants'); this.participantList = participants; this.renderParticipants();
       if (this.room.role === 'host') { button(content, 'Guardar estado de sala', () => this.guard(() => this.publishRoom()), 'studio-primary'); button(content, 'Pausar / reanudar sala', () => this.guard(() => this.connection.action({type: 'simulation', action: this.editor.simulationPaused ? 'resume' : 'pause'}))); button(content, 'Reiniciar sala', () => this.guard(() => this.connection.action({type: 'simulation', action: 'reset'}))); }
       el('p', 'Simulación compartida con autoridad del anfitrión. Los participantes pueden accionar controles y agarrar cargas con reserva exclusiva. Los observadores tienen acceso de lectura.', content, 'studio-muted');
       button(content, 'Salir de la sala', () => this.guard(async () => { await this.leaveRoom(); this.open('personal'); }));
       return;
     }
     el('p', 'Comparte la ejecución guardada del proyecto. El anfitrión mantiene abierta esta aplicación y controla el reloj.', content, 'studio-muted');
-    button(content, 'Crear sala con este escenario', () => this.guard(async () => { const state = this.captureExecution(), project = this.editor.currentProject; const room = await this.client.createRoom({name: project.name, projectId: project.id, projectRevision: project.revision, roomId: this.editor.roomId, state}); await this.attachRoom(room); this.open('rooms'); }), 'studio-primary');
+    button(content, 'Crear sala con este escenario', () => this.guard(async () => { await this.createSharedRoom();this.open('rooms'); }), 'studio-primary');
     const form = el('form', undefined, content, 'studio-form'), code = input(form, 'Código de invitación'); const role = select(form, 'Entrar como', [{label: 'Participante', value: 'participant'}, {label: 'Observador', value: 'observer'}], 'participant'); const submit = el('button', 'Unirse', form, 'studio-primary'); submit.type = 'submit'; form.addEventListener('submit', event => { event.preventDefault(); this.guard(async () => { await this.joinRoom(code.value, role.value); this.open('rooms'); }); });
   }
   async joinRoom(code, role) { const room = await this.client.joinRoom(code.trim(), role); await this.attachRoom(room); }
+  async createSharedRoom(){
+    if(this.editor.active)throw Error('Pulsa Probar antes de crear una sala.');let project=this.editor.currentProject;if(!project)throw Error('Abre un escenario antes de crear la sala.');
+    if(/^(public-|library-)/.test(project.id)){
+      if(!this.client.user||!this.client.user.permissions.editor)throw Error('Solicita al instructor que cree la sala desde su cuenta creadora.');
+      if(this.editor.simulation.held&&this.editor.simulation.held.size)throw Error('Suelta las cargas antes de crear la sala.');
+      project=await this.editor.projectClient.createProject(project.name+' · sala grupal',await this.editor.document.serialize());
+      this.editor.currentProject={id:project.id,name:project.name,revision:project.revision,access:project.access,storage:project.storage};this.editor.projectName=project.name;this.editor.dirty=false;this.editor.storageAvailable=true;if(this.editor.rememberProject)this.editor.rememberProject(project);
+    }
+    const state=this.captureExecution();
+    const room=await this.client.createRoom({name:project.name,projectId:project.id,projectRevision:project.revision,roomId:this.editor.roomId,state});await this.attachRoom(room);return room;
+  }
   async attachRoom(room) {
     if (this.room) await this.leaveRoom();
     await this.loadExecution(room.projectId, room.projectRevision, room.roomId, room.state);
     this.room = room; this.roomRevision = room.revision; this.editor.simulationPaused = room.role === 'host' ? !!room.state.paused : true; this.appliedEvents = new Set();
+    if(this.roomVisuals)this.roomVisuals.clear();
     this.connection.connect(room); this.lastPublish = performance.now(); this.editor.toast('Sala conectada · ' + room.code);
+    if(this.roomMedia)this.roomMedia.connect(room);
   }
-  async leaveRoom() { if (this.sharedGrabs) this.sharedGrabs.detach(); if (this.presentation) this.presentation.clear(); await this.connection.leave(); this.room = null; this.roomRevision = 0; this.pendingRoomState = null; this.editor.simulationPaused = false; this.avatars.forEach(avatar => { if (avatar.parent) avatar.parent.remove(avatar); avatar.userData.dispose(); }); this.avatars.clear(); }
-  pose() { if (!this.room) return null; const camera = this.ctx.camera; camera.updateWorldMatrix(true, false); return {position: camera.getWorldPosition(new THREE.Vector3()).toArray(), quaternion: camera.getWorldQuaternion(new THREE.Quaternion()).toArray()}; }
+  async leaveRoom() {if(this.roomMedia)this.roomMedia.disconnect(); if (this.sharedGrabs) this.sharedGrabs.detach(); if (this.presentation) this.presentation.clear(); await this.connection.leave(); this.room = null; this.roomRevision = 0; this.pendingRoomState = null; this.editor.simulationPaused = false; this.avatars.forEach(avatar => { if (avatar.parent) avatar.parent.remove(avatar); avatar.userData.dispose(); }); this.avatars.clear(); }
+  pose() {
+    if(!this.room)return null;const ctx=this.ctx,xr=ctx.renderer&&ctx.renderer.xr,camera=xr&&xr.isPresenting?xr.getCamera(ctx.camera):ctx.camera;
+    const sample=object=>{object.updateWorldMatrix(true,false);return{position:object.getWorldPosition(new THREE.Vector3()).toArray(),quaternion:object.getWorldQuaternion(new THREE.Quaternion()).toArray()};},result=sample(camera);
+    if(ctx.vrMode)for(const data of ctx.raycontrol.controllers||[]){const side=data.inputSource&&data.inputSource.handedness,grip=data.grip;if(!['left','right'].includes(side)||!grip)continue;let visible=true;for(let p=grip;p;p=p.parent)if(!p.visible)visible=false;if(visible)result[side]=sample(grip);}
+    return result;
+  }
   async receiveRoom(room) {
     if (!this.room || this.room.id !== room.id) return;
     const needsState = room.state && room.revision !== this.roomRevision;
@@ -512,16 +537,30 @@ export default class StudioExperience {
     if (this.sharedGrabs) this.sharedGrabs.receiveRoom(room);
     const live = new Set();
     room.participants.forEach(person => {
-      if (person.id === this.client.user.id || !person.online || !person.pose) return;
+      const livePose=this.roomMedia&&this.roomMedia.received.get(person.id),pose=livePose&&performance.now()-livePose.at<2000?livePose.pose:person.pose;
+      if (person.id === this.client.user.id || !person.online || !pose) return;
       live.add(person.id); const key = JSON.stringify(person.avatar); let avatar = this.avatars.get(person.id);
       if (avatar && avatar.userData.avatarKey !== key) { avatar.parent.remove(avatar); avatar.userData.dispose(); this.avatars.delete(person.id); avatar = null; }
-      if (!avatar) { avatar = createAvatar(person.avatar); avatar.userData.avatarKey = key; this.editor.root.add(avatar); this.avatars.set(person.id, avatar); }
-      avatar.position.fromArray(person.pose.position); avatar.quaternion.fromArray(person.pose.quaternion);
+      if (!avatar) { const presence=new PresenceAvatar(person);avatar=presence.object;avatar.userData.presence=presence;avatar.userData.dispose=()=>presence.dispose();avatar.userData.avatarKey = key; (this.ctx.scene||this.editor.root).add(avatar); this.avatars.set(person.id, avatar); }
+      avatar.userData.presence.updatePerson(person);avatar.userData.presence.receive(pose);
     });
     this.avatars.forEach((avatar, id) => { if (!live.has(id)) { avatar.parent.remove(avatar); avatar.userData.dispose(); this.avatars.delete(id); } });
     this.renderParticipants();
   }
   renderParticipants() { if (!this.participantList || !this.participantList.isConnected || !this.room) return; this.participantList.textContent = ''; this.room.participants.forEach(person => el('p', person.displayName + ' · ' + person.role + (person.online ? ' · conectado' : ' · desconectado'), this.participantList)); }
+  renderRoomMedia(){
+    const root=this.roomMediaElement,media=this.roomMedia;if(!root||!root.isConnected||!this.room||!media)return;
+    const signature=[media.status,media.muted,media.deafened,media.proximity,media.error,media.chat.map(row=>row.id+':'+row.at).join(',')].join('|');if(signature===this.roomMediaSignature)return;this.roomMediaSignature=signature;
+    const prior=root.querySelector('input'),draft=prior&&prior.value||'',focused=prior&&prior===document.activeElement;root.textContent='';
+    const labels={connected:'Tiempo real conectado',connecting:'Conectando sala…',reconnecting:'Reconectando…',unconfigured:'Voz y presencia rápida pendientes de configurar en el servidor',disconnected:'Tiempo real desconectado',error:'No se pudo conectar la sala'};
+    el('p',labels[media.status]||media.status,root,'studio-muted');if(media.error)el('p',media.error,root,'studio-error');
+    if(media.status==='connected'){
+      button(root,media.muted?'Activar micrófono':'Silenciar micrófono',()=>this.guard(()=>media.microphone()),'studio-primary');button(root,media.deafened?'Escuchar sala':'Silenciar escucha',()=>this.guard(()=>media.listen()));
+      button(root,media.proximity?'Voz cercana: activa':'Voz para toda la sala',()=>{media.proximity=!media.proximity;media.changed();});
+      const log=el('div',undefined,root,'studio-room-chat');log.setAttribute('aria-live','polite');for(const row of media.chat)el('p',row.name+': '+row.text,log);
+      const form=el('form',undefined,root,'studio-form'),text=input(form,'Mensaje para la sala','text',draft);text.maxLength=400;if(focused)text.focus();const send=el('button','Enviar',form,'studio-primary');send.type='submit';form.addEventListener('submit',e=>{e.preventDefault();const value=text.value;text.value='';this.guard(()=>media.send(value));});
+    }else if(media.status!=='unconfigured'&&media.status!=='connecting')button(root,'Reconectar tiempo real',()=>media.connect(this.room));
+  }
   applyRemoteState(state) {
     if (this.presentation) this.presentation.before(this.editor.simulation);
     restoreSimulation(this.editor.simulation, state.simulation, {reuse: true});
@@ -566,6 +605,8 @@ export default class StudioExperience {
       if (this.pendingRoomState && !this.sharedGrabs.holding && this.room && this.room.role !== 'host') { const state = this.pendingRoomState; this.pendingRoomState = null; try { this.applyRemoteState(state); } catch (error) { this.message(error.message); } }
     }
     const now = performance.now();
+    if(this.roomVisuals&&this.room)this.roomVisuals.tick(this.lastAvatarTime?Math.min(.1,(now-this.lastAvatarTime)/1000):1/60);
+    if(this.roomMedia&&this.room){this.roomMedia.tick();const delta=this.lastAvatarTime?Math.min(.1,(now-this.lastAvatarTime)/1000):1/60;for(const [id,avatar]of this.avatars){const presence=avatar.userData.presence;if(presence){const remote=this.roomMedia.received.get(id);presence.voice(remote?remote.muted:true,this.roomMedia.speakers.has(id));presence.tick(this.ctx.camera,delta);}}this.lastAvatarTime=now;}
     if (this.presentation && this.room && this.room.role !== 'host') this.presentation.tick(this.editor.simulation);
     if (this.room && this.room.role === 'host' && now - this.lastPublish > 750) { this.lastPublish = now; this.publishRoom().catch(error => this.message('Estado compartido pendiente: ' + error.message)); }
     const data = this.ctx.desktopControllerData;

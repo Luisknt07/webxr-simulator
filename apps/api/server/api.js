@@ -6,6 +6,7 @@ const {ApiError} = require('./validation');
 const {MAX_TELEMETRY_BYTES} = require('./telemetry');
 const {StudioService} = require('./studio-service');
 const {createVoiceService} = require('./voice-assistant.cjs');
+const {RoomMedia}=require('./room-media.cjs');
 
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
 
@@ -149,6 +150,7 @@ function createApiHandler(options = {}) {
     const parts = pathname.split('/').filter(Boolean);
     try {
       if (studio.requireSecureCookies && !(req.socket && req.socket.encrypted) && req.studioSecure !== true) throw new ApiError(426, 'La API requiere HTTPS.', 'https_required');
+      if(pathname==='/studio/room-media/webhook'&&req.method==='POST'){await studio.media.webhook(req);return json(res,200,{ok:true});}
       const assetUpload = parts[0] === 'assets' && parts.length === 1 && req.method === 'POST';
       if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
         verifyWrite(req, assetUpload);
@@ -221,7 +223,8 @@ function createApiHandler(options = {}) {
   };
   handler.store = store;
   handler.studio = studio;
-  handler.close = () => { if (maintenanceTimer) clearInterval(maintenanceTimer); voice.close(); store.close(); };
+  studio.media=new RoomMedia(studio,options.roomMedia);
+  handler.close = () => { if (maintenanceTimer) clearInterval(maintenanceTimer); studio.media.close(); voice.close(); store.close(); };
   return handler;
 }
 

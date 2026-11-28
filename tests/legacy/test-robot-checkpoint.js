@@ -63,4 +63,23 @@ presentation.after(shared.runtime); presentation.tick(shared.runtime);
 assert.equal(shared.r.entry.product, held, 'Shared checkpoint reuses the physical load identity.');
 assert.equal(Array.from(presentation.blends.values()).some(blend => blend.product === held), false, 'A retained load is positioned by its robot, never independently interpolated away from the tool.');
 assert.deepEqual(canonical(shared), expected); presentation.clear(); checkTransport(shared);
+
+// Native pendant parents can be moved by a rig and hidden from presentation
+// traversal. Two clients must resolve the same authored controls by identity,
+// without treating a generated child index as a permanent network address.
+const panelHost=h.fixture(),panelGuest=h.fixture();
+panelHost.runtime.stop();panelGuest.runtime.stop();
+['source','output','robot'].forEach(key=>{panelGuest[key].userData.editorId=panelHost[key].userData.editorId;panelGuest.configs.set(panelGuest[key],JSON.parse(JSON.stringify(panelHost.configs.get(panelHost[key]))));});
+function nativePanel(f,nested){
+  const dock=new THREE.Group(),panel=new THREE.Group();panel.userData.editorRuntimeHelper=true;
+  if(nested){f.robot.add(dock);dock.add(panel);}else f.robot.add(panel);
+  const control=f.add('control',{targetId:f.robot.userData.editorId,action:'start'});control.userData.editorId='stable-pendant-start';panel.add(control);return{panel,control};
+}
+const hostPanel=nativePanel(panelHost,false),guestPanel=nativePanel(panelGuest,true);
+panelHost.runtime.start('hall');panelGuest.runtime.start('hall');
+const panelState=JSON.parse(JSON.stringify(checkpoint.captureSimulation(panelHost.runtime)));
+checkpoint.restoreSimulation(panelGuest.runtime,panelState);
+assert.equal(guestPanel.control.parent,guestPanel.panel,'Late joins preserve the native pendant support even under a different generated rig path.');
+assert.equal(guestPanel.control.userData.editorId,hostPanel.control.userData.editorId);
+panelHost.runtime.stop();panelGuest.runtime.stop();
 console.log('Robot checkpoint: moving/paused tool and grip, setup, mobile route, in-situ dwell, shared ownership and lossless continuation passed.');

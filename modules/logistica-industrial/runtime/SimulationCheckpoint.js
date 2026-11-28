@@ -33,6 +33,19 @@ function objectRegistry(runtime) {
     });
   };
   walk(root, 'room');
+  // A native panel may sit under a presentation helper whose generated child
+  // path differs across clients. Its authored controls still have stable IDs.
+  // Register their structural parents from the run's original hierarchy;
+  // product parents remain the real conveyor, rack or articulated load mount.
+  const actors = new Set(Array.from(runtime.records.values(), record => record.object)), supports = new Set();
+  Array.from(runtime.records.values()).sort((a,b)=>a.id.localeCompare(b.id)).forEach(record => {
+    if (record.components.product) return;
+    let depth=0;
+    for(let parent=record.parent;parent&&parent!==root&&!actors.has(parent);parent=parent.parent){
+      if(!supports.has(parent)){add('support:'+record.id+'/'+depth,parent);supports.add(parent);}
+      depth++;
+    }
+  });
   runtime.records.forEach(record => {
     const c = record.components;
     [['conveyor', c.conveyor && c.conveyor.helper], ['source', c.source && c.source.helper],
@@ -194,7 +207,8 @@ export function captureSimulation(runtime, options = {}) {
 
 function transform(object, saved, registry) {
   const parent = registry.values.get(saved.parent);
-  if (!parent || !parent.isObject3D || !Array.isArray(saved.matrix) || saved.matrix.length !== 16 || saved.matrix.some(value => !Number.isFinite(value))) error('la posición de un objeto no es válida.');
+  if(!parent||!parent.isObject3D)error('falta el soporte '+String(saved.parent).slice(0,180)+' de '+String(object.name).slice(0,100)+'.');
+  if (!Array.isArray(saved.matrix) || saved.matrix.length !== 16 || saved.matrix.some(value => !Number.isFinite(value))) error('la posición de un objeto no es válida.');
   parent.add(object);
   object.matrix.fromArray(saved.matrix);
   object.matrixAutoUpdate = saved.matrixAutoUpdate === true;

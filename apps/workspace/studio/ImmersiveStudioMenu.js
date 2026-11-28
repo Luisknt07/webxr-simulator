@@ -227,6 +227,7 @@ export default class ImmersiveStudioMenu {
     else if (value === 'shift') this.shift = !this.shift;
     else if (value === 'symbols') this.keyboardMode = this.keyboardMode === 'letters' ? 'symbols' : 'letters';
     else if (value === 'done') {
+      if(this.page==='rooms'){const code=this.fields.code.trim();this.keyboardField='';return this.run(async()=>{await this.studio.joinRoom(code,'participant');this.fields.code='';this.navigate('rooms');});}
       if (key === 'username') this.keyboardField = 'password';
       else if (key === 'password' && this.page === 'register') this.keyboardField = 'code';
       else { this.keyboardField = ''; this.dirty = true; return this.authenticate(this.page === 'register'); }
@@ -274,13 +275,15 @@ export default class ImmersiveStudioMenu {
   paintHome() {
     const user = this.client.user; this.text(user ? 'Hola, ' + short(user.displayName, 35) : 'Explora como invitado o inicia sesión.', 46, 180, 32, C.dim);
     const actions = [['scenes', 'Escenarios', () => this.navigate('scenes')]];
+    if(user)actions.push(['rooms','Sala grupal · voz y participantes',()=>this.navigate('rooms')]);
     if(this.editor.practiceController)actions.push(['practice','Misión activa y guía',()=>this.navigate('practice')]);
     if (user) actions.push(['projects', 'Mis proyectos', () => this.navigate('projects')], ['classroom', 'Mis prácticas', () => this.navigate('classroom')], ['progress', 'Mi progreso', () => this.navigate('progress')]);
     else actions.push(['account', 'Iniciar sesión', () => this.navigate('account')]);
     actions.push(['settings', 'Sonido y controles', () => this.navigate('settings')], ['controls', 'Controles del visor', () => this.navigate('controls')]);
     if (user && user.permissions.manageUsers) actions.push(['users', 'Usuarios · resumen', () => this.navigate('users')]);
     if (user) actions.push(['logout', 'Cerrar sesión', () => this.run(async () => { await this.studio.logout(); if (this.active && this.opened) { this.navigate('home'); this.notice = 'Sesión cerrada.'; } })]);
-    actions.forEach(([key, label, action], index) => this.button(key, label, 46, 225 + index * 74, 932, 58, action, {accent: key === 'account'}));
+    const spacing=Math.min(74,650/actions.length);
+    actions.forEach(([key, label, action], index) => this.button(key, label, 46, 225 + index * spacing, 932, 58, action, {accent: key === 'account'}));
     this.text(this.ctx.drivingVehicle?'Y (izquierdo): menú · manos: Menú RV.':'X (izquierdo) / A (derecho): menú · manos: Menú RV.', 46, 902, 25, C.dim);
   }
   paintAccount() {
@@ -301,6 +304,24 @@ export default class ImmersiveStudioMenu {
     const y = register ? 852 : 795;
     this.button('authenticate', this.busy ? 'Conectando…' : register ? 'Crear cuenta' : 'Iniciar sesión', 46, y, 552, 64, () => this.authenticate(register), {accent: true});
     this.button('account-mode', register ? 'Ya tengo cuenta' : 'Crear cuenta', 620, y, 358, 64, () => { this.clearCredentials(); this.navigate(register ? 'account' : 'register'); }, {size: 26});
+  }
+  paintRooms(){
+    if(!this.client.user){this.text('Inicia sesión con tu cuenta de esta instalación.',46,230,29,C.dim);this.button('room-login','Iniciar sesión',46,320,932,70,()=>this.navigate('account'),{accent:true});return;}
+    const room=this.studio.room,media=this.studio.roomMedia;
+    if(!room){
+      this.text('Hasta 10 personas · sala propia de la universidad',46,185,27,C.dim);
+      this.button('room-create','Crear sala con este escenario',46,225,932,68,()=>this.run(async()=>{await this.studio.createSharedRoom();this.navigate('rooms');}),{accent:true});
+      this.field('code','Código de invitación',345);
+      if(this.keyboardField==='code')this.paintKeyboard(445);else{this.text('Escribe el código con el teclado del panel.',46,455,27,C.dim);this.button('room-join','Unirse a la sala',46,535,932,70,()=>this.run(async()=>{await this.studio.joinRoom(this.fields.code.trim(),'participant');this.fields.code='';this.navigate('rooms');}),{accent:true});}return;
+    }
+    this.text(short(room.name,54),46,185,31);this.text('Código: '+room.code,46,236,30,C.accent);
+    const state=media&&media.status,connected=state==='connected';this.text(connected?'Tiempo real conectado':state==='unconfigured'?'Tiempo real pendiente de configurar':state==='connecting'?'Conectando…':'Tiempo real desconectado',46,284,25,C.dim);
+    this.button('room-microphone',media&&media.muted?'Activar micrófono':'Silenciar micrófono',46,320,445,68,()=>this.run(()=>media.microphone()),{disabled:!connected,accent:connected&&!media.muted,size:25});
+    this.button('room-listen',media&&media.deafened?'Escuchar sala':'Silenciar escucha',514,320,464,68,()=>this.run(()=>media.listen()),{disabled:!connected,size:25});
+    this.button('room-proximity',media&&media.proximity?'Voz cercana: activa':'Voz para toda la sala',46,405,932,60,()=>{media.proximity=!media.proximity;media.changed();},{disabled:!connected,size:26});
+    room.participants.filter(p=>p.online).slice(0,10).forEach((p,i)=>this.text((media&&media.speakers.has(p.id)?'● ':'')+short(p.displayName,23),46+(i%2)*468,520+Math.floor(i/2)*54,26,p.role==='host'?C.accent:C.text));
+    if(!connected&&state!=='unconfigured')this.button('room-reconnect','Reconectar',46,792,932,54,()=>this.run(()=>media.connect(room)),{size:26});
+    this.button('room-leave','Salir de la sala',46,855,932,64,()=>this.run(async()=>{await this.studio.leaveRoom();this.navigate('home');}),{danger:true});
   }
   paintSettings() {
     const audio = this.editor.industrialAudio, volume = audio ? audio.volume : .7;
@@ -371,12 +392,12 @@ export default class ImmersiveStudioMenu {
   paint() {
     if (!this.drawing || !this.opened) return; this.regions = [];
     const d = this.drawing; d.fillStyle = C.bg; d.fillRect(0, 0, WIDTH, HEIGHT); d.fillStyle = '#1a3443'; d.fillRect(0, 0, WIDTH, 126);
-    const names = {home: 'SMART-TWIN Simulator', account: 'Iniciar sesión', register: 'Crear cuenta', scenes: 'Rutas de prácticas', practiceRoute:'Prácticas de la ruta', practiceSetup:'Configurar ensayo',practice:'Misión activa',practiceGuide:'Guía y planos', projects: 'Mis proyectos', projectScenes: 'Escenarios del proyecto', settings: 'Ajustes del visor', controls: 'Controles VR', users: 'Usuarios · resumen', classroom: 'Mis prácticas', progress: 'Mi progreso'};
+    const names = {home: 'SMART-TWIN Simulator',rooms:'Sala grupal', account: 'Iniciar sesión', register: 'Crear cuenta', scenes: 'Rutas de prácticas', practiceRoute:'Prácticas de la ruta', practiceSetup:'Configurar ensayo',practice:'Misión activa',practiceGuide:'Guía y planos', projects: 'Mis proyectos', projectScenes: 'Escenarios del proyecto', settings: 'Ajustes del visor', controls: 'Controles VR', users: 'Usuarios · resumen', classroom: 'Mis prácticas', progress: 'Mi progreso'};
     this.text(names[this.page] || 'SMART-TWIN Simulator', 46, 70, this.page === 'home' ? 32 : 35, C.text, 'bold'); this.text(this.busy ? 'Procesando…' : 'Apunta y pulsa · con manos: toca o haz pinza', 46, 110, 22, C.dim);
     this.button('exit-vr', this.exiting ? 'Saliendo…' : 'Salir de RV', 500, 28, 184, 64, () => this.exitVR(), {size: 23, danger: true, disabled: this.exiting});
     this.button('close', '×', 886, 24, 92, 72, () => this.close(), {size: 42});
     if (this.page !== 'home') this.button('home', '← Menú', 704, 28, 158, 64, () => this.navigate('home'), {size: 25});
-    if (this.page === 'home') this.paintHome(); else if (this.page === 'account' || this.page === 'register') this.paintAccount(); else if (this.page === 'settings') this.paintSettings(); else if (this.page === 'modules') this.paintModules(); else if (this.page === 'controls') this.paintControls(); else if(this.practicePages.paint()){} else this.paintList();
+    if (this.page === 'home') this.paintHome(); else if(this.page==='rooms')this.paintRooms();else if (this.page === 'account' || this.page === 'register') this.paintAccount(); else if (this.page === 'settings') this.paintSettings(); else if (this.page === 'modules') this.paintModules(); else if (this.page === 'controls') this.paintControls(); else if(this.practicePages.paint()){} else this.paintList();
     if (this.error || this.notice) { d.fillStyle = '#10212d'; d.fillRect(32, 918, WIDTH - 64, 38); this.text(short(this.error || this.notice, 90), 46, 945, 23, this.error ? C.error : C.accent); }
     this.texture.needsUpdate = true; this.dirty = false;
   }

@@ -1,0 +1,17 @@
+{
+  "package": "livekit-client",
+  "version": "2.25.0",
+  "source": "https://registry.npmjs.org/livekit-client/-/livekit-client-2.25.0.tgz",
+  "integrity": "sha512-QrXeBqrTCPujCu7uMmT9DXOIYTCGz0Ig90EGJx4B05fhQX3BLZJzAbEpRqvFwhQZyQV5uf2KeYsjeVo6as1kZw==",
+  "license": "Apache-2.0",
+  "files": [
+    {
+      "path": "dist/livekit-client.umd.js",
+      "sha256": "45ae7540ab3feded1ee740fdca2a59072179833f6159bc04f137b361fe224e02"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b"
+    }
+  ]
+}

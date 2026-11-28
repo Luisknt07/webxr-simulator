@@ -28,7 +28,7 @@ async function startFixture(password, options = {}) {
   const certificate = fs.readFileSync(path.join(ROOT, 'node_modules/webpack-dev-server/ssl/server.pem'));
   let application;
   try {
-    application = createApplication({host: '127.0.0.1', tls: {key: certificate, cert: certificate}, dataDir: directory, voice:options.voice, voiceFetch:options.voiceFetch, maintenanceIntervalMs: 0, onError: error => errors.push(error.stack || String(error))});
+    application = createApplication({host: '127.0.0.1', tls: {key: certificate, cert: certificate}, dataDir: directory, voice:options.voice, voiceFetch:options.voiceFetch,roomMedia:options.roomMedia, maintenanceIntervalMs: 0, onError: error => errors.push(error.stack || String(error))});
     await new Promise((resolve, reject) => { application.server.once('error', reject); application.server.listen(0, '127.0.0.1', resolve); });
   } catch (error) { if (application) await application.close(); cleanup(directory); throw error; }
   return {application, certificate, errors, origin: 'https://localhost:' + application.server.address().port, async close() { await application.close(); cleanup(directory); }};
@@ -38,7 +38,7 @@ async function withBrowser(fixture, report, action) {
   const until = async (callback, message, timeout = 180000) => { const start = Date.now(); while (Date.now() - start < timeout) { const result = await callback(); if (result) return result; await delay(150); } throw new Error(message); };
   try {
     const fingerprint = createHash('sha256').update(new X509Certificate(fixture.certificate).publicKey.export({type: 'spki', format: 'der'})).digest('base64');
-    chrome = spawn(process.env.STUDIO_CHROME || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', ['--headless=new', '--no-first-run', '--disable-extensions', '--disable-background-networking', '--disable-component-update', '--use-angle='+(fixture.renderBackend||'swiftshader'), '--enable-unsafe-swiftshader', '--window-size=1600,1000', '--remote-debugging-port=0', '--remote-debugging-address=127.0.0.1', '--user-data-dir=' + profile, '--ignore-certificate-errors-spki-list=' + fingerprint, 'about:blank'], {windowsHide: true, stdio: 'ignore'});
+    chrome = spawn(process.env.STUDIO_CHROME || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', ['--headless=new', ...(fixture.chromeArgs||[]), '--no-first-run', '--disable-extensions', '--disable-background-networking', '--disable-component-update', '--use-angle='+(fixture.renderBackend||'swiftshader'), '--enable-unsafe-swiftshader', '--window-size=1600,1000', '--remote-debugging-port=0', '--remote-debugging-address=127.0.0.1', '--user-data-dir=' + profile, '--ignore-certificate-errors-spki-list=' + fingerprint, 'about:blank'], {windowsHide: true, stdio: 'ignore'});
     let launchError; chrome.on('error', error => { launchError = error; });
     const port = await until(() => { if (launchError) throw launchError; try { return Number(fs.readFileSync(path.join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0]); } catch (_) { return null; } }, 'Disposable Chrome failed to start.', 20000);
     const pages = await fetch('http://127.0.0.1:' + port + '/json/list').then(response => response.json()); socket = new WebSocket(pages.find(page => page.type === 'page').webSocketDebuggerUrl);

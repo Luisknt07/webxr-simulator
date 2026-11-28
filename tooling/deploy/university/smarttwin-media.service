@@ -1,0 +1,22 @@
+[Unit]
+Description=SMART-TWIN self-hosted WebRTC media and presence
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=smarttwin
+Group=smarttwin
+WorkingDirectory=/etc/smarttwin
+ExecStart=/usr/local/bin/livekit-server --config /etc/smarttwin/livekit.yaml
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

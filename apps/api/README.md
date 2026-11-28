@@ -47,6 +47,21 @@ node apps/api/index.cjs
 
 Esta excepción requiere escucha local explícita y no configura cookies `Secure`. No se habilita automáticamente. `SMARTTWIN_PUBLIC_DIR` y `SMARTTWIN_WORKSPACE_DIR` pueden seleccionar artefactos alternativos; nunca deben apuntar al repositorio completo ni a un directorio de datos privados. La política pública sigue exigiendo un solo escenario en el manifiesto del visor.
 
+## Salas con voz alojadas en la universidad
+
+Las salas admiten diez participantes y usan las cuentas de esta instalación.
+La presencia rápida, avatares, chat y voz requieren un LiveKit Server propio;
+el navegador carga su SDK desde el artefacto privado. No requiere LiveKit Cloud,
+EOS ni un proveedor de identidad externo.
+
+Configurar `SMARTTWIN_ROOM_URL` (WSS público), `SMARTTWIN_ROOM_SERVER_URL`
+(HTTP privado del SFU), `SMARTTWIN_ROOM_API_KEY` y `SMARTTWIN_ROOM_API_SECRET`.
+Las dos últimas variables permanecen en el servidor. Configurar también el
+webhook firmado `/api/studio/room-media/webhook` en el SFU. Sin configuración,
+la interfaz informa que el tiempo real está pendiente y no llama a un servicio
+externo. El generador, puertos, certificados, unidades systemd y uso están en
+[Salas propias de SMART-TWIN](../../docs/autonomous-multiuser.md).
+
 ## API modular
 
 `/api/framework/projects` conserva documentos `smarttwin.project` y su estado de funciones en SQLite, sin convertir ni sustituir los documentos del editor anterior. Requiere sesión y aplica propiedad por cuenta, rol, cuota conjunta y revisiones optimistas:
