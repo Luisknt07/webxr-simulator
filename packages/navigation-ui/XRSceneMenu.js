@@ -77,7 +77,9 @@ export default class XRSceneMenu {
         ['navigation','Navegación RV',()=>{this.page='navigation';}],['voice','Voz y consultas',()=>{this.close();if(ctx.voicePanel)ctx.voicePanel.open();}],
         ['drive',driving&&driving.id?'Bajar del vehículo':'Subir y arrancar',()=>{this.close();if(this.options.onBoard()===false){this.open();this.error='Detén el vehículo y acércate a la cabina.';}},!nearby],['pause',ctx.demo&&ctx.demo.paused?'Continuar simulación':'Pausar simulación',()=>{this.options.onPause();}],
         ['restart','Reiniciar escenario',()=>{this.close();this.options.onRestart();}],['recenter','Recentrar este menú',()=>this.place()]];
-      rows.forEach(([key,label,action,disabled],i)=>this.button(key,label,42+(i%2)*480,180+Math.floor(i/2)*138,458,98,action,disabled));
+      if(this.options.onRooms)rows.unshift(['rooms','Sala grupal · crear o unirse',()=>{this.close();this.options.onRooms();}]);
+      const spacing=Math.min(138,560/Math.ceil(rows.length/2));
+      rows.forEach(([key,label,action,disabled],i)=>this.button(key,label,42+(i%2)*480,180+Math.floor(i/2)*spacing,458,98,action,disabled));
       this.wrap('Menú: X/A al caminar · Y izquierdo en cabina. Con manos, usa Menú RV junto a la muñeca o frente a ti.',780,27);
     }else if(this.page==='navigation') {
       this.button('movement',ctx.studioLocomotion==='teleport'?'Movimiento: solo teletransporte':'Movimiento: caminar y teletransporte',42,270,940,98,()=>{ctx.studioLocomotion=ctx.studioLocomotion==='teleport'?'smooth':'teleport';});

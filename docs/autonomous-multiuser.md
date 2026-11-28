@@ -100,7 +100,10 @@ No se soluciona este caso llamando a un TURN público externo.
 ## Uso
 
 1. Abrir el dominio HTTPS de la universidad e iniciar sesión local.
-2. Abrir un escenario y entrar en Mi espacio → Sesiones multiusuario.
+2. Abrir un escenario y pulsar **Sala grupal** en la cabecera o en la barra
+   lateral. También está en Menú → Sesión grupal → Crear o unirse a una sala.
+   El acceso de la demostración pública abre directamente este panel; si hace
+   falta iniciar sesión, conserva el destino al finalizar el acceso.
 3. Crear la sala o introducir el código. El enlace de invitación carga el visor
    y permite unirse antes de pedir el proyecto privado compartido.
 4. Activar el micrófono cuando se desee hablar. En RV el menú incluye Sala grupal,

@@ -14,6 +14,7 @@ const ICONS = {
   controls:'M4 7h16M4 17h16M8 4v6M16 14v6',
   move:'M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3',
   account:'M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM4 21v-3a8 6 0 0 1 16 0v3',
+  rooms:'M9 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM2 20v-3a7 5 0 0 1 14 0v3M17 4a3 3 0 0 1 0 6M19 13a5 4 0 0 1 3 4v3',
   pause:'M8 4v16M16 4v16',
   restart:'M4 4v6h6M4 10a8 8 0 1 1 0 5',
   drive:'M3 14h11V8H7v6M14 4h4v15h4M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM15 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4',

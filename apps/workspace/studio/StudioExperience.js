@@ -83,7 +83,7 @@ export default class StudioExperience {
     this.applySpawn();
     const invitation = new URL(window.location).searchParams.get('room');
     if (invitation && !ROOM_IDS.includes(invitation) && this.client.user) await this.joinRoom(invitation);
-    if(new URL(window.location).pathname==='/play'){await this.editor.ready;const params=new URL(window.location).searchParams;if(params.has('practice')){try{const restored=this.practiceCampaign.navigationSettings(params);await this.practiceCampaign.launch(params.get('practice'),restored.settings);if(restored.notice)this.message(restored.notice);}catch(error){this.message(error.message);this.open('scenes');}}else if(!['scene','libraryScene','project'].some(key=>params.get(key)))this.open('scenes');}
+    if(new URL(window.location).pathname==='/play'){await this.editor.ready;const params=new URL(window.location).searchParams;if(params.has('practice')){try{const restored=this.practiceCampaign.navigationSettings(params);await this.practiceCampaign.launch(params.get('practice'),restored.settings);if(restored.notice)this.message(restored.notice);}catch(error){this.message(error.message);this.open('scenes');}}else if(!['scene','libraryScene','project'].some(key=>params.get(key)))this.open('scenes');if(params.get('panel')==='rooms')this.open('rooms');}
   }
   identity() {
     if(this.practiceCampaign)this.practiceCampaign.identityChanged();
@@ -201,6 +201,7 @@ export default class StudioExperience {
     this.resultsButton=button(actions,'Resultados',()=>this.open('progress'),'studio-results');
     studioIcon(this.resultsButton,'rows');
     this.accountButton = button(actions, 'Iniciar sesión', () => this.open(this.client.user ? 'personal' : 'account'), 'studio-account');
+    this.roomsButton=button(actions,'Sala grupal',()=>this.open('rooms'),'studio-rooms');this.roomsButton.title='Crear o unirse a una sesión multiusuario';
     this.flightButton = button(actions, 'Vuelo dron', () => this.setDesktopFlight(!this.ctx.desktopFlight), 'studio-flight');
     this.flightButton.setAttribute('aria-pressed', 'false'); this.flightButton.title = 'Volar en escritorio · WASD · Q subir · E bajar · Ctrl acelerar';
     if (this.editor.appendAudioControls) this.editor.appendAudioControls(actions);
@@ -210,9 +211,10 @@ export default class StudioExperience {
     this.shade = el('div', undefined, document.body, 'studio-shade'); this.shade.hidden = true; this.shade.addEventListener('click', () => this.close());
     this.drawer = el('aside', undefined, document.body, 'studio-drawer'); this.drawer.hidden = true; this.drawer.setAttribute('role', 'dialog'); this.drawer.setAttribute('aria-label', 'Mi espacio'); this.drawer.setAttribute('aria-modal', 'true');
     this.drawer.id='studio-experience-menu';this.menuButton.setAttribute('aria-controls',this.drawer.id);
-    if(typeof connectExperienceHeader==='function')this.experienceHeader=connectExperienceHeader(this.header,{brand,actions,controls:{scenes:this.practicesButton,guide:this.guideButton,results:this.resultsButton,account:this.accountButton,xr:vrButton,menu:this.menuButton},onInteract:()=>{this.editor.hooks.unlock();this.editor.hooks.clearKeyboard();}});
+    if(typeof connectExperienceHeader==='function')this.experienceHeader=connectExperienceHeader(this.header,{brand,actions,controls:{scenes:this.practicesButton,rooms:this.roomsButton,guide:this.guideButton,results:this.resultsButton,account:this.accountButton,xr:vrButton,menu:this.menuButton},onInteract:()=>{this.editor.hooks.unlock();this.editor.hooks.clearKeyboard();}});
     this.tourShortcuts=mountTourShortcuts({document,actions:[
       {id:'scenes',label:'Escenarios',icon:'scenes',action:()=>this.practicesButton.click()},
+      {id:'rooms',label:'Sala grupal',icon:'rooms',action:()=>this.open('rooms')},
       {id:'guide',label:'Guía',icon:'guide',action:()=>this.guideButton.click()},
       {id:'flight',label:'Dron',icon:'move',action:()=>this.setDesktopFlight(!this.ctx.desktopFlight),getState:()=>{const state=getSceneCameraMode(this.ctx);return{pressed:state.mode==='drone',disabled:state.blocked,title:state.reason||'Alternar caminar / vuelo dron'};}},
       {id:'controls',label:'Controles',icon:'controls',action:()=>this.open('controls')},
@@ -278,6 +280,7 @@ export default class StudioExperience {
     const navigation=menuSection(content,'Navegación');
     add(navigation,'home','Inicio','home',()=>this.goHome());
     add(navigation,'scenes','Escenarios','scenes',()=>this.open('scenes'));
+    const multiplayer=menuSection(content,'Sesión grupal');add(multiplayer,'rooms','Crear o unirse a una sala','rooms',()=>this.open('rooms'));
     const explore=menuSection(content,'Explorar');
     add(explore,'guide','Guía del escenario','guide',()=>{this.close();this.guideButton.click();});
     add(explore,'camera','Cámara y navegación','camera',()=>this.open('camera'));
@@ -290,7 +293,7 @@ export default class StudioExperience {
     if(this.ctx.assistantWorkspace)add(help,'assistant','Asistente','assistant',()=>{this.close();this.ctx.assistantWorkspace.open();});
     if(this.editor.industrialAudio)add(help,'sound',this.editor.industrialAudio.muted?'Activar sonido de equipos':'Silenciar sonido de equipos','sound',()=>this.guard(async()=>{if(this.editor.industrialAudio.muted)await this.editor.industrialAudio.activate();else this.editor.industrialAudio.setMuted(true);this.editor.refreshAudioControls();this.open('personal');}));
     const account=menuSection(content,'Mi espacio');
-    const entries = user ? [['◎', 'Mi avatar', 'avatar'], ['♧', 'Sesiones multiusuario', 'rooms'], ['▣', 'Sesiones guardadas', 'sessions'], ['▥', 'Mi progreso', 'progress'], ['▤', 'Mis prácticas y evaluaciones', 'classroom']] : [];
+    const entries = user ? [['◎', 'Mi avatar', 'avatar'], ['▣', 'Sesiones guardadas', 'sessions'], ['▥', 'Mi progreso', 'progress'], ['▤', 'Mis prácticas y evaluaciones', 'classroom']] : [];
     entries.forEach(([,label,page])=>add(account,page,label,page==='avatar'?'account':page==='progress'?'results':'scenes',()=>this.open(page)));
     if(user&&user.permissions.editor)add(account,'projects','Mis proyectos','scenes',()=>this.guard(()=>this.openProjects()));
     if(this.editor.projectModules)add(account,'modules','Módulos del proyecto','scenes',()=>{this.close();this.editor.projectModules.open({viewer:!this.editor.active}).catch(error=>this.message(error.message));});

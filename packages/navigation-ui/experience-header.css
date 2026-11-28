@@ -89,7 +89,9 @@ body:has(dialog.st-app-menu[open]) .st-tour-shortcuts,body:has(aside.st-app-menu
 .st-app-header[data-st-layout=floating] .st-app-brand-copy small{font-size:8px;color:#8bc8c3;display:block;letter-spacing:.5px}
 .st-app-header[data-st-layout=floating] .st-app-cube{width:24px;height:26px}
 .st-app-header[data-st-layout=floating] .st-app-actions{flex:none;width:auto;gap:8px;pointer-events:none}
-.st-app-header[data-st-layout=floating] .st-header-action:not([data-st-action=menu]):not([data-st-action=xr]){display:none!important}
+.st-app-header[data-st-layout=floating] .st-header-action:not([data-st-action=menu]):not([data-st-action=xr]):not([data-st-action=rooms]){display:none!important}
+.st-app-header [data-st-action=rooms]{order:5}
+.st-app-header[data-st-layout=floating] [data-st-action=rooms]{display:inline-flex!important;height:48px;min-height:48px;max-width:160px;padding:10px 14px!important;border-radius:24px!important;background:#176859!important;color:#e7fff7!important;border-color:#89edcf!important;pointer-events:auto;box-shadow:0 0 0 3px #082d3b66}
 .st-app-header[data-st-layout=floating] :is([data-st-action=menu],[data-st-action=xr]){display:inline-flex!important;position:relative!important;flex:0 0 48px;width:48px!important;height:48px;min-width:48px!important;max-width:48px;min-height:48px;padding:0!important;border-radius:50%!important;border:1px solid #58d9cd!important;background:#0a303deb!important;color:#89fff0!important;font-size:0!important;gap:0;pointer-events:auto;box-shadow:0 0 0 3px #082d3b99,0 4px 18px #08293433}
 .st-app-header[data-st-layout=floating] .st-header-action .st-header-icon{width:23px;height:23px;flex:0 0 23px;margin:0}
 .st-app-header[data-st-layout=floating] .st-header-action:hover{background:#115163!important;border-color:#a2fff2!important}
@@ -116,7 +118,8 @@ body:has(dialog.st-app-menu[open]) .st-tour-shortcuts,body:has(aside.st-app-menu
 /* Tour tools share the game dock without reusing its missions or scores. */
 .st-tour-shortcuts button[aria-pressed=true]{background:#176859;border-color:#a2fff2;color:#e1fff8}
 .st-tour-shortcuts button:disabled{opacity:.55;cursor:default}
-@media(max-height:600px){.st-tour-shortcuts{display:grid;grid-template-columns:repeat(3,44px);align-content:center;gap:12px;top:calc(var(--st-header-height) + 16px);bottom:110px}.st-tour-shortcuts button{width:44px;height:44px;min-height:44px}.st-tour-shortcuts button span{display:none}}
+@media(min-height:701px){.st-tour-shortcuts{gap:clamp(12px,1.8dvh,18px)}.st-tour-shortcuts button{width:clamp(38px,5.7dvh,58px);height:clamp(38px,5.7dvh,58px);min-height:clamp(38px,5.7dvh,58px)}}
+@media(max-height:700px){.st-tour-shortcuts{display:grid;grid-template-columns:repeat(3,44px);align-content:center;gap:12px;top:calc(var(--st-header-height) + 16px);bottom:110px}.st-tour-shortcuts button{width:44px;height:44px;min-height:44px}.st-tour-shortcuts button span{display:none}}
 /* Reserve a bottom lane for the tour companion on compact screens. */
 body:has(.st-practice-guide[data-guide-mode=tour]:not([hidden])) .equipment-study-trigger{bottom:116px;max-width:calc(100vw - 32px)}
 @media(max-width:700px){body:has(.st-practice-guide[data-guide-mode=tour]:not([hidden])) .scene-navigation-hint{bottom:104px;max-width:calc(100vw - 32px)}body:has(.st-practice-guide[data-guide-mode=tour]:not([hidden])) .equipment-study-trigger{bottom:151px}}

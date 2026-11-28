@@ -21,7 +21,7 @@ import DemoOperationsPanel from './DemoOperationsPanel.js';
 const byId = id => document.getElementById(id);
 const experienceHeader=connectExperienceHeader(document.querySelector('.viewer-header'),{
   brand:document.querySelector('.viewer-brand'),actions:document.querySelector('.header-actions'),
-  controls:{home:'#home-link',scenes:'#back-scenes',overview:'#overview',xr:'#xr-action button',menu:'#viewer-menu-toggle',account:'#workspace-link'},
+  controls:{home:'#home-link',scenes:'#back-scenes',rooms:'#rooms-access',overview:'#overview',xr:'#xr-action button',menu:'#viewer-menu-toggle',account:'#workspace-link'},
   onInteract(){const c=window.smartTwinViewer&&window.smartTwinViewer.context;if(c){c.input.reset();if(c.desktopLook)c.desktopLook.unlock();}}
 });
 const configuration = window.SMARTTWIN_PUBLIC_VIEWER_CONFIG || {};
@@ -43,7 +43,7 @@ function notice(message) {
   clearTimeout(notice.timer); if (message) notice.timer = setTimeout(() => element.classList.remove('visible'), 6500);
 }
 
-function openAccess() {
+function openAccess(purpose) {
   const ctx = activeBrowser && activeBrowser.context;
   if (ctx) {ctx.publicDialogOpen = true; ctx.input.reset();}
   if (!accessDialog) {
@@ -56,8 +56,21 @@ function openAccess() {
     accessDialog.addEventListener('close', release); accessDialog.addEventListener('cancel', release);
     close.addEventListener('click', () => {if (accessDialog.close) accessDialog.close(); else accessDialog.removeAttribute('open'); release();});
   }
+  accessDialog.querySelector('h2').textContent=purpose==='rooms'?'Sala grupal':'Tu espacio de trabajo privado';
+  accessDialog.querySelector('p').textContent=purpose==='rooms'?'Crea una sesión o únete con un código desde el servidor de SMART-TWIN de tu institución. Abre su dirección e inicia sesión para compartir el escenario y conversar con tu grupo.':'La demostración está abierta a todos. Para explorar más escenarios, crear y guardar proyectos, abre el servidor privado de tu organización. Solicita la dirección a su administrador.';
   if (accessDialog.showModal) accessDialog.showModal(); else accessDialog.setAttribute('open', '');
 }
+
+async function openRooms(){
+  const access=accountURL();
+  const ctx=activeBrowser&&activeBrowser.context,session=ctx&&ctx.renderer.xr.getSession();
+  if(ctx){ctx.input.reset();if(ctx.desktopLook)ctx.desktopLook.unlock();}
+  if(session&&session.end)try{await session.end();}catch(_){notice('Sal de RV antes de abrir la sala grupal.');return;}
+  if(!access){openAccess('rooms');return;}
+  const target=new URL(access);target.pathname='/play';target.search='?scene=vr-robot-dispatch&panel=rooms';target.hash='';
+  window.location.assign(target.href);
+}
+byId('rooms-access').addEventListener('click',openRooms);
 
 function pose(ctx, mode) {
   if (!ctx.demo || ctx.demo.driving.id && !ctx.demo.driving.unmount()) return false;
@@ -113,7 +126,7 @@ async function start() {
     if (window.smartTwinViewer && window.smartTwinViewer.context === ctx) window.smartTwinViewer = null;});
   const dispose = () => browser.dispose();
   const menu = byId('viewer-menu'), menuToggle = byId('viewer-menu-toggle');
-  for(const [id,icon]of [['menu-home','home'],['menu-scenes','scenes'],['menu-guide','guide'],['menu-camera','camera'],['menu-overview','overview'],['menu-xr','xr'],['drive','drive'],['pause','pause'],['restart','restart'],['operations','scenes'],['menu-controls','controls'],['menu-voice','sound'],['menu-account','account']])decorateMenuAction(byId(id),icon);
+  for(const [id,icon]of [['menu-home','home'],['menu-scenes','scenes'],['menu-rooms','rooms'],['menu-guide','guide'],['menu-camera','camera'],['menu-overview','overview'],['menu-xr','xr'],['drive','drive'],['pause','pause'],['restart','restart'],['operations','scenes'],['menu-controls','controls'],['menu-voice','sound'],['menu-account','account']])decorateMenuAction(byId(id),icon);
   let menuPage='home';
   const showMenuPage=page=>{
     menuPage=page;
@@ -138,6 +151,7 @@ async function start() {
   listen(byId('viewer-menu-close'), 'click', closeMenu);
   listen(byId('menu-home'),'click',()=>{closeMenu();byId('home-link').click();});
   listen(byId('menu-scenes'),'click',()=>{closeMenu();byId('back-scenes').click();});
+  listen(byId('menu-rooms'),'click',()=>{closeMenu();openRooms();});
   listen(byId('menu-voice'),'click',()=>{closeMenu();const launcher=document.querySelector('[data-voice-assistant-toggle]');if(launcher)launcher.click();});
   listen(byId('menu-overview'),'click',()=>{closeMenu();byId('overview').click();});
   listen(byId('menu-xr'),'click',()=>{closeMenu();const xr=byId('xr-action').querySelector('button');if(xr)xr.click();});
@@ -154,6 +168,7 @@ async function start() {
   };
   const shortcuts=mountTourShortcuts({document,actions:[
     {id:'scenes',label:'Escenarios',icon:'scenes',action:()=>byId('back-scenes').click()},
+    {id:'rooms',label:'Sala grupal',icon:'rooms',action:openRooms},
     {id:'overview',label:'Vista',icon:'overview',action:()=>byId('overview').click(),getState:()=>({pressed:overview})},
     {id:'flight',label:'Dron',icon:'move',action:()=>byId('viewer-menu-camera').querySelector('[data-camera-mode='+(ctx.desktopFlight?'walk':'drone')+']').click(),getState:()=>{const state=getSceneCameraMode(ctx);return{pressed:state.mode==='drone',disabled:state.blocked,title:state.reason||'Alternar caminar / vuelo dron'};}},
     {id:'controls',label:'Controles',icon:'controls',action:()=>openMenu('controls')},
@@ -164,7 +179,7 @@ async function start() {
   browser.onDispose(()=>shortcuts.dispose());
   const tourGuide=new PracticeGuideAvatar({context:ctx,document,window,onInteract:releaseTourInput,getTourState:()=>ctx.demo&&!stopped?{title:'Demostración industrial',lastMessage:ctx.drivingVehicle?'Usa el volante, las palancas y los pedales. El menú conserva la guía completa del montacargas.':ctx.desktopFlight?'Explora en dron con WASD. Q sube y E baja; vuelve a Caminar desde el botón Dron o Cámara.':'Recorre la instalación, apunta a un equipo y selecciónalo. Abre Ayuda para conocer el proceso o Chat para consultar.'}:null});
   browser.onDispose(()=>tourGuide.dispose());
-  const xrMenu=ctx.xrSceneMenu=new XRSceneMenu(ctx,{beforeOpen:()=>{closeMenu();if(ctx.voicePanel)ctx.voicePanel.close();},onBoard:toggleVehicle,onPause:()=>byId('pause').click(),onRestart:()=>byId('restart').click()});
+  const xrMenu=ctx.xrSceneMenu=new XRSceneMenu(ctx,{beforeOpen:()=>{closeMenu();if(ctx.voicePanel)ctx.voicePanel.close();},onRooms:openRooms,onBoard:toggleVehicle,onPause:()=>byId('pause').click(),onRestart:()=>byId('restart').click()});
   browser.onDispose(()=>{xrMenu.dispose();if(ctx.xrSceneMenu===xrMenu)delete ctx.xrSceneMenu;});
   ctx.beforeXRInput=()=>xrMenu.tick();browser.onDispose(()=>delete ctx.beforeXRInput);
   try {

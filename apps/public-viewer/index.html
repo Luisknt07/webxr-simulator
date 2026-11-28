@@ -15,13 +15,13 @@
   <link rel="stylesheet" href="packages/navigation-ui/experience-header.css">
   <link rel="stylesheet" href="packages/assistant-ui/practice-guide-avatar.css">
   <script src="config.js?v=wheel-routes-20261127"></script>
-  <script defer src="viewer.js?v=sprint-20261127-b47d9f8"></script>
+  <script defer src="viewer.js?v=room-access-20261127"></script>
 </head>
 <body class="welcome-open">
   <main id="viewer" aria-label="Demostración 3D de un robot, bandas conectadas, montacargas y almacén interactivo"></main>
   <header class="viewer-header">
     <a class="viewer-brand" href="./" aria-label="SMART-TWIN, inicio"><svg class="brand-mark" aria-hidden="true" viewBox="0 0 48 48" fill="none"><path d="m24 3 19 11v22L24 47 5 36V14Z" fill="#008d82"/><path d="m24 3 19 11-19 11L5 14Z" fill="#bdfcf0"/><path d="m24 25 19-11v22L24 47Z" fill="#00bba7"/><path d="m24 3 19 11v22L24 47 5 36V14Zm0 22v22M5 14l19 11 19-11M24 3v22" stroke="#3aecd2" stroke-width="1.5"/></svg><span>SMART-TWIN Simulator<small>Simulación Industrial y Logística</small></span></a>
-    <nav class="header-actions" aria-label="Navegación"><button id="home-link" type="button">Inicio</button><button id="back-scenes" type="button">Escenarios</button><a id="workspace-link" class="workspace-link" href="#workspace-access">Acceder al espacio <span aria-hidden="true">↗</span></a><button id="overview" class="scene-navigation-action" type="button">Vista general</button><span id="xr-action" class="scene-navigation-action"></span><button id="viewer-menu-toggle" type="button" aria-haspopup="dialog" aria-controls="viewer-menu" aria-expanded="false">Menú</button></nav>
+    <nav class="header-actions" aria-label="Navegación"><button id="home-link" type="button">Inicio</button><button id="back-scenes" type="button">Escenarios</button><button id="rooms-access" type="button" title="Crear o unirse a una sesión multiusuario">Sala grupal</button><a id="workspace-link" class="workspace-link" href="#workspace-access">Acceder al espacio <span aria-hidden="true">↗</span></a><button id="overview" class="scene-navigation-action" type="button">Vista general</button><span id="xr-action" class="scene-navigation-action"></span><button id="viewer-menu-toggle" type="button" aria-haspopup="dialog" aria-controls="viewer-menu" aria-expanded="false">Menú</button></nav>
   </header>
   <section id="welcome" class="welcome-screen" aria-labelledby="welcome-title">
     <div class="welcome-content"><div class="welcome-panel">
@@ -75,6 +75,7 @@
     <div id="viewer-menu-home">
       <div class="st-menu-context"><strong>Demostración industrial</strong><p>Recorrido libre · explora la instalación e interactúa con sus equipos.</p></div>
       <section class="st-menu-section" aria-label="Navegación"><h3 class="st-menu-section-title">Navegación</h3><button id="menu-home" type="button">Inicio</button><button id="menu-scenes" type="button">Escenarios</button></section>
+      <section class="st-menu-section" aria-label="Multiusuario"><h3 class="st-menu-section-title">Sesión grupal</h3><button id="menu-rooms" type="button">Crear o unirse a una sala</button></section>
       <section class="st-menu-section" aria-label="Explorar"><h3 class="st-menu-section-title">Explorar</h3><button id="menu-guide" type="button">Guía del escenario</button><button id="menu-camera" type="button">Cámara y navegación</button><button id="menu-overview" type="button" aria-pressed="false">Vista general</button><button id="menu-xr" type="button">Realidad virtual</button></section>
       <section class="st-menu-section" aria-label="Escenario"><h3 class="st-menu-section-title">Escenario</h3><button id="operations" type="button">Dashboard e indicadores</button><button id="drive" type="button">Subir y arrancar · F</button><button id="pause" type="button" aria-pressed="false">Pausar</button><button id="restart" type="button" aria-label="Reiniciar escenario">Reiniciar escenario</button></section>
       <section class="st-menu-section" aria-label="Ayuda y acceso"><h3 class="st-menu-section-title">Ayuda y acceso</h3><button id="menu-controls" type="button">Controles y ayuda</button><button id="menu-voice" type="button">Voz e instrucciones</button><button id="menu-account" type="button">Mi espacio</button></section>
