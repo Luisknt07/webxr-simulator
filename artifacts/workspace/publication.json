@@ -2,8 +2,8 @@
   "format": "smarttwin.publication",
   "version": 1,
   "application": "workspace",
-  "revision": "b6513a29f300b0cf4b9531c00a2fac1d050e3d0c",
-  "bundleSha256": "9072c404baade0ff919b7ea87bf0fae45af95ab9f109e5bd5155671e1dd99627",
+  "revision": "de53a0d59ba11e16beb68ec618447782511d3df3",
+  "bundleSha256": "bfac6588cf4dd7e2daa56f629b9636ca5614639a4b0c89d887e5ae0452c36054",
   "scenes": [
     "advanced-packing",
     "advanced-pallets",
@@ -88,7 +88,7 @@
     },
     {
       "path": "bundle.js",
-      "sha256": "9072c404baade0ff919b7ea87bf0fae45af95ab9f109e5bd5155671e1dd99627"
+      "sha256": "bfac6588cf4dd7e2daa56f629b9636ca5614639a4b0c89d887e5ae0452c36054"
     },
     {
       "path": "cad-worker.js",
@@ -3483,6 +3483,30 @@
       "sha256": "495a95753d8445d6caec19239026f34bab3b06dd7d6b95744ded982af929ad6b"
     },
     {
+      "path": "packages/tools/collaboration/assets/humans/LICENSE.md",
+      "sha256": "17474e386e0b9e1a700cc3d06b2b0882a2c376d9c6b49c7f8274409b8f8d2352"
+    },
+    {
+      "path": "packages/tools/collaboration/assets/humans/human-f04.glb",
+      "sha256": "b409074e965dca58142e553a84d4a0d73a4fa07212fdea7c9a38f94f428eb416"
+    },
+    {
+      "path": "packages/tools/collaboration/assets/humans/human-f07.glb",
+      "sha256": "d0fb70c98f9b554a563739623c12ba7090cd1ab23e16b558123c5c79c19ec456"
+    },
+    {
+      "path": "packages/tools/collaboration/assets/humans/human-m04.glb",
+      "sha256": "909014434097eaf3e3c04a635a67d4672a3104e65c17402f64bdd8df7d5b58a8"
+    },
+    {
+      "path": "packages/tools/collaboration/assets/humans/human-m06.glb",
+      "sha256": "f5d5f98dadf7da052d8abd44361432196d8a692cb4110af59c2b2f1bc8153dd8"
+    },
+    {
+      "path": "packages/tools/collaboration/assets/humans/provenance.json",
+      "sha256": "361ddf9c75cee7a6da97f3581933fb553af7f67db43caa60cf7211584036ef5d"
+    },
+    {
       "path": "packages/tools/collaboration/assets/livekit/LICENSE",
       "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b"
     },
@@ -3961,8 +3985,8 @@
   ],
   "compilation": {
     "compiler": "workspace",
-    "hash": "c66d84a280cfe740a817",
-    "statsSha256": "a25df6705d0c2c3171dec24499367369f388faaaba1d1ce32500b2405ad5969a",
+    "hash": "e6f48c4143ef0341922a",
+    "statsSha256": "60beb6bc1d8ef5220d5c1cd5b7bc425a7e9e0ebea2708d7b2be885ec20322404",
     "assets": [
       {
         "path": "13.js",
@@ -3994,7 +4018,7 @@
       },
       {
         "path": "bundle.js",
-        "size": 7453395
+        "size": 7466795
       },
       {
         "path": "configurable-practice-reference.js",

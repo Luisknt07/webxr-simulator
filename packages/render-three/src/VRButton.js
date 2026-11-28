@@ -190,7 +190,7 @@ var VRButton = {
 
 					// Hand joints are optional: controllers and floor negotiation must
 					// continue to work when the browser cannot expose tracked hands.
-					var sessionInit = { optionalFeatures: [ 'local-floor', 'bounded-floor', 'hand-tracking' ] };
+                    var sessionInit = { optionalFeatures: [ 'local-floor', 'bounded-floor', 'hand-tracking', 'body-tracking' ] };
 					try {
 						var session = await navigator.xr.requestSession( 'immersive-vr', sessionInit );
 						await onSessionStarted( session );

@@ -3,6 +3,8 @@ import StudioClient, {StudioRoomConnection} from './StudioClient.js';
 import StudioTools from '../../../modules/logistica-industrial/integrations/StudioTools.js';
 import EducationRuntime from '../../../modules/educacion/functions/aprendizaje/runtime/EducationRuntime.js';
 import {createAvatar, avatarBadge, DEFAULT_AVATAR} from '../../../packages/tools/collaboration/src/Avatar.js';
+import {HUMAN_AVATARS,humanChoice} from '../../../packages/tools/collaboration/src/HumanAvatarAssets.js';
+import {capturePresence,captureXRBody} from '../../../packages/tools/collaboration/src/AvatarTracking.js';
 import {captureSimulation, restoreSimulation} from '../../../modules/logistica-industrial/runtime/SimulationCheckpoint.js';
 import SharedGrabs from '../../../packages/tools/collaboration/src/SharedGrabs.js';
 import RemotePresentation from '../../../packages/tools/collaboration/src/RemotePresentation.js';
@@ -409,16 +411,20 @@ export default class StudioExperience {
   avatar() {
     if (this.needAccount()) return;
     const user = this.client.user, config = Object.assign({}, user.avatar), content = this.content;
-    el('p', 'Tu identidad en el grupo: operador con equipo de protección, cuerpo articulado y colores propios.', content, 'studio-muted');
-    const preview = el('div', undefined, content, 'studio-avatar-preview'); const renderer = new THREE.WebGLRenderer({alpha: true, antialias: true,preserveDrawingBuffer:true}); renderer.setPixelRatio(1); renderer.setSize(340, 260); renderer.outputEncoding = THREE.sRGBEncoding; preview.appendChild(renderer.domElement);
-    const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(35, 340 / 260, 0.1, 20); camera.position.set(1.35, .05, -3.3); camera.lookAt(0, -.73, 0); scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 1.5));const keyLight=new THREE.DirectionalLight(0xffffff,.8);keyLight.position.set(-2,3,-4);scene.add(keyLight);let avatar = null;
-    const render = () => { if (avatar) { scene.remove(avatar); avatar.userData.dispose(); } avatar = createAvatar(config); scene.add(avatar); renderer.render(scene, camera); }; render();
-    const base = select(content, 'Diseño', [{label:'Operador industrial',value:'capsule'},{label:'Supervisor industrial',value:'explorer'},{label:'Asistente robótico',value:'robot'}], config.base); base.addEventListener('change', () => { config.base = base.value; render(); });
-    const rotation=input(content,'Girar vista previa','range','0');rotation.min='-180';rotation.max='180';rotation.addEventListener('input',()=>{avatar.rotation.y=Number(rotation.value)*Math.PI/180;renderer.render(scene,camera);});
-    [['bodyColor', 'Chaleco y casco'], ['accentColor', 'Uniforme'], ['skinColor', 'Tono de piel']].forEach(([key, label]) => { const control = input(content, label, 'color', config[key]); control.addEventListener('input', () => { config[key] = control.value; render(); }); });
-    button(content, 'Guardar avatar', () => this.guard(async () => { await this.client.updateProfile({avatar: config}); this.identity(); this.message('Avatar guardado en tu perfil.'); }), 'studio-primary');
+    el('p', 'Elige una apariencia que te represente. Los rostros son modelos humanos; no necesitas subir una foto ni vincular otra cuenta.', content, 'studio-muted');
+    const preview = el('div', undefined, content, 'studio-avatar-preview'); const renderer = new THREE.WebGLRenderer({alpha: true, antialias: true,preserveDrawingBuffer:true}); renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1)); renderer.setSize(340, 300); renderer.outputEncoding = THREE.sRGBEncoding; preview.appendChild(renderer.domElement);
+    const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(35, 340 / 300, 0.1, 20); camera.position.set(.25, .01, -1.05); camera.lookAt(0, -.06, 0); scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 1.5));const keyLight=new THREE.DirectionalLight(0xffffff,.8);keyLight.position.set(-2,3,-4);scene.add(keyLight);let avatar = null,disposed=false,angle=0;
+    const status=el('p','',content,'studio-muted');status.setAttribute('role','status');status.setAttribute('data-avatar-status','');
+    const render = () => { if (avatar) { scene.remove(avatar); avatar.userData.dispose(); } preview.setAttribute('data-avatar-ready','false');const selected=humanChoice(config),current=avatar=createAvatar({...config,base:selected?selected.id:HUMAN_AVATARS[0].id,bodyMode:'complete'});scene.add(current);status.textContent='Cargando modelo humano local…';renderer.render(scene,camera);current.userData.ready.then(()=>{if(disposed||avatar!==current)return;current.rotation.y=angle;current.userData.rig.update({quaternion:new THREE.Quaternion(),hands:{},mode:'desktop'});renderer.render(scene,camera);status.textContent=current.userData.rig.status==='error'?current.userData.rig.error:selected?'Apariencia seleccionada · '+selected.presentation:'Vista de ejemplo. Elige una apariencia para guardarla.';preview.setAttribute('data-avatar-ready',String(current.userData.rig.status==='ready'));}); }; render();
+    const base = select(content, 'Apariencia', [{label:'Elegir mi apariencia…',value:'identity'},...HUMAN_AVATARS.map(row=>({label:row.label+' · '+row.presentation,value:row.id}))], humanChoice(config)?config.base:'identity'); base.addEventListener('change', () => { config.base = base.value; save.disabled=!humanChoice(config);render(); });
+    const views=el('div',undefined,content,'studio-actions');button(views,'Rostro',()=>{camera.position.set(.25,.01,-1.05);camera.lookAt(0,-.06,0);renderer.render(scene,camera);});button(views,'Cuerpo',()=>{camera.position.set(.6,-.05,-3.4);camera.lookAt(0,-.72,0);renderer.render(scene,camera);});
+    const rotation=input(content,'Girar vista previa','range','0');rotation.min='-180';rotation.max='180';rotation.addEventListener('input',()=>{angle=Number(rotation.value)*Math.PI/180;avatar.rotation.y=angle;renderer.render(scene,camera);});
+    const bodyMode=select(content,'Representación en la sala',[{label:'Torso y brazos adaptados · recomendado',value:'upper'},{label:'Cabeza y manos · máxima fidelidad de entrada',value:'tracked'},{label:'Cuerpo completo cuando haya datos corporales',value:'complete'}],config.bodyMode||'upper');bodyMode.addEventListener('change',()=>{config.bodyMode=bodyMode.value;});
+    el('p','La cabeza y las manos usan los datos del visor. Sin seguimiento corporal, el torso y los codos se estiman; las piernas se ocultan en RV. El modo completo usa los datos que entregue el navegador, que también pueden incluir estimaciones. Quest 3 no captura visualmente los ojos ni el rostro.',content,'studio-muted');
+    const marker=input(content,'Color de identificación','color',config.bodyColor||DEFAULT_AVATAR.bodyColor);marker.addEventListener('input',()=>{config.bodyColor=marker.value;});
+    const save=button(content, 'Guardar avatar', () => this.guard(async () => { if(!humanChoice(config))return;config.bodyMode=bodyMode.value;await this.client.updateProfile({avatar: config}); this.identity(); this.message('Avatar humano guardado en tu perfil.'); }), 'studio-primary');save.disabled=!humanChoice(config);
     const displayName = input(content, 'Nombre visible', 'text', user.displayName); button(content, 'Guardar nombre', () => this.guard(async () => { await this.client.updateProfile({displayName: displayName.value}); this.identity(); this.message('Nombre guardado.'); }));
-    this.avatarCleanup = () => { avatar.userData.dispose(); renderer.dispose(); };
+    this.avatarCleanup = () => { disposed=true;avatar.userData.dispose();renderer.dispose(); };
   }
   async sessions() {
     if (this.needAccount()) return;
@@ -528,10 +534,7 @@ export default class StudioExperience {
   }
   async leaveRoom() {if(this.roomMedia)this.roomMedia.disconnect(); if (this.sharedGrabs) this.sharedGrabs.detach(); if (this.presentation) this.presentation.clear(); await this.connection.leave(); this.room = null; this.roomRevision = 0; this.pendingRoomState = null; this.editor.simulationPaused = false; this.avatars.forEach(avatar => { if (avatar.parent) avatar.parent.remove(avatar); avatar.userData.dispose(); }); this.avatars.clear();if(this.sessionDock)this.sessionDock.update(); }
   pose() {
-    if(!this.room)return null;const ctx=this.ctx,xr=ctx.renderer&&ctx.renderer.xr,camera=xr&&xr.isPresenting?xr.getCamera(ctx.camera):ctx.camera;
-    const sample=object=>{object.updateWorldMatrix(true,false);return{position:object.getWorldPosition(new THREE.Vector3()).toArray(),quaternion:object.getWorldQuaternion(new THREE.Quaternion()).toArray()};},result=sample(camera);
-    if(ctx.vrMode)for(const data of ctx.raycontrol.controllers||[]){const side=data.inputSource&&data.inputSource.handedness,grip=data.grip;if(!['left','right'].includes(side)||!grip)continue;let visible=true;for(let p=grip;p;p=p.parent)if(!p.visible)visible=false;if(visible)result[side]=sample(grip);}
-    result.seated=!!ctx.drivingVehicle;return result;
+    return this.room?capturePresence(this.ctx):null;
   }
   async receiveRoom(room) {
     if (!this.room || this.room.id !== room.id) return;
@@ -607,7 +610,8 @@ export default class StudioExperience {
     const simulation = this.editor.simulation; this.rawCommand = simulation.command.bind(simulation);
     simulation.command = (id, action, value, scope) => { if (!this.room || this.applyingNetwork) return this.rawCommand(id, action, value, scope); if (this.room.role === 'observer') { this.message('El observador tiene acceso de lectura.'); return false; } this.connection.action({type: 'control', objectId: id, action, value, scope}).catch(error => this.message(error.message)); return true; };
   }
-  tick() {
+  tick(frame) {
+    if(this.room)captureXRBody(this.ctx,frame);
     if(this.tourShortcuts)this.tourShortcuts.update();
     if(this.sessionDock)this.sessionDock.update();
     this.syncSceneCapture();

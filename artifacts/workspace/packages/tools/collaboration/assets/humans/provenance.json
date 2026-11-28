@@ -1,0 +1,191 @@
+{
+  "repository": "https://github.com/microsoft/Microsoft-Rocketbox",
+  "commit": "0943055db6ec570bcef9f2c8b41c9e5467c808f9",
+  "license": "MIT",
+  "conversion": "tooling/modeling/build-human-avatars.py",
+  "sourceFiles": [
+    {
+      "path": "LICENSE.md",
+      "bytes": 1066,
+      "sha256": "17474e386e0b9e1a700cc3d06b2b0882a2c376d9c6b49c7f8274409b8f8d2352"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Female_Adult_04/Export/Female_Adult_04.fbx",
+      "bytes": 635552,
+      "sha256": "a1a0debc6851d0ffe2079b5743d3255ad115139ccd6f8c8fccfd52c49bef6dfd"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Female_Adult_04/Textures/f004_body_color.tga",
+      "bytes": 12582956,
+      "sha256": "02c1362ed7daed6cb3aac33dc85f8e635c9be29265c7d96515c8ca7230c50781"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Female_Adult_07/Export/Female_Adult_07.fbx",
+      "bytes": 591744,
+      "sha256": "faaa677ad270784b87538d16839c179b0930a121fa0bb3fed8f3ed189b33a98a"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Male_Adult_06/Export/Male_Adult_06.fbx",
+      "bytes": 548576,
+      "sha256": "537284add0fb8bd3bf9dd9459cba2c6d4d34de50b86dfdfef09c2c57cbf1a878"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Male_Adult_04/Export/Male_Adult_04.fbx",
+      "bytes": 571296,
+      "sha256": "fe0d026bc59e7d7ea8f4049edf77ee8040e050224b44a10fb4727b9b3d6efba0"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Female_Adult_04/Textures/f004_head_color.tga",
+      "bytes": 12582956,
+      "sha256": "61b418a825e85514541f28c5968e9e0a0d1897506f7c7bccd27eef336e1473ef"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Female_Adult_07/Textures/f007_head_color.tga",
+      "bytes": 12582956,
+      "sha256": "65e399a091d27b2e66f202ba3628c270f513f80a1ea5776771f5e9239ddeed15"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Female_Adult_07/Textures/f007_body_color.tga",
+      "bytes": 12582956,
+      "sha256": "9a2e740bce46ff2e00c8a24074ee28a1d63198024d03718d5fde6cbfe7ef0fd3"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Male_Adult_04/Textures/m006_head_color.tga",
+      "bytes": 12582956,
+      "sha256": "e889edd96192a396efec0bf0baed370fdff4a8d3b2efdc3809722eb19cd21941"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Female_Adult_07/Textures/f007_opacity_color.tga",
+      "bytes": 16777260,
+      "sha256": "c7c59dfb5f79160ac7cb88091b7c3e9148f9868008915f35ebfe29dc34e917c1"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Male_Adult_06/Textures/m011_head_color.tga",
+      "bytes": 12582956,
+      "sha256": "b3f7731c506ae105bead54cb558c366ed9e72463565f78727365e52a90b841c5"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Male_Adult_06/Textures/m011_body_color.tga",
+      "bytes": 12582956,
+      "sha256": "f92110adc6f33c8802652e4c2f5282226e3fbee672f510b3fb765a1599dd3f91"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Male_Adult_04/Textures/m006_body_color.tga",
+      "bytes": 12582956,
+      "sha256": "8dd7a0a1de383bd295f9f6f42b4ab484b2afa4ab920521a161bd18b18c3aae0f"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Male_Adult_06/Textures/m011_opacity_color.tga",
+      "bytes": 16777260,
+      "sha256": "7cb2146e511c1bd207f5e7f061c8b66915db1bbc15c3748c6d98469630fd346d"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Male_Adult_04/Textures/m006_opacity_color.tga",
+      "bytes": 16777260,
+      "sha256": "3c5656dbad4872676c9469f6da09690c0e891148394165dda11b265cb2b014c0"
+    },
+    {
+      "path": "Assets/Avatars/Adults/Female_Adult_04/Textures/f004_opacity_color.tga",
+      "bytes": 16777260,
+      "sha256": "cf9b868f3f2b9f48ee3d764d1b8f611df94167e393f6275c04779963b3ddd506"
+    }
+  ],
+  "avatars": [
+    {
+      "id": "human-f07",
+      "source": "Female_Adult_07",
+      "file": "human-f07.glb",
+      "sha256": "d0fb70c98f9b554a563739623c12ba7090cd1ab23e16b558123c5c79c19ec456",
+      "bytes": 2569516,
+      "triangles": 8308,
+      "bones": 80,
+      "eyeHeight": 1.61259,
+      "textures": {
+        "head": 1024,
+        "body": 512,
+        "opacity": 512
+      },
+      "parts": [
+        "head",
+        "leftArm",
+        "leftHand",
+        "legs",
+        "rightArm",
+        "rightHand",
+        "torso"
+      ]
+    },
+    {
+      "id": "human-m04",
+      "source": "Male_Adult_04",
+      "file": "human-m04.glb",
+      "sha256": "909014434097eaf3e3c04a635a67d4672a3104e65c17402f64bdd8df7d5b58a8",
+      "bytes": 2388496,
+      "triangles": 8684,
+      "bones": 80,
+      "eyeHeight": 1.68674,
+      "textures": {
+        "head": 1024,
+        "body": 512,
+        "opacity": 512
+      },
+      "parts": [
+        "head",
+        "leftArm",
+        "leftHand",
+        "legs",
+        "rightArm",
+        "rightHand",
+        "torso"
+      ]
+    },
+    {
+      "id": "human-f04",
+      "source": "Female_Adult_04",
+      "file": "human-f04.glb",
+      "sha256": "b409074e965dca58142e553a84d4a0d73a4fa07212fdea7c9a38f94f428eb416",
+      "bytes": 2766904,
+      "triangles": 9284,
+      "bones": 80,
+      "eyeHeight": 1.61579,
+      "textures": {
+        "head": 1024,
+        "body": 512,
+        "opacity": 512
+      },
+      "parts": [
+        "head",
+        "leftArm",
+        "leftHand",
+        "legs",
+        "rightArm",
+        "rightHand",
+        "torso"
+      ]
+    },
+    {
+      "id": "human-m06",
+      "source": "Male_Adult_06",
+      "file": "human-m06.glb",
+      "sha256": "f5d5f98dadf7da052d8abd44361432196d8a692cb4110af59c2b2f1bc8153dd8",
+      "bytes": 2411596,
+      "triangles": 7456,
+      "bones": 80,
+      "eyeHeight": 1.68685,
+      "textures": {
+        "head": 1024,
+        "body": 512,
+        "opacity": 512
+      },
+      "parts": [
+        "head",
+        "leftArm",
+        "leftHand",
+        "legs",
+        "rightArm",
+        "rightHand",
+        "torso"
+      ]
+    }
+  ]
+}

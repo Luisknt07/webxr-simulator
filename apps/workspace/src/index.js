@@ -916,7 +916,7 @@ function animate(time, frame) {
   if (context.roomTransitionView) context.roomTransitionView.presented();
   if (collisionWorld) collisionWorld.beginFrame();
   try {
-    if (context.studio) context.studio.tick();
+    if (context.studio) context.studio.tick(frame);
     if (context.editor && context.editor.entities) context.editor.entities.tick(delta);
     if (context.editor && context.editor.conveyorViewer) context.editor.conveyorViewer.tick(delta);
     if (context.frameworkHost) context.frameworkHost.step(delta);

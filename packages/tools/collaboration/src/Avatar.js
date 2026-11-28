@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import {createAvatarRig} from './AvatarRig.js';
 
-export const DEFAULT_AVATAR = {version: 1, base: 'capsule', bodyColor: '#5cead5', accentColor: '#26364b', skinColor: '#d4a77e'};
+export const DEFAULT_AVATAR = {version: 1, base: 'identity', bodyColor: '#5cead5', accentColor: '#26364b', skinColor: '#d4a77e',bodyMode:'upper'};
 export function createAvatar(config = DEFAULT_AVATAR) {
   const rig=createAvatarRig(config),group=rig.root;
-  for(const side of ['left','right']){const sign=side==='left'?-1:1,a=rig.arms[side];a.upper.position.set(sign*.235,-.4,0);a.lower.position.set(sign*.235,-.7,0);rig.hands[side].position.set(sign*.235,-.98,0);}
-  group.userData.editorRuntimeHelper=true;group.userData.dispose=()=>rig.dispose();return group;
+  rig.update({quaternion:new THREE.Quaternion(),hands:{},mode:'desktop'});
+  group.userData.editorRuntimeHelper=true;group.userData.rig=rig;group.userData.ready=rig.ready;group.userData.dispose=()=>rig.dispose();return group;
 }
 export function avatarBadge(config = DEFAULT_AVATAR) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 64 64'); svg.setAttribute('aria-hidden', 'true');

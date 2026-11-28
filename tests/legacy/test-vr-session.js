@@ -59,7 +59,7 @@ function productionHelpers(context) {
 async function run() {
   const pending = deferred(), f = await setup({request: () => pending.promise});
   const first = f.button.onclick(); assert.equal(f.requests.length, 1, 'requestSession runs inside the original user action');
-  assert.deepEqual(f.requests[0].init.optionalFeatures, ['local-floor', 'bounded-floor', 'hand-tracking'], 'Articulated hands are requested optionally, alongside the floor, without requiring a hand-tracking device.');
+  assert.deepEqual(f.requests[0].init.optionalFeatures, ['local-floor', 'bounded-floor', 'hand-tracking', 'body-tracking'], 'Hands and the experimental body API stay optional, so controllers still work without them.');
   assert.equal(f.requests[0].init.requiredFeatures, undefined, 'Unsupported hand tracking cannot prevent controllers from entering VR.');
   assert.equal(f.button.disabled, true); assert.equal(f.button.attrs['aria-busy'], 'true');
   await f.button.onclick(); assert.equal(f.requests.length, 1, 'Rapid clicks cannot open two immersive sessions');

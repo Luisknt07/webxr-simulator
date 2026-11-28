@@ -43,12 +43,13 @@ Foundation. No se requiere un servicio de Mozilla para este desarrollo.
 - La barra inferior de una sesión reúne micrófono, pedir/devolver la palabra,
   escucha, participantes, chat, personalización del avatar y salida. El acceso
   **Sala grupal** permanece arriba; se retira su duplicado lateral.
-- Avatares nativos de operador, supervisor y robot: rostro, casco, chaleco,
-  guantes y cuerpo articulado, con colores de perfil. Cabeza y manos conservan
-  sus poses medidas. Brazos, piernas y postura sentada son una aproximación
-  visual; no representan seguimiento físico de codos, pies o cuerpo entero.
-  Cada avatar usa 13 mallas, materiales por vértice y ninguna textura externa.
-  El cartel muestra nombre, rol, silencio, solicitud y actividad de voz.
+- Cuatro humanos Rocketbox alojados localmente, con rostro y ropa texturizados,
+  esqueleto de 80 huesos y elección libre de apariencia. La sala incluye las
+  articulaciones de los dedos y el cuerpo opcional cuando el navegador lo
+  expone. El torso y los codos pueden ser estimados; no se inventan pasos con
+  la cabeza. Hay modos de cabeza/manos, torso o cuerpo disponible. Véase el
+  [análisis de avatares y seguimiento](avatar-design-and-tracking.md).
+  El cartel muestra nombre, rol, estado de voz y tipo de seguimiento.
 - Poses visuales de vehículos y cargas del instructor se envían a 10 Hz.
   Colas, identidad, masa, custodia y controles conservan la autoridad de los
   eventos autenticados y los estados de Studio. Los datos visuales de un
@@ -136,7 +137,7 @@ integración y copias de seguridad siguen siendo recursos de la institución.
 
 La prueba `tooling/qa/autonomous-rooms.cjs` usa dos perfiles independientes de
 Chrome con la aplicación compilada y ocho clientes WebRTC adicionales. Verificó
-diez participantes en el SFU local, nueve avatares remotos (117 mallas), petición
+diez participantes en el SFU local, nueve avatares remotos, petición
 y concesión del turno desde la interfaz, retirada del micrófono anterior,
 recepción RTP de un único hablante y silencio general. También verificó chat
 entre navegadores, movimiento visual compartido y expulsión al abandonar la sala. Los micrófonos

@@ -93,6 +93,8 @@ async function main() {
   assert.equal(result.status, 200);
   assert.deepEqual(result.value.user.avatar, avatar);
   assert.equal(result.value.user.profileImage, null, 'avatar is distinct from image');
+  for(const base of ['human-f07','human-m04','human-f04','human-m06']){const human={...avatar,base,bodyMode:'upper'};result=await call('/profile','PUT',{avatar:human},creatorCookie);assert.equal(result.status,200);assert.deepEqual(result.value.user.avatar,human);}
+  assert.equal((await call('/profile','PUT',{avatar:{...avatar,base:'human-f07',bodyMode:'invalid'}},creatorCookie)).status,400);
 
   const state = {format: 'hello-studio-execution', version: 1, time: 8, boxes: [{id: 'box-1', position: [0, 0.8, 1]}]};
   result = await call('/checkpoints', 'POST', {version: 1, projectId: project.id, projectRevision: 1, name: 'Prueba', roomId: 'hall', state}, creatorCookie);

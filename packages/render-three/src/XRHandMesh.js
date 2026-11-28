@@ -22,7 +22,7 @@ export default class XRHandMesh {
   this.bones.forEach((bone,name)=>{const parent=parentName(name),matrix=this.bind.get(name).clone();if(parent)matrix.premultiply(new THREE.Matrix4().getInverse(this.bind.get(parent)));matrix.decompose(bone.position,bone.quaternion,bone.scale);this.rest.set(name,{position:bone.position.clone(),quaternion:bone.quaternion.clone(),scale:bone.scale.clone()});(parent?this.bones.get(parent):this.root).add(bone);});
   this.mesh=new THREE.SkinnedMesh(this.geometry,this.material);this.mesh.name='Continuous hand skin';this.mesh.frustumCulled=false;this.mesh.raycast=()=>{};Object.assign(this.mesh.userData,this.root.userData);this.root.add(this.mesh);this.root.updateMatrixWorld(true);
   this.skeleton=new THREE.Skeleton(data.bones.map(row=>this.bones.get(row.name)),data.bones.map(row=>new THREE.Matrix4().getInverse(this.bind.get(row.name))));this.mesh.bind(this.skeleton,new THREE.Matrix4());this.temp=new THREE.Matrix4();this.rotation=new THREE.Quaternion();
-  this.pose=new XRHandPose(this);
+  this.pose=new XRHandPose(this);this.parentInverse=new THREE.Matrix4();
  }
  controller(trigger,grip,input={},delta){
   this.root.position.set(0,.075,.075);this.root.quaternion.setFromAxisAngle(X,-.3);this.root.scale.setScalar(1);this.root.visible=true;
@@ -32,7 +32,7 @@ export default class XRHandMesh {
  tracked(matrices){
   this.mode='tracked';
   this.root.position.set(0,0,0);this.root.quaternion.set(0,0,0,1);this.root.scale.setScalar(1);this.root.visible=[...this.bones.keys()].every(name=>matrices.get(name));if(!this.root.visible)return false;
-  this.bones.forEach((bone,name)=>{const parent=parentName(name);this.temp.copy(matrices.get(name));if(parent)this.temp.premultiply(new THREE.Matrix4().getInverse(matrices.get(parent)));this.temp.decompose(bone.position,bone.quaternion,bone.scale);});return true;
+  this.bones.forEach((bone,name)=>{const parent=parentName(name);this.temp.copy(matrices.get(name));if(parent)this.temp.premultiply(this.parentInverse.getInverse(matrices.get(parent)));this.temp.decompose(bone.position,bone.quaternion,bone.scale);});return true;
  }
  dispose(){this.pose.reset();if(this.root.parent)this.root.parent.remove(this.root);this.geometry.dispose();this.material.dispose();if(this.skeleton.boneTexture)this.skeleton.boneTexture.dispose();}
 }

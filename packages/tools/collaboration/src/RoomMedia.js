@@ -1,4 +1,5 @@
 import {validPose} from './PresenceAvatar.js';
+import {validPresence} from './AvatarTracking.js';
 
 let sdkPromise;
 export function loadRoomSDK(dom=document){
@@ -63,7 +64,7 @@ export default class RoomMedia {
   if(!participant||participant.identity===(this.studio.client.user&&this.studio.client.user.id)||!this.member(participant.identity)||bytes.byteLength>14000)return;
   let value;try{value=JSON.parse(new TextDecoder().decode(bytes));}catch(_){return;}if(!value||typeof value!=='object'||Array.isArray(value))return;const id=participant.identity,now=performance.now();
   if(topic==='st.pose.v1'){
-   if(!Number.isSafeInteger(value.sequence)||value.sequence<0||!validPose(value.pose))return;const prior=this.received.get(id);if(prior&&value.sequence<=prior.sequence)return;
+   if(!Number.isSafeInteger(value.sequence)||value.sequence<0||!validPresence(value.pose))return;const prior=this.received.get(id);if(prior&&value.sequence<=prior.sequence)return;
    for(const side of ['left','right'])if(value.pose[side]&&!validPose(value.pose[side]))return;this.received.set(id,{pose:value.pose,sequence:value.sequence,at:now,muted:value.muted!==false});
    const avatar=this.studio.avatars.get(id);if(avatar&&avatar.userData.presence)avatar.userData.presence.receive(value.pose,now);
   }else if(topic==='st.chat.v1'&&typeof value.text==='string'&&value.text.trim()&&value.text.length<=400){

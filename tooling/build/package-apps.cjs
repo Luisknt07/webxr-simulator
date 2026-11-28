@@ -182,6 +182,7 @@ function makePlan(root, application, compilation) {
   else {
     add('catalogue.html', 'apps/workspace/catalogue.html');
     for(const name of ['dist/livekit-client.umd.js','LICENSE','provenance.json']){const file='packages/tools/collaboration/assets/livekit/'+name;add(file,file);}
+    for(const name of ['human-f07.glb','human-m04.glb','human-f04.glb','human-m06.glb','LICENSE.md','provenance.json']){const file='packages/tools/collaboration/assets/humans/'+name;add(file,file);}
     documentationAssets(root).forEach(name => add(name, name));
     practiceAssets(root).forEach(name=>add(name,name));
     configurablePracticeAssets(root).forEach(name=>add(name,name));

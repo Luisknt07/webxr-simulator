@@ -12,8 +12,8 @@ const LOCK_MS = 6000;
 const MAX_STATE_BYTES = 4 * 1024 * 1024;
 const IDENTIFIER = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,199}$/;
 const COLORS = /^#[a-fA-F0-9]{6}$/;
-const AVATAR_BASES = ['capsule', 'robot', 'explorer'];
-const DEFAULT_AVATAR = {version: 1, base: 'capsule', bodyColor: '#5cead5', accentColor: '#26364b', skinColor: '#d4a77e'};
+const AVATAR_BASES = ['identity','human-f07','human-m04','human-f04','human-m06','capsule','robot','explorer'];
+const DEFAULT_AVATAR = {version: 1, base: 'identity', bodyColor: '#5cead5', accentColor: '#26364b', skinColor: '#d4a77e',bodyMode:'upper'};
 
 function fail(status, message, code) { throw new ApiError(status, message, code); }
 function text(value, minimum = 1, maximum = 120) {
@@ -44,6 +44,7 @@ function avatar(value) {
     if (typeof value[key] !== 'string' || !COLORS.test(value[key])) fail(400, 'El color del avatar no es válido.');
     result[key] = value[key].toLowerCase();
   });
+  if(value.bodyMode!==undefined){if(!['tracked','upper','complete'].includes(value.bodyMode))fail(400,'El modo corporal no es compatible.');result.bodyMode=value.bodyMode;}
   return result;
 }
 function preferences(value) {
@@ -64,6 +65,9 @@ function pose(value) {
   if (magnitude < 0.99 || magnitude > 1.01) fail(400, 'Orientación inválida.');
   if (value.left) result.left = pose(value.left);
   if (value.right) result.right = pose(value.right);
+  if(['desktop','vr'].includes(value.mode))result.mode=value.mode;
+  if(typeof value.seated==='boolean')result.seated=value.seated;
+  if(typeof value.active==='boolean')result.active=value.active;
   return result;
 }
 function hash(value) { return createHash('sha256').update(value).digest('hex'); }
